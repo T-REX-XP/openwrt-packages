@@ -1,0 +1,13 @@
+{
+	"admin/system/buttons": {
+		"title": "Buttons",
+		"order": 45,
+		"action": {
+			"type": "view",
+			"path": "system/buttons"
+		},
+		"depends": {
+			"acl": [ "luci-app-buttons" ]
+		}
+	}
+}

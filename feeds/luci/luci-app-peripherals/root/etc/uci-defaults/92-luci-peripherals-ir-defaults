@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -eu
+
+# Keep the IR page useful even on images where v4l-utils did not create the
+# file yet. The onboard CM5 Base receiver is PWM-capture based, so this default
+# is intentionally comment-only until an external RC device is attached.
+if [ ! -e /etc/rc_maps.cfg ]; then
+	cat > /etc/rc_maps.cfg <<'EOF'
+# Default RC keymap configuration for luci-app-peripherals.
+#
+# Orange Pi CM5 Base onboard IR is wired through PWM input capture and is not
+# exposed as /sys/class/rc/rc* by the current upstream RK3588 kernel binding.
+# Use the Peripherals diagnostics page for onboard capture state.
+#
+# External gpio-ir-receiver devices can be mapped here, for example:
+# driver table keymap
+# *      *     rc-rc6-mce
+EOF
+fi
+
+exit 0

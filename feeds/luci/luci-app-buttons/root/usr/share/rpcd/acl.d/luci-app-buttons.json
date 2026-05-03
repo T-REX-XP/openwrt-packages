@@ -1,0 +1,21 @@
+{
+	"luci-app-buttons": {
+		"description": "Manage GPIO button hotplug scripts",
+		"read": {
+			"ubus": {
+				"luci.buttons": [
+					"list",
+					"get"
+				]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.buttons": [
+					"set",
+					"delete"
+				]
+			}
+		}
+	}
+}

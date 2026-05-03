@@ -1,0 +1,19 @@
+{
+	"luci-app-speedtest": {
+		"description": "Run internet speed tests",
+		"read": {
+			"ubus": {
+				"luci.speedtest": [
+					"status"
+				]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.speedtest": [
+					"run"
+				]
+			}
+		}
+	}
+}

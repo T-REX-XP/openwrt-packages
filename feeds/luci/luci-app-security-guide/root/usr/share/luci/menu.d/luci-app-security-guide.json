@@ -1,0 +1,10 @@
+{
+	"admin/network/security-guide": {
+		"title": "Security Guide",
+		"order": 90,
+		"action": {
+			"type": "view",
+			"path": "status/security-guide"
+		}
+	}
+}

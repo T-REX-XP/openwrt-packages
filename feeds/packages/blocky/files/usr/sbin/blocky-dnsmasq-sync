@@ -1,0 +1,74 @@
+#!/bin/sh
+# Point dnsmasq upstream DNS at local Blocky so LAN/Wi‑Fi clients keep using :53.
+set -u
+
+BLOCKY_PORT_DEFAULT='5353'
+DNSMASQ_UCI='dhcp.@dnsmasq[0]'
+
+usage() {
+	echo "usage: $0 enable [dns_port]|disable|status" >&2
+	exit 1
+}
+
+upstream_for_port() {
+	printf '%s\n' "127.0.0.1#$1"
+}
+
+cmd_enable() {
+	port="${1:-$BLOCKY_PORT_DEFAULT}"
+	case "$port" in
+		''|*[!0-9]*) usage ;;
+	esac
+	if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+		echo "$0: invalid port: $port" >&2
+		exit 1
+	fi
+
+	up="$(upstream_for_port "$port")"
+
+	uci -q set blocky.main.dnsmasq_forward='1'
+	uci -q set blocky.main.dnsmasq_blocky_port="$port"
+
+	uci -q delete "${DNSMASQ_UCI}.server" 2>/dev/null || true
+	uci add_list "${DNSMASQ_UCI}.server=${up}"
+
+	uci commit dhcp
+	uci commit blocky
+	/etc/init.d/dnsmasq restart
+}
+
+cmd_disable() {
+	port="$(uci -q get blocky.main.dnsmasq_blocky_port)"
+	port="${port:-$BLOCKY_PORT_DEFAULT}"
+	up="$(upstream_for_port "$port")"
+
+	uci -q set blocky.main.dnsmasq_forward='0'
+	while uci -q del_list "${DNSMASQ_UCI}.server=${up}" 2>/dev/null; do
+		:
+	done
+
+	uci commit dhcp
+	uci commit blocky
+	/etc/init.d/dnsmasq restart
+}
+
+cmd_status() {
+	val="$(uci -q get blocky.main.dnsmasq_forward)"
+	echo "${val:-0}"
+}
+
+case "${1:-}" in
+	enable)
+		shift
+		cmd_enable "${1:-$BLOCKY_PORT_DEFAULT}"
+		;;
+	disable)
+		cmd_disable
+		;;
+	status)
+		cmd_status
+		;;
+	*)
+		usage
+		;;
+esac

@@ -1,0 +1,5 @@
+package luci_peripherals
+
+config settings 'peripherals'
+	option fan_mode 'auto'
+	option fan_pwm '192'

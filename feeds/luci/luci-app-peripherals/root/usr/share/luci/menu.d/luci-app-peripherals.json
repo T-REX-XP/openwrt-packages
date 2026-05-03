@@ -1,0 +1,13 @@
+{
+	"admin/system/peripherals": {
+		"title": "Peripherals",
+		"order": 54,
+		"action": {
+			"type": "view",
+			"path": "system/peripherals"
+		},
+		"depends": {
+			"acl": [ "luci-app-peripherals" ]
+		}
+	}
+}

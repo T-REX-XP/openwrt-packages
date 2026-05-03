@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+# Do not set USE_PROCD=0: rc.common treats any non-empty USE_PROCD as "use procd",
+# which breaks this classic init (restart -> procd_kill -> "Command failed: Not found").
+
+find_pwm_fan_hwmon() {
+	local d name
+	for d in /sys/class/hwmon/hwmon*; do
+		[ -f "$d/name" ] || continue
+		name="$(cat "$d/name" 2>/dev/null)"
+		[ "$name" = "pwmfan" ] && echo "$d" && return 0
+	done
+	return 1
+}
+
+apply_fan() {
+	local mode pwm dir
+	config_get fan_mode peripherals fan_mode auto
+	config_get fan_pwm peripherals fan_pwm 192
+
+	dir="$(find_pwm_fan_hwmon)" || return 0
+	[ -w "$dir/pwm1" ] || return 0
+
+	case "$fan_mode" in
+		off)
+			[ -w "$dir/pwm1_enable" ] && echo 0 >"$dir/pwm1_enable"
+			;;
+		manual)
+			pwm="$(printf '%s' "$fan_pwm" | tr -dc '0-9')"
+			[ "$pwm" -ge 0 ] 2>/dev/null && [ "$pwm" -le 255 ] || pwm=128
+			# pwm-fan mode 2 keeps both PWM output and the fan supply enabled.
+			[ -w "$dir/pwm1_enable" ] && echo 2 >"$dir/pwm1_enable"
+			echo "$pwm" >"$dir/pwm1"
+			;;
+		auto|*)
+			# pwm-fan mode 1 lets the thermal cooling device enable PWM when needed.
+			[ -w "$dir/pwm1_enable" ] && echo 1 >"$dir/pwm1_enable"
+			;;
+	esac
+}
+
+start() {
+	# Leftover from older luci-app-peripherals (Rockchip crypto toggle)
+	rm -f /etc/modprobe.d/70-luci-peripherals-rockchip-crypto.conf
+
+	config_load luci_peripherals
+	apply_fan
+}

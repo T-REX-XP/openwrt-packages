@@ -1,0 +1,30 @@
+{
+	"luci-app-peripherals": {
+		"description": "Peripherals (IR, fan, diagnostics)",
+		"read": {
+			"ubus": {
+				"luci.peripherals": [
+					"irMapsGet",
+					"irKeymapsList",
+					"irDevices",
+					"moduleDiagnostics",
+					"debugReport",
+					"fanGet"
+				]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.peripherals": [
+					"irMapsSet",
+					"irApply",
+					"fanSet",
+					"fanTest"
+				]
+			},
+			"file": {
+				"/usr/bin/ir-keytable": ["exec"]
+			}
+		}
+	}
+}

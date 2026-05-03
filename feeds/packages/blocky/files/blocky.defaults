@@ -1,0 +1,12 @@
+#!/bin/sh
+
+[ -x /etc/init.d/blocky ] || exit 0
+[ -s /etc/blocky/config.yml ] || exit 0
+
+/etc/init.d/blocky enable
+/etc/init.d/blocky start
+
+# Route LAN/Wi-Fi DNS (dnsmasq :53) through Blocky by default.
+[ -x /usr/sbin/blocky-dnsmasq-sync ] && /usr/sbin/blocky-dnsmasq-sync enable
+
+exit 0

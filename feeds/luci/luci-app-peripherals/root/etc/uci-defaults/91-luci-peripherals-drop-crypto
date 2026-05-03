@@ -1,0 +1,5 @@
+#!/bin/sh
+# One-time cleanup after Rockchip crypto UI was removed from luci-app-peripherals.
+uci -q delete luci_peripherals.@peripherals[0].rockchip_crypto 2>/dev/null && uci -q commit luci_peripherals
+rm -f /etc/modprobe.d/70-luci-peripherals-rockchip-crypto.conf
+exit 0
