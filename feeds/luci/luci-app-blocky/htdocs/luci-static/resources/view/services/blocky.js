@@ -355,175 +355,6 @@ function parseMetrics(text) {
 	return metrics;
 }
 
-function prometheusParseLabels(text) {
-	var labels = {};
-	var index = 0;
-	var key = '';
-	var value = '';
-	var inKey = true;
-	var inQuote = false;
-	var escapeNext = false;
-	var chr;
-
-	if (!text)
-		return labels;
-
-	function commit() {
-		if (key)
-			labels[key.trim()] = value;
-
-		key = '';
-		value = '';
-		inKey = true;
-	}
-
-	while (index < text.length) {
-		chr = text.charAt(index++);
-
-		if (escapeNext) {
-			value += chr;
-			escapeNext = false;
-			continue;
-		}
-
-		if (!inKey && chr === '\\') {
-			escapeNext = true;
-			continue;
-		}
-
-		if (!inKey && chr === '"') {
-			inQuote = !inQuote;
-			continue;
-		}
-
-		if (inKey && chr === '=') {
-			inKey = false;
-			continue;
-		}
-
-		if (!inQuote && chr === ',') {
-			commit();
-			continue;
-		}
-
-		if (inKey)
-			key += chr;
-		else
-			value += chr;
-	}
-
-	commit();
-
-	return labels;
-}
-
-function parsePrometheusSamplesAll(text) {
-	var out = [];
-	var lines = safeString(text).split(/\n/);
-	var withLbl = /^([a-zA-Z_:][a-zA-Z0-9_:]*)\{([^}]*)\}\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/;
-	var plain = /^([a-zA-Z_:][a-zA-Z0-9_:]*)\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/;
-
-	lines.forEach(function(line) {
-		var m;
-		var value;
-
-		if (!line || line.charAt(0) === '#')
-			return;
-
-		m = line.match(withLbl);
-		if (m) {
-			value = Number(m[3]);
-
-			if (!isFinite(value))
-				return;
-
-			out.push({
-				name: m[1],
-				labels: prometheusParseLabels(m[2]),
-				value: value
-			});
-
-			return;
-		}
-
-		m = line.match(plain);
-		if (m) {
-			value = Number(m[2]);
-
-			if (!isFinite(value))
-				return;
-
-			out.push({ name: m[1], labels: {}, value: value });
-		}
-	});
-
-	return out;
-}
-
-function aggregateCounterByLabel(samples, metricNames, labelKey) {
-	var map = {};
-	var accept = {};
-	var i;
-	var k;
-	var v;
-
-	for (i = 0; i < metricNames.length; i++)
-		accept[metricNames[i]] = true;
-
-	samples.forEach(function(s) {
-		if (!accept[s.name])
-			return;
-
-		k = s.labels[labelKey];
-
-		if (k === undefined || k === null || k === '')
-			k = _('unknown');
-
-		v = Number(s.value || 0);
-
-		if (!isFinite(v))
-			v = 0;
-
-		map[k] = (map[k] || 0) + v;
-	});
-
-	return map;
-}
-
-function mapToTopRows(map, n) {
-	var rows = [];
-
-	Object.keys(map).forEach(function(key) {
-		rows.push({ label: key, val: map[key] });
-	});
-
-	rows.sort(function(a, b) {
-		return b.val - a.val;
-	});
-
-	return rows.slice(0, Math.max(1, n));
-}
-
-function topListBarRow(label, val, maxVal, color) {
-	var pct = Math.round(100 * val / Math.max(1, maxVal));
-
-	return E('div', { 'class': 'blocky-bar-row' }, [
-		E('div', {
-			'class': 'blocky-bar-label',
-			'style': 'flex:0 0 9em;overflow:hidden;text-overflow:ellipsis',
-			'title': label
-		}, [ label ]),
-		E('div', { 'class': 'blocky-bar-track' }, [
-			E('div', {
-				'class': 'blocky-bar-seg',
-				'style': 'width:%d%%;background:%s'.format(Math.min(100, pct), color),
-				'title': formatNumber(val)
-			})
-		]),
-		E('div', { 'class': 'blocky-bar-val' }, [ formatNumber(val) ])
-	]);
-}
-
 function metricValue(metrics, names) {
 	var value = 0;
 
@@ -1030,7 +861,6 @@ function renderStatusDashboard(status, service) {
 }
 
 function renderRealtimeMetrics(initialMetricsText) {
-	var viewCtx = this;
 	var W = 820;
 	var H = 268;
 	var padL = 52;
@@ -1098,13 +928,6 @@ function renderRealtimeMetrics(initialMetricsText) {
 	var vBarHost = E('div', { 'class': 'blocky-vbar-row', 'style': 'min-height:124px' });
 	var mixHost = E('div', { 'class': 'blocky-bar-chart' });
 	var metricsBannerHost = E('div', {});
-	var topClientsInner = E('div', { 'class': 'blocky-bar-chart' });
-	var topTypesInner = E('div', { 'class': 'blocky-bar-chart' });
-	var rowsSel = E('select', { 'class': 'cbi-input-select', 'style': 'min-width:4.5em' }, [
-		E('option', { 'value': '5' }, [ '5' ]),
-		E('option', { 'value': '10' }, [ '10' ]),
-		E('option', { 'value': '15' }, [ '15' ])
-	]);
 	var state = {
 		samples: [],
 		lastCum: null,
@@ -1278,58 +1101,6 @@ function renderRealtimeMetrics(initialMetricsText) {
 			state.samples.shift();
 	}
 
-	function redrawTopLists(text) {
-		var live = deriveOverview(parseMetrics(text)).hasMetrics;
-		var n = Number(rowsSel.value) || 5;
-		var samples;
-		var clientsMap;
-		var typesMap;
-		var cr;
-		var tr;
-		var maxC;
-		var maxT;
-		var QUERY_METRICS = [ 'blocky_query_total', 'blocky_queries_total' ];
-
-		if (!live) {
-			replaceContent(topClientsInner, E('em', {}, [ _('Enable Prometheus on Blocky to rank clients.') ]));
-			replaceContent(topTypesInner, E('em', {}, [ _('Enable Prometheus on Blocky to rank query types.') ]));
-			return;
-		}
-
-		samples = parsePrometheusSamplesAll(text);
-		clientsMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'client');
-		typesMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'type');
-
-		if (!Object.keys(typesMap).length)
-			typesMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'dns_request_type');
-		cr = mapToTopRows(clientsMap, n);
-		tr = mapToTopRows(typesMap, n);
-		maxC = 1;
-		maxT = 1;
-
-		cr.forEach(function(r) {
-			maxC = Math.max(maxC, r.val);
-		});
-
-		tr.forEach(function(r) {
-			maxT = Math.max(maxT, r.val);
-		});
-
-		if (!cr.length)
-			replaceContent(topClientsInner, E('em', {}, [ _('No per-client samples yet (waiting for DNS queries).') ]));
-		else
-			replaceContent(topClientsInner, E('div', {}, cr.map(function(r) {
-				return topListBarRow(r.label, r.val, maxC, '#2196f3');
-			})));
-
-		if (!tr.length)
-			replaceContent(topTypesInner, E('em', {}, [ _('No per-type samples yet.') ]));
-		else
-			replaceContent(topTypesInner, E('div', {}, tr.map(function(r) {
-				return topListBarRow(r.label, r.val, maxT, '#43a047');
-			})));
-	}
-
 	function redrawAll() {
 		var live = deriveOverview(parseMetrics(state.lastRaw)).hasMetrics;
 
@@ -1345,7 +1116,6 @@ function renderRealtimeMetrics(initialMetricsText) {
 			]));
 			replaceContent(mixHost, E('div', {}, []));
 			redrawSmoothChart([]);
-			redrawTopLists(state.lastRaw);
 			return;
 		}
 
@@ -1357,14 +1127,12 @@ function renderRealtimeMetrics(initialMetricsText) {
 				E('em', {}, [ _('Waiting for the next metrics sample…') ])
 			]));
 			redrawSmoothChart([]);
-			redrawTopLists(state.lastRaw);
 			return;
 		}
 
 		redrawChart(filtered);
 		redrawGroupedBars(filtered);
 		redrawMixRow(filtered[filtered.length - 1]);
-		redrawTopLists(state.lastRaw);
 	}
 
 	function setWindow(ms, key) {
@@ -1399,15 +1167,10 @@ function renderRealtimeMetrics(initialMetricsText) {
 		redrawAll();
 	}
 
-	rowsSel.addEventListener('change', function() {
-		redrawTopLists(state.lastRaw);
-	});
-
 	setBlockyMetricsPollingHook(hook);
 	state.lastRaw = safeString(initialMetricsText);
 	ingestMetrics(state.lastRaw);
 	redrawAll();
-	redrawTopLists(state.lastRaw);
 
 	return E('div', {}, [
 		E('div', { 'class': 'blocky-dash-widget' }, [
@@ -1455,50 +1218,8 @@ function renderRealtimeMetrics(initialMetricsText) {
 			vBarHost,
 			mixHost
 		]),
-		E('div', { 'class': 'blocky-dash-widget' }, [
-			E('div', { 'class': 'blocky-dash-widget-head-row' }, [
-				E('div', {}, [
-					E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Top lists') ]),
-					E('p', { 'class': 'blocky-dash-widget-descr', 'style': 'margin:.35em 0 0' }, [
-						_('Busiest clients and DNS record types (not domain names — those need query logging).')
-					])
-				]),
-				E('div', { 'class': 'blocky-toplist-toolbar', 'style': 'margin:0' }, [
-					E('label', {}, [
-						_('Rows'),
-						' ',
-						rowsSel
-					]),
-					E('button', {
-						'class': 'cbi-button cbi-button-action',
-						'click': ui.createHandlerFn(viewCtx, function(ev) {
-							ev.preventDefault();
-
-							return blockyApi('/lists/refresh', 'POST').then(function() {
-								notify(_('Block lists refresh requested.'));
-							}).catch(function(err) {
-								notify(err.message || String(err), 'danger');
-							});
-						})
-					}, [ _('Refresh lists') ])
-				])
-			]),
-			E('div', { 'class': 'blocky-toplists-grid', 'style': 'margin-bottom:0' }, [
-				E('div', { 'class': 'blocky-toplist-col' }, [
-					E('strong', {}, [ _('Top clients') ]),
-					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em;font-size:.88em' }, [
-						_('By query count (blocky_query_total).')
-					]),
-					topClientsInner
-				]),
-				E('div', { 'class': 'blocky-toplist-col' }, [
-					E('strong', {}, [ _('Top query types') ]),
-					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em;font-size:.88em' }, [
-						_('A, AAAA, PTR, … — not hostnames.')
-					]),
-					topTypesInner
-				])
-			])
+		E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.75em 0 0' }, [
+			_('Top clients and query-type rankings live under Status → Blocky.')
 		])
 	]);
 }
@@ -1870,7 +1591,7 @@ return view.extend({
 			blockyInjectStyles(),
 			E('h2', {}, [ _('Blocky DNS') ]),
 			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Dashboard for Blocky on your router — metrics, blocking controls, and DNS integration without a separate BlockyUI server.')
+				_('Dashboard for Blocky on your router — metrics, blocking controls, and DNS integration. Charts are here; top lists are under Status → Blocky.')
 			]),
 			renderTabs([
 				{
