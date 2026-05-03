@@ -1,0 +1,7 @@
+Copyright (C) OpenWrt package feed contributors
+
+This repository may contain package recipes under the same licenses as upstream
+OpenWrt / ImmortalWrt feeds (commonly GPL-2.0). Individual packages state their
+license in their Makefiles.
+
+SPDX-License-Identifier: GPL-2.0-only
