@@ -48,6 +48,18 @@ var BLOCKY_UI_CSS = [
 	'body[data-darkmode="1"] .blocky-time-range button.blocky-range-active{background:#37474f;color:#eceff1;border-color:#546e7a;}',
 	'.blocky-chart-card{margin:.75em 0 1em;padding:1em;border-radius:10px;background:#e8e8e8;}',
 	'body[data-darkmode="1"] .blocky-chart-card{background:rgba(255,255,255,.06);}',
+	'.blocky-queries-widget{border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1em 1.1em 1.15em;margin:.35em 0 1em;',
+	'background:rgba(255,255,255,.35);box-sizing:border-box;}',
+	'body[data-darkmode="1"] .blocky-queries-widget{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);}',
+	'.blocky-queries-widget-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.65em;align-items:flex-start;margin-bottom:.35em;}',
+	'.blocky-queries-widget-head h3{margin:.1em 0 .15em;display:flex;align-items:center;gap:.35em;}',
+	'.blocky-queries-widget-icon{font-size:1.1em;opacity:.85;line-height:1;}',
+	'.blocky-chart-svg-wrap{margin:.35em 0 .15em;}',
+	'.blocky-chart-plot-bg{stroke:rgba(0,0,0,.06);}',
+	'body[data-darkmode="1"] .blocky-chart-plot-bg{stroke:rgba(255,255,255,.08);}',
+	'.blocky-chart-grid line{stroke:rgba(0,0,0,.12);stroke-width:1;}',
+	'body[data-darkmode="1"] .blocky-chart-grid line{stroke:rgba(255,255,255,.14);}',
+	'.blocky-chart-axis text{fill:currentColor;opacity:.75;font-size:11px;font-variant-numeric:tabular-nums;}',
 	'.blocky-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:1em;margin-top:.5em;font-size:.9em;}',
 	'.blocky-legend-dot{display:inline-block;width:.65em;height:.65em;border-radius:50%;margin-right:.35em;vertical-align:middle;}',
 	'.blocky-bar-chart{margin:.75em 0;padding:.5em 0;}',
@@ -63,7 +75,11 @@ var BLOCKY_UI_CSS = [
 	'.blocky-vbar-grp{display:flex;flex-direction:row;align-items:flex-end;justify-content:center;',
 	'gap:2px;flex:1;max-width:48px;margin:0 .15em;}',
 	'.blocky-vbar{flex:1;min-width:4px;border-radius:2px 2px 0 0;}',
-	'.blocky-note-soft{opacity:.85;font-size:.92em;margin:.35em 0 .75em;}'
+	'.blocky-note-soft{opacity:.85;font-size:.92em;margin:.35em 0 .75em;}',
+	'.blocky-toplists-grid{display:flex;flex-wrap:wrap;gap:1.15em;align-items:flex-start;margin:.35em 0 1em;}',
+	'.blocky-toplist-col{flex:1 1 17em;min-width:14em;max-width:100%;}',
+	'.blocky-toplist-toolbar{display:flex;flex-wrap:wrap;gap:.65em;align-items:center;margin:.35em 0 .65em;}',
+	'.blocky-toplist-toolbar label{display:inline-flex;align-items:center;gap:.35em;margin:0;}'
 ].join('');
 
 function blockyInjectStyles() {
@@ -128,6 +144,38 @@ function safeString(value) {
 		return '';
 
 	return String(value);
+}
+
+function blockyCliStdout(raw) {
+	if (raw === null || raw === undefined || raw === '')
+		return '';
+
+	if (typeof raw === 'string')
+		return raw;
+
+	if (typeof TextDecoder !== 'undefined') {
+		try {
+			if (raw instanceof ArrayBuffer)
+				return new TextDecoder().decode(raw);
+
+			if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(raw))
+				return new TextDecoder().decode(raw);
+		}
+		catch (err) {
+			/* ignore decode failure */
+		}
+	}
+
+	return String(raw);
+}
+
+function parseDnsForwardFlag(stdoutRaw) {
+	var text = safeString(blockyCliStdout(stdoutRaw)).trim();
+	var line = text.split(/\r?\n/).shift();
+
+	line = safeString(line).trim();
+
+	return line === '1';
 }
 
 function parseBlockyDnsPort(configYaml) {
@@ -292,6 +340,175 @@ function parseMetrics(text) {
 	});
 
 	return metrics;
+}
+
+function prometheusParseLabels(text) {
+	var labels = {};
+	var index = 0;
+	var key = '';
+	var value = '';
+	var inKey = true;
+	var inQuote = false;
+	var escapeNext = false;
+	var chr;
+
+	if (!text)
+		return labels;
+
+	function commit() {
+		if (key)
+			labels[key.trim()] = value;
+
+		key = '';
+		value = '';
+		inKey = true;
+	}
+
+	while (index < text.length) {
+		chr = text.charAt(index++);
+
+		if (escapeNext) {
+			value += chr;
+			escapeNext = false;
+			continue;
+		}
+
+		if (!inKey && chr === '\\') {
+			escapeNext = true;
+			continue;
+		}
+
+		if (!inKey && chr === '"') {
+			inQuote = !inQuote;
+			continue;
+		}
+
+		if (inKey && chr === '=') {
+			inKey = false;
+			continue;
+		}
+
+		if (!inQuote && chr === ',') {
+			commit();
+			continue;
+		}
+
+		if (inKey)
+			key += chr;
+		else
+			value += chr;
+	}
+
+	commit();
+
+	return labels;
+}
+
+function parsePrometheusSamplesAll(text) {
+	var out = [];
+	var lines = safeString(text).split(/\n/);
+	var withLbl = /^([a-zA-Z_:][a-zA-Z0-9_:]*)\{([^}]*)\}\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/;
+	var plain = /^([a-zA-Z_:][a-zA-Z0-9_:]*)\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/;
+
+	lines.forEach(function(line) {
+		var m;
+		var value;
+
+		if (!line || line.charAt(0) === '#')
+			return;
+
+		m = line.match(withLbl);
+		if (m) {
+			value = Number(m[3]);
+
+			if (!isFinite(value))
+				return;
+
+			out.push({
+				name: m[1],
+				labels: prometheusParseLabels(m[2]),
+				value: value
+			});
+
+			return;
+		}
+
+		m = line.match(plain);
+		if (m) {
+			value = Number(m[2]);
+
+			if (!isFinite(value))
+				return;
+
+			out.push({ name: m[1], labels: {}, value: value });
+		}
+	});
+
+	return out;
+}
+
+function aggregateCounterByLabel(samples, metricNames, labelKey) {
+	var map = {};
+	var accept = {};
+	var i;
+	var k;
+	var v;
+
+	for (i = 0; i < metricNames.length; i++)
+		accept[metricNames[i]] = true;
+
+	samples.forEach(function(s) {
+		if (!accept[s.name])
+			return;
+
+		k = s.labels[labelKey];
+
+		if (k === undefined || k === null || k === '')
+			k = _('unknown');
+
+		v = Number(s.value || 0);
+
+		if (!isFinite(v))
+			v = 0;
+
+		map[k] = (map[k] || 0) + v;
+	});
+
+	return map;
+}
+
+function mapToTopRows(map, n) {
+	var rows = [];
+
+	Object.keys(map).forEach(function(key) {
+		rows.push({ label: key, val: map[key] });
+	});
+
+	rows.sort(function(a, b) {
+		return b.val - a.val;
+	});
+
+	return rows.slice(0, Math.max(1, n));
+}
+
+function topListBarRow(label, val, maxVal, color) {
+	var pct = Math.round(100 * val / Math.max(1, maxVal));
+
+	return E('div', { 'class': 'blocky-bar-row' }, [
+		E('div', {
+			'class': 'blocky-bar-label',
+			'style': 'flex:0 0 9em;overflow:hidden;text-overflow:ellipsis',
+			'title': label
+		}, [ label ]),
+		E('div', { 'class': 'blocky-bar-track' }, [
+			E('div', {
+				'class': 'blocky-bar-seg',
+				'style': 'width:%d%%;background:%s'.format(Math.min(100, pct), color),
+				'title': formatNumber(val)
+			})
+		]),
+		E('div', { 'class': 'blocky-bar-val' }, [ formatNumber(val) ])
+	]);
 }
 
 function metricValue(metrics, names) {
@@ -461,29 +678,198 @@ function bucketAggregateBars(samples, bucketCount) {
 	return buckets;
 }
 
-function svgPolygonArea(samples, field, W, H, padL, padR, padT, padB, maxY) {
+function padChartTime2(n) {
+	n = Math.floor(n);
+
+	return (n < 10 ? '0' : '') + n;
+}
+
+function formatChartAxisTime(ms) {
+	var d = new Date(ms);
+
+	return padChartTime2(d.getHours()) + ':' + padChartTime2(d.getMinutes());
+}
+
+function samplesToXY(samples, field, W, H, padL, padR, padT, padB, maxY) {
 	var innerW = W - padL - padR;
 	var innerH = H - padT - padB;
-	var pts;
+	var pts = [];
 	var i;
 	var x;
 	var y;
 	var v;
 
-	if (!samples.length || maxY <= 0)
-		return padL + ',' + (H - padB) + ' ' + (padL + innerW) + ',' + (H - padB);
-
-	pts = [];
-
 	for (i = 0; i < samples.length; i++) {
 		v = samples[i][field];
 		x = padL + innerW * (samples.length <= 1 ? 0.5 : i / (samples.length - 1));
 		y = padT + innerH * (1 - Math.min(v / maxY, 1));
-		pts.push(x + ',' + y);
+		pts.push({ x: x, y: y });
 	}
 
-	return padL + ',' + (H - padB) + ' ' + pts.join(' ') + ' ' +
-		(padL + innerW) + ',' + (H - padB);
+	return pts;
+}
+
+function catmullRomPoint(t, p0, p1, p2, p3) {
+	var t2 = t * t;
+	var t3 = t2 * t;
+
+	return {
+		x: 0.5 * ((2 * p1.x) +
+			(-p0.x + p2.x) * t +
+			(2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+			(-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+		y: 0.5 * ((2 * p1.y) +
+			(-p0.y + p2.y) * t +
+			(2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+			(-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+	};
+}
+
+function densifyCatmullRom(pts, steps) {
+	var out = [];
+	var i;
+	var s;
+	var p0;
+	var p1;
+	var p2;
+	var p3;
+
+	if (!pts.length)
+		return [];
+
+	if (pts.length === 1)
+		return [ pts[0] ];
+
+	steps = Math.max(4, steps || 10);
+
+	for (i = 0; i < pts.length - 1; i++) {
+		p0 = i === 0 ? pts[0] : pts[i - 1];
+		p1 = pts[i];
+		p2 = pts[i + 1];
+		p3 = i + 2 < pts.length ? pts[i + 2] : pts[pts.length - 1];
+
+		for (s = 0; s < steps; s++)
+			out.push(catmullRomPoint(s / steps, p0, p1, p2, p3));
+	}
+
+	out.push(pts[pts.length - 1]);
+	return out;
+}
+
+function buildSmoothAreaPath(densePts, baselineY) {
+	var d = '';
+	var i;
+
+	if (!densePts.length)
+		return '';
+
+	d = 'M ' + densePts[0].x + ',' + baselineY +
+		' L ' + densePts[0].x + ',' + densePts[0].y;
+
+	for (i = 1; i < densePts.length; i++)
+		d += ' L ' + densePts[i].x + ',' + densePts[i].y;
+
+	d += ' L ' + densePts[densePts.length - 1].x + ',' + baselineY + ' Z';
+	return d;
+}
+
+function buildSmoothLinePath(densePts) {
+	var d = '';
+	var i;
+
+	if (!densePts.length)
+		return '';
+
+	d = 'M ' + densePts[0].x + ',' + densePts[0].y;
+
+	for (i = 1; i < densePts.length; i++)
+		d += ' L ' + densePts[i].x + ',' + densePts[i].y;
+
+	return d;
+}
+
+function buildQueriesChartUnderlay(series, maxY, W, H, padL, padR, padT, padB) {
+	var innerW = W - padL - padR;
+	var innerH = H - padT - padB;
+	var ticks = 4;
+	var ti;
+	var frac;
+	var y;
+	var gridLines = [];
+
+	var plotBg = E('rect', {
+		'class': 'blocky-chart-plot-bg',
+		'x': padL,
+		'y': padT,
+		'width': innerW,
+		'height': innerH,
+		'rx': '4',
+		'ry': '4',
+		'fill': 'rgba(128,128,128,.07)'
+	});
+
+	for (ti = 0; ti <= ticks; ti++) {
+		frac = ti / ticks;
+		y = padT + innerH * (1 - frac);
+		gridLines.push(E('line', {
+			'x1': padL,
+			'y1': y,
+			'x2': padL + innerW,
+			'y2': y
+		}));
+	}
+
+	return E('g', {}, [
+		plotBg,
+		E('g', { 'class': 'blocky-chart-grid' }, gridLines)
+	]);
+}
+
+function buildQueriesChartAxisLabels(series, maxY, W, H, padL, padR, padT, padB) {
+	var innerW = W - padL - padR;
+	var innerH = H - padT - padB;
+	var ticks = 4;
+	var ti;
+	var frac;
+	var y;
+	var axisTexts = [];
+	var n = series.length;
+	var indices;
+	var ix;
+	var seen = {};
+	var x;
+	var i;
+
+	for (ti = 0; ti <= ticks; ti++) {
+		frac = ti / ticks;
+		y = padT + innerH * (1 - frac);
+		axisTexts.push(E('text', {
+			'x': padL - 8,
+			'y': y + 4,
+			'text-anchor': 'end'
+		}, [ formatCompactNumber(Math.round(maxY * frac)) ]));
+	}
+
+	if (n >= 2) {
+		indices = [ 0, Math.round((n - 1) / 4), Math.round((n - 1) / 2), Math.round(3 * (n - 1) / 4), n - 1 ];
+
+		for (i = 0; i < indices.length; i++) {
+			ix = indices[i];
+
+			if (seen[ix])
+				continue;
+
+			seen[ix] = 1;
+			x = padL + innerW * (ix / (n - 1));
+			axisTexts.push(E('text', {
+				'x': x,
+				'y': H - 12,
+				'text-anchor': 'middle'
+			}, [ formatChartAxisTime(series[ix].t) ]));
+		}
+	}
+
+	return E('g', { 'class': 'blocky-chart-axis' }, axisTexts);
 }
 
 function renderOverview(metricsText) {
@@ -635,30 +1021,51 @@ function renderStatusDashboard(status, service) {
 }
 
 function renderRealtimeMetrics(initialMetricsText) {
+	var viewCtx = this;
 	var W = 820;
-	var H = 220;
-	var padL = 44;
-	var padR = 16;
-	var padT = 14;
-	var padB = 36;
-	var polyTotal = E('polygon', {
-		'fill': 'rgba(33,150,243,0.22)',
+	var H = 268;
+	var padL = 52;
+	var padR = 14;
+	var padT = 16;
+	var padB = 42;
+	var chartUnderlayG = E('g', {});
+	var axisLabelsG = E('g', {});
+	var pathTotalFill = E('path', {
+		'fill': 'rgba(33,150,243,0.18)',
+		'stroke': 'none'
+	});
+	var pathTotalStroke = E('path', {
+		'fill': 'none',
 		'stroke': '#2196f3',
-		'stroke-width': '1.5'
+		'stroke-width': '2',
+		'stroke-linejoin': 'round',
+		'stroke-linecap': 'round'
 	});
-	var polyBlocked = E('polygon', {
-		'fill': 'rgba(229,57,53,0.22)',
+	var pathBlockedFill = E('path', {
+		'fill': 'rgba(229,57,53,0.2)',
+		'stroke': 'none'
+	});
+	var pathBlockedStroke = E('path', {
+		'fill': 'none',
 		'stroke': '#e53935',
-		'stroke-width': '1.5'
+		'stroke-width': '2',
+		'stroke-linejoin': 'round',
+		'stroke-linecap': 'round'
 	});
-	var polyCached = E('polygon', {
-		'fill': 'rgba(67,160,71,0.22)',
+	var pathCachedFill = E('path', {
+		'fill': 'rgba(67,160,71,0.2)',
+		'stroke': 'none'
+	});
+	var pathCachedStroke = E('path', {
+		'fill': 'none',
 		'stroke': '#43a047',
-		'stroke-width': '1.5'
+		'stroke-width': '2',
+		'stroke-linejoin': 'round',
+		'stroke-linecap': 'round'
 	});
 	var svg = E('svg', {
 		'width': '100%',
-		'height': '240',
+		'height': '286',
 		'viewBox': '0 0 ' + W + ' ' + H,
 		'preserveAspectRatio': 'none'
 	}, [
@@ -669,18 +1076,25 @@ function renderRealtimeMetrics(initialMetricsText) {
 			'height': H,
 			'fill': 'transparent'
 		}),
-		polyTotal,
-		polyBlocked,
-		polyCached
+		chartUnderlayG,
+		pathTotalFill,
+		pathBlockedFill,
+		pathCachedFill,
+		pathTotalStroke,
+		pathBlockedStroke,
+		pathCachedStroke,
+		axisLabelsG
 	]);
 	var rangeButtons = [];
 	var vBarHost = E('div', { 'class': 'blocky-vbar-row', 'style': 'min-height:124px' });
 	var mixHost = E('div', { 'class': 'blocky-bar-chart' });
 	var metricsBannerHost = E('div', {});
-	var topListsNote = E('div', { 'class': 'blocky-bar-chart' }, [
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Per-domain and per-client rankings require Blocky query logs (SQL/CSV). This dashboard charts Prometheus counter deltas instead.')
-		])
+	var topClientsInner = E('div', { 'class': 'blocky-bar-chart' });
+	var topTypesInner = E('div', { 'class': 'blocky-bar-chart' });
+	var rowsSel = E('select', { 'class': 'cbi-input-select', 'style': 'min-width:4.5em' }, [
+		E('option', { 'value': '5' }, [ '5' ]),
+		E('option', { 'value': '10' }, [ '10' ]),
+		E('option', { 'value': '15' }, [ '15' ])
 	]);
 	var state = {
 		samples: [],
@@ -760,20 +1174,48 @@ function renderRealtimeMetrics(initialMetricsText) {
 		})));
 	}
 
-	function redrawChart(filtered) {
-		var series = downsampleSamples(filtered, 160);
+	function redrawSmoothChart(series) {
 		var maxY = 1;
-		var s;
+		var smoothSteps = 12;
+		var baselineY = H - padB;
+		var dTotal;
+		var dBlocked;
+		var dCached;
 		var i;
+		var s;
 
 		for (i = 0; i < series.length; i++) {
 			s = series[i];
 			maxY = Math.max(maxY, s.total, s.blocked, s.cached);
 		}
 
-		polyTotal.setAttribute('points', svgPolygonArea(series, 'total', W, H, padL, padR, padT, padB, maxY));
-		polyBlocked.setAttribute('points', svgPolygonArea(series, 'blocked', W, H, padL, padR, padT, padB, maxY));
-		polyCached.setAttribute('points', svgPolygonArea(series, 'cached', W, H, padL, padR, padT, padB, maxY));
+		replaceContent(chartUnderlayG, buildQueriesChartUnderlay(series, maxY, W, H, padL, padR, padT, padB));
+		replaceContent(axisLabelsG, buildQueriesChartAxisLabels(series, maxY, W, H, padL, padR, padT, padB));
+
+		if (!series.length) {
+			pathTotalFill.setAttribute('d', '');
+			pathTotalStroke.setAttribute('d', '');
+			pathBlockedFill.setAttribute('d', '');
+			pathBlockedStroke.setAttribute('d', '');
+			pathCachedFill.setAttribute('d', '');
+			pathCachedStroke.setAttribute('d', '');
+			return;
+		}
+
+		dTotal = densifyCatmullRom(samplesToXY(series, 'total', W, H, padL, padR, padT, padB, maxY), smoothSteps);
+		dBlocked = densifyCatmullRom(samplesToXY(series, 'blocked', W, H, padL, padR, padT, padB, maxY), smoothSteps);
+		dCached = densifyCatmullRom(samplesToXY(series, 'cached', W, H, padL, padR, padT, padB, maxY), smoothSteps);
+
+		pathTotalFill.setAttribute('d', buildSmoothAreaPath(dTotal, baselineY));
+		pathTotalStroke.setAttribute('d', buildSmoothLinePath(dTotal));
+		pathBlockedFill.setAttribute('d', buildSmoothAreaPath(dBlocked, baselineY));
+		pathBlockedStroke.setAttribute('d', buildSmoothLinePath(dBlocked));
+		pathCachedFill.setAttribute('d', buildSmoothAreaPath(dCached, baselineY));
+		pathCachedStroke.setAttribute('d', buildSmoothLinePath(dCached));
+	}
+
+	function redrawChart(filtered) {
+		redrawSmoothChart(downsampleSamples(filtered, 160));
 	}
 
 	function ingestMetrics(text) {
@@ -827,6 +1269,58 @@ function renderRealtimeMetrics(initialMetricsText) {
 			state.samples.shift();
 	}
 
+	function redrawTopLists(text) {
+		var live = deriveOverview(parseMetrics(text)).hasMetrics;
+		var n = Number(rowsSel.value) || 5;
+		var samples;
+		var clientsMap;
+		var typesMap;
+		var cr;
+		var tr;
+		var maxC;
+		var maxT;
+		var QUERY_METRICS = [ 'blocky_query_total', 'blocky_queries_total' ];
+
+		if (!live) {
+			replaceContent(topClientsInner, E('em', {}, [ _('Enable Prometheus on Blocky to rank clients.') ]));
+			replaceContent(topTypesInner, E('em', {}, [ _('Enable Prometheus on Blocky to rank query types.') ]));
+			return;
+		}
+
+		samples = parsePrometheusSamplesAll(text);
+		clientsMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'client');
+		typesMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'type');
+
+		if (!Object.keys(typesMap).length)
+			typesMap = aggregateCounterByLabel(samples, QUERY_METRICS, 'dns_request_type');
+		cr = mapToTopRows(clientsMap, n);
+		tr = mapToTopRows(typesMap, n);
+		maxC = 1;
+		maxT = 1;
+
+		cr.forEach(function(r) {
+			maxC = Math.max(maxC, r.val);
+		});
+
+		tr.forEach(function(r) {
+			maxT = Math.max(maxT, r.val);
+		});
+
+		if (!cr.length)
+			replaceContent(topClientsInner, E('em', {}, [ _('No per-client samples yet (waiting for DNS queries).') ]));
+		else
+			replaceContent(topClientsInner, E('div', {}, cr.map(function(r) {
+				return topListBarRow(r.label, r.val, maxC, '#2196f3');
+			})));
+
+		if (!tr.length)
+			replaceContent(topTypesInner, E('em', {}, [ _('No per-type samples yet.') ]));
+		else
+			replaceContent(topTypesInner, E('div', {}, tr.map(function(r) {
+				return topListBarRow(r.label, r.val, maxT, '#43a047');
+			})));
+	}
+
 	function redrawAll() {
 		var live = deriveOverview(parseMetrics(state.lastRaw)).hasMetrics;
 
@@ -841,9 +1335,8 @@ function renderRealtimeMetrics(initialMetricsText) {
 				E('em', {}, [ _('Charts activate once metrics are available.') ])
 			]));
 			replaceContent(mixHost, E('div', {}, []));
-			polyTotal.setAttribute('points', svgPolygonArea([], 'total', W, H, padL, padR, padT, padB, 1));
-			polyBlocked.setAttribute('points', svgPolygonArea([], 'blocked', W, H, padL, padR, padT, padB, 1));
-			polyCached.setAttribute('points', svgPolygonArea([], 'cached', W, H, padL, padR, padT, padB, 1));
+			redrawSmoothChart([]);
+			redrawTopLists(state.lastRaw);
 			return;
 		}
 
@@ -854,15 +1347,15 @@ function renderRealtimeMetrics(initialMetricsText) {
 			replaceContent(vBarHost, E('div', { 'style': 'padding:.75em 0' }, [
 				E('em', {}, [ _('Waiting for the next metrics sample…') ])
 			]));
-			polyTotal.setAttribute('points', svgPolygonArea([], 'total', W, H, padL, padR, padT, padB, 1));
-			polyBlocked.setAttribute('points', svgPolygonArea([], 'blocked', W, H, padL, padR, padT, padB, 1));
-			polyCached.setAttribute('points', svgPolygonArea([], 'cached', W, H, padL, padR, padT, padB, 1));
+			redrawSmoothChart([]);
+			redrawTopLists(state.lastRaw);
 			return;
 		}
 
 		redrawChart(filtered);
 		redrawGroupedBars(filtered);
 		redrawMixRow(filtered[filtered.length - 1]);
+		redrawTopLists(state.lastRaw);
 	}
 
 	function setWindow(ms, key) {
@@ -897,46 +1390,93 @@ function renderRealtimeMetrics(initialMetricsText) {
 		redrawAll();
 	}
 
+	rowsSel.addEventListener('change', function() {
+		redrawTopLists(state.lastRaw);
+	});
+
 	setBlockyMetricsPollingHook(hook);
 	state.lastRaw = safeString(initialMetricsText);
 	ingestMetrics(state.lastRaw);
 	redrawAll();
+	redrawTopLists(state.lastRaw);
 
 	return E('div', { 'class': 'cbi-section blocky-chart-card' }, [
-		E('div', { 'style': 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5em;align-items:flex-start' }, [
-			E('div', {}, [
-				E('h3', { 'style': 'margin:.15em 0' }, [ _('Queries over time') ]),
-				E('p', { 'class': 'cbi-section-descr', 'style': 'margin:0' }, [
-					_('Estimated DNS query volume from Prometheus counter deltas (%s).').format(_('this browser session'))
+		E('div', { 'class': 'blocky-queries-widget' }, [
+			E('div', { 'class': 'blocky-queries-widget-head' }, [
+				E('div', {}, [
+					E('h3', {}, [ _('Queries over time') ]),
+					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:0' }, [
+						_('DNS query volume and blocking activity.')
+					]),
+					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.35em 0 0;font-size:.88em;opacity:.88' }, [
+						_('Values are Prometheus counter deltas while this page is open (estimated rates per poll).')
+					])
+				]),
+				E('div', { 'class': 'blocky-time-range' }, rangeButtons)
+			]),
+			metricsBannerHost,
+			E('div', { 'class': 'blocky-chart-svg-wrap' }, [ svg ]),
+			E('div', { 'class': 'blocky-chart-legend' }, [
+				E('span', {}, [
+					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
+					_('Total')
+				]),
+				' ',
+				E('span', {}, [
+					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
+					_('Blocked')
+				]),
+				' ',
+				E('span', {}, [
+					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#43a047' }),
+					_('Cached')
 				])
 			]),
-			E('div', { 'class': 'blocky-time-range' }, rangeButtons)
-		]),
-		E('p', { 'class': 'blocky-note-soft' }, [
-			_('Long ranges fill as samples accumulate while this page stays open. Historical data beyond the session is not stored in LuCI.')
-		]),
-		metricsBannerHost,
-		svg,
-		E('div', { 'class': 'blocky-chart-legend' }, [
-			E('span', {}, [
-				E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
-				_('Total Δ')
-			]),
-			' ',
-			E('span', {}, [
-				E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
-				_('Blocked Δ')
-			]),
-			' ',
-			E('span', {}, [
-				E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#43a047' }),
-				_('Cache hit Δ')
+			E('p', { 'class': 'blocky-note-soft', 'style': 'margin-bottom:0' }, [
+				_('Long ranges fill as samples accumulate while this page stays open. Historical data beyond the session is not stored in LuCI.')
 			])
 		]),
 		E('h4', {}, [ _('Bucketed totals (visible window)') ]),
 		vBarHost,
 		E('h4', { 'style': 'margin-top:1em' }, [ _('Top lists') ]),
-		topListsNote,
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Rankings use Prometheus counters on Blocky (cumulative since last restart). Domain-level rankings need query logging to a database — see Blocky docs.')
+		]),
+		E('div', { 'class': 'blocky-toplist-toolbar' }, [
+			E('label', {}, [
+				_('Rows'),
+				' ',
+				rowsSel
+			]),
+			E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'click': ui.createHandlerFn(viewCtx, function(ev) {
+					ev.preventDefault();
+
+					return blockyApi('/lists/refresh', 'POST').then(function() {
+						notify(_('Block lists refresh requested.'));
+					}).catch(function(err) {
+						notify(err.message || String(err), 'danger');
+					});
+				})
+			}, [ _('Refresh lists') ])
+		]),
+		E('div', { 'class': 'blocky-toplists-grid' }, [
+			E('div', { 'class': 'blocky-toplist-col' }, [
+				E('strong', {}, [ _('Top clients') ]),
+				E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em' }, [
+					_('Clients by query count (from blocky_query_total).')
+				]),
+				topClientsInner
+			]),
+			E('div', { 'class': 'blocky-toplist-col' }, [
+				E('strong', {}, [ _('Top query types') ]),
+				E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em' }, [
+					_('DNS record types (A, AAAA, …), not hostnames.')
+				]),
+				topTypesInner
+			])
+		]),
 		mixHost
 	]);
 }
@@ -1171,7 +1711,7 @@ function renderQueryLogsNotice(config) {
 
 function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 	var port = parseBlockyDnsPort(configYaml);
-	var enabled = safeString(dnsFwdRaw).trim() === '1';
+	var enabled = parseDnsForwardFlag(dnsFwdRaw);
 
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Router DNS integration') ]),
@@ -1317,6 +1857,8 @@ return view.extend({
 		var metrics = data[3];
 		var dnsFwd = data[4];
 		var dnsFwdRaw = dnsFwd && dnsFwd.stdout !== undefined ? dnsFwd.stdout : '0\n';
+
+		dnsFwdRaw = blockyCliStdout(dnsFwdRaw);
 		var metricsPayload = unwrapFetchText(metrics);
 
 		return E('div', { 'class': 'luci-app-blocky' }, [
@@ -1331,7 +1873,7 @@ return view.extend({
 					nodes: [
 						renderOverview(metricsPayload),
 						renderStatusDashboard(status, service),
-						renderRealtimeMetrics(metricsPayload)
+						renderRealtimeMetrics.call(this, metricsPayload)
 					]
 				},
 				{

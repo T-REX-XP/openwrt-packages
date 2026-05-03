@@ -3,7 +3,6 @@
 set -u
 
 BLOCKY_PORT_DEFAULT='5353'
-DNSMASQ_UCI='dhcp.@dnsmasq[0]'
 
 usage() {
 	echo "usage: $0 enable [dns_port]|disable|status" >&2
@@ -14,7 +13,31 @@ upstream_for_port() {
 	printf '%s\n' "127.0.0.1#$1"
 }
 
+# Prefer the first dnsmasq instance that is not ignored (ImmortalWrt/OpenWrt often keeps @dnsmasq[0] unused).
+dnsmasq_uci_prefix() {
+	local idx=0 path
+
+	while uci -q show "dhcp.@dnsmasq[$idx]" >/dev/null 2>&1; do
+		path="dhcp.@dnsmasq[$idx]"
+		if [ "$(uci -q get "${path}.ignore")" != "1" ]; then
+			echo "$path"
+			return 0
+		fi
+		idx=$((idx + 1))
+	done
+
+	echo "dhcp.@dnsmasq[0]"
+}
+
+ensure_blocky_uci() {
+	if ! uci -q show blocky.main >/dev/null 2>&1; then
+		uci set blocky.main=blocky
+	fi
+}
+
 cmd_enable() {
+	local port up dm
+
 	port="${1:-$BLOCKY_PORT_DEFAULT}"
 	case "$port" in
 		''|*[!0-9]*) usage ;;
@@ -25,34 +48,44 @@ cmd_enable() {
 	fi
 
 	up="$(upstream_for_port "$port")"
+	dm="$(dnsmasq_uci_prefix)"
+
+	ensure_blocky_uci
 
 	uci -q set blocky.main.dnsmasq_forward='1'
 	uci -q set blocky.main.dnsmasq_blocky_port="$port"
 
-	uci -q delete "${DNSMASQ_UCI}.server" 2>/dev/null || true
-	uci add_list "${DNSMASQ_UCI}.server=${up}"
+	# Do not use `uci add_list …=…#port`: BusyBox uci treats `#` as end-of-line comment, so
+	# `127.0.0.1#5353` becomes `127.0.0.1` or applies no usable upstream. `uci set` passes the full value.
+	uci -q delete "${dm}.server" 2>/dev/null || true
+	if ! uci set "${dm}.server=${up}"; then
+		echo "$0: failed to set dnsmasq server ${up} on ${dm}" >&2
+		exit 1
+	fi
 
 	uci commit dhcp
 	uci commit blocky
-	/etc/init.d/dnsmasq restart
+	/etc/init.d/dnsmasq restart || exit 1
 }
 
 cmd_disable() {
-	port="$(uci -q get blocky.main.dnsmasq_blocky_port)"
-	port="${port:-$BLOCKY_PORT_DEFAULT}"
-	up="$(upstream_for_port "$port")"
+	local dm
+
+	ensure_blocky_uci
+
+	dm="$(dnsmasq_uci_prefix)"
 
 	uci -q set blocky.main.dnsmasq_forward='0'
-	while uci -q del_list "${DNSMASQ_UCI}.server=${up}" 2>/dev/null; do
-		:
-	done
+	uci -q delete "${dm}.server" 2>/dev/null || true
 
 	uci commit dhcp
 	uci commit blocky
-	/etc/init.d/dnsmasq restart
+	/etc/init.d/dnsmasq restart || exit 1
 }
 
 cmd_status() {
+	local val
+
 	val="$(uci -q get blocky.main.dnsmasq_forward)"
 	echo "${val:-0}"
 }
