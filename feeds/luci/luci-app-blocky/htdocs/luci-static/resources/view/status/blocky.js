@@ -295,27 +295,6 @@ function deriveOverview(metrics) {
 	};
 }
 
-function labelsToText(labels) {
-	var keys = Object.keys(labels || {}).sort();
-
-	if (!keys.length)
-		return '-';
-
-	return keys.map(function(key) {
-		return '%s="%s"'.format(key, labels[key]);
-	}).join(', ');
-}
-
-function metricSortScore(name) {
-	if (/query|response|block|cache|deny|allow/i.test(name))
-		return 0;
-
-	if (/upstream|prefetch|conditional|client/i.test(name))
-		return 1;
-
-	return 2;
-}
-
 function renderCard(title, value, description) {
 	return E('div', { 'class': 'td left blocky-metric-card', 'style': 'min-width:12em; padding:1em' }, [
 		E('strong', {}, [ title ]),
@@ -341,7 +320,7 @@ function renderStatus(status, service, metrics) {
 	}, 0);
 
 	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Runtime') ]),
+		E('h3', {}, [ _('Server status') ]),
 		E('div', { 'class': 'table blocky-status-table' }, [
 			E('div', { 'class': 'tr' }, [
 				E('div', { 'class': 'td left', 'style': 'width:25%' }, [ _('Service') ]),
@@ -376,10 +355,10 @@ function renderOverview(metrics) {
 	var overview = deriveOverview(metrics);
 
 	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Overview') ]),
+		E('h3', {}, [ _('At a glance') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
 			blockyPill('yes', _('Live')),
-			blockyStatusDetail(_('Counters from Prometheus exporter'))
+			blockyStatusDetail(_('Key counters from the Prometheus exporter'))
 		]),
 		E('div', { 'class': 'table' }, [
 			E('div', { 'class': 'tr' }, [
@@ -390,80 +369,6 @@ function renderOverview(metrics) {
 			])
 		])
 	]);
-}
-
-function renderMetricFamily(family) {
-	var rows = family.samples.map(function(sample) {
-		return E('div', { 'class': 'tr' }, [
-			E('div', { 'class': 'td left', 'style': 'width:55%' }, [ labelsToText(sample.labels) ]),
-			E('div', { 'class': 'td left' }, [ formatNumber(sample.value) ])
-		]);
-	});
-
-	if (!rows.length)
-		rows.push(E('div', { 'class': 'tr' }, [
-			E('div', { 'class': 'td left' }, [ _('No samples') ]),
-			E('div', { 'class': 'td left' }, [ '-' ])
-		]));
-
-	return E('details', {
-		'class': 'cbi-section',
-		'data-metric-name': family.name.toLowerCase(),
-		'open': metricSortScore(family.name) === 0 ? '' : null
-	}, [
-		E('summary', {}, [
-			E('strong', {}, [ family.name ]),
-			' ',
-			E('small', {}, [
-				_('type: %s, samples: %d').format(family.type || _('unknown'), family.samples.length)
-			])
-		]),
-		family.help ? E('p', { 'class': 'cbi-section-descr' }, [ family.help ]) : '',
-		E('div', { 'class': 'table' }, [
-			E('div', { 'class': 'tr table-titles' }, [
-				E('div', { 'class': 'th left' }, [ _('Labels') ]),
-				E('div', { 'class': 'th left' }, [ _('Value') ])
-			])
-		].concat(rows))
-	]);
-}
-
-function renderAllMetrics(metrics) {
-	var filter = E('input', {
-		'type': 'text',
-		'class': 'cbi-input-text',
-		'placeholder': _('Filter metrics'),
-		'style': 'min-width:20em'
-	});
-	var names = metrics.order.slice().sort(function(a, b) {
-		var score = metricSortScore(a) - metricSortScore(b);
-
-		if (score !== 0)
-			return score;
-
-		return a.localeCompare(b);
-	});
-	var families = names.map(function(name) {
-		return renderMetricFamily(metrics.families[name]);
-	});
-
-	filter.addEventListener('input', function() {
-		var needle = filter.value.trim().toLowerCase();
-
-		families.forEach(function(node) {
-			var name = node.getAttribute('data-metric-name') || '';
-
-			node.style.display = !needle || name.indexOf(needle) !== -1 ? '' : 'none';
-		});
-	});
-
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('All Metrics') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Every Prometheus metric family returned by Blocky is shown below. Values are rendered as text and never interpreted as HTML.')
-		]),
-		E('p', {}, [ filter ])
-	].concat(families));
 }
 
 function renderNoMetrics(raw) {
@@ -497,15 +402,14 @@ return view.extend({
 			blockyInjectStyles(),
 			E('h2', {}, [ _('Blocky Status') ]),
 			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Runtime status and Prometheus metrics from the local Blocky instance.')
+				_('Service health and headline counters. Open Services → Blocky for charts, lists, and controls.')
 			])
 		];
 
 		if (metrics.order.length) {
 			content = content.concat([
 				renderStatus(status, service, metrics),
-				renderOverview(metrics),
-				renderAllMetrics(metrics)
+				renderOverview(metrics)
 			]);
 		} else {
 			content.push(renderNoMetrics(rawMetrics));

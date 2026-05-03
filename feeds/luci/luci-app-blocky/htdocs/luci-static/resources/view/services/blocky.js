@@ -28,8 +28,19 @@ var BLOCKY_UI_CSS = [
 	'.blocky-pill-note{font-weight:500;text-transform:none;letter-spacing:normal;',
 	'color:var(--text-primary-high, #333);margin-left:.5em;font-size:.95em;}',
 	'body[data-darkmode="1"] .blocky-pill-note{color:var(--text-primary-high, #e0e0e0);}',
-	'.blocky-metric-card{background:#e8e8e8;border-radius:10px;box-sizing:border-box;padding:1em;min-width:10em;}',
-	'body[data-darkmode="1"] .blocky-metric-card{background:rgba(255,255,255,.08);}',
+	'.blocky-metric-card{background:#e8e8e8;border-radius:12px;box-sizing:border-box;padding:1em 1.05em;min-width:10em;',
+	'border:1px solid rgba(0,0,0,.06);}',
+	'body[data-darkmode="1"] .blocky-metric-card{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);}',
+	'.blocky-dashboard{display:flex;flex-direction:column;gap:1.15em;margin:.35em 0 1.25em;}',
+	'.blocky-dash-widget{background:#e8e8e8;border-radius:12px;padding:1em 1.1em 1.15em;box-sizing:border-box;',
+	'border:1px solid rgba(0,0,0,.08);}',
+	'body[data-darkmode="1"] .blocky-dash-widget{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);}',
+	'.blocky-dash-widget-title{margin:0;font-size:1.05em;font-weight:700;line-height:1.25;}',
+	'.blocky-dash-widget-descr{margin:.35em 0 .65em;opacity:.88;font-size:.92em;line-height:1.4;}',
+	'.blocky-dash-widget-head-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75em;align-items:flex-start;margin-bottom:.5em;}',
+	'.blocky-metric-strip{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;margin:0 0 .75em;font-size:.92em;}',
+	'.blocky-dashboard-metrics-row{margin:0;}',
+	'.blocky-dashboard-metrics-row .blocky-metric-grid{margin:.25em 0 0;}',
 	'.blocky-status-table .tr{vertical-align:middle;}',
 	'.blocky-metric-grid{display:flex;flex-wrap:wrap;gap:.75em;margin:.5em 0 1em;}',
 	'.blocky-metric-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.5em;margin-bottom:.35em;}',
@@ -37,9 +48,10 @@ var BLOCKY_UI_CSS = [
 	'.blocky-cache-track{height:6px;border-radius:3px;background:rgba(0,0,0,.12);overflow:hidden;margin-top:.35em;}',
 	'body[data-darkmode="1"] .blocky-cache-track{background:rgba(255,255,255,.15);}',
 	'.blocky-cache-fill{height:100%;background:#43a047;border-radius:3px;transition:width .35s ease;}',
-	'.blocky-dash-row{display:flex;flex-wrap:wrap;gap:.75em;margin:.75em 0 1em;}',
-	'.blocky-dash-card{background:#e8e8e8;border-radius:10px;padding:1em;flex:1 1 18em;box-sizing:border-box;}',
-	'body[data-darkmode="1"] .blocky-dash-card{background:rgba(255,255,255,.08);}',
+	'.blocky-dash-row{display:flex;flex-wrap:wrap;gap:.75em;margin:0;}',
+	'.blocky-dash-card{background:#e8e8e8;border-radius:12px;padding:1em;flex:1 1 18em;box-sizing:border-box;',
+	'border:1px solid rgba(0,0,0,.08);}',
+	'body[data-darkmode="1"] .blocky-dash-card{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);}',
 	'.blocky-dash-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5em;}',
 	'.blocky-btn-grid{display:flex;flex-wrap:wrap;gap:.5em;margin-top:.65em;}',
 	'.blocky-time-range{display:flex;flex-wrap:wrap;gap:.35em;justify-content:flex-end;margin:.35em 0;}',
@@ -51,6 +63,7 @@ var BLOCKY_UI_CSS = [
 	'.blocky-queries-widget{border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1em 1.1em 1.15em;margin:.35em 0 1em;',
 	'background:rgba(255,255,255,.35);box-sizing:border-box;}',
 	'body[data-darkmode="1"] .blocky-queries-widget{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);}',
+	'.blocky-queries-widget--embedded{margin:0;padding:0;border:none;background:transparent;}',
 	'.blocky-queries-widget-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.65em;align-items:flex-start;margin-bottom:.35em;}',
 	'.blocky-queries-widget-head h3{margin:.1em 0 .15em;display:flex;align-items:center;gap:.35em;}',
 	'.blocky-queries-widget-icon{font-size:1.1em;opacity:.85;line-height:1;}',
@@ -879,25 +892,21 @@ function renderOverview(metricsText) {
 		? formatCompactNumber(overview.denylistEntries)
 		: formatNumber(overview.denylistEntries);
 
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Overview') ]),
-		E('p', { 'class': 'cbi-section-descr' }, overview.hasMetrics
-			? [
-				blockyPill('yes', _('Live')),
-				blockyStatusDetail(_('Summary derived from Blocky Prometheus metrics.'))
-			]
-			: [
-				blockyPill('no', _('Limited')),
-				blockyStatusDetail(_('No metrics were returned. Enable prometheus in the Blocky configuration to populate this section.'))
-			]),
-		E('div', { 'class': 'blocky-metric-grid' }, [
+	return E('div', { 'class': 'blocky-dashboard-metrics-row' }, [
+		E('div', { 'class': 'blocky-metric-strip' }, [
+			overview.hasMetrics ? blockyPill('yes', _('Live')) : blockyPill('no', _('Limited')),
+			blockyStatusDetail(overview.hasMetrics
+				? _('Counters refresh from Blocky while this page is open.')
+				: _('Enable prometheus in Blocky configuration for full dashboard data.'))
+		]),
+		E('div', { 'class': 'blocky-metric-grid', 'style': 'margin:0' }, [
 			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
 				E('div', { 'class': 'blocky-metric-card-head' }, [
 					E('strong', {}, [ _('Total queries') ]),
 					''
 				]),
 				E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(overview.totalQueries) ]),
-				E('small', {}, [ _('Cumulative counter') ])
+				E('small', {}, [ _('Since Blocky started') ])
 			]),
 			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
 				E('div', { 'class': 'blocky-metric-card-head' }, [
@@ -907,7 +916,7 @@ function renderOverview(metricsText) {
 						: ''
 				]),
 				E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(overview.blockedQueries) ]),
-				E('small', {}, [ _('Matched blocking rules') ])
+				E('small', {}, [ _('Matched rules') ])
 			]),
 			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
 				E('div', { 'class': 'blocky-metric-card-head' }, [
@@ -929,7 +938,7 @@ function renderOverview(metricsText) {
 					''
 				]),
 				E('div', { 'class': 'blocky-metric-val' }, [ listedLabel ]),
-				E('small', {}, [ _('Denylist entries when exported') ])
+				E('small', {}, [ _('Denylist entries') ])
 			])
 		])
 	]);
@@ -1400,84 +1409,97 @@ function renderRealtimeMetrics(initialMetricsText) {
 	redrawAll();
 	redrawTopLists(state.lastRaw);
 
-	return E('div', { 'class': 'cbi-section blocky-chart-card' }, [
-		E('div', { 'class': 'blocky-queries-widget' }, [
-			E('div', { 'class': 'blocky-queries-widget-head' }, [
-				E('div', {}, [
-					E('h3', {}, [ _('Queries over time') ]),
-					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:0' }, [
-						_('DNS query volume and blocking activity.')
+	return E('div', {}, [
+		E('div', { 'class': 'blocky-dash-widget' }, [
+			E('div', { 'class': 'blocky-queries-widget blocky-queries-widget--embedded' }, [
+				E('div', { 'class': 'blocky-queries-widget-head' }, [
+					E('div', {}, [
+						E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Queries over time') ]),
+						E('p', { 'class': 'blocky-dash-widget-descr', 'style': 'margin:.35em 0 0' }, [
+							_('DNS query volume and blocking activity.')
+						]),
+						E('p', { 'class': 'blocky-note-soft', 'style': 'margin:.35em 0 0' }, [
+							_('Estimated rates from Prometheus counter deltas while this page stays open.')
+						])
 					]),
-					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.35em 0 0;font-size:.88em;opacity:.88' }, [
-						_('Values are Prometheus counter deltas while this page is open (estimated rates per poll).')
+					E('div', { 'class': 'blocky-time-range' }, rangeButtons)
+				]),
+				metricsBannerHost,
+				E('div', { 'class': 'blocky-chart-svg-wrap' }, [ svg ]),
+				E('div', { 'class': 'blocky-chart-legend' }, [
+					E('span', {}, [
+						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
+						_('Total')
+					]),
+					' ',
+					E('span', {}, [
+						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
+						_('Blocked')
+					]),
+					' ',
+					E('span', {}, [
+						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#43a047' }),
+						_('Cached')
 					])
 				]),
-				E('div', { 'class': 'blocky-time-range' }, rangeButtons)
+				E('p', { 'class': 'blocky-note-soft', 'style': 'margin-bottom:0;margin-top:.65em' }, [
+					_('Long windows need more samples — keep the dashboard open. Past sessions are not stored.')
+				])
+			])
+		]),
+		E('div', { 'class': 'blocky-dash-widget' }, [
+			E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Activity snapshot') ]),
+			E('p', { 'class': 'blocky-dash-widget-descr' }, [
+				_('Bar chart: summed deltas in the visible window. Below: last polling interval.')
 			]),
-			metricsBannerHost,
-			E('div', { 'class': 'blocky-chart-svg-wrap' }, [ svg ]),
-			E('div', { 'class': 'blocky-chart-legend' }, [
-				E('span', {}, [
-					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
-					_('Total')
+			vBarHost,
+			mixHost
+		]),
+		E('div', { 'class': 'blocky-dash-widget' }, [
+			E('div', { 'class': 'blocky-dash-widget-head-row' }, [
+				E('div', {}, [
+					E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Top lists') ]),
+					E('p', { 'class': 'blocky-dash-widget-descr', 'style': 'margin:.35em 0 0' }, [
+						_('Busiest clients and DNS record types (not domain names — those need query logging).')
+					])
 				]),
-				' ',
-				E('span', {}, [
-					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
-					_('Blocked')
-				]),
-				' ',
-				E('span', {}, [
-					E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#43a047' }),
-					_('Cached')
+				E('div', { 'class': 'blocky-toplist-toolbar', 'style': 'margin:0' }, [
+					E('label', {}, [
+						_('Rows'),
+						' ',
+						rowsSel
+					]),
+					E('button', {
+						'class': 'cbi-button cbi-button-action',
+						'click': ui.createHandlerFn(viewCtx, function(ev) {
+							ev.preventDefault();
+
+							return blockyApi('/lists/refresh', 'POST').then(function() {
+								notify(_('Block lists refresh requested.'));
+							}).catch(function(err) {
+								notify(err.message || String(err), 'danger');
+							});
+						})
+					}, [ _('Refresh lists') ])
 				])
 			]),
-			E('p', { 'class': 'blocky-note-soft', 'style': 'margin-bottom:0' }, [
-				_('Long ranges fill as samples accumulate while this page stays open. Historical data beyond the session is not stored in LuCI.')
-			])
-		]),
-		E('h4', {}, [ _('Bucketed totals (visible window)') ]),
-		vBarHost,
-		E('h4', { 'style': 'margin-top:1em' }, [ _('Top lists') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Rankings use Prometheus counters on Blocky (cumulative since last restart). Domain-level rankings need query logging to a database — see Blocky docs.')
-		]),
-		E('div', { 'class': 'blocky-toplist-toolbar' }, [
-			E('label', {}, [
-				_('Rows'),
-				' ',
-				rowsSel
-			]),
-			E('button', {
-				'class': 'cbi-button cbi-button-action',
-				'click': ui.createHandlerFn(viewCtx, function(ev) {
-					ev.preventDefault();
-
-					return blockyApi('/lists/refresh', 'POST').then(function() {
-						notify(_('Block lists refresh requested.'));
-					}).catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Refresh lists') ])
-		]),
-		E('div', { 'class': 'blocky-toplists-grid' }, [
-			E('div', { 'class': 'blocky-toplist-col' }, [
-				E('strong', {}, [ _('Top clients') ]),
-				E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em' }, [
-					_('Clients by query count (from blocky_query_total).')
+			E('div', { 'class': 'blocky-toplists-grid', 'style': 'margin-bottom:0' }, [
+				E('div', { 'class': 'blocky-toplist-col' }, [
+					E('strong', {}, [ _('Top clients') ]),
+					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em;font-size:.88em' }, [
+						_('By query count (blocky_query_total).')
+					]),
+					topClientsInner
 				]),
-				topClientsInner
-			]),
-			E('div', { 'class': 'blocky-toplist-col' }, [
-				E('strong', {}, [ _('Top query types') ]),
-				E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em' }, [
-					_('DNS record types (A, AAAA, …), not hostnames.')
-				]),
-				topTypesInner
+				E('div', { 'class': 'blocky-toplist-col' }, [
+					E('strong', {}, [ _('Top query types') ]),
+					E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.25em 0 .5em;font-size:.88em' }, [
+						_('A, AAAA, PTR, … — not hostnames.')
+					]),
+					topTypesInner
+				])
 			])
-		]),
-		mixHost
+		])
 	]);
 }
 
@@ -1670,23 +1692,6 @@ function renderQuery() {
 	]);
 }
 
-function renderMetrics(metrics) {
-	var text = metrics || '';
-	var lines = text.split(/\n/).filter(function(line) {
-		return line && line.charAt(0) !== '#';
-	}).slice(0, 20);
-
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Metrics') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Shows the first Prometheus samples if Blocky metrics are enabled.')
-		]),
-		E('pre', { 'style': 'white-space:pre-wrap; max-height:20em; overflow:auto' }, [
-			lines.length ? lines.join('\n') : _('No metrics returned. Enable prometheus in the Blocky configuration to use this section.')
-		])
-	]);
-}
-
 function renderQueryLogsNotice(config) {
 	var hasQueryLog = /\n?queryLog\s*:/.test(config || '');
 
@@ -1865,15 +1870,17 @@ return view.extend({
 			blockyInjectStyles(),
 			E('h2', {}, [ _('Blocky DNS') ]),
 			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Manage the local Blocky DNS proxy and ad-blocker. This LuCI-native dashboard implements the practical controls from Blocky UI projects without adding a separate web service.')
+				_('Dashboard for Blocky on your router — metrics, blocking controls, and DNS integration without a separate BlockyUI server.')
 			]),
 			renderTabs([
 				{
-					title: _('Status'),
+					title: _('Dashboard'),
 					nodes: [
-						renderOverview(metricsPayload),
-						renderStatusDashboard(status, service),
-						renderRealtimeMetrics.call(this, metricsPayload)
+						E('div', { 'class': 'blocky-dashboard' }, [
+							renderOverview(metricsPayload),
+							renderStatusDashboard(status, service),
+							renderRealtimeMetrics.call(this, metricsPayload)
+						])
 					]
 				},
 				{
@@ -1894,10 +1901,6 @@ return view.extend({
 				{
 					title: _('DNS Query'),
 					nodes: [ renderQuery() ]
-				},
-				{
-					title: _('Metrics'),
-					nodes: [ renderMetrics(metricsPayload) ]
 				},
 				{
 					title: _('Logs'),
