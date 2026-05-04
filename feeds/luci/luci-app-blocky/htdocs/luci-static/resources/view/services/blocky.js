@@ -159,6 +159,17 @@ function safeString(value) {
 	return String(value);
 }
 
+/** LuCI fs.exec_direct returns stdout as a string (cgi-exec), not { code, stdout }. */
+function normalizeExecDirectStdout(value, fallback) {
+	if (typeof value === 'string')
+		return value;
+
+	if (value != null && typeof value === 'object' && value.stdout !== undefined)
+		return safeString(value.stdout);
+
+	return fallback;
+}
+
 function blockyCliStdout(raw) {
 	if (raw === null || raw === undefined || raw === '')
 		return '';
@@ -228,10 +239,12 @@ function parseBlockyDnsPort(configYaml) {
 
 function execDnsmasqSync(argv) {
 	return fs.exec_direct('/usr/sbin/blocky-dnsmasq-sync', argv || []).then(function(res) {
-		var code = res ? Number(res.code) : 0;
+		if (typeof res === 'object' && res !== null && !Array.isArray(res)) {
+			var code = Number(res.code);
 
-		if (code)
-			throw new Error((res.stderr || res.stdout || '').trim() || _('blocky-dnsmasq-sync failed.'));
+			if (code)
+				throw new Error((res.stderr || res.stdout || '').trim() || _('blocky-dnsmasq-sync failed.'));
+		}
 
 		return res;
 	});
@@ -1572,7 +1585,7 @@ return view.extend({
 			L.resolveDefault(blockyApi('/blocking/status'), { enabled: false }),
 			L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 			L.resolveDefault(fetchText(METRICS_URL), ''),
-			L.resolveDefault(fs.exec_direct('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { stdout: '0\n' })
+			L.resolveDefault(fs.exec_direct('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), '')
 		]);
 	},
 
@@ -1582,7 +1595,7 @@ return view.extend({
 		var config = data[2];
 		var metrics = data[3];
 		var dnsFwd = data[4];
-		var dnsFwdRaw = dnsFwd && dnsFwd.stdout !== undefined ? dnsFwd.stdout : '0\n';
+		var dnsFwdRaw = normalizeExecDirectStdout(dnsFwd, '0\n');
 
 		dnsFwdRaw = blockyCliStdout(dnsFwdRaw);
 		var metricsPayload = unwrapFetchText(metrics);
