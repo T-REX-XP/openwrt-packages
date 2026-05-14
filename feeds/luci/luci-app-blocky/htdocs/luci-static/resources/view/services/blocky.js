@@ -159,12 +159,15 @@ function safeString(value) {
 	return String(value);
 }
 
-/** LuCI fs.exec_direct returns stdout as a string (cgi-exec), not { code, stdout }. */
-function normalizeExecDirectStdout(value, fallback) {
+/** Prefer fs.exec (ubus): { code, stdout, stderr }. fs.exec_direct (cgi-exec) may return raw stdout string only. */
+function execResultStdout(value, fallback) {
+	if (value === null || value === undefined)
+		return fallback;
+
 	if (typeof value === 'string')
 		return value;
 
-	if (value != null && typeof value === 'object' && value.stdout !== undefined)
+	if (typeof value === 'object' && value.stdout !== undefined)
 		return safeString(value.stdout);
 
 	return fallback;
@@ -197,9 +200,9 @@ function parseDnsForwardFlag(stdoutRaw) {
 	var text = safeString(blockyCliStdout(stdoutRaw)).trim();
 	var line = text.split(/\r?\n/).shift();
 
-	line = safeString(line).trim();
+	line = safeString(line).trim().toLowerCase();
 
-	return line === '1';
+	return line === '1' || line === 'true' || line === 'yes' || line === 'on';
 }
 
 function parseBlockyDnsPort(configYaml) {
@@ -238,13 +241,11 @@ function parseBlockyDnsPort(configYaml) {
 }
 
 function execDnsmasqSync(argv) {
-	return fs.exec_direct('/usr/sbin/blocky-dnsmasq-sync', argv || []).then(function(res) {
-		if (typeof res === 'object' && res !== null && !Array.isArray(res)) {
-			var code = Number(res.code);
+	return fs.exec('/usr/sbin/blocky-dnsmasq-sync', argv || []).then(function(res) {
+		var code = res != null ? Number(res.code) : NaN;
 
-			if (code)
-				throw new Error((res.stderr || res.stdout || '').trim() || _('blocky-dnsmasq-sync failed.'));
-		}
+		if (code)
+			throw new Error((res.stderr || res.stdout || '').trim() || _('blocky-dnsmasq-sync failed.'));
 
 		return res;
 	});
@@ -332,7 +333,14 @@ function runInit(action) {
 	if ([ 'enable', 'disable', 'start', 'stop', 'restart' ].indexOf(action) === -1)
 		return Promise.reject(new Error(_('Unsupported service action.')));
 
-	return fs.exec_direct('/etc/init.d/blocky', [ action ]);
+	return fs.exec('/etc/init.d/blocky', [ action ]).then(function(res) {
+		var code = res != null ? Number(res.code) : NaN;
+
+		if (code)
+			throw new Error((res.stderr || res.stdout || '').trim() || _('blocky init failed.'));
+
+		return res;
+	});
 }
 
 function isRunning(service) {
@@ -1585,7 +1593,7 @@ return view.extend({
 			L.resolveDefault(blockyApi('/blocking/status'), { enabled: false }),
 			L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 			L.resolveDefault(fetchText(METRICS_URL), ''),
-			L.resolveDefault(fs.exec_direct('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), '')
+			L.resolveDefault(fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { code: 0, stdout: '0\n' })
 		]);
 	},
 
@@ -1595,7 +1603,7 @@ return view.extend({
 		var config = data[2];
 		var metrics = data[3];
 		var dnsFwd = data[4];
-		var dnsFwdRaw = normalizeExecDirectStdout(dnsFwd, '0\n');
+		var dnsFwdRaw = execResultStdout(dnsFwd, '0\n');
 
 		dnsFwdRaw = blockyCliStdout(dnsFwdRaw);
 		var metricsPayload = unwrapFetchText(metrics);
