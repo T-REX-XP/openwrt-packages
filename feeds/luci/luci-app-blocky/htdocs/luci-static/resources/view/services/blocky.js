@@ -1,4 +1,4 @@
 'use strict';
 'require blocky-common';
 
-return blocky_common.createView();
+return blocky_common;

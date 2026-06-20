@@ -338,7 +338,12 @@ function fetchBlockyStats() {
 			return { ok: false, disabled: true, data: null };
 
 		try {
-			return { ok: true, disabled: false, data: parseJson(text) };
+			var data = parseJson(text);
+
+			if (!data || typeof data !== 'object' || !data.summary)
+				return { ok: false, disabled: false, data: null };
+
+			return { ok: true, disabled: false, data: data };
 		}
 		catch (err) {
 			return { ok: false, disabled: false, data: null };
@@ -394,17 +399,49 @@ function topListBarRow(label, val, maxVal, color) {
 	]);
 }
 
-var blockingCountdownPollActive = false;
+var blockingCountdownChannels = {};
+var blockingCountdownPollRegistered = false;
 
-function registerBlockingCountdownPoll(onStatus) {
-	if (blockingCountdownPollActive || typeof onStatus !== 'function')
+function registerBlockingCountdownPoll(onStatus, active, channel) {
+	if (typeof onStatus !== 'function' || !channel)
 		return;
 
-	blockingCountdownPollActive = true;
+	blockingCountdownChannels[channel] = {
+		fn: onStatus,
+		active: !!active
+	};
+
+	if (blockingCountdownPollRegistered)
+		return;
+
+	blockingCountdownPollRegistered = true;
 
 	poll.add(function() {
+		var hasActive = false;
+
+		Object.keys(blockingCountdownChannels).forEach(function(key) {
+			if (blockingCountdownChannels[key].active)
+				hasActive = true;
+		});
+
+		if (!hasActive)
+			return;
+
 		return blockyApi('/blocking/status').then(function(status) {
-			onStatus(status || { enabled: false });
+			var paused = !!(status && status.autoEnableInSec > 0);
+
+			Object.keys(blockingCountdownChannels).forEach(function(key) {
+				var entry = blockingCountdownChannels[key];
+
+				if (entry.active)
+					entry.fn(status || { enabled: false });
+			});
+
+			if (!paused) {
+				Object.keys(blockingCountdownChannels).forEach(function(key) {
+					blockingCountdownChannels[key].active = false;
+				});
+			}
 		});
 	}, 1);
 }
@@ -1198,9 +1235,7 @@ function renderStatusDashboard(status, service, onRefresh) {
 	}
 
 	paintStatus(status);
-
-	if (paused)
-		registerBlockingCountdownPoll(paintStatus);
+	registerBlockingCountdownPoll(paintStatus, paused, 'dashboard');
 
 	return E('div', { 'class': 'blocky-dash-row' }, [
 		E('div', { 'class': 'blocky-dash-card' }, [
@@ -1629,13 +1664,14 @@ function renderRealtimeMetrics(initialMetricsText) {
 			mixHost
 		]),
 		E('p', { 'class': 'cbi-section-descr', 'style': 'margin:.75em 0 0' }, [
-			_('Top clients and query-type rankings live under Status → Blocky.')
+			_('For 24h rankings use the stats widgets above. This chart tracks Prometheus counter deltas while the page stays open.')
 		])
 	]);
 }
 
 function renderBlockingControls(status, onRefresh) {
 	var refresh = onRefresh || function() {};
+	var pauseNoteHost = E('p', { 'class': 'blocky-note-soft' });
 	var pause = E('select', { 'class': 'cbi-input-select' },
 		PAUSE_PRESETS.map(function(preset) {
 			return E('option', { 'value': preset[0] }, [ preset[1] ]);
@@ -1675,11 +1711,30 @@ function renderBlockingControls(status, onRefresh) {
 		return '&groups=' + encodeURIComponent(value);
 	}
 
+	function paintPauseNote(next) {
+		if (next && next.autoEnableInSec > 0) {
+			replaceContent(pauseNoteHost, E('span', {}, [
+				blockyPill('warn', _('Paused')),
+				' ',
+				blockyStatusDetail(_('auto-enables in %s').format(formatDuration(next.autoEnableInSec)))
+			]));
+			registerBlockingCountdownPoll(paintPauseNote, true, 'controls');
+		}
+		else {
+			while (pauseNoteHost.firstChild)
+				pauseNoteHost.removeChild(pauseNoteHost.firstChild);
+			registerBlockingCountdownPoll(paintPauseNote, false, 'controls');
+		}
+	}
+
+	paintPauseNote(status);
+
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Blocking Controls') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
 			_('Controls mirror the Blocky API: enable blocking, disable it temporarily, or disable specific groups.')
 		]),
+		pauseNoteHost,
 		E('p', {}, [
 			actionButton(_('Enable blocking'), function() {
 				return blockyApi('/blocking/enable');
@@ -2021,7 +2076,26 @@ function renderQueryLogsTab(config) {
 
 function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 	var port = parseBlockyDnsPort(configYaml);
-	var enabled = parseDnsForwardFlag(dnsFwdRaw);
+	var forwardHost = E('div', { 'class': 'td left' });
+
+	function paintForward(raw) {
+		var enabled = parseDnsForwardFlag(raw);
+
+		replaceContent(forwardHost, [
+			blockyPill(enabled ? 'yes' : 'no', enabled ? _('Yes') : _('No')),
+			blockyStatusDetail(enabled
+				? _('dnsmasq uses %s').format('127.0.0.1#' + String(port))
+				: _('WAN / resolv upstream only'))
+		]);
+	}
+
+	function refreshForward() {
+		return fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]).then(function(res) {
+			paintForward(blockyCliStdout(execResultStdout(res, '0\n')));
+		});
+	}
+
+	paintForward(dnsFwdRaw);
 
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Router DNS integration') ]),
@@ -2031,22 +2105,17 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 		E('div', { 'class': 'table blocky-status-table' }, [
 			E('div', { 'class': 'tr' }, [
 				E('div', { 'class': 'td left', 'style': 'width:33%' }, [ _('Forwarding') ]),
-				E('div', { 'class': 'td left' }, [
-					blockyPill(enabled ? 'yes' : 'no', enabled ? _('Yes') : _('No')),
-					blockyStatusDetail(enabled
-						? _('dnsmasq uses %s').format('127.0.0.1#' + String(port))
-						: _('WAN / resolv upstream only'))
-				])
+				forwardHost
 			])
 		]),
 		E('p', {}, [
 			actionButton(_('Use Blocky for all LAN / Wi-Fi DNS'), function() {
 				return execDnsmasqSync([ 'enable', String(port) ]);
-			}, 'cbi-button-apply'),
+			}, 'cbi-button-apply', refreshForward),
 			' ',
 			actionButton(_('Stop forwarding (restore dnsmasq only)'), function() {
 				return execDnsmasqSync([ 'disable' ]);
-			}, 'cbi-button-negative')
+			}, 'cbi-button-negative', refreshForward)
 		]),
 		E('p', { 'class': 'cbi-section-descr' }, [
 			_('After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button.')
@@ -2192,7 +2261,8 @@ function createBlockyView(options) {
 					dashboardHost.replaceChildren(
 						renderOverview(newStats, newMetrics),
 						renderStatusDashboard(newStatus, newService, refreshPage),
-						renderStatsDashboard(newStats, refreshPage)
+						renderStatsDashboard(newStats, refreshPage),
+						renderRealtimeMetrics(newMetrics)
 					);
 
 					controlsHost.replaceChildren(
@@ -2208,6 +2278,7 @@ function createBlockyView(options) {
 			dashboardHost.appendChild(renderOverview(statsResult, metricsPayload));
 			dashboardHost.appendChild(renderStatusDashboard(status, service, refreshPage));
 			dashboardHost.appendChild(renderStatsDashboard(statsResult, refreshPage));
+			dashboardHost.appendChild(renderRealtimeMetrics(metricsPayload));
 
 			controlsHost.appendChild(renderBlockingControls(status, refreshPage));
 			controlsHost.appendChild(renderOperations(service, refreshPage));
@@ -2271,6 +2342,4 @@ function createBlockyView(options) {
 	});
 }
 
-return {
-	createView: createBlockyView
-};
+return createBlockyView();
