@@ -10,6 +10,7 @@
 				]
 			},
 			"file": {
+				"/etc/rc.button/": [ "read" ],
 				"/var/log/button-events.log": [ "read" ],
 				"/var/run/button-wps.state": [ "read" ],
 				"/var/run/button-BTN_2.state": [ "read" ],

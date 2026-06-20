@@ -1,0 +1,25 @@
+#!/bin/sh
+
+state="/var/run/button-${BUTTON}.state"
+log="/var/log/button-events.log"
+
+case "$ACTION" in
+pressed)
+	echo pressed > "$state"
+	logger -t button "USERKEY/WPS pressed button=$BUTTON seen=$SEEN"
+	for dir in /var/run/hostapd-*; do
+		[ -d "$dir" ] || continue
+		for iface in "$dir"/*; do
+			[ -S "$iface" ] || continue
+			hostapd_cli -p "$dir" -i "${iface##*/}" wps_pbc 2>/dev/null &
+		done
+	done
+	;;
+released)
+	echo released > "$state"
+	logger -t button "USERKEY/WPS released button=$BUTTON seen=$SEEN"
+	;;
+esac
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') $BUTTON $ACTION seen=${SEEN:-0}" >> "$log"
+return 0

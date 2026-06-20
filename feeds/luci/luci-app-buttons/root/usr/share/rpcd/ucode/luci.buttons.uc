@@ -67,21 +67,15 @@ function read_adc_maskrom_pressed() {
 }
 
 function parse_input_devices() {
-	let names = {};
+	let found = { wps: false, BTN_2: false };
 	try {
 		let text = readfile('/proc/bus/input/devices');
-		let blocks = split(text, '\n\n');
-		for (let i = 0; i < length(blocks); i++) {
-			let block = blocks[i];
-			let name = match(block, /Name="([^"]+)"/);
-			let handlers = match(block, /Handlers=([^\n]+)/);
-			if (!name || !handlers)
-				continue;
-			if (match(handlers, /kbd/) && (match(name[1], /USERKEY/i) || match(name[1], /maskrom/i)))
-				names[name[1]] = true;
-		}
+		if (match(text, /USERKEY/i))
+			found.wps = true;
+		if (match(text, /maskrom/i))
+			found.BTN_2 = true;
 	} catch (e) {}
-	return names;
+	return found;
 }
 
 function read_events(max) {
@@ -169,13 +163,7 @@ const methods = {
 			for (let i = 0; i < length(CM5_BUTTONS); i++) {
 				let def = CM5_BUTTONS[i];
 				let state = read_state(def.hotplug);
-				let detected = false;
-				for (let name in inputs) {
-					if (match(name, /USERKEY/i) && def.id == 'wps')
-						detected = true;
-					if (match(name, /maskrom/i) && def.id == 'BTN_2')
-						detected = true;
-				}
+				let detected = def.id == 'wps' ? inputs.wps : inputs.BTN_2;
 				if (def.id == 'BTN_2' && adc_pressed != null) {
 					if (adc_pressed)
 						state = 'pressed';

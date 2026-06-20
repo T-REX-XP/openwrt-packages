@@ -213,12 +213,11 @@ return view.extend({
 		var script = data.script || {};
 		var statusHost = E('div', { id: 'button-live-status' });
 		var eventsHost = E('div', { id: 'button-live-events' });
-		var pollRegistered = false;
 
 		renderLiveStatus(statusHost, eventsHost, data.status || {});
 
-		if (!pollRegistered) {
-			pollRegistered = true;
+		if (!this._buttonPollRegistered) {
+			this._buttonPollRegistered = true;
 			poll.add(function() {
 				return callStatus().then(function(st) {
 					renderLiveStatus(statusHost, eventsHost, st);
