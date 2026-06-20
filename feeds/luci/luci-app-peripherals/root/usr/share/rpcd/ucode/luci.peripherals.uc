@@ -254,6 +254,187 @@ function ir_board_info() {
 	};
 }
 
+function shell_quote(val) {
+	val = `${val}`;
+	let out = "'";
+	let i;
+
+	for (i = 0; i < length(val); i++) {
+		let c = substr(val, i, 1);
+
+		if (c == "'")
+			out += "'\\''";
+		else
+			out += c;
+	}
+
+	out += "'";
+	return out;
+}
+
+function file_test(flag, path) {
+	let p = popen(`test ${flag} ${shell_quote(path)} && echo yes`, 'r');
+	let ok = trim(p ? (p.read('all') || '') : '') == 'yes';
+
+	if (p)
+		p.close();
+
+	return ok;
+}
+
+function find_i2cdetect() {
+	if (file_test('-x', '/usr/sbin/i2cdetect'))
+		return '/usr/sbin/i2cdetect';
+	if (file_test('-x', '/usr/bin/i2cdetect'))
+		return '/usr/bin/i2cdetect';
+	return '';
+}
+
+function oled_board_info() {
+	return {
+		board: 'Orange Pi CM5 Base',
+		manual: 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3',
+		panel: 'SSD1306 128×32 or 128×64 I2C OLED',
+		default_bus: '/dev/i2c-1',
+		default_address: '0x3c',
+		shared_bus: 'i2c1 also hosts RTC at 0x51',
+		lan_interface: 'br-lan',
+		daemon: 'luci-app-oled userspace (/usr/bin/oled)',
+		kernel: 'CONFIG_I2C + CONFIG_I2C_CHARDEV + CONFIG_I2C_RK3X (built-in on CM5)'
+	};
+}
+
+function list_i2c_devices() {
+	let devices = [];
+	let p = popen('ls -1 /dev/i2c-[0-9]* 2>/dev/null', 'r');
+
+	if (p) {
+		let raw = trim(p.read('all') || '');
+		p.close();
+		let lines = split(raw, '\n');
+
+		for (let i = 0; i < length(lines); i++) {
+			let line = trim(lines[i]);
+
+			if (length(line))
+				push(devices, line);
+		}
+	}
+
+	if (length(devices))
+		return devices;
+
+	try {
+		const list = lsdir('/dev');
+		for (let i = 0; i < length(list); i++) {
+			const n = list[i];
+			if (match(n, /^i2c-[0-9]+$/))
+				push(devices, `/dev/${n}`);
+		}
+	} catch (e) {}
+
+	return devices;
+}
+
+function oled_config_present() {
+	return file_test('-f', '/etc/config/oled');
+}
+
+function oled_daemon_present() {
+	return file_test('-x', '/usr/bin/oled');
+}
+
+function oled_init_present() {
+	return file_test('-x', '/etc/init.d/oled');
+}
+
+function oled_uci_get(option, def) {
+	if (!oled_config_present())
+		return def;
+	let p = popen(`uci -q get oled.@oled[0].${option} 2>/dev/null`, 'r');
+	let v = trim(p ? (p.read('all') || '') : '');
+	if (p)
+		p.close();
+	return length(v) ? v : def;
+}
+
+function oled_uci_set(option, value) {
+	if (!match(option, /^[a-z]+$/))
+		return false;
+
+	let val = `${value}`;
+
+	if (option == 'path') {
+		if (!match(val, /^\/dev\/i2c-[0-9]+$/))
+			return false;
+	} else if (option == 'ipifname' || option == 'netsource') {
+		if (!match(val, /^[A-Za-z0-9_.-]+$/))
+			return false;
+	} else if (option == 'text') {
+		if (length(val) > 64)
+			val = substr(val, 0, 64);
+		if (!match(val, /^[ -~]*$/))
+			return false;
+	} else if (option == 'time' || option == 'from' || option == 'to') {
+		if (!match(val, /^[0-9]+$/))
+			return false;
+	} else if (!match(val, /^[01]$/)) {
+		return false;
+	}
+
+	let p = popen(`uci set oled.@oled[0].${option}=${shell_quote(val)} 2>&1`, 'r');
+	if (p) {
+		p.read('all');
+		p.close();
+	}
+	return true;
+}
+
+function oled_uci_commit() {
+	let p = popen('uci commit oled 2>&1', 'r');
+	if (p) {
+		p.read('all');
+		p.close();
+	}
+}
+
+function oled_running() {
+	let p = popen('pgrep -f /usr/bin/oled >/dev/null 2>&1; echo $?', 'r');
+	let code = trim(p ? (p.read('all') || '1') : '1');
+	if (p)
+		p.close();
+	return code == '0';
+}
+
+function oled_get_config() {
+	return {
+		installed: oled_daemon_present(),
+		config_present: oled_config_present(),
+		running: oled_running(),
+		showmenu: oled_uci_get('showmenu', '0'),
+		enable: oled_uci_get('enable', '0'),
+		path: oled_uci_get('path', '/dev/i2c-1'),
+		rotate: oled_uci_get('rotate', '0'),
+		date: oled_uci_get('date', '0'),
+		lanip: oled_uci_get('lanip', '0'),
+		ipifname: oled_uci_get('ipifname', 'br-lan'),
+		cputemp: oled_uci_get('cputemp', '0'),
+		cpufreq: oled_uci_get('cpufreq', '0'),
+		netspeed: oled_uci_get('netspeed', '0'),
+		netsource: oled_uci_get('netsource', 'br-lan'),
+		time: oled_uci_get('time', '60'),
+		scroll: oled_uci_get('scroll', '0'),
+		text: oled_uci_get('text', ''),
+		i2c_devices: list_i2c_devices(),
+		board_info: oled_board_info()
+	};
+}
+
+const OLED_SET_OPTS = [
+	'enable', 'path', 'rotate', 'date', 'lanip', 'ipifname', 'cputemp', 'cpufreq',
+	'netspeed', 'netsource', 'time', 'scroll', 'text', 'showmenu'
+];
+
 function fan_diag(base, procset) {
 	const mt = module_tree_info();
 	const lib_path = mt.path;
@@ -447,7 +628,11 @@ function debug_report() {
 	append_block(lines, 'IR maps', run_cmd(`ls -la ${RC_KEYMAPS} 2>/dev/null; echo '--- rc_maps.cfg (first 80 lines)'; sed -n '1,80p' ${RC_MAPS} 2>/dev/null`));
 	append_block(lines, 'PWM/counter capture devices', run_cmd("ls -la /sys/bus/counter/devices 2>/dev/null; for d in /sys/bus/counter/devices/counter*; do [ -e \"$d\" ] || continue; echo \"--- $d\"; find \"$d\" -maxdepth 2 -type f -print 2>/dev/null | while read f; do printf '%s=' \"$f\"; cat \"$f\" 2>/dev/null; done; done"));
 
-	append_block(lines, 'Relevant kernel log', run_cmd("dmesg | grep -Ei 'pwm|fan|thermal|gpio|button|keys|ir|rc-core|r8125|eth|gmac' | tail -n 100"));
+	append_block(lines, 'I2C buses', run_cmd('ls -l /dev/i2c-* 2>/dev/null || echo "no /dev/i2c-*"'));
+	append_block(lines, 'I2C scan (detected buses)', run_cmd('for b in /dev/i2c-*; do [ -c "$b" ] || continue; n=${b#/dev/i2c-}; echo "--- i2cdetect -y $n"; i2cdetect -y "$n" 2>&1 || true; done'));
+	append_block(lines, 'OLED UCI and service', run_cmd('uci -q show oled 2>/dev/null; pgrep -af "/usr/bin/oled" 2>/dev/null || true; /etc/init.d/oled status 2>&1 || true'));
+
+	append_block(lines, 'Relevant kernel log', run_cmd("dmesg | grep -Ei 'pwm|fan|thermal|gpio|button|keys|ir|rc-core|r8125|eth|gmac|i2c|ssd1306|oled' | tail -n 100"));
 	append_block(lines, 'Relevant system log', run_cmd("logread 2>/dev/null | grep -Ei 'button|gpio|fan|pwm|thermal|ir|rc-core|peripheral' | tail -n 100 || true"));
 
 	return limit_text(join('\n', lines), MAX_DEBUG_REPORT);
@@ -648,6 +833,90 @@ const methods = {
 			if (res.error)
 				return res;
 			return { ok: true, pwm: pwmv, mode, path: base || '' };
+		}
+	},
+
+	oledGet: {
+		call: function() {
+			return oled_get_config();
+		}
+	},
+
+	oledSet: {
+		args: { config: 'config' },
+		call: function(req) {
+			if (!oled_config_present())
+				return { error: 'no_config', message: 'Install luci-app-oled first.' };
+			let cfg = req.args?.config;
+			if (type(cfg) != 'object')
+				return { error: 'invalid_config' };
+			let applied = 0;
+
+			for (let i = 0; i < length(OLED_SET_OPTS); i++) {
+				let key = OLED_SET_OPTS[i];
+
+				if (cfg[key] == null)
+					continue;
+
+				if (oled_uci_set(key, `${cfg[key]}`))
+					applied++;
+			}
+			if (!applied)
+				return { error: 'no_valid_options' };
+			oled_uci_commit();
+			if (oled_init_present()) {
+				if (oled_uci_get('enable', '0') == '1')
+					run_cmd('/etc/init.d/oled enable');
+				else
+					run_cmd('/etc/init.d/oled disable');
+			}
+			return { ok: true, config: oled_get_config() };
+		}
+	},
+
+	oledDetect: {
+		args: { bus: 'bus' },
+		call: function(req) {
+			let bus = trim(`${req.args?.bus || ''}`);
+			if (!match(bus, /^[0-9]+$/))
+				return { error: 'invalid_bus' };
+			let dev = `/dev/i2c-${bus}`;
+			let devices = list_i2c_devices();
+			let found = false;
+
+			for (let i = 0; i < length(devices); i++) {
+				if (devices[i] == dev)
+					found = true;
+			}
+
+			if (!found && !file_test('-c', dev))
+				return { error: 'no_device', path: dev };
+			let i2cdetect = find_i2cdetect();
+			if (!length(i2cdetect))
+				return { error: 'missing_i2cdetect', message: 'Install i2c-tools.' };
+			return {
+				ok: true,
+				path: dev,
+				output: run_cmd(`${i2cdetect} -y ${bus}`)
+			};
+		}
+	},
+
+	oledService: {
+		args: { action: 'action' },
+		call: function(req) {
+			let action = req.args?.action;
+			if (type(action) != 'string' || !match(action, /^(start|stop|restart|enable|disable|status)$/))
+				return { error: 'invalid_action' };
+			if (!oled_init_present())
+				return { error: 'no_init', message: 'Install luci-app-oled first.' };
+			let output = run_cmd(`/etc/init.d/oled ${action}`);
+			return {
+				ok: true,
+				action,
+				running: oled_running(),
+				output
+			};
 		}
 	}
 };

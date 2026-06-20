@@ -32,7 +32,7 @@ On a stock CM5 image you usually **do not** need `kmod-i2c-core` — bus driver 
 | **Bring-up** | `i2c-tools` | packages feed | No |
 | **Mainline DRM** | *(none today)* | `CONFIG_DRM_SSD130X` + DT in `config-6.12` | No kmod until `=m` |
 | **Dev4Embedded** | custom `kmod-ssd1306` | Out-of-tree | **Avoid** |
-| **Peripherals UX** | `luci-app-peripherals` | [feeds/luci/luci-app-peripherals](../feeds/luci/luci-app-peripherals/) | **Yes** (OLED not yet) |
+| **Peripherals UX** | `luci-app-peripherals` | [feeds/luci/luci-app-peripherals](../feeds/luci/luci-app-peripherals/) | **Yes** (OLED tab + rpcd) |
 
 **luci-app-oled `LUCI_DEPENDS`:** `+i2c-tools +coreutils-nohup +libuci` — userspace I2C daemon, not a kernel module.
 
@@ -107,15 +107,18 @@ Enable matching **`CONFIG_DRM_*` / SSD130x** options in `target/linux/rockchip/a
 
 References: [Using SSD1306 on Fedora (ssd130x DRM)](https://blog.dowhile0.org/2022/08/18/using-an-i2c-ssd1306-oled-on-fedora-with-a-raspberry-pi/), [Raspberry Pi kernel discussion on ssd1306 drivers](https://github.com/raspberrypi/linux/issues/7012).
 
-### 3. Extend luci-app-peripherals (CM5-specific UX)
+### 3. Extend luci-app-peripherals (CM5-specific UX) — **implemented**
 
-The CM5 image already ships **`luci-app-peripherals`** (**System → Peripherals**) with **`luci.peripherals`** rpcd backend (fan, IR, diagnostics — see `immortal_opi_cm5/docs/FEATURES_AND_DEBUG.md`).
+The CM5 image ships **`luci-app-peripherals`** (**System → Peripherals**) with **`luci.peripherals`** rpcd backend (fan, IR, diagnostics).
 
-A natural integration path:
+**OLED integration (2026-06):**
 
-- Add an **OLED** section: UCI, **`rpcd`** methods, init/procd script
-- Reuse or fork **luci-app-oled** daemon logic (I2C userspace) rather than Dev4Embedded
-- Keeps hardware controls in one LuCI menu
+- **OLED display** tab: CM5 wiring reference, I2C bus scan (`i2cdetect`), UCI toggles for common fields, service start/stop
+- **rpcd** methods: `oledGet`, `oledSet`, `oledDetect`, `oledService`
+- Reuses **luci-app-oled** daemon (`/usr/bin/oled`) — no Dev4Embedded kernel module
+- Full screensaver options remain under **Services → OLED** (when `showmenu=1`)
+
+**Long-term:** mainline **DRM `ssd130x`** + device-tree node (see §2 below).
 
 ### 4. Python stacks (experimental / heavier)
 
@@ -160,7 +163,7 @@ Confirm wiring against the **CM5 Base carrier schematic** (which header pins map
 | **Dev4Embedded/ssd1306** | No | High (custom kmod) | Low | Poor |
 | **luci-app-oled** | Yes | Medium (port config/DT) | Good | Good |
 | **Mainline DT + fb/daemon** | Via custom LuCI | Medium | **Best** | Good |
-| **Extend luci-app-peripherals** | Yes | Medium–high | Good (fits existing tree) | **Best UX fit** |
+| **Extend luci-app-peripherals** | Yes | Medium | Good (fits existing tree) | **Best UX fit** |
 | **Python OLED tools** | Optional | Low (hack) / high (product) | Fair | OK |
 
 ---
@@ -168,8 +171,8 @@ Confirm wiring against the **CM5 Base carrier schematic** (which header pins map
 ## Recommended next steps
 
 1. **Do not** adopt Dev4Embedded as the default unless a **`/dev/ssd1306` char device** is an explicit goal.
-2. **Short path:** **`luci-app-oled`** is vendored in [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/). CM5 image adds **`i2c-tools`**, **`coreutils-nohup`**, **`luci-app-oled`** via **`DEVICE_PACKAGES`**; first boot sets **`/dev/i2c-1`** and **`br-lan`** in **`/etc/config/oled`**.
-3. **Long-term:** Add an **SSD1306 DT node** on the wired I2C bus, enable **mainline `ssd130x`**, then use fbcon or a small daemon; optionally expose settings in **Peripherals**.
+2. **Short path:** **`luci-app-oled`** is vendored in [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/). CM5 image adds **`i2c-tools`**, **`coreutils-nohup`**, **`luci-app-oled`** via **`DEVICE_PACKAGES`**; first boot sets **`/dev/i2c-1`** and **`br-lan`** in **`/etc/config/oled`**. **System → Peripherals → OLED display** provides I2C scan, UCI, and service control.
+3. **Long-term:** Add an **SSD1306 DT node** on the wired I2C bus, enable **mainline `ssd130x`**, then use fbcon or a small daemon. Peripherals OLED tab can remain the UCI/service entry point.
 4. **Bring-up checklist:** Install **`i2c-tools`**, run **`i2cdetect`**, verify **`dmesg`** after adding DT or starting the OLED daemon.
 
 ---

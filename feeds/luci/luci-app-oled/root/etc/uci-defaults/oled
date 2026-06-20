@@ -25,6 +25,11 @@ xunlong,orangepi-cm5-base)
 	;;
 esac
 
+if [ "$(uci -q get oled.@oled[0].enable)" = "1" ]; then
+	/etc/init.d/oled enable
+	/etc/init.d/oled start
+fi
+
 uci -q batch <<-EOF >/dev/null
 	delete ucitrack.@oled[-1]
 	add ucitrack oled
