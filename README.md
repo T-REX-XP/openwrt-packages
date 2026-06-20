@@ -104,3 +104,4 @@ PR / push CI builds **unsigned** packages for compile verification only.
 - [OpenWrt feeds](https://openwrt.org/docs/guide-developer/feeds)
 - [CI plan](docs/ci-github-actions-plan.md)
 - [CI/CD optimization report](docs/ci-github-actions-optimization.md)
+- [luci-app-blocky feature plan](docs/luci-app-blocky-feature-plan.md)
