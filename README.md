@@ -14,6 +14,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, diagnostics |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — GPIO keys UI |
+| `feeds/luci/luci-app-oled` | **luci-app-oled** — SSD1306 I2C OLED status (CM5: `/dev/i2c-1`, `br-lan`) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
@@ -118,3 +119,4 @@ PR / push CI builds **unsigned** packages for compile verification only.
 - [CI plan](docs/ci-github-actions-plan.md)
 - [CI/CD optimization report](docs/ci-github-actions-optimization.md)
 - [luci-app-blocky feature plan](docs/luci-app-blocky-feature-plan.md)
+- [SSD1306 OLED research](docs/ssd1306-oled-openwrt-research.md)

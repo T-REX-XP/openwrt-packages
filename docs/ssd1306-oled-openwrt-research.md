@@ -1,10 +1,50 @@
 # SSD1306 OLED on OpenWrt / ImmortalWrt — Research Report
 
-*Saved for internal planning. Last updated: 2026-05-14.*
+*Last updated: 2026-06-20.*
 
 ## Summary
 
 Small **SSD1306** I2C OLED panels can be supported on OpenWrt/ImmortalWrt (including **Orange Pi CM5 Base**), but **[Dev4Embedded/ssd1306](https://github.com/Dev4Embedded/ssd1306) is not the best default choice**. Prefer **mainline kernel drivers** or community packages such as **[luci-app-oled](https://github.com/NateLol/luci-app-oled)**, or extend the existing **`luci-app-peripherals`** stack on the CM5 image.
+
+## Verified packages (ImmortalWrt 25.12 / CM5)
+
+Cross-checked against **ImmortalWrt `config-6.12`**, **OpenWrt `packages` feed**, and **[NateLol/luci-app-oled](https://github.com/NateLol/luci-app-oled)** (`master`).
+
+### CM5 kernel (built-in — not separate kmods)
+
+| Kconfig | Status | Effect |
+|---------|--------|--------|
+| `CONFIG_I2C=y` | **y** | I2C core in kernel image |
+| `CONFIG_I2C_CHARDEV=y` | **y** | `/dev/i2c-*` char devices |
+| `CONFIG_I2C_RK3X=y` | **y** | Rockchip I2C (i2c0/1/2 in CM5 DTS) |
+| `CONFIG_DRM*` / SSD130x | **absent** | No mainline OLED framebuffer yet |
+
+On a stock CM5 image you usually **do not** need `kmod-i2c-core` — bus driver and `i2c-dev` are already in the kernel. **luci-app-oled** still mentions `kmod-i2c-*` for routers where I2C is modular or disabled ([issue #10](https://github.com/NateLol/luci-app-oled/issues/10)).
+
+### Packages by approach
+
+| Approach | Install on router | Feed / source | In `openwrt-packages`? |
+|----------|-------------------|---------------|-------------------------|
+| **luci-app-oled** | `luci-app-oled` | [feeds/luci/luci-app-oled](../feeds/luci/luci-app-oled/) | **Yes** |
+| | `i2c-tools` | [packages/utils/i2c-tools](https://github.com/openwrt/packages/tree/master/utils/i2c-tools) | No (standard feed) |
+| | `coreutils-nohup` | [packages/utils/coreutils](https://github.com/openwrt/packages/tree/master/utils/coreutils) | No |
+| | `libuci` | base | — |
+| **Bring-up** | `i2c-tools` | packages feed | No |
+| **Mainline DRM** | *(none today)* | `CONFIG_DRM_SSD130X` + DT in `config-6.12` | No kmod until `=m` |
+| **Dev4Embedded** | custom `kmod-ssd1306` | Out-of-tree | **Avoid** |
+| **Peripherals UX** | `luci-app-peripherals` | [feeds/luci/luci-app-peripherals](../feeds/luci/luci-app-peripherals/) | **Yes** (OLED not yet) |
+
+**luci-app-oled `LUCI_DEPENDS`:** `+i2c-tools +coreutils-nohup +libuci` — userspace I2C daemon, not a kernel module.
+
+### CM5 bring-up install (short path)
+
+```sh
+apk add i2c-tools coreutils-nohup   # if not on image
+apk add luci-app-oled               # after vendoring into feed
+i2cdetect -y 1                      # expect 0x3c on i2c1 (adjust N)
+# Configure /etc/config/oled: i2cDevPath (/dev/i2c-1), br-lan, 128×32/64
+/etc/init.d/oled enable && /etc/init.d/oled start
+```
 
 ---
 
@@ -37,7 +77,9 @@ Best match for **“OpenWrt web UI + small OLED status display”**:
 - LuCI under **Services → OLED**
 - Shows time, LAN IP, CPU temp/freq, link speed, screensavers, optional night auto-off
 - Includes a **C userspace daemon** (`src/`) that talks **I2C directly** (not the Dev4Embedded kernel module)
-- Depends on **`kmod-i2c-*`** (I2C core + bus driver)
+- Depends on **`i2c-tools`**, **`coreutils-nohup`**, **`libuci`** (see Makefile); **not** a kernel module
+- Kernel must expose **`/dev/i2c-N`** (`CONFIG_I2C` + `CONFIG_I2C_CHARDEV` + bus driver — **already on CM5**)
+- On modular-I2C targets, also install **`kmod-i2c-core`** (and platform bus kmod if applicable)
 - Tested on NanoPi R2S, Hinlink H69K, Raspberry Pi CM4 (CM4 may need DT/bus tweaks — [issue #10](https://github.com/NateLol/luci-app-oled/issues/10))
 
 Example daemon config keys (from upstream `linux/ssd1306.cfg`): `i2cDevPath`, rotation, display toggles, interface names (`eth0` vs `br-lan`).
@@ -99,7 +141,7 @@ Confirm wiring against the **CM5 Base carrier schematic** (which header pins map
 | Layer | Requirement |
 |--------|-------------|
 | **Hardware** | SSD1306 module on **3.3 V I2C** (common address **`0x3c`** or **`0x3d`**) |
-| **Kernel** | `kmod-i2c-core`, Rockchip I2C (`CONFIG_I2C_RK3X` — present on CM5 config) |
+| **Kernel** | Built-in on CM5: `CONFIG_I2C`, `CONFIG_I2C_CHARDEV`, `CONFIG_I2C_RK3X`. Else: **`kmod-i2c-core`** (+ platform bus kmod if modular) |
 | **Device tree / config** | OLED DT node **or** userspace config with correct **`/dev/i2c-N`** |
 | **Bring-up** | `i2c-tools` → `i2cdetect -y N` should show **`3c`** (or your address) |
 | **LuCI (optional)** | **luci-app-oled** or **Peripherals** extension |
@@ -126,7 +168,7 @@ Confirm wiring against the **CM5 Base carrier schematic** (which header pins map
 ## Recommended next steps
 
 1. **Do not** adopt Dev4Embedded as the default unless a **`/dev/ssd1306` char device** is an explicit goal.
-2. **Short path:** Vendor **luci-app-oled** into `openwrt-packages` or `immortalwrt`; configure **`/etc/config/oled`** for CM5 (I2C bus, `br-lan`, 128×32/64); add **`kmod-i2c-*`** and the app to **`DEVICE_PACKAGES`** if it should ship in the image.
+2. **Short path:** **`luci-app-oled`** is vendored in [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/). CM5 image adds **`i2c-tools`**, **`coreutils-nohup`**, **`luci-app-oled`** via **`DEVICE_PACKAGES`**; first boot sets **`/dev/i2c-1`** and **`br-lan`** in **`/etc/config/oled`**.
 3. **Long-term:** Add an **SSD1306 DT node** on the wired I2C bus, enable **mainline `ssd130x`**, then use fbcon or a small daemon; optionally expose settings in **Peripherals**.
 4. **Bring-up checklist:** Install **`i2c-tools`**, run **`i2cdetect`**, verify **`dmesg`** after adding DT or starting the OLED daemon.
 

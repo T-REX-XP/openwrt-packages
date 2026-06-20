@@ -1,0 +1,138 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-oled\n"
+"Language: uk\n"
+"Language-Team: Ukrainian\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid ""
+"A LuCI app that helps you config your oled display (SSD1306, 0.91', 128X32) "
+"with screensavers! <br /> <br /> Any issues, please go to:"
+msgstr ""
+"LuCI-додаток для налаштування OLED-дисплея (SSD1306, 0.91', 128×32) із "
+"заставками! <br /> <br /> З проблемами звертайтеся до:"
+
+msgid ""
+"A LuCI app that helps you config your oled display (SSD1306, 0.91', 128X32) "
+"with screensavers! <br /> <br /> Any issues, please go to: "
+msgstr ""
+"LuCI-додаток для налаштування OLED-дисплея (SSD1306, 0.91', 128×32) із "
+"заставками! <br /> <br /> З проблемами звертайтеся до: "
+
+msgid "CPU frequency"
+msgstr "Частота CPU"
+
+msgid "CPU temperature"
+msgstr "Температура CPU"
+
+msgid "Scroll Text"
+msgstr "Прокрутка тексту"
+
+msgid "Enable Auto switch"
+msgstr "Автоматичне вимкнення за розкладом"
+
+msgid "From"
+msgstr "Початок"
+
+msgid "To"
+msgstr "Кінець"
+
+msgid "Text you want to scroll"
+msgstr "Текст для прокрутки"
+
+msgid "which eth to monitor"
+msgstr "Мережевий інтерфейс"
+
+msgid "Collecting data..."
+msgstr "Збір даних..."
+
+msgid "Date"
+msgstr "Дата"
+
+msgid "Display miniature bitmap"
+msgstr "Мініатюрний bitmap"
+
+msgid "Display interval(s)"
+msgstr "Інтервал оновлення (с)"
+
+msgid "Screensaver will activate in set seconds"
+msgstr "Заставка активується через заданий інтервал"
+
+msgid "Draw Many Lines"
+msgstr "Малювати лінії"
+
+msgid "Draw Multiple Circles"
+msgstr "Малювати кола"
+
+msgid "Draw Multiple Rectangles"
+msgstr "Малювати заповнені прямокутники"
+
+msgid "Draw Rectangles"
+msgstr "Малювати прямокутники"
+
+msgid "Draw Triangles"
+msgstr "Малювати трикутники"
+
+msgid "Draw a bitmap and animate"
+msgstr "Анімувати bitmap"
+
+msgid "Draw a bitmap and animate movement"
+msgstr "Анімувати рух bitmap"
+
+msgid "Draw a white circle, 10 pixel radius"
+msgstr "Біле коло, радіус 10 px"
+
+msgid "Enable"
+msgstr "Увімкнути"
+
+msgid "Fill Triangles"
+msgstr "Заповнити трикутники"
+
+msgid "Fill the Round Rectangles"
+msgstr "Заповнити заокруглені прямокутники"
+
+msgid "Format YYYY-MM-DD HH:MM:SS"
+msgstr "Формат РРРР-ММ-ДД ГГ:ХХ:СС"
+
+msgid "I2C PATH"
+msgstr "Шлях I2C"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "Info Display"
+msgstr "Інформація на дисплеї"
+
+msgid "Invert Display Normalize it"
+msgstr "Інвертувати дисплей"
+
+msgid "LAN IP address"
+msgstr "IP-адреса LAN"
+
+msgid "NOT RUNNING"
+msgstr "НЕ ПРАЦЮЄ"
+
+msgid "Network speed"
+msgstr "Швидкість мережі"
+
+msgid "1Mbps(m/s)=1,000Kbps(k/s)=1,000,000bps(b/s)"
+msgstr "1 Мбіт/с = 1 000 Кбіт/с = 1 000 000 біт/с"
+
+msgid "OLED"
+msgstr "OLED"
+
+msgid "RUNNING"
+msgstr "ПРАЦЮЄ"
+
+msgid "Setting"
+msgstr "Налаштування"
+
+msgid "screensaver"
+msgstr "Заставка"
+
+msgid "180 degree rotation"
+msgstr "Поворот на 180°"
