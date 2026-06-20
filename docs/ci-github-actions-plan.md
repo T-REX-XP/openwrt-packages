@@ -6,7 +6,7 @@
 
 Automate **compile → test → publish** of this custom feed so users can install **`blocky`**, **`luci-app-*`**, etc. without cloning the repo or using `--custom-feed` on every ImmortalWrt build.
 
-Primary target: **ImmortalWrt 25.12** on **rockchip / armv8 / aarch64_generic** (Orange Pi CM5 Base). Secondary: generic **`aarch64_generic`** / **`x86_64`**.
+Primary target: **ImmortalWrt 25.12** on **Orange Pi CM5 Base** (`rockchip/armv8` → **`aarch64_generic`** packages only).
 
 ---
 

@@ -31,8 +31,8 @@ After optimization:
 ```text
 .github/workflows/
   build-packages.yml   ← reusable: SDK build + optional artifacts
-  ci.yml               ← PR/push: 1 arch (+ optional x86 via dispatch)
-  release.yml          ← tag v*: 4 arches → Release + Pages
+  ci.yml               ← PR/push: CM5 / aarch64_generic only
+  release.yml          ← tag v*: CM5 only → Release + Pages
   dependabot.yml       ← weekly action updates
 ```
 
@@ -44,12 +44,9 @@ flowchart LR
   end
 
   subgraph rel [Release tag v*]
-    T[tag push] --> M1[aarch64_generic]
-    T --> M2[cortex-a53]
-    T --> M3[cortex-a72]
-    T --> M4[x86_64]
-    M1 & M2 & M3 & M4 --> GR[GitHub Release]
-    M1 & M2 & M3 & M4 --> PG[GitHub Pages]
+    T[tag push] --> CM5[aarch64_generic / CM5]
+    CM5 --> GR[GitHub Release]
+    CM5 --> PG[GitHub Pages]
   end
 ```
 
@@ -73,7 +70,7 @@ The SDK action cache key is effectively:
 scope = immortalwrt/sdk-<ARCH>
 ```
 
-Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`, `immortalwrt/sdk-x86_64-25.12-SNAPSHOT`.
+Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`.
 
 **First run** for an architecture: slow (pull/build SDK image). **Subsequent runs** on the same arch: significantly faster layer reuse.
 
@@ -90,7 +87,7 @@ Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`, `immortalwrt/sdk-x86
 
 1. **Fork/patch gh-action-sdk** to bind-mount `dl/` and `ccache` to `/artifacts/.cache/` and add `actions/cache` on that directory keyed by `ARCH` + hash of `feeds/**/Makefile`.
 2. **Self-hosted runner** with persistent SDK trees (heavy ops).
-3. **Reduce matrix** further — drop `cortex-a53/a72` if no users need them (CM5 uses `aarch64_generic` from `rockchip-armv8` SDK).
+3. **Single-arch feed** — CM5 / `aarch64_generic` only (done).
 
 ---
 
@@ -111,8 +108,7 @@ Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`, `immortalwrt/sdk-x86
 
 | Change | Effect |
 |--------|--------|
-| Default CI = **aarch64_generic-25.12-SNAPSHOT** | CM5-compatible; no `rockchip-armv8-25.12-SNAPSHOT` on Docker Hub yet |
-| `workflow_dispatch` → `include_x86` | Optional second arch when needed |
+| CM5-only CI and release | One SDK job per workflow run |
 | Explicit **`PACKAGES`** list | Builds only feed packages, not accidental extras |
 
 ### Tier 3 — leaner release
@@ -137,12 +133,9 @@ ImmortalWrt publishes **`25.12-SNAPSHOT`** tags on Docker Hub for the **25.12.0*
 
 | Role | `ARCH` env | Notes |
 |------|------------|-------|
-| CM5 / RK3588 / generic arm64 | `aarch64_generic-25.12-SNAPSHOT` | Output path `aarch64_generic/` |
-| Pi / cortex-a53 | `aarch64_cortex-a53-25.12-SNAPSHOT` | |
-| cortex-a72 SBCs | `aarch64_cortex-a72-25.12-SNAPSHOT` | |
-| x86 sanity / VM | `x86_64-25.12-SNAPSHOT` | |
+| Orange Pi CM5 Base (RK3588) | `aarch64_generic-25.12-SNAPSHOT` | ImmortalWrt `rockchip/armv8` → `aarch64_generic` packages |
 
-`rockchip-armv8-25.12-SNAPSHOT` is **not** on Docker Hub as of 2026-06; use `aarch64_generic-25.12-SNAPSHOT` for CM5 feed builds (packages install as `aarch64_generic` on the device).
+CI and release build **this arch only**. `rockchip-armv8-25.12-SNAPSHOT` is not published on Docker Hub; `aarch64_generic-25.12-SNAPSHOT` matches CM5 install paths on the device.
 
 Verify tags: [immortalwrt/sdk tags](https://hub.docker.com/r/immortalwrt/sdk/tags?name=25.12-SNAPSHOT).
 
@@ -168,9 +161,9 @@ CI and PR builds remain **unsigned** (no secrets required).
 
 **Settings → Pages → Build and deployment → GitHub Actions**.
 
-### Manual CI with x86
+### Manual CI
 
-**Actions → CI → Run workflow** → enable **Also build x86_64**.
+**Actions → CI → Run workflow** — builds CM5 / `aarch64_generic` only.
 
 ### Updating the pinned SDK action
 
@@ -190,7 +183,7 @@ Dependabot will propose updates to `actions/checkout`, `upload-artifact`, etc.; 
 |------|----------|
 | PR + merge double CI | Accepted; `concurrency` limits waste on same branch |
 | SNAPSHOT SDK drift | Accepted; ImmortalWrt does not ship pinned `-25.12.0` Docker tags |
-| 4-arch release matrix | Kept for feed consumers; highest minute cost |
+| 4-arch release matrix | **CM5 only** (`aarch64_generic-25.12-SNAPSHOT`) |
 | No host-side Go/`dl/` cache | Not feasible without SDK action changes |
 
 ---

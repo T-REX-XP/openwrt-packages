@@ -63,7 +63,7 @@ See also `feeds.conf.snippet`.
 
 ## Option D — Install from published feed
 
-GitHub Actions builds this feed for **ImmortalWrt 25.12** (`aarch64_generic`, `x86_64`, and more on tagged releases). SDK images use the **`25.12-SNAPSHOT`** tags on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=25.12-SNAPSHOT) (aligned with release **25.12.0**; pinned `-25.12.0` image tags are not published).
+GitHub Actions builds this feed **only for Orange Pi CM5 Base** (ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** packages). SDK image: **`aarch64_generic-25.12-SNAPSHOT`** on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=aarch64_generic-25.12-SNAPSHOT) (aligned with release **25.12.0**).
 
 ### GitHub Pages (online feed)
 
@@ -79,18 +79,15 @@ apk update
 apk add blocky luci-app-blocky
 ```
 
-Architecture paths under the Pages site:
+Feed path on GitHub Pages:
 
-| Device class | Feed path |
-|--------------|-----------|
-| RK3588 / CM5, generic arm64 | `immortalwrt-25.12/aarch64_generic/` |
-| Pi 4 / cortex-a53 | `immortalwrt-25.12/aarch64_cortex-a53/` |
-| cortex-a72 SBCs | `immortalwrt-25.12/aarch64_cortex-a72/` |
-| x86_64 VM / PC | `immortalwrt-25.12/x86_64/` |
+| Device | Feed path |
+|--------|-----------|
+| Orange Pi CM5 Base (RK3588) | `immortalwrt-25.12/aarch64_generic/` |
 
 ### GitHub Releases (offline / air-gapped)
 
-Push a version tag (`v2026.05.14`) to trigger a release build. Download the tarball for your architecture from [Releases](https://github.com/T-REX-XP/openwrt-packages/releases) and extract the `.apk` files locally, or verify with the attached `SHA256SUMS`.
+Push a version tag (`v2026.05.14`) to trigger a release build. Download **`openwrt_packages_aarch64_generic-immortalwrt-25.12-SNAPSHOT.tar.gz`** from [Releases](https://github.com/T-REX-XP/openwrt-packages/releases) and extract the `.apk` files locally, or verify with the attached `SHA256SUMS`.
 
 ### CI secrets (maintainers)
 

@@ -57,7 +57,7 @@ env:
 
 jobs:
   build:
-    name: ${{ inputs.pkg_arch }}
+    name: CM5 / ${{ inputs.pkg_arch }}
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:

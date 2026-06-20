@@ -12,11 +12,6 @@ on:
       - "feeds/**"
       - ".github/**"
   workflow_dispatch:
-  # inputs:
-  #   include_x86:
-  #     description: Also build x86_64 (extra minutes)
-  #     type: boolean
-  #     default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,8 +22,8 @@ permissions:
   actions: write
 
 jobs:
-  build-aarch64_generic:
-    name: CM5 / aarch64_generic
+  build-cm5:
+    name: Orange Pi CM5 (aarch64_generic)
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT
@@ -36,18 +31,5 @@ jobs:
       fetch_depth: 1
       timeout_minutes: 90
       upload_packages: true
-      artifact_name: packages-aarch64_generic-immortalwrt-25.12-SNAPSHOT
+      artifact_name: packages-cm5-aarch64_generic-immortalwrt-25.12-SNAPSHOT
       artifact_retention_days: 7
-
-  # build-x86:
-  #   name: x86_64 sanity check
-  #   if: github.event_name == 'workflow_dispatch' && inputs.include_x86
-  #   uses: ./.github/workflows/build-packages.yml
-  #   with:
-  #     arch: x86_64-25.12-SNAPSHOT
-  #     pkg_arch: x86_64
-  #     fetch_depth: 1
-  #     timeout_minutes: 90
-  #     upload_packages: true
-  #     artifact_name: packages-x86_64-immortalwrt-25.12-SNAPSHOT
-  #     artifact_retention_days: 7
