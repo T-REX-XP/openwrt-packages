@@ -16,6 +16,7 @@ env:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build-aarch64_generic:
@@ -73,6 +74,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
+      actions: read
 
     steps:
       - name: Download release tarballs
@@ -108,6 +110,7 @@ jobs:
       contents: read
       pages: write
       id-token: write
+      actions: read
 
     environment:
       name: github-pages
