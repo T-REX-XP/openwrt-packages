@@ -9,16 +9,5 @@
 		"depends": {
 			"acl": [ "luci-app-blocky" ]
 		}
-	},
-	"admin/status/blocky": {
-		"title": "Blocky",
-		"order": 80,
-		"action": {
-			"type": "view",
-			"path": "status/blocky"
-		},
-		"depends": {
-			"acl": [ "luci-app-blocky" ]
-		}
 	}
 }

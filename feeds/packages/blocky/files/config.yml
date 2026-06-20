@@ -19,3 +19,6 @@ ports:
 prometheus:
   enable: true
   path: /metrics
+
+statistics:
+  enable: true

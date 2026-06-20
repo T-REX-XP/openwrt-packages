@@ -69,6 +69,8 @@ jobs:
     name: GitHub Pages feed
     runs-on: ubuntu-latest
     needs: build-cm5
+    # Do not fail the release when Pages is not configured yet (404 until Settings → Pages → GitHub Actions).
+    continue-on-error: true
     permissions:
       contents: read
       pages: write
@@ -139,3 +141,13 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Pages setup hint
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning title=GitHub Pages not deployed::Enable Pages before the feed can go live."
+          echo "1. Open https://github.com/${{ github.repository }}/settings/pages"
+          echo "2. Build and deployment → Source: GitHub Actions"
+          echo "3. Re-run this workflow (Actions → Release → Re-run failed jobs)"
+          echo "Release artifacts and GitHub Release are unaffected."
+          exit 0

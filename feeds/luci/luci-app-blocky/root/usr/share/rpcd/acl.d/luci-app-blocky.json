@@ -6,7 +6,11 @@
 				"/etc/blocky/config.yml": [ "read" ],
 				"/etc/init.d/blocky": [ "exec" ],
 				"/usr/sbin/blocky-dnsmasq-sync": [ "exec" ],
-				"/bin/uclient-fetch": [ "exec" ]
+				"/bin/uclient-fetch": [ "exec" ],
+				"/tmp/blocky-logs/": [ "read" ],
+				"/var/log/blocky/": [ "read" ],
+				"/bin/sh": [ "exec" ],
+				"/bin/ls": [ "exec" ]
 			},
 			"ubus": {
 				"service": [ "list" ]

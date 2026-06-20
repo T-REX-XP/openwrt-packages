@@ -67,7 +67,12 @@ GitHub Actions builds this feed **only for Orange Pi CM5 Base** (ImmortalWrt **2
 
 ### GitHub Pages (online feed)
 
-Enable **Settings → Pages → GitHub Actions** in the repo, then add the signing key from the site root (after the first tagged release with `PUBLIC_KEY` configured):
+**One-time repo setup** (required before the first Pages deploy; otherwise the Release workflow logs a 404 on deploy):
+
+1. **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”).
+2. Push a version tag (`v2026.06.16`) or re-run the **Release** workflow after step 1.
+
+Enable signing key from the site root (after the first tagged release with `PUBLIC_KEY` configured):
 
 ```sh
 # On the router (ImmortalWrt 25.12+ / apk) — CM5 example
@@ -98,6 +103,14 @@ Push a version tag (`v2026.05.14`) to trigger a release build. Download **`openw
 | `KEY_BUILD` / `KEY_BUILD_PUB` | Legacy ipk signing (optional) |
 
 PR / push CI builds **unsigned** packages for compile verification only.
+
+### Troubleshooting Release / Pages
+
+| Symptom | Fix |
+|---------|-----|
+| `deploy-pages` **404** / “Ensure GitHub Pages has been enabled” | [Settings → Pages](https://github.com/T-REX-XP/openwrt-packages/settings/pages) → **Source: GitHub Actions**, then re-run the failed **Release** job |
+| Node 20 deprecation notice in logs | Informational — GitHub runners default to Node 24; not related to Pages failures |
+| GitHub Release succeeded, Pages job yellow/warning | Expected until Pages is enabled; `.apk` tarballs on [Releases](https://github.com/T-REX-XP/openwrt-packages/releases) still work |
 
 ## References
 
