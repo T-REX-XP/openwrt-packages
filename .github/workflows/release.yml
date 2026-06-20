@@ -18,7 +18,6 @@ concurrency:
 env:
   FEED_CHANNEL: immortalwrt-25.12
   SDK_RELEASE: 25.12-SNAPSHOT
-  SDK_ARCH: aarch64_generic-25.12-SNAPSHOT
   PKG_ARCH: aarch64_generic
 
 permissions:
@@ -31,8 +30,8 @@ jobs:
     uses: ./.github/workflows/build-packages.yml
     secrets: inherit
     with:
-      arch: ${{ env.SDK_ARCH }}
-      pkg_arch: ${{ env.PKG_ARCH }}
+      arch: aarch64_generic-25.12-SNAPSHOT
+      pkg_arch: aarch64_generic
       index: "1"
       fetch_depth: 1
       timeout_minutes: 120
