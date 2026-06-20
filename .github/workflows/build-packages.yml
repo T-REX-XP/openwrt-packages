@@ -103,7 +103,7 @@ jobs:
           ls -la "$TARBALL"
 
       - name: Upload package tree
-        if: inputs.upload_packages
+        if: inputs.upload_packages || failure()
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact_name }}

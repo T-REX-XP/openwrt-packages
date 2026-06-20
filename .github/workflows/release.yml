@@ -5,6 +5,11 @@ on:
     tags:
       - v*
   workflow_dispatch:
+    inputs:
+      publish_pages:
+        description: Deploy feed to GitHub Pages
+        type: boolean
+        default: true
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -13,7 +18,6 @@ concurrency:
 env:
   FEED_CHANNEL: immortalwrt-25.12
   SDK_RELEASE: 25.12-SNAPSHOT
-  # Orange Pi CM5 Base (RK3588, ImmortalWrt rockchip/armv8 → aarch64_generic packages)
   SDK_ARCH: aarch64_generic-25.12-SNAPSHOT
   PKG_ARCH: aarch64_generic
 
@@ -34,45 +38,16 @@ jobs:
       timeout_minutes: 120
       prepare_release_tarball: true
 
-  github-release:
-    name: GitHub Release
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     needs: build-cm5
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      needs.build-cm5.result == 'success' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' && inputs.publish_pages))
     permissions:
       contents: write
-      actions: read
-
-    steps:
-      - name: Download release tarball
-        uses: actions/download-artifact@v8
-        with:
-          pattern: feed-*
-          merge-multiple: true
-          path: release-dist
-
-      - name: Write SHA256SUMS
-        run: |
-          cd release-dist
-          sha256sum openwrt_packages_*.tar.gz | tee SHA256SUMS
-          ls -la
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          generate_release_notes: true
-          files: |
-            release-dist/openwrt_packages_*.tar.gz
-            release-dist/SHA256SUMS
-
-  pages:
-    name: GitHub Pages feed
-    runs-on: ubuntu-latest
-    needs: build-cm5
-    # Do not fail the release when Pages is not configured yet (404 until Settings → Pages → GitHub Actions).
-    continue-on-error: true
-    permissions:
-      contents: read
       pages: write
       id-token: write
       actions: read
@@ -89,7 +64,26 @@ jobs:
           merge-multiple: true
           path: release-dist
 
+      - name: Write SHA256SUMS
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd release-dist
+          sha256sum openwrt_packages_*.tar.gz | tee SHA256SUMS
+          ls -la
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: |
+            release-dist/openwrt_packages_*.tar.gz
+            release-dist/SHA256SUMS
+
       - name: Assemble static feed tree
+        if: >-
+          (github.event_name == 'workflow_dispatch' && inputs.publish_pages) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         run: |
           set -euo pipefail
           dest="public/${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}"
@@ -98,6 +92,9 @@ jobs:
           find public -type f | sort
 
       - name: Install signing public keys
+        if: >-
+          (github.event_name == 'workflow_dispatch' && inputs.publish_pages) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         env:
           PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
           KEY_BUILD_PUB: ${{ secrets.KEY_BUILD_PUB }}
@@ -111,6 +108,9 @@ jobs:
           fi
 
       - name: Write feed index
+        if: >-
+          (github.event_name == 'workflow_dispatch' && inputs.publish_pages) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         run: |
           cat > public/index.html <<'EOF'
           <!DOCTYPE html>
@@ -134,13 +134,20 @@ jobs:
           EOF
 
       - name: Upload Pages artifact
+        if: >-
+          (github.event_name == 'workflow_dispatch' && inputs.publish_pages) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         uses: actions/upload-pages-artifact@v5
         with:
           path: public
 
       - name: Deploy to GitHub Pages
         id: deployment
+        if: >-
+          (github.event_name == 'workflow_dispatch' && inputs.publish_pages) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         uses: actions/deploy-pages@v5
+        continue-on-error: true
 
       - name: Pages setup hint
         if: steps.deployment.outcome == 'failure'

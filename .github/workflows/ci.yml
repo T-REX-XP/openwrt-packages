@@ -12,6 +12,11 @@ on:
       - "feeds/**"
       - ".github/**"
   workflow_dispatch:
+    inputs:
+      upload_artifacts:
+        description: Upload built packages (normally skipped to save minutes)
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -30,6 +35,4 @@ jobs:
       pkg_arch: aarch64_generic
       fetch_depth: 1
       timeout_minutes: 90
-      upload_packages: true
-      artifact_name: packages-cm5-aarch64_generic-immortalwrt-25.12-SNAPSHOT
-      artifact_retention_days: 7
+      upload_packages: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts }}

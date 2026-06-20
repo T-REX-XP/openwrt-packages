@@ -22,7 +22,9 @@ After optimization:
 | Shared build logic | Duplicated in 2 files | **Reusable workflow** |
 | SDK action pin | `@master` | **Commit SHA** |
 | Checkout depth (CI) | Full history | **Shallow** (`fetch-depth: 1`) |
-| Package scope | All feed packages implicit | **Explicit `PACKAGES` list** |
+| CI artifact upload | Every green run (~7d) | **Skipped** (upload on failure only; optional via manual dispatch) |
+| Release publish jobs | 2 runners, 2× artifact download | **1** combined job |
+| Workflows (entry points) | 3 files + 1 reusable | **Unchanged** — already minimal |
 
 ---
 
@@ -163,7 +165,9 @@ CI and PR builds remain **unsigned** (no secrets required).
 
 ### Manual CI
 
-**Actions → CI → Run workflow** — builds CM5 / `aarch64_generic` only.
+**Actions → CI → Run workflow** — builds CM5 / `aarch64_generic` only. Artifacts are **not** uploaded by default; enable **Upload built packages** if you need the `.apk` tree from CI.
+
+Failed CI runs still upload `bin/packages/` and `logs/` for debugging.
 
 ### Updating the pinned SDK action
 
@@ -183,8 +187,10 @@ Dependabot will propose updates to `actions/checkout`, `upload-artifact`, etc.; 
 |------|----------|
 | PR + merge double CI | Accepted; `concurrency` limits waste on same branch |
 | SNAPSHOT SDK drift | Accepted; ImmortalWrt does not ship pinned `-25.12.0` Docker tags |
-| 4-arch release matrix | **CM5 only** (`aarch64_generic-25.12-SNAPSHOT`) |
+| CM5-only release matrix | **Done** (`aarch64_generic-25.12-SNAPSHOT`) |
 | No host-side Go/`dl/` cache | Not feasible without SDK action changes |
+| CI success artifacts | **Skipped** — use GitHub Releases for installable packages |
+| Three workflow files | **Keep** — reusable build + CI trigger + release trigger is the smallest clear split |
 
 ---
 
