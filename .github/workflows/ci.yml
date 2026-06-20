@@ -3,56 +3,50 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - "feeds/**"
+      - ".github/**"
   pull_request:
     branches: [main]
+    paths:
+      - "feeds/**"
+      - ".github/**"
   workflow_dispatch:
+    inputs:
+      include_x86:
+        description: Also build x86_64 (extra minutes)
+        type: boolean
+        default: false
 
-env:
-  FEEDNAME: openwrt_packages
-  FEED_DIR: ${{ github.workspace }}/feeds
-  SDK_RELEASE: 24.10-SNAPSHOT
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-    name: ${{ matrix.pkg_arch }} (ImmortalWrt ${{ env.SDK_RELEASE }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: rockchip-armv8-24.10-SNAPSHOT
-            pkg_arch: aarch64_generic
-          - arch: x86_64-24.10-SNAPSHOT
-            pkg_arch: x86_64
+  build-rockchip:
+    name: CM5 / rockchip-armv8
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      arch: rockchip-armv8-24.10-SNAPSHOT
+      pkg_arch: aarch64_generic
+      fetch_depth: 1
+      timeout_minutes: 90
+      upload_packages: true
+      artifact_name: packages-aarch64_generic-immortalwrt-24.10-SNAPSHOT
+      artifact_retention_days: 7
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Build packages
-        uses: immortalwrt/gh-action-sdk@master
-        env:
-          ARCH: ${{ matrix.arch }}
-          FEEDNAME: ${{ env.FEEDNAME }}
-          FEED_DIR: ${{ env.FEED_DIR }}
-          NO_REFRESH_CHECK: true
-          NO_SHFMT_CHECK: true
-          V: s
-
-      - name: List built packages
-        run: |
-          echo "=== Built packages ==="
-          find bin/packages -type f \( -name '*.apk' -o -name '*.ipk' \) | sort || true
-          echo "======================"
-
-      - name: Upload packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages-${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}
-          path: |
-            bin/packages/**/*
-            logs/**/*
-          if-no-files-found: error
-          retention-days: 7
+  build-x86:
+    name: x86_64 sanity check
+    if: github.event_name == 'workflow_dispatch' && inputs.include_x86
+    uses: ./.github/workflows/build-packages.yml
+    with:
+      arch: x86_64-24.10-SNAPSHOT
+      pkg_arch: x86_64
+      fetch_depth: 1
+      timeout_minutes: 90
+      upload_packages: true
+      artifact_name: packages-x86_64-immortalwrt-24.10-SNAPSHOT
+      artifact_retention_days: 7

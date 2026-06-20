@@ -1,0 +1,124 @@
+name: Build packages (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+      pkg_arch:
+        required: true
+        type: string
+      index:
+        required: false
+        type: string
+        default: "0"
+      fetch_depth:
+        required: false
+        type: number
+        default: 1
+      timeout_minutes:
+        required: false
+        type: number
+        default: 90
+      upload_packages:
+        required: false
+        type: boolean
+        default: false
+      artifact_name:
+        required: false
+        type: string
+        default: packages
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 7
+      prepare_release_tarball:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      PRIVATE_KEY:
+        required: false
+      KEY_BUILD:
+        required: false
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  FEEDNAME: openwrt_packages
+  FEED_DIR: ${{ github.workspace }}/feeds
+  SDK_RELEASE: 24.10-SNAPSHOT
+  PACKAGES: >-
+    blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
+    luci-app-peripherals luci-app-buttons
+
+jobs:
+  build:
+    name: ${{ inputs.pkg_arch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ inputs.fetch_depth }}
+
+      - name: Build packages (ImmortalWrt SDK)
+        uses: immortalwrt/gh-action-sdk@c4848d7f7d899d80e6d98630f0a21ab2e9c4724f
+        env:
+          ARCH: ${{ inputs.arch }}
+          CONTAINER: immortalwrt/sdk
+          FEEDNAME: ${{ env.FEEDNAME }}
+          FEED_DIR: ${{ env.FEED_DIR }}
+          PACKAGES: ${{ env.PACKAGES }}
+          INDEX: ${{ inputs.index }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          KEY_BUILD: ${{ secrets.KEY_BUILD }}
+          NO_REFRESH_CHECK: true
+          NO_SHFMT_CHECK: true
+          BUILD_LOG: "1"
+          V: s
+
+      - name: List built packages
+        if: always()
+        run: |
+          echo "=== Built packages (${{ inputs.pkg_arch }}) ==="
+          find bin/packages -type f \( -name '*.apk' -o -name '*.ipk' \) 2>/dev/null | sort || true
+          echo "======================================="
+
+      - name: Prepare release tarball
+        if: inputs.prepare_release_tarball
+        run: |
+          set -euo pipefail
+          FEED_SRC="bin/packages/${{ inputs.pkg_arch }}/${{ env.FEEDNAME }}"
+          if [[ ! -d "$FEED_SRC" ]]; then
+            echo "No feed output at $FEED_SRC" >&2
+            exit 1
+          fi
+          TARBALL="openwrt_packages_${{ inputs.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz"
+          tar -c -z -f "$TARBALL" -C "$FEED_SRC" .
+          ls -la "$TARBALL"
+
+      - name: Upload package tree
+        if: inputs.upload_packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            bin/packages/**/*
+            logs/**/*
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days }}
+          compression-level: 6
+
+      - name: Upload release tarball
+        if: inputs.prepare_release_tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-${{ inputs.pkg_arch }}
+          path: openwrt_packages_${{ inputs.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz
+          if-no-files-found: error
+          compression-level: 6

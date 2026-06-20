@@ -329,7 +329,8 @@ After CI is live, extend [README.md](../README.md):
 | 6 | Enable GitHub Pages feed layout | P2 |
 | 7 | Update README + `feeds.conf.snippet` with real URLs | P1 |
 | 8 | Optional: dual **`openwrt/gh-action-sdk`** job for vanilla OpenWrt users | P3 |
-| 9 | Optional: **`workflow_dispatch`** rebuild without tag | P3 |
+| 9 | Optional: **`workflow_dispatch`** rebuild without tag | Done |
+| 10 | CI/CD optimizations (concurrency, caching, reusable workflow) | Done — see [ci-github-actions-optimization.md](ci-github-actions-optimization.md) |
 
 ---
 

@@ -6,85 +6,70 @@ on:
       - v*
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  FEEDNAME: openwrt_packages
-  FEED_DIR: ${{ github.workspace }}/feeds
-  SDK_RELEASE: 24.10-SNAPSHOT
   FEED_CHANNEL: immortalwrt-24.10
-  PACKAGES: >-
-    blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
-    luci-app-peripherals luci-app-buttons
+  SDK_RELEASE: 24.10-SNAPSHOT
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-    name: ${{ matrix.pkg_arch }}
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: rockchip-armv8-24.10-SNAPSHOT
-            pkg_arch: aarch64_generic
-          - arch: aarch64_cortex-a53-24.10-SNAPSHOT
-            pkg_arch: aarch64_cortex-a53
-          - arch: aarch64_cortex-a72-24.10-SNAPSHOT
-            pkg_arch: aarch64_cortex-a72
-          - arch: x86_64-24.10-SNAPSHOT
-            pkg_arch: x86_64
+  build-aarch64_generic:
+    uses: ./.github/workflows/build-packages.yml
+    secrets: inherit
+    with:
+      arch: rockchip-armv8-24.10-SNAPSHOT
+      pkg_arch: aarch64_generic
+      index: "1"
+      fetch_depth: 1
+      timeout_minutes: 120
+      prepare_release_tarball: true
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  build-aarch64_cortex-a53:
+    uses: ./.github/workflows/build-packages.yml
+    secrets: inherit
+    with:
+      arch: aarch64_cortex-a53-24.10-SNAPSHOT
+      pkg_arch: aarch64_cortex-a53
+      index: "1"
+      fetch_depth: 1
+      timeout_minutes: 120
+      prepare_release_tarball: true
 
-      - name: Build packages
-        uses: immortalwrt/gh-action-sdk@master
-        env:
-          ARCH: ${{ matrix.arch }}
-          FEEDNAME: ${{ env.FEEDNAME }}
-          FEED_DIR: ${{ env.FEED_DIR }}
-          PACKAGES: ${{ env.PACKAGES }}
-          INDEX: 1
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          KEY_BUILD: ${{ secrets.KEY_BUILD }}
-          NO_REFRESH_CHECK: true
-          NO_SHFMT_CHECK: true
-          V: s
+  build-aarch64_cortex-a72:
+    uses: ./.github/workflows/build-packages.yml
+    secrets: inherit
+    with:
+      arch: aarch64_cortex-a72-24.10-SNAPSHOT
+      pkg_arch: aarch64_cortex-a72
+      index: "1"
+      fetch_depth: 1
+      timeout_minutes: 120
+      prepare_release_tarball: true
 
-      - name: Prepare feed tarball
-        run: |
-          set -euo pipefail
-          FEED_SRC="bin/packages/${{ matrix.pkg_arch }}/${{ env.FEEDNAME }}"
-          if [[ ! -d "$FEED_SRC" ]]; then
-            echo "No feed output at $FEED_SRC" >&2
-            exit 1
-          fi
-          TARBALL="openwrt_packages_${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz"
-          tar -c -z -f "$TARBALL" -C "$FEED_SRC" .
-          mkdir -p "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}"
-          cp -a "$FEED_SRC"/. "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}/"
-          ls -la "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}"
-
-      - name: Upload release tarball
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-tarball-${{ matrix.pkg_arch }}
-          path: openwrt_packages_${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz
-          if-no-files-found: error
-
-      - name: Upload Pages feed slice
-        uses: actions/upload-artifact@v4
-        with:
-          name: feed-pages-${{ matrix.pkg_arch }}
-          path: public/
-          if-no-files-found: error
+  build-x86_64:
+    uses: ./.github/workflows/build-packages.yml
+    secrets: inherit
+    with:
+      arch: x86_64-24.10-SNAPSHOT
+      pkg_arch: x86_64
+      index: "1"
+      fetch_depth: 1
+      timeout_minutes: 120
+      prepare_release_tarball: true
 
   github-release:
     name: GitHub Release
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - build-aarch64_generic
+      - build-aarch64_cortex-a53
+      - build-aarch64_cortex-a72
+      - build-x86_64
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -93,7 +78,7 @@ jobs:
       - name: Download release tarballs
         uses: actions/download-artifact@v4
         with:
-          pattern: release-tarball-*
+          pattern: feed-*
           merge-multiple: true
           path: release-dist
 
@@ -110,14 +95,15 @@ jobs:
           files: |
             release-dist/openwrt_packages_*.tar.gz
             release-dist/SHA256SUMS
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   pages:
     name: GitHub Pages feed
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs:
+      - build-aarch64_generic
+      - build-aarch64_cortex-a53
+      - build-aarch64_cortex-a72
+      - build-x86_64
     permissions:
       contents: read
       pages: write
@@ -128,24 +114,38 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Download feed artifacts
+      - name: Download release tarballs
         uses: actions/download-artifact@v4
         with:
-          pattern: feed-pages-*
+          pattern: feed-*
           merge-multiple: true
-          path: public
+          path: release-dist
 
-      - name: List feed files
-        run: find public -type f | sort | head -100
-
-      - name: Install signing public keys
+      - name: Assemble static feed tree
         run: |
           set -euo pipefail
-          if [[ -n "${{ secrets.PUBLIC_KEY }}" ]]; then
-            printf '%s\n' "${{ secrets.PUBLIC_KEY }}" > public/public-key.pem
+          mkdir -p public/${{ env.FEED_CHANNEL }}
+          for tgz in release-dist/openwrt_packages_*.tar.gz; do
+            base="$(basename "$tgz" .tar.gz)"
+            pkg_arch="${base#openwrt_packages_}"
+            pkg_arch="${pkg_arch%-immortalwrt-${{ env.SDK_RELEASE }}}"
+            dest="public/${{ env.FEED_CHANNEL }}/${pkg_arch}"
+            mkdir -p "$dest"
+            tar -xzf "$tgz" -C "$dest"
+          done
+          find public -type f | sort | head -100
+
+      - name: Install signing public keys
+        env:
+          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
+          KEY_BUILD_PUB: ${{ secrets.KEY_BUILD_PUB }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$PUBLIC_KEY" ]]; then
+            printf '%s\n' "$PUBLIC_KEY" > public/public-key.pem
           fi
-          if [[ -n "${{ secrets.KEY_BUILD_PUB }}" ]]; then
-            printf '%s\n' "${{ secrets.KEY_BUILD_PUB }}" > public/key-build.pub
+          if [[ -n "$KEY_BUILD_PUB" ]]; then
+            printf '%s\n' "$KEY_BUILD_PUB" > public/key-build.pub
           fi
 
       - name: Write feed index
