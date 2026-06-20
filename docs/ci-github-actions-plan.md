@@ -6,7 +6,7 @@
 
 Automate **compile → test → publish** of this custom feed so users can install **`blocky`**, **`luci-app-*`**, etc. without cloning the repo or using `--custom-feed` on every ImmortalWrt build.
 
-Primary target: **ImmortalWrt** on **rockchip / armv8 / aarch64_generic** (Orange Pi CM5 Base). Secondary: **OpenWrt 24.10+** for generic **`aarch64_generic`** / **`x86_64`**.
+Primary target: **ImmortalWrt 25.12** on **rockchip / armv8 / aarch64_generic** (Orange Pi CM5 Base). Secondary: generic **`aarch64_generic`** / **`x86_64`**.
 
 ---
 
@@ -38,7 +38,7 @@ or **`src-link`** / **`--custom-feed`** pointing at the **`feeds/`** directory �
 |-----------|-----|
 | GitHub Action | [immortalwrt/gh-action-sdk](https://github.com/immortalwrt/gh-action-sdk) (fork of OpenWrt action) |
 | SDK Docker image | [immortalwrt/sdk](https://hub.docker.com/r/immortalwrt/sdk) on Docker Hub |
-| SDK tarballs (reference) | e.g. [ImmortalWrt 24.10.5 rockchip armv8 SDK](https://mirrors.zju.edu.cn/immortalwrt/releases/24.10.5/targets/rockchip/armv8/) |
+| SDK tarballs (reference) | e.g. [ImmortalWrt 25.12.0 rockchip armv8 SDK](https://downloads.immortalwrt.org/releases/25.12.0/targets/rockchip/armv8/) |
 
 ### OpenWrt (optional second column)
 
@@ -323,7 +323,7 @@ After CI is live, extend [README.md](../README.md):
 |------|------|----------|
 | 1 | Add `.github/workflows/ci.yml` with **`FEED_DIR=…/feeds`**, **`FEEDNAME=openwrt_packages`** | P0 |
 | 2 | Fix first CI failures (Go fetch, shfmt, missing deps) | P0 |
-| 3 | Pin **`ARCH`** to ImmortalWrt **24.10.5** (or your image’s release) | P0 |
+| 3 | Pin **`ARCH`** to ImmortalWrt **25.12-SNAPSHOT** (Docker Hub; release **25.12.0**) | Done |
 | 4 | Generate signing keys; add GitHub secrets | P1 |
 | 5 | Add `.github/workflows/release.yml` on **`v*`** tags | P1 |
 | 6 | Enable GitHub Pages feed layout | P2 |

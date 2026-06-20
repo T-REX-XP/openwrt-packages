@@ -63,18 +63,18 @@ See also `feeds.conf.snippet`.
 
 ## Option D — Install from published feed
 
-GitHub Actions builds this feed for **ImmortalWrt 24.10** (`rockchip-armv8` / `aarch64_generic`, `x86_64`, and more on tagged releases). SDK images use the **`24.10-SNAPSHOT`** tags published on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=24.10-SNAPSHOT).
+GitHub Actions builds this feed for **ImmortalWrt 25.12** (`aarch64_generic`, `x86_64`, and more on tagged releases). SDK images use the **`25.12-SNAPSHOT`** tags on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=25.12-SNAPSHOT) (aligned with release **25.12.0**; pinned `-25.12.0` image tags are not published).
 
 ### GitHub Pages (online feed)
 
 Enable **Settings → Pages → GitHub Actions** in the repo, then add the signing key from the site root (after the first tagged release with `PUBLIC_KEY` configured):
 
 ```sh
-# On the router (ImmortalWrt 24.10+ / apk) — CM5 example
+# On the router (ImmortalWrt 25.12+ / apk) — CM5 example
 wget -O /tmp/public-key.pem \
   https://t-rex-xp.github.io/openwrt-packages/public-key.pem
 # Install the key per your image’s apk docs, then add a repository line pointing at:
-# https://t-rex-xp.github.io/openwrt-packages/immortalwrt-24.10/aarch64_generic/
+# https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/
 apk update
 apk add blocky luci-app-blocky
 ```
@@ -83,10 +83,10 @@ Architecture paths under the Pages site:
 
 | Device class | Feed path |
 |--------------|-----------|
-| RK3588 / CM5, generic arm64 | `immortalwrt-24.10/aarch64_generic/` |
-| Pi 4 / cortex-a53 | `immortalwrt-24.10/aarch64_cortex-a53/` |
-| cortex-a72 SBCs | `immortalwrt-24.10/aarch64_cortex-a72/` |
-| x86_64 VM / PC | `immortalwrt-24.10/x86_64/` |
+| RK3588 / CM5, generic arm64 | `immortalwrt-25.12/aarch64_generic/` |
+| Pi 4 / cortex-a53 | `immortalwrt-25.12/aarch64_cortex-a53/` |
+| cortex-a72 SBCs | `immortalwrt-25.12/aarch64_cortex-a72/` |
+| x86_64 VM / PC | `immortalwrt-25.12/x86_64/` |
 
 ### GitHub Releases (offline / air-gapped)
 

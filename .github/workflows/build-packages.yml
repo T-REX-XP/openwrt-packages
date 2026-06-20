@@ -50,7 +50,7 @@ permissions:
 env:
   FEEDNAME: openwrt_packages
   FEED_DIR: ${{ github.workspace }}/feeds
-  SDK_RELEASE: 24.10-SNAPSHOT
+  SDK_RELEASE: 25.12-SNAPSHOT
   PACKAGES: >-
     blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
     luci-app-peripherals luci-app-buttons

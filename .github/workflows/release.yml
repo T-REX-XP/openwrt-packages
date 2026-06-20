@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FEED_CHANNEL: immortalwrt-24.10
-  SDK_RELEASE: 24.10-SNAPSHOT
+  FEED_CHANNEL: immortalwrt-25.12
+  SDK_RELEASE: 25.12-SNAPSHOT
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
     uses: ./.github/workflows/build-packages.yml
     secrets: inherit
     with:
-      arch: rockchip-armv8-24.10-SNAPSHOT
+      arch: aarch64_generic-25.12-SNAPSHOT
       pkg_arch: aarch64_generic
       index: "1"
       fetch_depth: 1
@@ -33,7 +33,7 @@ jobs:
     uses: ./.github/workflows/build-packages.yml
     secrets: inherit
     with:
-      arch: aarch64_cortex-a53-24.10-SNAPSHOT
+      arch: aarch64_cortex-a53-25.12-SNAPSHOT
       pkg_arch: aarch64_cortex-a53
       index: "1"
       fetch_depth: 1
@@ -44,7 +44,7 @@ jobs:
     uses: ./.github/workflows/build-packages.yml
     secrets: inherit
     with:
-      arch: aarch64_cortex-a72-24.10-SNAPSHOT
+      arch: aarch64_cortex-a72-25.12-SNAPSHOT
       pkg_arch: aarch64_cortex-a72
       index: "1"
       fetch_depth: 1
@@ -55,7 +55,7 @@ jobs:
     uses: ./.github/workflows/build-packages.yml
     secrets: inherit
     with:
-      arch: x86_64-24.10-SNAPSHOT
+      arch: x86_64-25.12-SNAPSHOT
       pkg_arch: x86_64
       index: "1"
       fetch_depth: 1
@@ -162,7 +162,7 @@ jobs:
             <p>ImmortalWrt / OpenWrt custom feed built from
               <a href="https://github.com/T-REX-XP/openwrt-packages">T-REX-XP/openwrt-packages</a>.
             </p>
-            <p>Pick your architecture under <code>immortalwrt-24.10/</code> and follow
+            <p>Pick your architecture under <code>immortalwrt-25.12/</code> and follow
               <a href="https://github.com/T-REX-XP/openwrt-packages#option-d--install-from-published-feed">README Option D</a>.
             </p>
           </body>

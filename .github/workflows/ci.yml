@@ -26,16 +26,16 @@ permissions:
   contents: read
 
 jobs:
-  build-rockchip:
-    name: CM5 / rockchip-armv8
+  build-aarch64_generic:
+    name: CM5 / aarch64_generic
     uses: ./.github/workflows/build-packages.yml
     with:
-      arch: rockchip-armv8-24.10-SNAPSHOT
+      arch: aarch64_generic-25.12-SNAPSHOT
       pkg_arch: aarch64_generic
       fetch_depth: 1
       timeout_minutes: 90
       upload_packages: true
-      artifact_name: packages-aarch64_generic-immortalwrt-24.10-SNAPSHOT
+      artifact_name: packages-aarch64_generic-immortalwrt-25.12-SNAPSHOT
       artifact_retention_days: 7
 
   build-x86:
@@ -43,10 +43,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.include_x86
     uses: ./.github/workflows/build-packages.yml
     with:
-      arch: x86_64-24.10-SNAPSHOT
+      arch: x86_64-25.12-SNAPSHOT
       pkg_arch: x86_64
       fetch_depth: 1
       timeout_minutes: 90
       upload_packages: true
-      artifact_name: packages-x86_64-immortalwrt-24.10-SNAPSHOT
+      artifact_name: packages-x86_64-immortalwrt-25.12-SNAPSHOT
       artifact_retention_days: 7

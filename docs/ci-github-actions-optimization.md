@@ -1,6 +1,6 @@
 # GitHub Actions CI/CD — optimization report
 
-*For [T-REX-XP/openwrt-packages](https://github.com/T-REX-XP/openwrt-packages). Last updated: 2026-06-19.*
+*Last updated: 2026-06-19. SDK target: ImmortalWrt **25.12.0** (`25.12-SNAPSHOT` Docker tags).*
 
 This document records the initial pipeline review, gaps found, and the optimizations applied. It complements the original [CI plan](ci-github-actions-plan.md).
 
@@ -14,7 +14,7 @@ After optimization:
 
 | Metric | Before | After |
 |--------|--------|-------|
-| CI matrix (default) | 2 full SDK builds | **1** (`rockchip-armv8` / CM5) |
+| CI matrix (default) | 2 full SDK builds | **1** (`aarch64_generic-25.12-SNAPSHOT` / CM5) |
 | CI on doc-only changes | Always runs | **Skipped** (`paths` filter) |
 | Duplicate in-flight runs | Allowed | **Cancelled** (`concurrency`) |
 | Release partial publish | Possible (`continue-on-error`) | **Blocked** (all arches must pass) |
@@ -39,7 +39,7 @@ After optimization:
 ```mermaid
 flowchart LR
   subgraph ci [CI]
-    PR[PR / push feeds/**] --> RK[rockchip-armv8 build]
+    PR[PR / push feeds/**] --> RK[aarch64_generic build]
     RK --> Art[artifact 7d]
   end
 
@@ -73,7 +73,7 @@ The SDK action cache key is effectively:
 scope = immortalwrt/sdk-<ARCH>
 ```
 
-Examples: `immortalwrt/sdk-rockchip-armv8-24.10-SNAPSHOT`, `immortalwrt/sdk-x86_64-24.10-SNAPSHOT`.
+Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`, `immortalwrt/sdk-x86_64-25.12-SNAPSHOT`.
 
 **First run** for an architecture: slow (pull/build SDK image). **Subsequent runs** on the same arch: significantly faster layer reuse.
 
@@ -111,7 +111,7 @@ Examples: `immortalwrt/sdk-rockchip-armv8-24.10-SNAPSHOT`, `immortalwrt/sdk-x86_
 
 | Change | Effect |
 |--------|--------|
-| Default CI = **rockchip-armv8 only** | ~50% fewer CI minutes vs dual matrix |
+| Default CI = **aarch64_generic-25.12-SNAPSHOT** | CM5-compatible; no `rockchip-armv8-25.12-SNAPSHOT` on Docker Hub yet |
 | `workflow_dispatch` → `include_x86` | Optional second arch when needed |
 | Explicit **`PACKAGES`** list | Builds only feed packages, not accidental extras |
 
@@ -131,18 +131,20 @@ Examples: `immortalwrt/sdk-rockchip-armv8-24.10-SNAPSHOT`, `immortalwrt/sdk-x86_
 
 ---
 
-## SDK image tags
+## SDK image tags (ImmortalWrt 25.12.0)
 
-ImmortalWrt publishes **`24.10-SNAPSHOT`** tags on Docker Hub, not pinned **`24.10.5`**.
+ImmortalWrt publishes **`25.12-SNAPSHOT`** tags on Docker Hub for the **25.12.0** release line. Pinned **`-25.12.0`** image tags are **not** published (same pattern as 24.10).
 
-| Role | `ARCH` env |
-|------|------------|
-| CM5 / rockchip | `rockchip-armv8-24.10-SNAPSHOT` → packages in `aarch64_generic/` |
-| Pi / cortex-a53 | `aarch64_cortex-a53-24.10-SNAPSHOT` |
-| cortex-a72 SBCs | `aarch64_cortex-a72-24.10-SNAPSHOT` |
-| x86 sanity / VM | `x86_64-24.10-SNAPSHOT` |
+| Role | `ARCH` env | Notes |
+|------|------------|-------|
+| CM5 / RK3588 / generic arm64 | `aarch64_generic-25.12-SNAPSHOT` | Output path `aarch64_generic/` |
+| Pi / cortex-a53 | `aarch64_cortex-a53-25.12-SNAPSHOT` | |
+| cortex-a72 SBCs | `aarch64_cortex-a72-25.12-SNAPSHOT` | |
+| x86 sanity / VM | `x86_64-25.12-SNAPSHOT` | |
 
-Verify tags: [immortalwrt/sdk tags](https://hub.docker.com/r/immortalwrt/sdk/tags?name=24.10-SNAPSHOT).
+`rockchip-armv8-25.12-SNAPSHOT` is **not** on Docker Hub as of 2026-06; use `aarch64_generic-25.12-SNAPSHOT` for CM5 feed builds (packages install as `aarch64_generic` on the device).
+
+Verify tags: [immortalwrt/sdk tags](https://hub.docker.com/r/immortalwrt/sdk/tags?name=25.12-SNAPSHOT).
 
 ---
 
@@ -187,7 +189,7 @@ Dependabot will propose updates to `actions/checkout`, `upload-artifact`, etc.; 
 | Item | Decision |
 |------|----------|
 | PR + merge double CI | Accepted; `concurrency` limits waste on same branch |
-| SNAPSHOT SDK drift | Accepted; ImmortalWrt does not ship `-24.10.5` Docker tags |
+| SNAPSHOT SDK drift | Accepted; ImmortalWrt does not ship pinned `-25.12.0` Docker tags |
 | 4-arch release matrix | Kept for feed consumers; highest minute cost |
 | No host-side Go/`dl/` cache | Not feasible without SDK action changes |
 
