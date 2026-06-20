@@ -9,7 +9,7 @@ on:
 env:
   FEEDNAME: openwrt_packages
   FEED_DIR: ${{ github.workspace }}/feeds
-  SDK_RELEASE: 24.10.5
+  SDK_RELEASE: 24.10-SNAPSHOT
   FEED_CHANNEL: immortalwrt-24.10
   PACKAGES: >-
     blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
@@ -24,13 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: aarch64_generic-24.10.5
+          - arch: rockchip-armv8-24.10-SNAPSHOT
             pkg_arch: aarch64_generic
-          - arch: aarch64_cortex-a53-24.10.5
+          - arch: aarch64_cortex-a53-24.10-SNAPSHOT
             pkg_arch: aarch64_cortex-a53
-          - arch: aarch64_cortex-a72-24.10.5
+          - arch: aarch64_cortex-a72-24.10-SNAPSHOT
             pkg_arch: aarch64_cortex-a72
-          - arch: x86_64-24.10.5
+          - arch: x86_64-24.10-SNAPSHOT
             pkg_arch: x86_64
 
     steps:

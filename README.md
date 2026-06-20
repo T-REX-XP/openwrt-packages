@@ -63,7 +63,7 @@ See also `feeds.conf.snippet`.
 
 ## Option D — Install from published feed
 
-GitHub Actions builds this feed for **ImmortalWrt 24.10.5** (`aarch64_generic`, `x86_64`, and more on tagged releases).
+GitHub Actions builds this feed for **ImmortalWrt 24.10** (`rockchip-armv8` / `aarch64_generic`, `x86_64`, and more on tagged releases). SDK images use the **`24.10-SNAPSHOT`** tags published on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=24.10-SNAPSHOT).
 
 ### GitHub Pages (online feed)
 
