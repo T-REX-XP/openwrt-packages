@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+env:
+  FEEDNAME: openwrt_packages
+  FEED_DIR: ${{ github.workspace }}/feeds
+  SDK_RELEASE: 24.10.5
+  FEED_CHANNEL: immortalwrt-24.10
+  PACKAGES: >-
+    blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
+    luci-app-peripherals luci-app-buttons
+
+jobs:
+  build:
+    name: ${{ matrix.pkg_arch }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64_generic-24.10.5
+            pkg_arch: aarch64_generic
+          - arch: aarch64_cortex-a53-24.10.5
+            pkg_arch: aarch64_cortex-a53
+          - arch: aarch64_cortex-a72-24.10.5
+            pkg_arch: aarch64_cortex-a72
+          - arch: x86_64-24.10.5
+            pkg_arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build packages
+        uses: immortalwrt/gh-action-sdk@master
+        env:
+          ARCH: ${{ matrix.arch }}
+          FEEDNAME: ${{ env.FEEDNAME }}
+          FEED_DIR: ${{ env.FEED_DIR }}
+          PACKAGES: ${{ env.PACKAGES }}
+          INDEX: 1
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          KEY_BUILD: ${{ secrets.KEY_BUILD }}
+          NO_REFRESH_CHECK: true
+          NO_SHFMT_CHECK: true
+          V: s
+
+      - name: Prepare feed tarball
+        run: |
+          set -euo pipefail
+          FEED_SRC="bin/packages/${{ matrix.pkg_arch }}/${{ env.FEEDNAME }}"
+          if [[ ! -d "$FEED_SRC" ]]; then
+            echo "No feed output at $FEED_SRC" >&2
+            exit 1
+          fi
+          TARBALL="openwrt_packages_${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz"
+          tar -c -z -f "$TARBALL" -C "$FEED_SRC" .
+          mkdir -p "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}"
+          cp -a "$FEED_SRC"/. "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}/"
+          ls -la "public/${{ env.FEED_CHANNEL }}/${{ matrix.pkg_arch }}"
+
+      - name: Upload release tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tarball-${{ matrix.pkg_arch }}
+          path: openwrt_packages_${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz
+          if-no-files-found: error
+
+      - name: Upload Pages feed slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-pages-${{ matrix.pkg_arch }}
+          path: public/
+          if-no-files-found: error
+
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release tarballs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-tarball-*
+          merge-multiple: true
+          path: release-dist
+
+      - name: Write SHA256SUMS
+        run: |
+          cd release-dist
+          sha256sum openwrt_packages_*.tar.gz | tee SHA256SUMS
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-dist/openwrt_packages_*.tar.gz
+            release-dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pages:
+    name: GitHub Pages feed
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download feed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: feed-pages-*
+          merge-multiple: true
+          path: public
+
+      - name: List feed files
+        run: find public -type f | sort | head -100
+
+      - name: Install signing public keys
+        run: |
+          set -euo pipefail
+          if [[ -n "${{ secrets.PUBLIC_KEY }}" ]]; then
+            printf '%s\n' "${{ secrets.PUBLIC_KEY }}" > public/public-key.pem
+          fi
+          if [[ -n "${{ secrets.KEY_BUILD_PUB }}" ]]; then
+            printf '%s\n' "${{ secrets.KEY_BUILD_PUB }}" > public/key-build.pub
+          fi
+
+      - name: Write feed index
+        run: |
+          cat > public/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>openwrt_packages feed</title>
+          </head>
+          <body>
+            <h1>openwrt_packages</h1>
+            <p>ImmortalWrt / OpenWrt custom feed built from
+              <a href="https://github.com/T-REX-XP/openwrt-packages">T-REX-XP/openwrt-packages</a>.
+            </p>
+            <p>Pick your architecture under <code>immortalwrt-24.10/</code> and follow
+              <a href="https://github.com/T-REX-XP/openwrt-packages#option-d--install-from-published-feed">README Option D</a>.
+            </p>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FEEDNAME: openwrt_packages
+  FEED_DIR: ${{ github.workspace }}/feeds
+  SDK_RELEASE: 24.10.5
+
+jobs:
+  build:
+    name: ${{ matrix.pkg_arch }} (ImmortalWrt ${{ env.SDK_RELEASE }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64_generic-24.10.5
+            pkg_arch: aarch64_generic
+          - arch: x86_64-24.10.5
+            pkg_arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build packages
+        uses: immortalwrt/gh-action-sdk@master
+        env:
+          ARCH: ${{ matrix.arch }}
+          FEEDNAME: ${{ env.FEEDNAME }}
+          FEED_DIR: ${{ env.FEED_DIR }}
+          NO_REFRESH_CHECK: true
+          NO_SHFMT_CHECK: true
+          V: s
+
+      - name: List built packages
+        run: |
+          echo "=== Built packages ==="
+          find bin/packages -type f \( -name '*.apk' -o -name '*.ipk' \) | sort || true
+          echo "======================"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}
+          path: |
+            bin/packages/**/*
+            logs/**/*
+          if-no-files-found: error
+          retention-days: 7
