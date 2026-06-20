@@ -1,4 +1,4 @@
 'use strict';
-'require blocky-common as blocky_factory';
+'require blocky-common as blocky_common';
 
-return blocky_factory();
+return blocky_common.createBlockyView();

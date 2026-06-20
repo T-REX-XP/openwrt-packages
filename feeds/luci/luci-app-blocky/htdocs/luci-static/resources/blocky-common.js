@@ -4,6 +4,7 @@
 'require rpc';
 'require ui';
 'require poll';
+'require baseclass';
 
 var CONFIG_PATH = '/etc/blocky/config.yml';
 var API_BASE = 'http://127.0.0.1:4000/api';
@@ -2361,4 +2362,6 @@ function createBlockyView(options) {
 	});
 }
 
-return createBlockyView;
+return baseclass.extend({
+	createBlockyView: createBlockyView
+});
