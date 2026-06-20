@@ -1,0 +1,322 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+
+msgid "Snort IDS/IPS"
+msgstr "Snort IDS/IPS"
+
+msgid "Snort is an open source intrusion detection and prevention system."
+msgstr "Snort est un système de détection et prévention d'intrusions open source."
+
+msgid "Service Status"
+msgstr "Statut du service"
+
+msgid "State"
+msgstr "État"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Alerts"
+msgstr "Alertes"
+
+msgid "Recent Alerts"
+msgstr "Dernières alertes"
+
+msgid "Configuration"
+msgstr "Configuration"
+
+msgid "Enable Snort"
+msgstr "Activer Snort"
+
+msgid "Enable or disable Snort service"
+msgstr "Active ou désactive le service Snort"
+
+msgid "Manual mode"
+msgstr "Mode manuel"
+
+msgid "Use manual configuration (snort.lua)"
+msgstr "Utilise la configuration manuelle (snort.lua)"
+
+msgid "Network interface"
+msgstr "Interface réseau"
+
+msgid "Network interface to monitor (e.g. br-lan, eth0)"
+msgstr "Interface réseau à surveiller (ex: br-lan, eth0)"
+
+msgid "Local network"
+msgstr "Réseau local"
+
+msgid "IP address range to protect"
+msgstr "Plage d'adresses IP à protéger"
+
+msgid "External network"
+msgstr "Réseau externe"
+
+msgid "External IP address range"
+msgstr "Plage d'adresses IP externes"
+
+msgid "Operating mode"
+msgstr "Mode de fonctionnement"
+
+msgid "IDS = Detection only, IPS = Active prevention"
+msgstr "IDS = Détection uniquement, IPS = Prévention active"
+
+msgid "DAQ method"
+msgstr "Méthode DAQ"
+
+msgid "Packet acquisition method"
+msgstr "Méthode d'acquisition des paquets"
+
+msgid "Capture Length"
+msgstr "Taille de capture"
+
+msgid "Maximum packet capture size"
+msgstr "Taille maximale de capture des paquets"
+
+msgid "Logging configuration"
+msgstr "Configuration des logs"
+
+msgid "Enable logging"
+msgstr "Activer les logs"
+
+msgid "Enable event logging"
+msgstr "Active l'enregistrement des événements"
+
+msgid "Log directory"
+msgstr "Log directory"
+
+msgid "Path where logs will be stored"
+msgstr "Path where logs will be stored"
+
+msgid "Configuration directory"
+msgstr "Répertoire de configuration"
+
+msgid "Snort configuration directory path"
+msgstr "Chemin du répertoire de configuration Snort"
+
+msgid "Temporary directory"
+msgstr "Répertoire temporaire"
+
+msgid "Directory for temporary files and downloaded rules"
+msgstr "Répertoire pour les fichiers temporaires et règles téléchargées"
+
+msgid "Rules management"
+msgstr "Gestion des règles"
+
+msgid "Rules location"
+msgstr "Emplacement des règles"
+
+msgid "Oinkcode"
+msgstr "Oinkcode"
+
+msgid "Access code to download official Snort rules (optional)"
+msgstr "Code d'accès pour télécharger les règles officielles Snort (optionnel)"
+
+msgid "Enter your Oinkcode if you have one"
+msgstr "Entrez votre Oinkcode si vous en avez un"
+
+msgid "Rule action"
+msgstr "Action des règles"
+
+msgid "Default action for rules"
+msgstr "Default action for rules"
+
+msgid "Default"
+msgstr "Default"
+
+msgid "Alert"
+msgstr "Alert"
+
+msgid "Block"
+msgstr "Block"
+
+msgid "Drop"
+msgstr "Drop"
+
+msgid "Reject"
+msgstr "Reject"
+
+msgid "Update rules"
+msgstr "Update rules"
+
+msgid "Update"
+msgstr "Update"
+
+msgid "Rules update launched in background."
+msgstr "Rules update launched in background."
+
+msgid "Snort - Alerts and Logs"
+msgstr "Snort - Alerts and Logs"
+
+msgid "Recent alerts (50 most recent)"
+msgstr "Recent alerts (50 most recent)"
+
+msgid "Refresh"
+msgstr "Refresh"
+
+msgid "Snort system logs (20 most recent)"
+msgstr "Snort system logs (20 most recent)"
+
+msgid "No logs"
+msgstr "No logs"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "View detailed reports via SSH with the command:"
+msgstr "View detailed reports via SSH with the command:"
+
+msgid "Log files:"
+msgstr "Log files:"
+
+msgid "Controls"
+msgstr "Controls"
+
+msgid "Quick actions"
+msgstr "Quick actions"
+
+msgid "Update status"
+msgstr "Update status"
+
+msgid "Click on \"Update\" to start the rules update"
+msgstr "Click on \"Update\" to start the rules update"
+
+msgid "Update in progress..."
+msgstr "Update in progress..."
+
+msgid "Update completed!"
+msgstr "Update completed!"
+
+msgid "Active symbolic link"
+msgstr "Active symbolic link"
+
+msgid "Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?"
+msgstr "Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?"
+
+msgid "Symbolic link created successfully!"
+msgstr "Symbolic link created successfully!"
+
+msgid "Error creating symbolic link"
+msgstr "Error creating symbolic link"
+
+msgid "Directory does not exist: "
+msgstr "Directory does not exist: "
+
+msgid "Rules are in"
+msgstr "Rules are in"
+
+msgid "Create symbolic link"
+msgstr "Create symbolic link"
+
+msgid "No rules directory found"
+msgstr "No rules directory found"
+
+msgid "Rule files:"
+msgstr "Rule files:"
+
+msgid "Fast alerts"
+msgstr "Fast alerts"
+
+msgid "Detailed JSON alerts"
+msgstr "Detailed JSON alerts"
+
+msgid "No alerts"
+msgstr "No alerts"
+
+msgid "No alerts recorded"
+msgstr "No alerts recorded"
+
+msgid "Update already in progress..."
+msgstr "Update already in progress..."
+
+msgid "Update launched in background. Monitoring starts automatically."
+msgstr "Update launched in background. Monitoring starts automatically."
+
+msgid "Temporary files cleaned"
+msgstr "Temporary files cleaned"
+
+msgid "Old directory backed up. "
+msgstr "Old directory backed up. "
+
+msgid "In progress..."
+msgstr "In progress..."
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Stopped"
+msgstr "Stopped"
+
+msgid "Snort memory"
+msgstr "Snort memory"
+
+msgid "System memory"
+msgstr "System memory"
+
+msgid "Total alerts"
+msgstr "Total alerts"
+
+msgid "Interface"
+msgstr "Interface"
+
+msgid "Mode"
+msgstr "Mode"
+
+msgid "DAQ method"
+msgstr "Méthode DAQ"
+
+msgid "Start"
+msgstr "Start"
+
+msgid "Stop"
+msgstr "Stop"
+
+msgid "Restart"
+msgstr "Restart"
+
+msgid "Enable at boot"
+msgstr "Enable at boot"
+
+msgid "Disable at boot"
+msgstr "Disable at boot"
+
+msgid "Detected alerts"
+msgstr "Detected alerts"
+
+msgid "View all alerts"
+msgstr "View all alerts"
+
+msgid "No recent alerts - Your network is secure"
+msgstr "No recent alerts - Your network is secure"
+
+msgid "Auto-refresh every 5 seconds"
+msgstr "Auto-refresh every 5 seconds"
+
+msgid "Loading..."
+msgstr "Loading..."
+
+msgid "See alerts"
+msgstr "See alerts"
+
+msgid "Full configuration"
+msgstr "Full configuration"
+
+msgid "Snort started"
+msgstr "Snort started"
+
+msgid "Snort stopped"
+msgstr "Snort stopped"
+
+msgid "Snort restarted"
+msgstr "Snort restarted"
+
+msgid "Auto-start enabled"
+msgstr "Auto-start enabled"
+
+msgid "Auto-start disabled"
+msgstr "Auto-start disabled"

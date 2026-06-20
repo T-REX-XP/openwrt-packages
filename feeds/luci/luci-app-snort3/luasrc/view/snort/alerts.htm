@@ -1,0 +1,65 @@
+<%+header%>
+<h2 name="content"><%:Snort - Alerts and Logs%></h2>
+
+<style type="text/css">
+.alert-box {
+	background: #f8f9fa;
+	border-left: 4px solid #dc3545;
+	padding: 15px;
+	margin: 15px 0;
+	border-radius: 4px;
+	font-family: monospace;
+	font-size: 0.9em;
+	max-height: 500px;
+	overflow-y: auto;
+}
+.log-box {
+	background: #f0f0f0;
+	border-left: 4px solid #007bff;
+	padding: 15px;
+	margin: 15px 0;
+	border-radius: 4px;
+	font-family: monospace;
+	font-size: 0.9em;
+	max-height: 400px;
+	overflow-y: auto;
+}
+.alert-line, .log-line {
+	padding: 5px 0;
+	border-bottom: 1px solid #e0e0e0;
+	word-wrap: break-word;
+}
+.alert-line:last-child, .log-line:last-child {
+	border-bottom: none;
+}
+</style>
+
+<div class="cbi-section">
+	<h3><%:Recent alerts (50 most recent)%></h3>
+	<div class="alert-box">
+<% for line in (alerts or ""):gmatch("[^\n]+") do %>
+		<div class="alert-line"><%=pcdata(line)%></div>
+<% end %>
+	</div>
+</div>
+
+<div class="cbi-section">
+	<h3><%:Snort system logs (20 most recent)%></h3>
+	<div class="log-box">
+<% for line in (logs or ""):gmatch("[^\n]+") do %>
+		<div class="log-line"><%=pcdata(line)%></div>
+<% end %>
+	</div>
+</div>
+
+<div class="cbi-section">
+	<h3><%:Actions%></h3>
+	<p><%:View detailed reports via SSH with the command:%> <code>snort-mgr report -v</code> <%:(requires coreutils-sort package)%></p>
+	<p><%:Log files:%></p>
+	<ul>
+		<li><code>/var/log/alert_fast.txt</code> — <%:Fast alerts%></li>
+		<li><code>/var/log/*alert_json.txt</code> — <%:Detailed JSON alerts%></li>
+	</ul>
+</div>
+
+<%+footer%>

@@ -15,6 +15,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, diagnostics |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — GPIO keys UI |
 | `feeds/luci/luci-app-oled` | **luci-app-oled** — SSD1306 I2C OLED status (CM5: `/dev/i2c-1`, `br-lan`) |
+| `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
@@ -29,8 +30,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 | **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — primary DNS filter in CM5 profile |
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
-| **Signature IDS** | `snort3` | ImmortalWrt `packages` | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
-| | Community [luci-snort3-openwrt](https://github.com/dddavid51/luci-snort3-openwrt) | External (candidate for this feed) | LuCI for Snort3 — not in main LuCI tree |
+| **Signature IDS** | `snort3`, `luci-app-snort3` | `snort3`: ImmortalWrt `packages`; LuCI: **this feed** | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
 | **Operator guide** | `luci-app-security-guide` | **this feed** | Security & privacy LuCI (CM5 profile) |
@@ -42,7 +42,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 **Tier 1 — default (low risk, high value):** keep **`blocky`** + **`adblock`**; add **`banip`** + **`luci-app-banip`**; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
-**Tier 2 — optional:** **`snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation.
+**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation.
 
 **Tier 3 — advanced:** mirror WAN/LAN to a **Docker** container (CM5 image includes `docker`/`dockerd`) for Suricata or Wazuh — see the research doc.
 
@@ -51,7 +51,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 Packages from **this feed** (after enabling the feed — see below):
 
 ```sh
-apk add blocky luci-app-blocky luci-app-security-guide
+apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
 ```
 
 Packages from the **standard ImmortalWrt index** (built into the image or from upstream feeds):
@@ -59,6 +59,8 @@ Packages from the **standard ImmortalWrt index** (built into the image or from u
 ```sh
 apk add banip luci-app-banip snort3 tcpdump-mini vnstat2 luci-app-vnstat2
 ```
+
+(`luci-app-snort3` is in **this feed**; install it with the first `apk add` line after enabling the feed.)
 
 Enable **banIP** under *Services → banIP*; configure **Snort3** with `snort-mgr check` before starting IPS mode.
 

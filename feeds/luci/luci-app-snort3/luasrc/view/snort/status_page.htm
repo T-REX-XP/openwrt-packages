@@ -1,0 +1,74 @@
+<%+header%>
+<h2 name="content"><%:Snort IDS/IPS%></h2>
+
+<script type="text/javascript">//<![CDATA[
+XHR.poll(3, '<%=url("admin/services/snort/get_status")%>', null,
+	function(x, status) {
+		var statusDiv = document.getElementById('snort_status');
+		var memPercent = status.mem_percent || 0;
+		var memColor = memPercent > 80 ? 'red' : (memPercent > 60 ? 'orange' : 'green');
+
+		if (status.running) {
+			statusDiv.innerHTML = '<span style="color:green;font-weight:bold">&#9679; <%:Running%></span>';
+		} else {
+			statusDiv.innerHTML = '<span style="color:red;font-weight:bold">&#9679; <%:Stopped%></span>';
+		}
+
+		document.getElementById('snort_pid').innerHTML = status.pid || 'N/A';
+		document.getElementById('snort_mem').innerHTML = status.mem_usage || 'N/A';
+		document.getElementById('snort_alerts').innerHTML = status.alert_count || '0';
+		document.getElementById('snort_interface').innerHTML = status.interface || 'N/A';
+		document.getElementById('snort_mode').innerHTML = status.mode || 'N/A';
+		document.getElementById('snort_method').innerHTML = status.method || 'N/A';
+		document.getElementById('sys_mem').innerHTML =
+			'<span style="color:' + memColor + '">' +
+			status.mem_used + ' MB / ' + status.mem_total + ' MB (' + memPercent + '%)</span>';
+	}
+);
+
+function snortAction(action) {
+	XHR.get('<%=url("admin/services/snort/action")%>', { action: action }, function(x, result) {
+		if (result && result.success) {
+			alert(result.message);
+			location.reload();
+		} else {
+			alert('<%:Error%>: ' + (result ? result.message : ''));
+		}
+	});
+}
+//]]></script>
+
+<div class="cbi-section">
+	<h3><%:Service Status%></h3>
+	<table class="table" width="100%">
+		<tr><td width="33%"><%:Status%></td><td id="snort_status"><%:Loading...%></td></tr>
+		<tr><td>PID</td><td id="snort_pid">-</td></tr>
+		<tr><td><%:Snort memory%></td><td id="snort_mem">-</td></tr>
+		<tr><td><%:System memory%></td><td id="sys_mem">-</td></tr>
+		<tr><td><%:Total alerts%></td><td id="snort_alerts">-</td></tr>
+		<tr><td><%:Interface%></td><td id="snort_interface">-</td></tr>
+		<tr><td><%:Mode%></td><td id="snort_mode">-</td></tr>
+		<tr><td><%:DAQ method%></td><td id="snort_method">-</td></tr>
+	</table>
+</div>
+
+<div class="cbi-section">
+	<h3><%:Controls%></h3>
+	<div class="cbi-page-actions">
+		<input class="cbi-button cbi-button-apply" type="button" value="<%:Start%>" onclick="snortAction('start')" />
+		<input class="cbi-button cbi-button-reset" type="button" value="<%:Stop%>" onclick="snortAction('stop')" />
+		<input class="cbi-button cbi-button-reload" type="button" value="<%:Restart%>" onclick="snortAction('restart')" />
+		<input class="cbi-button cbi-button-save" type="button" value="<%:Enable at boot%>" onclick="snortAction('enable')" />
+		<input class="cbi-button cbi-button-remove" type="button" value="<%:Disable at boot%>" onclick="snortAction('disable')" />
+	</div>
+</div>
+
+<div class="cbi-section">
+	<h3><%:Quick actions%></h3>
+	<div class="cbi-page-actions">
+		<a class="cbi-button cbi-button-action" href="<%=url("admin/services/snort/alerts")%>"><%:See alerts%></a>
+		<a class="cbi-button cbi-button-action" href="<%=url("admin/services/snort")%>"><%:Full configuration%></a>
+	</div>
+</div>
+
+<%+footer%>

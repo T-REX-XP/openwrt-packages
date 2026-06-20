@@ -1,0 +1,55 @@
+<%+cbi/valueheader%>
+<style type="text/css">
+.snort-recent-alerts {
+	background: #f8f9fa;
+	border-left: 4px solid #dc3545;
+	padding: 12px;
+	margin: 8px 0;
+	border-radius: 4px;
+	font-family: monospace;
+	font-size: 0.85em;
+	max-height: 280px;
+	overflow-y: auto;
+}
+.snort-recent-alerts .alert-line {
+	padding: 6px 0;
+	border-bottom: 1px solid #e0e0e0;
+	word-wrap: break-word;
+}
+.snort-recent-alerts .no-alerts {
+	text-align: center;
+	color: #4caf50;
+	padding: 12px;
+	font-weight: bold;
+}
+</style>
+
+<%
+local sys = require "luci.sys"
+local alerts = sys.exec("[ -f /var/log/alert_fast.txt ] && tail -10 /var/log/alert_fast.txt | tac || echo ''")
+local line_count = 0
+
+for line in string.gmatch(alerts, "[^\r\n]+") do
+	if line ~= "" then
+		line_count = line_count + 1
+	end
+end
+%>
+
+<div class="snort-recent-alerts">
+<% if line_count == 0 then %>
+	<div class="no-alerts">&#10003; <%:No recent alerts - Your network is secure%></div>
+<% else
+	local displayed = 0
+	for line in string.gmatch(alerts, "[^\r\n]+") do
+		if line ~= "" and displayed < 10 then
+			displayed = displayed + 1
+%>
+	<div class="alert-line"><%=pcdata(line)%></div>
+<%		end
+	end
+end %>
+</div>
+
+<p><em><%:Auto-refresh every 5 seconds%> — <a href="<%=url("admin/services/snort/alerts")%>"><%:View all alerts%></a></em></p>
+<%+cbi/valuefooter%>

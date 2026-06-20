@@ -1,0 +1,22 @@
+<%+cbi/valueheader%>
+<script type="text/javascript">//<![CDATA[
+function snortServiceAction(action) {
+	XHR.get('<%=url("admin/services/snort/action")%>', { action: action }, function(x, result) {
+		if (result && result.success) {
+			alert(result.message);
+			location.reload();
+		} else {
+			alert('<%:Error%>: ' + (result ? result.message : ''));
+		}
+	});
+}
+//]]></script>
+
+<div class="cbi-page-actions">
+	<input class="cbi-button cbi-button-apply" type="button" value="<%:Start%>" onclick="snortServiceAction('start')" />
+	<input class="cbi-button cbi-button-reset" type="button" value="<%:Stop%>" onclick="snortServiceAction('stop')" />
+	<input class="cbi-button cbi-button-reload" type="button" value="<%:Restart%>" onclick="snortServiceAction('restart')" />
+	<input class="cbi-button cbi-button-save" type="button" value="<%:Enable at boot%>" onclick="snortServiceAction('enable')" />
+	<input class="cbi-button cbi-button-remove" type="button" value="<%:Disable at boot%>" onclick="snortServiceAction('disable')" />
+</div>
+<%+cbi/valuefooter%>
