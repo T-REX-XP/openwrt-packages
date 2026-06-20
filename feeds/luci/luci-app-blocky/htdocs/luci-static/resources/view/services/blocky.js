@@ -1,4 +1,4 @@
 'use strict';
-'require blocky-common';
+'require blocky-common as blocky_factory';
 
-return blocky_common;
+return blocky_factory();

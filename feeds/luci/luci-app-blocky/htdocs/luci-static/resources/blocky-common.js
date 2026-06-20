@@ -150,7 +150,26 @@ function replaceContent(node, content) {
 	while (node.firstChild)
 		node.removeChild(node.firstChild);
 
-	node.appendChild(content);
+	if (content == null || content === false)
+		return;
+
+	if (Array.isArray(content)) {
+		for (var i = 0; i < content.length; i++)
+			appendContentNode(node, content[i]);
+		return;
+	}
+
+	appendContentNode(node, content);
+}
+
+function appendContentNode(node, content) {
+	if (content == null || content === false || content === '')
+		return;
+
+	if (typeof content === 'string' || typeof content === 'number')
+		node.appendChild(document.createTextNode(String(content)));
+	else
+		node.appendChild(content);
 }
 
 function safeString(value) {
@@ -2342,4 +2361,4 @@ function createBlockyView(options) {
 	});
 }
 
-return createBlockyView();
+return createBlockyView;
