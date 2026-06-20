@@ -5,8 +5,16 @@
 			"ubus": {
 				"luci.buttons": [
 					"list",
-					"get"
+					"get",
+					"status"
 				]
+			},
+			"file": {
+				"/var/log/button-events.log": [ "read" ],
+				"/var/run/button-wps.state": [ "read" ],
+				"/var/run/button-BTN_2.state": [ "read" ],
+				"/proc/bus/input/devices": [ "read" ],
+				"/sys/bus/iio/devices/": [ "read" ]
 			}
 		},
 		"write": {

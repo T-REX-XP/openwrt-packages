@@ -2,6 +2,7 @@
 'require view';
 'require rpc';
 'require ui';
+'require poll';
 
 var callList = rpc.declare({
 	object: 'luci.buttons',
@@ -25,6 +26,12 @@ var callDelete = rpc.declare({
 	object: 'luci.buttons',
 	method: 'delete',
 	params: [ 'name' ]
+});
+
+var callStatus = rpc.declare({
+	object: 'luci.buttons',
+	method: 'status',
+	expect: { buttons: [], events: [] }
 });
 
 var isReadonlyView = !L.hasViewPermission() || null;
@@ -51,17 +58,75 @@ function table(headers, rows) {
 	]);
 }
 
+function statePill(state) {
+	var cls = 'label';
+	if (state === 'pressed')
+		cls += ' success';
+	else if (state === 'released')
+		cls += '';
+	else
+		cls += ' warning';
+	return E('span', { 'class': cls }, [ state || _('unknown') ]);
+}
+
+function renderLiveStatus(statusHost, eventsHost, data) {
+	var buttons = (data && data.buttons) || [];
+	var events = (data && data.events) || [];
+
+	replaceContent(statusHost, E('div', { 'class': 'table' }, buttons.length ? buttons.map(function(btn) {
+		return E('div', { 'class': 'tr' }, [
+			E('div', { 'class': 'td', 'style': 'width:28%' }, [ btn.label || btn.id ]),
+			E('div', { 'class': 'td', 'style': 'width:22%' }, [ statePill(btn.state) ]),
+			E('div', { 'class': 'td' }, [
+				btn.detected ? _('input detected') : _('no input device'),
+				btn.script ? '' : (' — ' + _('no script'))
+			])
+		]);
+	}) : [ E('em', {}, [ _('No CM5 button definitions.') ]) ]));
+
+	if (!events.length) {
+		replaceContent(eventsHost, E('em', {}, [ _('No button events logged yet. Press USERKEY or MaskROM.') ]));
+		return;
+	}
+
+	replaceContent(eventsHost, E('div', { 'class': 'cbi-section', 'style': 'font-family:monospace;font-size:.92em' },
+		events.slice().reverse().map(function(line) {
+			return E('div', { 'style': 'padding:.2em 0;border-bottom:1px solid rgba(128,128,128,.2)' }, [ line ]);
+		})
+	));
+}
+
+function replaceContent(node, content) {
+	while (node.firstChild)
+		node.removeChild(node.firstChild);
+	if (content == null || content === false)
+		return;
+	if (Array.isArray(content)) {
+		for (var i = 0; i < content.length; i++)
+			if (content[i] != null)
+				node.appendChild(content[i]);
+		return;
+	}
+	node.appendChild(content);
+}
+
 return view.extend({
 	load: function() {
-		return callList().then(function(list) {
+		return Promise.all([
+			callList(),
+			callStatus()
+		]).then(function(res) {
+			var list = res[0];
+			var status = res[1];
 			var names = list.names || [];
-			var current = names.indexOf('wps') > -1 ? 'wps' : (names[0] || 'wps');
+			var current = names.indexOf('wps') > -1 ? 'wps' : (names.indexOf('BTN_2') > -1 ? 'BTN_2' : (names[0] || 'wps'));
 
 			return callGet(current).catch(function() {
 				return { name: current, content: '', missing: true };
 			}).then(function(script) {
 				return {
 					list: list,
+					status: status,
 					current: current,
 					script: script
 				};
@@ -94,7 +159,7 @@ return view.extend({
 		if (!preset)
 			return;
 
-		return callGet(name).then(function(res) {
+		return callGet(name).then(function() {
 			return callSet(name, '', preset).then(function() {
 				return callGet(name);
 			});
@@ -119,7 +184,7 @@ return view.extend({
 			if (res.error)
 				ui.addNotification(null, E('p', {}, [ res.error ]), 'error');
 			else
-				ui.addNotification(null, E('p', {}, [ _('Saved %s. Press the physical button and watch logread to test it.').format('/etc/rc.button/' + name) ]), 'info');
+				ui.addNotification(null, E('p', {}, [ _('Saved %s. Press the physical button and watch the live status below.').format('/etc/rc.button/' + name) ]), 'info');
 		});
 	},
 
@@ -140,11 +205,26 @@ return view.extend({
 	},
 
 	render: function(data) {
+		var self = this;
 		var list = data.list || {};
 		var names = list.names || [];
 		var common = list.common || [];
 		var current = data.current || 'wps';
 		var script = data.script || {};
+		var statusHost = E('div', { id: 'button-live-status' });
+		var eventsHost = E('div', { id: 'button-live-events' });
+		var pollRegistered = false;
+
+		renderLiveStatus(statusHost, eventsHost, data.status || {});
+
+		if (!pollRegistered) {
+			pollRegistered = true;
+			poll.add(function() {
+				return callStatus().then(function(st) {
+					renderLiveStatus(statusHost, eventsHost, st);
+				});
+			}, 1);
+		}
 
 		var selector = E('select', {
 			'class': 'cbi-input-select',
@@ -168,7 +248,8 @@ return view.extend({
 		}, [
 			E('option', { value: '' }, [ _('Choose template...') ]),
 			E('option', { value: 'logger' }, [ _('Log press/release') ]),
-			E('option', { value: 'wps' }, [ _('Trigger Wi-Fi WPS') ]),
+			E('option', { value: 'wps' }, [ _('CM5 USERKEY → Wi-Fi WPS') ]),
+			E('option', { value: 'maskrom' }, [ _('CM5 MaskROM → log only') ]),
 			E('option', { value: 'reboot' }, [ _('Reboot on release') ])
 		]);
 
@@ -191,11 +272,16 @@ return view.extend({
 		return E([], [
 			E('h2', {}, [ _('Buttons') ]),
 			E('p', { 'class': 'cbi-map-descr' }, [
-				_('Manage OpenWrt GPIO button hotplug scripts. The scripts live in %s and are called with ACTION, BUTTON and SEEN environment variables when gpio-button-hotplug receives a supported key event.').format('/etc/rc.button/')
+				_('Manage OpenWrt GPIO/ADC button hotplug scripts. Scripts live in %s and receive ACTION, BUTTON and SEEN when a mapped key event arrives.').format('/etc/rc.button/')
 			]),
 			list.missing ? E('p', { 'class': 'alert-message warning' }, [
 				_('%s is missing. Saving a script will create it.').format('/etc/rc.button/')
 			]) : '',
+			section(_('Live button status'), _('Press or release USERKEY (wps) or MaskROM (BTN_2). Updates every second.'), [
+				statusHost,
+				E('h4', { 'style': 'margin:1em 0 .35em' }, [ _('Recent events') ]),
+				eventsHost
+			]),
 			section(_('Button Scripts'), _('Select an existing script, or type a new button event name and save it.'), [
 				E('div', { 'class': 'cbi-section-node' }, [
 					E('div', { 'class': 'cbi-value' }, [
@@ -209,7 +295,7 @@ return view.extend({
 						E('div', { 'class': 'cbi-value-field' }, [
 							nameInput,
 							E('div', { 'class': 'cbi-value-description' }, [
-								_('Use the hotplug button name, for example %s or %s.').format('wps', 'reset')
+								_('CM5 USERKEY → %s, MaskROM → %s.').format('wps', 'BTN_2')
 							])
 						])
 					]),
@@ -237,7 +323,7 @@ return view.extend({
 					}, [ _('Delete') ])
 				])
 			]),
-			section(_('Known Button Names'), _('These are common OpenWrt hotplug names. The CM5 Base USERKEY is mapped to wps in this image.'), [
+			section(_('Known Button Names'), _('Common OpenWrt hotplug names on CM5 Base.'), [
 				table([ _('Name'), _('Status') ], rows)
 			])
 		]);

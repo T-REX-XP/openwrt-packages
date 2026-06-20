@@ -5,8 +5,10 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for GPIO button scripts
-LUCI_DEPENDS:=+luci-base +kmod-gpio-button-hotplug
+LUCI_DEPENDS:=+luci-base +kmod-gpio-button-hotplug +kmod-button-hotplug +kmod-input-adc-keys
 LUCI_PKGARCH:=all
+
+PKG_RELEASE:=2
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Immortal OPI CM5 overlay
