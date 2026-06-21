@@ -3,6 +3,15 @@
 [ -x /etc/init.d/blocky ] || exit 0
 [ -s /etc/blocky/config.yml ] || exit 0
 
+mkdir -p /tmp/blocky-logs
+chmod 755 /tmp/blocky-logs
+
+# Blocky is the primary LAN ad blocker on CM5 images; keep dnsmasq-based adblock off to avoid double filtering.
+if [ -x /etc/init.d/adblock ]; then
+	/etc/init.d/adblock disable 2>/dev/null || true
+	/etc/init.d/adblock stop 2>/dev/null || true
+fi
+
 /etc/init.d/blocky enable
 /etc/init.d/blocky start
 

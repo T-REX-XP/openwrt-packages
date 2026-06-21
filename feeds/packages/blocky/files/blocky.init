@@ -7,6 +7,9 @@ PROG=/usr/bin/blocky
 CONFIG=/etc/blocky/config.yml
 
 start_service() {
+	mkdir -p /tmp/blocky-logs
+	chmod 755 /tmp/blocky-logs
+
 	procd_open_instance
 	procd_set_param command "$PROG" --config "$CONFIG"
 	procd_set_param respawn

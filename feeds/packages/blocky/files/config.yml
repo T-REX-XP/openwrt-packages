@@ -11,6 +11,13 @@ blocking:
   clientGroupsBlock:
     default:
       - ads
+  refreshPeriod: 4h
+
+queryLog:
+  type: csv
+  target: /tmp/blocky-logs
+  logRetentionDays: 7
+  flushInterval: 30s
 
 ports:
   dns: 5353

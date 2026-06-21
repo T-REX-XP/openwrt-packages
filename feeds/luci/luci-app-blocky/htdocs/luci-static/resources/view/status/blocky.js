@@ -1,17 +1,4 @@
 'use strict';
-'require view';
+'require blocky-common as blocky_common';
 
-return view.extend({
-	load: function() {
-		window.location.replace(L.url('admin/services/blocky'));
-		return Promise.resolve([]);
-	},
-
-	render: function() {
-		return E('p', { 'class': 'spinning' }, [ _('Loading…') ]);
-	},
-
-	handleSaveApply: null,
-	handleSave: null,
-	handleReset: null
-});
+return blocky_common.createBlockyView({ viewMode: 'status' });

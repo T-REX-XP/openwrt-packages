@@ -9,5 +9,16 @@
 		"depends": {
 			"acl": [ "luci-app-blocky" ]
 		}
+	},
+	"admin/status/blocky": {
+		"title": "Blocky DNS",
+		"order": 85,
+		"action": {
+			"type": "view",
+			"path": "status/blocky"
+		},
+		"depends": {
+			"acl": [ "luci-app-blocky" ]
+		}
 	}
 }

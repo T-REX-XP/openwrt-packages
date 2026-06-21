@@ -401,8 +401,88 @@ function parseQueryLogConfig(configYaml) {
 
 	return {
 		type: typeMatch[1].replace(/['"]/g, ''),
-		target: targetMatch ? targetMatch[1].replace(/['"]/g, '') : ''
+		target: targetMatch ? targetMatch[1].replace(/['"]/g, '').replace(/\/$/, '') : ''
 	};
+}
+
+function shellQuote(value) {
+	return "'" + safeString(value).replace(/'/g, "'\\''") + "'";
+}
+
+function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsResult, adblockService) {
+	var port = parseBlockyDnsPort(configYaml);
+	var running = isRunning(service);
+	var blocking = !!(status && status.enabled && !(status.autoEnableInSec > 0));
+	var forwarding = parseDnsForwardFlag(dnsFwdRaw);
+	var ql = parseQueryLogConfig(configYaml);
+	var stats = statsResult && statsResult.ok ? statsResult.data : null;
+	var denyEntries = stats ? sumDenylistEntries(stats) : 0;
+	var adblockRunning = isNamedServiceRunning(adblockService, 'adblock');
+	var rows = [
+		{
+			label: _('Blocky service'),
+			ok: running,
+			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from Controls or reboot.')
+		},
+		{
+			label: _('Ad blocking'),
+			ok: blocking,
+			detail: blocking ? _('Denylist rules active') :
+				(status && status.autoEnableInSec > 0
+					? _('Paused — resumes in %s').format(formatDuration(status.autoEnableInSec))
+					: _('Blocking disabled in Blocky API'))
+		},
+		{
+			label: _('LAN DNS chain'),
+			ok: forwarding && running,
+			detail: forwarding
+				? _('Clients → dnsmasq :53 → Blocky %s').format('127.0.0.1#' + String(port))
+				: _('Enable Router DNS integration under Services → Blocky → Configuration')
+		},
+		{
+			label: _('Block lists loaded'),
+			ok: denyEntries > 0,
+			detail: denyEntries > 0
+				? _('%s denylist entries in memory').format(formatNumber(denyEntries))
+				: _('Lists still loading or statistics unavailable — try Refresh lists')
+		},
+		{
+			label: _('Query logging'),
+			ok: !!(ql && ql.type === 'csv' && ql.target),
+			detail: ql && ql.target
+				? _('CSV logs under %s').format(ql.target)
+				: _('Add queryLog to config.yml for the Logs tab')
+		},
+		{
+			label: _('Adblock package'),
+			ok: !adblockRunning,
+			detail: adblockRunning
+				? _('adblock init is running — disable it to avoid conflicting with Blocky')
+				: _('Not running (expected when Blocky is the primary filter)')
+		}
+	];
+	var ready = rows.slice(0, 4).every(function(row) { return row.ok; });
+
+	return E('div', { 'class': 'blocky-dash-widget blocky-pipeline-widget' }, [
+		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Ad blocking pipeline') ]),
+		E('p', { 'class': 'blocky-dash-widget-descr' }, [
+			ready
+				? _('Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering.')
+				: _('One or more steps below must be fixed before LAN clients receive filtered DNS.')
+		]),
+		E('div', { 'class': 'table blocky-status-table' }, rows.map(function(row) {
+			return E('div', { 'class': 'tr' }, [
+				E('div', { 'class': 'td left', 'style': 'width:34%' }, [ row.label ]),
+				E('div', { 'class': 'td left' }, [
+					blockyPill(row.ok ? 'yes' : 'no', row.ok ? _('OK') : _('Check')),
+					blockyStatusDetail(row.detail)
+				])
+			]);
+		})),
+		E('p', { 'class': 'blocky-note-soft' }, [
+			_('Test from a phone on Wi‑Fi: open a browser ad-block test page. DNS must point at this router (typically %s).').format('192.168.8.1')
+		])
+	]);
 }
 
 function runInit(action) {
@@ -420,8 +500,12 @@ function runInit(action) {
 }
 
 function isRunning(service) {
-	return !!(service && service.blocky && service.blocky.instances &&
-		service.blocky.instances.instance1 && service.blocky.instances.instance1.running);
+	return isNamedServiceRunning(service, 'blocky');
+}
+
+function isNamedServiceRunning(service, name) {
+	return !!(service && service[name] && service[name].instances &&
+		service[name].instances.instance1 && service[name].instances.instance1.running);
 }
 
 function parseMetrics(text) {
@@ -1851,23 +1935,29 @@ function renderQueryLogsTab(config) {
 		for (i = 0; i < lines.length; i++) {
 			var line = lines[i].trim();
 
-			if (!line || line.indexOf('#') === 0)
+			if (!line || line.charAt(0) === '#')
 				continue;
 
-			var cols = line.split(';');
-			if (cols.length < 4)
+			var cols = line.split('\t');
+			if (cols.length < 6)
+				cols = line.split(';');
+			if (cols.length < 6)
 				cols = line.split(',');
 
-			if (cols.length < 3)
+			if (cols.length < 6)
+				continue;
+
+			if (/^time(stamp)?$/i.test(cols[0]) || cols[0] === '2006-01-02 15:04:05')
 				continue;
 
 			rows.push({
 				time: cols[0],
-				client: cols[1] || '',
-				question: cols[2] || '',
-				type: cols[3] || '',
-				response: cols[4] || '',
-				reason: cols[5] || cols[4] || ''
+				client: cols[1] || cols[2] || '',
+				question: cols[5] || cols[2] || '',
+				type: cols[9] || cols[3] || '',
+				response: cols[4] || cols[7] || '',
+				reason: cols[4] || '',
+				answer: cols[6] || ''
 			});
 		}
 
@@ -1931,11 +2021,11 @@ function renderQueryLogsTab(config) {
 			return Promise.resolve();
 		}
 
-		return fs.exec('/bin/sh', [ '-c', 'ls -1 "' + ql.target.replace(/"/g, '') + '"/*.csv 2>/dev/null | tail -1' ]).then(function(res) {
+		return fs.exec('/bin/sh', [ '-c', 'ls -1t ' + shellQuote(ql.target) + '/*.log 2>/dev/null | head -1' ]).then(function(res) {
 			var latest = execResultStdout(res, '').trim();
 
 			if (!latest)
-				throw new Error(_('No CSV log files found in %s').format(ql.target));
+				throw new Error(_('No query log files found in %s (expected YYYY-MM-DD_ALL.log)').format(ql.target));
 
 			return fs.read_direct(latest);
 		}).then(function(raw) {
@@ -1968,7 +2058,7 @@ function renderQueryLogsTab(config) {
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Query Logs') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Read-only viewer for Blocky CSV query logs (%s). Shows the newest log file only (tail capped at 512 KiB).').format(ql.type)
+			_('Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB).').format(ql.type)
 		]),
 		E('p', {}, [
 			filterDomain, ' ',
@@ -2169,13 +2259,61 @@ function loadBlockyPageData() {
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 		L.resolveDefault(fetchText(METRICS_URL), ''),
 		L.resolveDefault(fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { code: 0, stdout: '0\n' }),
-		L.resolveDefault(fetchBlockyStats(), { ok: false, data: null })
+		L.resolveDefault(fetchBlockyStats(), { ok: false, data: null }),
+		L.resolveDefault(callServiceList('adblock'), {})
 	]);
+}
+
+function mountDashboardContent(host, data, refreshPage) {
+	var service = data[0];
+	var status = data[1];
+	var config = data[2];
+	var metrics = data[3];
+	var dnsFwd = data[4];
+	var statsResult = data[5];
+	var adblockService = data[6];
+	var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
+	var metricsPayload = unwrapFetchText(metrics);
+
+	host.replaceChildren(
+		renderAdBlockerPipeline(status, service, dnsFwdRaw, config, statsResult, adblockService),
+		renderOverview(statsResult, metricsPayload),
+		renderStatusDashboard(status, service, refreshPage),
+		renderStatsDashboard(statsResult, refreshPage),
+		renderRealtimeMetrics(metricsPayload)
+	);
+
+	return {
+		service: service,
+		status: status,
+		config: config,
+		metricsPayload: metricsPayload,
+		statsResult: statsResult
+	};
+}
+
+function registerStatsPoll(dashboardHost, getMetricsPayload, refreshPage) {
+	poll.add(function() {
+		return fetchBlockyStats().then(function(sr) {
+			if (!sr.ok || !sr.data)
+				return;
+
+			var metricsPayload = typeof getMetricsPayload === 'function' ? getMetricsPayload() : '';
+			var overview = dashboardHost.querySelector('.blocky-dashboard-metrics-row');
+			if (overview)
+				overview.replaceWith(renderOverview(sr, metricsPayload));
+
+			var statsSection = dashboardHost.querySelector('.blocky-stats-dashboard');
+			if (statsSection)
+				statsSection.replaceWith(renderStatsDashboard(sr, refreshPage));
+		});
+	}, 45);
 }
 
 function createBlockyView(options) {
 	options = options || {};
 	var defaultTab = options.defaultTab || 0;
+	var viewMode = options.viewMode || 'services';
 	var statsPollRegistered = false;
 
 	return view.extend({
@@ -2189,41 +2327,28 @@ function createBlockyView(options) {
 			var metrics = data[3];
 			var dnsFwd = data[4];
 			var statsResult = data[5];
-			var dnsFwdRaw = execResultStdout(dnsFwd, '0\n');
+			var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
 			var controlsHost = E('div', {});
-
-			dnsFwdRaw = blockyCliStdout(dnsFwdRaw);
+			var logsHost = E('div', {});
 
 			function refreshPage() {
 				return self.load().then(function(fresh) {
-					var newStatus = fresh[1];
-					var newService = fresh[0];
-					var newStats = fresh[5];
-					var newMetrics = unwrapFetchText(fresh[3]);
-
-					dashboardHost.replaceChildren(
-						renderOverview(newStats, newMetrics),
-						renderStatusDashboard(newStatus, newService, refreshPage),
-						renderStatsDashboard(newStats, refreshPage),
-						renderRealtimeMetrics(newMetrics)
-					);
-
+					mountDashboardContent(dashboardHost, fresh, refreshPage);
 					controlsHost.replaceChildren(
-						renderBlockingControls(newStatus, refreshPage),
-						renderOperations(newService, refreshPage),
-						renderServiceControls(newService, refreshPage)
+						renderBlockingControls(fresh[1], refreshPage),
+						renderOperations(fresh[0], refreshPage),
+						renderServiceControls(fresh[0], refreshPage)
 					);
+					logsHost.replaceChildren(renderQueryLogsTab(fresh[2]));
 				}).catch(function(err) {
 					notify(err.message || String(err), 'danger');
 				});
 			}
 
-			dashboardHost.appendChild(renderOverview(statsResult, metricsPayload));
-			dashboardHost.appendChild(renderStatusDashboard(status, service, refreshPage));
-			dashboardHost.appendChild(renderStatsDashboard(statsResult, refreshPage));
-			dashboardHost.appendChild(renderRealtimeMetrics(metricsPayload));
+			mountDashboardContent(dashboardHost, data, refreshPage);
+			logsHost.appendChild(renderQueryLogsTab(config));
 
 			controlsHost.appendChild(renderBlockingControls(status, refreshPage));
 			controlsHost.appendChild(renderOperations(service, refreshPage));
@@ -2231,20 +2356,21 @@ function createBlockyView(options) {
 
 			if (!statsPollRegistered) {
 				statsPollRegistered = true;
-				poll.add(function() {
-					return fetchBlockyStats().then(function(sr) {
-						if (!sr.ok || !sr.data)
-							return;
+				registerStatsPoll(dashboardHost, function() { return metricsPayload; }, refreshPage);
+			}
 
-						var overview = dashboardHost.querySelector('.blocky-dashboard-metrics-row');
-						if (overview)
-							overview.replaceWith(renderOverview(sr, metricsPayload));
-
-						var statsSection = dashboardHost.querySelector('.blocky-stats-dashboard');
-						if (statsSection)
-							statsSection.replaceWith(renderStatsDashboard(sr, refreshPage));
-					});
-				}, 45);
+			if (viewMode === 'status') {
+				return E('div', { 'class': 'luci-app-blocky' }, [
+					blockyInjectStyles(),
+					E('h2', {}, [ _('Blocky DNS — Status & Statistics') ]),
+					E('p', { 'class': 'cbi-section-descr' }, [
+						_('Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under '),
+						E('a', { 'href': L.url('admin/services/blocky') }, [ _('Services → Blocky') ]),
+						'.'
+					]),
+					dashboardHost,
+					logsHost
+				]);
 			}
 
 			return E('div', { 'class': 'luci-app-blocky' }, [
@@ -2275,7 +2401,7 @@ function createBlockyView(options) {
 					},
 					{
 						title: _('Logs'),
-						nodes: [ renderQueryLogsTab(config) ]
+						nodes: [ logsHost ]
 					}
 				], defaultTab)
 			]);

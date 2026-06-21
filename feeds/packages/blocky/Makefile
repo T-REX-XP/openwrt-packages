@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
 PKG_VERSION:=0.32.1
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
@@ -63,6 +63,7 @@ define Package/blocky/install
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-dnsmasq-sync $(1)/usr/sbin/blocky-dnsmasq-sync
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/blocky.defaults $(1)/etc/uci-defaults/90-blocky-enable
+	$(INSTALL_BIN) ./files/blocky-querylog.defaults $(1)/etc/uci-defaults/91-blocky-querylog
 endef
 
 $(eval $(call GoBinPackage,blocky))
