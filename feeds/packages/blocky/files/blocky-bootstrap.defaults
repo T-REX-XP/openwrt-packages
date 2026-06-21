@@ -1,0 +1,15 @@
+#!/bin/sh
+# One-time upgrade: drop resolvFile bootstrap (breaks first boot when resolv.conf.auto is empty).
+
+[ -x /usr/sbin/blocky-config-apply ] || exit 0
+[ -f /etc/.blocky_bootstrap_v2 ] && exit 0
+[ -s /etc/blocky/config.yml ] || exit 0
+
+/usr/sbin/blocky-config-apply >/dev/null
+
+if /etc/init.d/blocky running 2>/dev/null; then
+	/etc/init.d/blocky restart
+fi
+
+touch /etc/.blocky_bootstrap_v2
+exit 0

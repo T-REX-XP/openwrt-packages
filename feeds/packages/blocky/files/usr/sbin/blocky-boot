@@ -1,5 +1,5 @@
 #!/bin/sh
-# After Blocky starts: ensure API blocking is on and remote lists are refreshed.
+# After Blocky starts: wait for WAN, enable blocking, refresh remote lists.
 
 set -u
 
@@ -7,6 +7,7 @@ set -u
 
 API="$(blocky_api_base)"
 MAX_WAIT=90
+NET_WAIT=120
 
 enable_blocking() {
 	local status
@@ -23,7 +24,18 @@ enable_blocking() {
 }
 
 blocky_wait_for_api "$API" "$MAX_WAIT" || exit 0
+
+if ! blocky_wait_for_network "$NET_WAIT"; then
+	logger -t blocky "WAN not ready — deferring list refresh (hotplug will retry)"
+	exit 0
+fi
+
 enable_blocking
-blocky_http_post_empty "$API/lists/refresh" || true
+
+if blocky_http_post_empty "$API/lists/refresh"; then
+	logger -t blocky "block lists refreshed"
+else
+	logger -t blocky "list refresh failed — will retry on next WAN ifup"
+fi
 
 exit 0

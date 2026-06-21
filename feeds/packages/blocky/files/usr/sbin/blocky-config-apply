@@ -51,7 +51,14 @@ fi
 
 append_if_missing_section bootstrapDns 'bootstrapDns:
   - tcp+udp:1.1.1.1
-  - resolvFile: /tmp/resolv.conf.auto'
+  - tcp+udp:9.9.9.9
+  - https://1.1.1.1/dns-query'
+
+# resolvFile is parsed once at startup; an empty /tmp/resolv.conf.auto prevents Blocky from starting.
+if grep -q 'resolvFile:' "$CONFIG" 2>/dev/null; then
+	sed -i '/resolvFile:/d' "$CONFIG"
+	changed=1
+fi
 
 append_if_missing_section caching 'caching:
   minTime: 5m

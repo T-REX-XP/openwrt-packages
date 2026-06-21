@@ -1,0 +1,24 @@
+#!/bin/sh
+# Refresh Blocky lists when WAN comes up (Tailscale wwan, eth wan, etc.).
+
+[ "$ACTION" = "ifup" ] || exit 0
+
+case "$INTERFACE" in
+	wan|wwan) ;;
+	*) exit 0 ;;
+esac
+
+[ -x /usr/sbin/blocky-boot ] || exit 0
+
+logger -t blocky "interface $INTERFACE up — scheduling list refresh"
+( sleep 3; /usr/sbin/blocky-boot ) &
+
+if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
+	case "$(uci -q get blocky.main.dnsmasq_forward 2>/dev/null)" in
+		1|true|yes|on)
+			( sleep 5; /usr/sbin/blocky-dnsmasq-sync enable ) &
+			;;
+	esac
+fi
+
+exit 0

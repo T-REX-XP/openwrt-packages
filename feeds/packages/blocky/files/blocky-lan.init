@@ -1,14 +1,13 @@
 #!/bin/sh /etc/rc.common
-# Apply dnsmasq→Blocky forwarding after LAN (br-lan) is up.
-# Must not run from uci-defaults: boot (START=10) runs before network (START=20).
+# Apply dnsmasq→Blocky forwarding after LAN and Blocky are ready.
 
-START=85
+START=100
 STOP=15
 
 wait_for_lan() {
 	local i=0
 
-	while [ "$i" -lt 45 ]; do
+	while [ "$i" -lt 60 ]; do
 		if ip link show br-lan up >/dev/null 2>&1; then
 			return 0
 		fi
@@ -22,7 +21,7 @@ wait_for_lan() {
 wait_for_blocky() {
 	local i=0
 
-	while [ "$i" -lt 45 ]; do
+	while [ "$i" -lt 90 ]; do
 		if [ -x /usr/sbin/blocky-http-api ] && \
 			/usr/sbin/blocky-http-api GET api/blocking/status >/dev/null 2>&1; then
 			return 0

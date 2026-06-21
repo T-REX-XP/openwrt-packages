@@ -170,6 +170,26 @@ blocky_wait_for_api() {
 	return 1
 }
 
+# Wait until the router can reach the public internet (IPv4).
+# List downloads and DoH bootstrap need a default route; Tailscale/wan may come up late.
+blocky_wait_for_network() {
+	local max_wait="${1:-120}"
+	local i=0
+
+	while [ "$i" -lt "$max_wait" ]; do
+		if ip route get 1.1.1.1 >/dev/null 2>&1; then
+			if uclient-fetch -4 -q -O /dev/null --timeout=3 http://1.1.1.1/ 2>/dev/null; then
+				return 0
+			fi
+			# Route exists but probe failed — keep waiting briefly.
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
+
 blocky_http_request_cli() {
 	local method="${1:-GET}"
 	local path_part="${2:-metrics}"

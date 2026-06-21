@@ -49,7 +49,7 @@ if [ -x /etc/init.d/adblock ]; then
 	/etc/init.d/adblock stop 2>/dev/null || true
 fi
 
-# Mark dnsmasq→Blocky forwarding for blocky-lan (START=85, after network).
+# Mark dnsmasq→Blocky forwarding for blocky-lan (START=100, after blocky/network).
 if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
 	uci -q show blocky.main >/dev/null 2>&1 || uci set blocky.main=blocky
 	uci -q set blocky.main.dnsmasq_forward='1'

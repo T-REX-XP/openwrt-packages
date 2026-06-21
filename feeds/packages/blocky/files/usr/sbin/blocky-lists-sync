@@ -139,7 +139,7 @@ merge_config() {
 				echo "$body" | grep -q 'enable:' || body=""
 				;;
 			bootstrapDns)
-				echo "$body" | grep -Eq 'resolvFile:|tcp|https:' || body=""
+				echo "$body" | grep -Eq 'tcp|https:' || body=""
 				;;
 			caching)
 				echo "$body" | grep -Eq 'minTime:|maxTime:|prefetching:' || body=""
@@ -189,7 +189,8 @@ EOF
 		echo ""
 		append_section bootstrapDns 'bootstrapDns:
   - tcp+udp:1.1.1.1
-  - resolvFile: /tmp/resolv.conf.auto'
+  - tcp+udp:9.9.9.9
+  - https://1.1.1.1/dns-query'
 		echo ""
 		cat "$new_blocking"
 		echo ""

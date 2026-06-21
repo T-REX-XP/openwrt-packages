@@ -12,10 +12,13 @@ upstreams:
       - tcp-tls:1.1.1.1:853
       - https://1.1.1.1/dns-query
 
-# Resolve denylist URLs and upstream hostnames (WAN resolvers on OpenWrt)
+# Resolve denylist URLs and upstream hostnames.
+# Static resolvers only — do not use resolvFile here: at first boot
+# /tmp/resolv.conf.auto is often empty and Blocky refuses to start.
 bootstrapDns:
   - tcp+udp:1.1.1.1
-  - resolvFile: /tmp/resolv.conf.auto
+  - tcp+udp:9.9.9.9
+  - https://1.1.1.1/dns-query
 
 blocking:
   denylists:
