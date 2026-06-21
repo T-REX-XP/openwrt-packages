@@ -245,31 +245,46 @@ var BLOCKLIST_CATALOG_PATH = '/usr/share/luci-app-blocky/blocklist-catalog.json'
 var EMPTY_BLOCKLIST_CATALOG = { presets: [], catalog: [], presetMap: {} };
 var blocklistCatalogPromise = null;
 
+function unwrapFsRead(value) {
+	return safeString(blockyCliStdout(value)).trim();
+}
+
+function emptyBlocklistCatalog() {
+	return { presets: [], catalog: [], presetMap: {} };
+}
+
 function normalizeBlocklistCatalog(raw) {
 	var data = null;
+	var text = unwrapFsRead(raw);
 
-	try {
-		if (typeof raw === 'string')
-			data = parseJson(safeString(raw).trim());
-		else if (raw && typeof raw === 'object')
-			data = raw;
+	if (text) {
+		try {
+			data = JSON.parse(text);
+		}
+		catch (err) {
+			data = null;
+		}
 	}
-	catch (err) {
-		data = null;
+	else if (raw && typeof raw === 'object' && Array.isArray(raw.presets)) {
+		data = raw;
 	}
 
 	if (!data || !Array.isArray(data.presets))
-		return EMPTY_BLOCKLIST_CATALOG;
+		return emptyBlocklistCatalog();
 
 	var presetMap = {};
+	var presets = [];
 
 	data.presets.forEach(function(preset) {
-		if (preset && preset.id)
-			presetMap[preset.id] = preset;
+		if (!preset || !preset.id || !preset.name || !preset.url)
+			return;
+
+		presetMap[preset.id] = preset;
+		presets.push(preset);
 	});
 
 	return {
-		presets: data.presets,
+		presets: presets,
 		catalog: Array.isArray(data.catalog) ? data.catalog : [],
 		presetMap: presetMap
 	};
@@ -283,19 +298,22 @@ function loadBlocklistCatalog(forceReload) {
 		return blocklistCatalogPromise;
 
 	blocklistCatalogPromise = L.resolveDefault(fs.read(BLOCKLIST_CATALOG_PATH), '').then(function(raw) {
-		var catalog = normalizeBlocklistCatalog(raw);
-
-		if (!catalog.presets.length)
-			notify(_('Blocklist catalog is missing or invalid (%s).').format(BLOCKLIST_CATALOG_PATH), 'warning');
-
-		return catalog;
+		return normalizeBlocklistCatalog(raw);
 	});
 
 	return blocklistCatalogPromise;
 }
 
 function blockyPresetHomeUrl(preset) {
-	return preset.homeUrl || preset.url.replace(/\/[^/]*$/, '/');
+	if (!preset || !preset.url)
+		return '#';
+
+	if (preset.homeUrl)
+		return preset.homeUrl;
+
+	var cleaned = safeString(preset.url).replace(/[#?].*$/, '');
+
+	return cleaned.replace(/\/[^/]*$/, '/') || cleaned;
 }
 
 function blockyCloseModal(overlay) {
@@ -333,6 +351,9 @@ function blockyOpenModal(title, bodyNodes, footerNodes, options) {
 				blockyCloseModal(overlay);
 		});
 	}
+	dialog.addEventListener('click', function(ev) {
+		ev.stopPropagation();
+	});
 
 	document.body.appendChild(overlay);
 	return overlay;
@@ -373,6 +394,9 @@ function addBlocklistsFromPresets(presets) {
 		var added = 0;
 
 		presets.forEach(function(preset) {
+			if (!preset || !preset.id || !preset.url)
+				return;
+
 			if (uci.get('blocky', preset.id))
 				return;
 
@@ -484,6 +508,11 @@ function openCustomBlocklistModal(refreshPage, existing) {
 function openCatalogModal(refreshPage, catalogData) {
 	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 
+	if (!catalogData.presets.length) {
+		notify(_('Blocklist catalog is missing or invalid (%s).').format(BLOCKLIST_CATALOG_PATH), 'warning');
+		return Promise.resolve();
+	}
+
 	if (!catalogData.catalog.length) {
 		notify(_('Blocklist catalog has no groups. Edit %s on the router.').format(BLOCKLIST_CATALOG_PATH), 'warning');
 		return Promise.resolve();
@@ -555,6 +584,12 @@ function openCatalogModal(refreshPage, catalogData) {
 			]));
 		});
 
+		if (!body.length) {
+			body.push(E('p', { 'class': 'blocky-note-soft' }, [
+				_('All catalog lists are already configured.')
+			]));
+		}
+
 		var overlay = blockyOpenModal(
 			_('Choose blocklists'),
 			[ E('div', { 'class': 'blocky-modal-catalog' }, body) ],
@@ -583,7 +618,14 @@ function openCatalogModal(refreshPage, catalogData) {
 }
 
 function openNewBlocklistModal(refreshPage, catalogData) {
+	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 	var overlay;
+
+	if (!catalogData.presets.length) {
+		notify(_('Blocklist catalog is missing or invalid (%s).').format(BLOCKLIST_CATALOG_PATH), 'warning');
+		openCustomBlocklistModal(refreshPage);
+		return;
+	}
 
 	overlay = blockyOpenModal(
 		_('New blocklist'),
@@ -700,9 +742,10 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData) {
 							'type': 'checkbox',
 							'checked': entry.enabled ? '' : null,
 							'change': ui.createHandlerFn(this, function(ev) {
-								uci.set('blocky', entry.id, 'enabled', ev.target.checked ? '1' : '0');
-
-								return applyBlocklistChanges(true).then(function() {
+								return uci.load('blocky').then(function() {
+									uci.set('blocky', entry.id, 'enabled', ev.target.checked ? '1' : '0');
+									return applyBlocklistChanges(true);
+								}).then(function() {
 									notify(_('Block list updated.'));
 									return refreshPage();
 								}).catch(function(err) {
@@ -2783,11 +2826,13 @@ function renderApiSecuritySection(configYaml, uciAccess) {
 				'click': ui.createHandlerFn(this, function(ev) {
 					ev.preventDefault();
 
-					uci.set('blocky', 'main', 'api_user', userInput.value.trim());
-					uci.set('blocky', 'main', 'api_password', passInput.value);
-					uci.set('blocky', 'main', 'api_local_only', localBind ? '1' : '0');
+					return uci.load('blocky').then(function() {
+						uci.set('blocky', 'main', 'api_user', userInput.value.trim());
+						uci.set('blocky', 'main', 'api_password', passInput.value);
+						uci.set('blocky', 'main', 'api_local_only', localBind ? '1' : '0');
 
-					return uci.save().then(function() {
+						return uci.save();
+					}).then(function() {
 						applyBlockyApiAccess(configYaml, {
 							user: userInput.value.trim(),
 							password: passInput.value

@@ -858,3 +858,6 @@ msgstr "Blocklist catalog is missing or invalid (%s)."
 
 msgid "Blocklist catalog has no groups. Edit %s on the router."
 msgstr "Blocklist catalog has no groups. Edit %s on the router."
+
+msgid "All catalog lists are already configured."
+msgstr "All catalog lists are already configured."

@@ -5,12 +5,53 @@ set -u
 
 API=http://127.0.0.1:4000/api
 MAX_WAIT=90
+HTTP_CLIENT=
+
+if command -v uclient-fetch >/dev/null 2>&1; then
+	HTTP_CLIENT=uclient-fetch
+elif command -v wget >/dev/null 2>&1; then
+	HTTP_CLIENT=wget
+else
+	exit 0
+fi
+
+http_probe() {
+	if [ "$HTTP_CLIENT" = uclient-fetch ]; then
+		uclient-fetch -q -O /dev/null --timeout=2 "$1" 2>/dev/null
+	else
+		wget -q -O /dev/null -T 2 "$1" 2>/dev/null
+	fi
+}
+
+http_get() {
+	if [ "$HTTP_CLIENT" = uclient-fetch ]; then
+		uclient-fetch -q -O - --timeout=5 "$1" 2>/dev/null
+	else
+		wget -q -O - -T 5 "$1" 2>/dev/null
+	fi
+}
+
+http_get_discard() {
+	if [ "$HTTP_CLIENT" = uclient-fetch ]; then
+		uclient-fetch -q -O /dev/null --timeout=10 "$1" 2>/dev/null
+	else
+		wget -q -O /dev/null -T 10 "$1" 2>/dev/null
+	fi
+}
+
+http_post_discard() {
+	if [ "$HTTP_CLIENT" = uclient-fetch ]; then
+		uclient-fetch -q -O /dev/null --timeout=180 --post=POST "$1" 2>/dev/null
+	else
+		wget -q -O /dev/null -T 180 --post-data='' "$1" 2>/dev/null
+	fi
+}
 
 wait_for_api() {
 	local i=0
 
 	while [ "$i" -lt "$MAX_WAIT" ]; do
-		if wget -q -O /dev/null -T 2 "$API/blocking/status" 2>/dev/null; then
+		if http_probe "$API/blocking/status"; then
 			return 0
 		fi
 		i=$((i + 1))
@@ -23,7 +64,7 @@ wait_for_api() {
 enable_blocking() {
 	local status
 
-	status="$(wget -q -O - -T 5 "$API/blocking/status" 2>/dev/null)" || return 0
+	status="$(http_get "$API/blocking/status")" || return 0
 
 	case "$status" in
 		*'"enabled":true'*|*'"enabled": true'*)
@@ -31,11 +72,11 @@ enable_blocking() {
 			;;
 	esac
 
-	wget -q -O /dev/null -T 10 "$API/blocking/enable" 2>/dev/null || true
+	http_get_discard "$API/blocking/enable" || true
 }
 
 refresh_lists() {
-	wget -q -O /dev/null -T 180 --post-data='' "$API/lists/refresh" 2>/dev/null || true
+	http_post_discard "$API/lists/refresh" || true
 }
 
 wait_for_api || exit 0

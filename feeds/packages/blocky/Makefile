@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
 PKG_VERSION:=0.32.1
-PKG_RELEASE:=6
+PKG_RELEASE:=7
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
@@ -36,7 +36,7 @@ define Package/blocky
   CATEGORY:=Network
   TITLE:=Fast DNS proxy and ad-blocker
   URL:=https://github.com/0xERR0R/blocky
-  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle
+  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +uclient-fetch
 endef
 
 define Package/blocky/description
