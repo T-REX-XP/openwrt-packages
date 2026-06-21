@@ -8,6 +8,8 @@
 				"/etc/init.d/blocky": [ "exec" ],
 				"/usr/sbin/blocky-dnsmasq-sync": [ "exec" ],
 				"/usr/sbin/blocky-lists-sync": [ "exec" ],
+				"/usr/sbin/blocky-config-apply": [ "exec" ],
+				"/usr/sbin/blocky-boot": [ "exec" ],
 				"/bin/uclient-fetch": [ "exec" ],
 				"/tmp/blocky-logs/": [ "read" ],
 				"/var/log/blocky/": [ "read" ],
@@ -25,6 +27,8 @@
 				"/etc/init.d/blocky": [ "exec" ],
 				"/usr/sbin/blocky-dnsmasq-sync": [ "exec" ],
 				"/usr/sbin/blocky-lists-sync": [ "exec" ],
+				"/usr/sbin/blocky-config-apply": [ "exec" ],
+				"/usr/sbin/blocky-boot": [ "exec" ],
 				"/bin/uclient-fetch": [ "exec" ]
 			}
 		}

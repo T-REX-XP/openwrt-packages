@@ -1,21 +1,59 @@
 #!/bin/sh
+# First-boot: prepare config, enable Blocky ad blocking, chain dnsmasq, refresh lists.
+
+. /lib/functions.sh
 
 [ -x /etc/init.d/blocky ] || exit 0
 [ -s /etc/blocky/config.yml ] || exit 0
 
-mkdir -p /tmp/blocky-logs
-chmod 755 /tmp/blocky-logs
+has_blocklists=0
 
-# Blocky is the primary LAN ad blocker on CM5 images; keep dnsmasq-based adblock off to avoid double filtering.
+_bl_found() {
+	has_blocklists=1
+}
+
+if [ -f /etc/config/blocky ]; then
+	config_load blocky 2>/dev/null || true
+	config_foreach _bl_found blocklist
+fi
+
+if [ "$has_blocklists" = "0" ]; then
+	uci -q batch <<'EOF'
+set blocky.stevenblack=blocklist
+set blocky.stevenblack.name='StevenBlack Unified'
+set blocky.stevenblack.url='https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts'
+set blocky.stevenblack.enabled='1'
+set blocky.stevenblack.category='ads'
+set blocky.stevenblack.description='Unified ads and malware hosts list (English-focused).'
+set blocky.main.refresh_period='4h'
+commit blocky
+EOF
+fi
+
+uci -q get blocky.main.refresh_period >/dev/null 2>&1 || {
+	uci -q set blocky.main.refresh_period='4h'
+	uci -q commit blocky
+}
+
+[ -x /usr/sbin/blocky-config-apply ] && /usr/sbin/blocky-config-apply >/dev/null
+
+# Blocky is the primary LAN ad blocker on CM5 images; keep dnsmasq-based adblock off.
 if [ -x /etc/init.d/adblock ]; then
 	/etc/init.d/adblock disable 2>/dev/null || true
 	/etc/init.d/adblock stop 2>/dev/null || true
 fi
 
 /etc/init.d/blocky enable
-/etc/init.d/blocky start
+/etc/init.d/blocky restart
 
 # Route LAN/Wi-Fi DNS (dnsmasq :53) through Blocky by default.
-[ -x /usr/sbin/blocky-dnsmasq-sync ] && /usr/sbin/blocky-dnsmasq-sync enable
+if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
+	/usr/sbin/blocky-dnsmasq-sync enable
+fi
+
+# Ensure blocking API is on and lists are fetched (also runs from init after start).
+if [ -x /usr/sbin/blocky-boot ]; then
+	/usr/sbin/blocky-boot &
+fi
 
 exit 0

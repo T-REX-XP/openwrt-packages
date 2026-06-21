@@ -1,0 +1,45 @@
+#!/bin/sh
+# After Blocky starts: ensure API blocking is on and remote lists are refreshed.
+
+set -u
+
+API=http://127.0.0.1:4000/api
+MAX_WAIT=90
+
+wait_for_api() {
+	local i=0
+
+	while [ "$i" -lt "$MAX_WAIT" ]; do
+		if wget -q -O /dev/null -T 2 "$API/blocking/status" 2>/dev/null; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
+
+enable_blocking() {
+	local status
+
+	status="$(wget -q -O - -T 5 "$API/blocking/status" 2>/dev/null)" || return 0
+
+	case "$status" in
+		*'"enabled":true'*|*'"enabled": true'*)
+			return 0
+			;;
+	esac
+
+	wget -q -O /dev/null -T 10 "$API/blocking/enable" 2>/dev/null || true
+}
+
+refresh_lists() {
+	wget -q -O /dev/null -T 180 --post-data='' "$API/lists/refresh" 2>/dev/null || true
+}
+
+wait_for_api || exit 0
+enable_blocking
+refresh_lists
+
+exit 0

@@ -1,0 +1,47 @@
+#!/bin/sh
+# Idempotent config.yml fixes: query log, statistics, localhost bind, blocklists sync.
+
+set -u
+
+CONFIG=/etc/blocky/config.yml
+changed=0
+
+[ -s "$CONFIG" ] || exit 0
+
+mkdir -p /tmp/blocky-logs /var/lib/blocky/lists
+chmod 755 /tmp/blocky-logs /var/lib/blocky/lists
+
+if ! grep -q '^queryLog:' "$CONFIG"; then
+	cat >> "$CONFIG" <<'EOF'
+
+queryLog:
+  type: csv
+  target: /tmp/blocky-logs
+  logRetentionDays: 7
+  flushInterval: 30s
+EOF
+	changed=1
+fi
+
+if ! grep -q '^statistics:' "$CONFIG"; then
+	cat >> "$CONFIG" <<'EOF'
+
+statistics:
+  enable: true
+EOF
+	changed=1
+fi
+
+if grep -qE '^[[:space:]]+dns:[[:space:]]+5353[[:space:]]*$' "$CONFIG"; then
+	sed -i 's/^\([[:space:]]*dns:\)[[:space:]]*5353[[:space:]]*$/\1 127.0.0.1:5353/' "$CONFIG"
+	changed=1
+fi
+
+if grep -qE '^[[:space:]]+http:[[:space:]]+4000[[:space:]]*$' "$CONFIG"; then
+	sed -i 's/^\([[:space:]]*http:\)[[:space:]]*4000[[:space:]]*$/\1 127.0.0.1:4000/' "$CONFIG"
+	changed=1
+fi
+
+[ -x /usr/sbin/blocky-lists-sync ] && /usr/sbin/blocky-lists-sync
+
+echo "$changed"

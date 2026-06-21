@@ -1,35 +1,5 @@
 #!/bin/sh
+# Legacy uci-defaults hook — logic moved to blocky-config-apply / 90-blocky-enable.
 
-[ -s /etc/blocky/config.yml ] || exit 0
-
-mkdir -p /tmp/blocky-logs
-chmod 755 /tmp/blocky-logs
-
-changed=0
-
-if ! grep -q '^queryLog:' /etc/blocky/config.yml; then
-	cat >> /etc/blocky/config.yml <<'EOF'
-
-queryLog:
-  type: csv
-  target: /tmp/blocky-logs
-  logRetentionDays: 7
-  flushInterval: 30s
-EOF
-	changed=1
-fi
-
-if ! grep -q '^statistics:' /etc/blocky/config.yml; then
-	cat >> /etc/blocky/config.yml <<'EOF'
-
-statistics:
-  enable: true
-EOF
-	changed=1
-fi
-
-if [ "$changed" = "1" ] && /etc/init.d/blocky enabled; then
-	/etc/init.d/blocky restart
-fi
-
+[ -x /usr/sbin/blocky-config-apply ] && /usr/sbin/blocky-config-apply >/dev/null
 exit 0

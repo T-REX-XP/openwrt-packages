@@ -1,0 +1,26 @@
+#!/bin/sh
+# Sysupgrade / reinstall: re-apply config, ensure Blocky is enabled, refresh blocking.
+
+[ -x /etc/init.d/blocky ] || exit 0
+
+[ -x /usr/sbin/blocky-config-apply ] && /usr/sbin/blocky-config-apply >/dev/null
+
+/etc/init.d/blocky enabled || /etc/init.d/blocky enable
+
+if ! /etc/init.d/blocky running; then
+	/etc/init.d/blocky start
+else
+	/etc/init.d/blocky restart
+fi
+
+if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
+	case "$(uci -q get blocky.main.dnsmasq_forward)" in
+		1|true|yes|on)
+			/usr/sbin/blocky-dnsmasq-sync enable
+			;;
+	esac
+fi
+
+[ -x /usr/sbin/blocky-boot ] && /usr/sbin/blocky-boot &
+
+exit 0

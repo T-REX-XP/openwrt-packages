@@ -11,7 +11,10 @@ blocking:
   clientGroupsBlock:
     default:
       - stevenblack
-  refreshPeriod: 4h
+  loading:
+    strategy: fast
+    refreshPeriod: 4h
+    cachePath: /var/lib/blocky/lists
 
 queryLog:
   type: csv

@@ -1,38 +1,4 @@
 #!/bin/sh
-# Seed UCI blocklists and sync blocking: section in config.yml
-
-. /lib/functions.sh
-
-[ -s /etc/blocky/config.yml ] || exit 0
-
-has_blocklists=0
-
-_bl_found() {
-	has_blocklists=1
-}
-
-if [ -f /etc/config/blocky ]; then
-	config_load blocky 2>/dev/null || true
-	config_foreach _bl_found blocklist
-fi
-
-if [ "$has_blocklists" = "0" ]; then
-	uci -q batch <<'EOF'
-set blocky.stevenblack=blocklist
-set blocky.stevenblack.name='StevenBlack Unified'
-set blocky.stevenblack.url='https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts'
-set blocky.stevenblack.enabled='1'
-set blocky.stevenblack.category='ads'
-set blocky.stevenblack.description='Unified ads and malware hosts list (English-focused).'
-commit blocky
-EOF
-fi
-
-uci -q get blocky.main.refresh_period >/dev/null 2>&1 || {
-	uci -q set blocky.main.refresh_period='4h'
-	uci -q commit blocky
-}
-
-[ -x /usr/sbin/blocky-lists-sync ] && /usr/sbin/blocky-lists-sync
+# Legacy uci-defaults hook — UCI seed and sync run from 90-blocky-enable.
 
 exit 0

@@ -937,7 +937,9 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 	var ql = parseQueryLogConfig(configYaml);
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 	var denyEntries = stats ? sumDenylistEntries(stats) : 0;
+	var statsReady = !!(statsResult && statsResult.ok && stats);
 	var adblockRunning = isNamedServiceRunning(adblockService, 'adblock');
+	var listsOk = denyEntries > 0 || (running && blocking && !statsReady);
 	var rows = [
 		{
 			label: _('Blocky service'),
@@ -961,10 +963,12 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		},
 		{
 			label: _('Block lists loaded'),
-			ok: denyEntries > 0,
+			ok: listsOk,
 			detail: denyEntries > 0
 				? _('%s denylist entries in memory').format(formatNumber(denyEntries))
-				: _('Lists still loading or statistics unavailable — try Refresh lists')
+				: (running && blocking && !statsReady
+					? _('Lists loading in background — refresh dashboard in a minute')
+					: _('Lists still loading or statistics unavailable — try Refresh lists'))
 		},
 		{
 			label: _('HTTP API listener'),

@@ -352,6 +352,9 @@ msgstr "Listening on UDP/TCP port %d"
 msgid "Lists still loading or statistics unavailable — try Refresh lists"
 msgstr "Lists still loading or statistics unavailable — try Refresh lists"
 
+msgid "Lists loading in background — refresh dashboard in a minute"
+msgstr "Lists loading in background — refresh dashboard in a minute"
+
 msgid "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
 msgstr "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
 

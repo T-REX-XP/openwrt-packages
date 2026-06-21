@@ -65,7 +65,10 @@ write_blocking_section() {
 		else
 			echo "      - stevenblack"
 		fi
-		echo "  refreshPeriod: $refresh_period"
+		echo "  loading:"
+		echo "    strategy: fast"
+		echo "    refreshPeriod: $refresh_period"
+		echo "    cachePath: /var/lib/blocky/lists"
 	} > "$out_tmp"
 
 	echo "$out_tmp"

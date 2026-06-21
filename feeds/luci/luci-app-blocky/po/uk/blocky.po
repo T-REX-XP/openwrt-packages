@@ -353,6 +353,9 @@ msgstr "Слухає UDP/TCP порт %d"
 msgid "Lists still loading or statistics unavailable — try Refresh lists"
 msgstr "Списки ще завантажуються або статистика недоступна — натисніть «Оновити списки»"
 
+msgid "Lists loading in background — refresh dashboard in a minute"
+msgstr "Списки завантажуються у фоні — оновіть панель через хвилину"
+
 msgid "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
 msgstr "Стан блокування реклами, 24-годинна статистика та останні журнали запитів. Конфігурація та керування — у "
 
