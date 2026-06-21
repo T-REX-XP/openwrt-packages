@@ -18,6 +18,8 @@
 	--blocky-chart-cached-fill: rgba(67, 160, 71, 0.2);
 	--blocky-summary-badge-bg: rgba(229, 57, 53, 0.12);
 	--blocky-summary-badge-fg: var(--error-color-high, #c62828);
+	--blocky-modal-catalog-bg: #67b279;
+	--blocky-modal-custom-bg: #4a90e2;
 	min-width: 0;
 	max-width: 100%;
 }
@@ -29,6 +31,8 @@
 	--blocky-chart-cached-fill: rgba(67, 160, 71, 0.28);
 	--blocky-summary-badge-bg: rgba(239, 83, 80, 0.18);
 	--blocky-summary-badge-fg: var(--error-color-high, #ef5350);
+	--blocky-modal-catalog-bg: var(--success-color-high, #388e3c);
+	--blocky-modal-custom-bg: var(--primary-color-high, #1976d2);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -38,6 +42,8 @@
 		--blocky-chart-cached-fill: rgba(67, 160, 71, 0.28);
 		--blocky-summary-badge-bg: rgba(239, 83, 80, 0.18);
 		--blocky-summary-badge-fg: var(--error-color-high, #ef5350);
+		--blocky-modal-catalog-bg: var(--success-color-high, #388e3c);
+		--blocky-modal-custom-bg: var(--primary-color-high, #1976d2);
 	}
 }
 
@@ -195,11 +201,11 @@
 }
 
 .blocky-modal-choice-catalog {
-	background: #67b279;
+	background: var(--blocky-modal-catalog-bg, var(--success-color-high, #67b279));
 }
 
 .blocky-modal-choice-custom {
-	background: #4a90e2;
+	background: var(--blocky-modal-custom-bg, var(--primary-color-high, #4a90e2));
 }
 
 .blocky-modal-field {
@@ -1259,4 +1265,55 @@
 		grid-template-columns: 1fr;
 		gap: 0.25em;
 	}
+}
+
+.blocky-page-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.65em;
+	margin: 0 0 0.35em;
+}
+
+.blocky-page-head h2 {
+	margin: 0;
+}
+
+.blocky-version-badge {
+	display: inline-block;
+	font-size: 0.88em;
+	font-weight: 600;
+	color: var(--text-color-medium);
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 999px;
+	padding: 0.2em 0.75em;
+	font-variant-numeric: tabular-nums;
+}
+
+.blocky-query-log-toolbar,
+.blocky-query-log-pagination {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	align-items: center;
+	margin: 0.75em 0;
+}
+
+.blocky-query-log-tmpfs-note {
+	margin: 0.65em 0 0.85em;
+	font-size: 0.92em;
+	line-height: 1.45;
+}
+
+.blocky-query-log-table .td {
+	word-break: break-word;
+}
+
+.blocky-statistics-tab {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+	min-width: 0;
 }

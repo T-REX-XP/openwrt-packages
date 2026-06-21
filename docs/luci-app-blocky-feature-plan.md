@@ -29,12 +29,16 @@ Target Blocky version in feed: **v0.32.1** ([release notes](https://github.com/0
 | `/api/stats` dashboard widgets | **Done** — with graceful 503 banner |
 | Pause countdown (`autoEnableInSec`) | **Done** — 1s poll on Dashboard / Controls |
 | UCI blocklists → `blocky-lists-sync` | **Done** |
-| rpcd `luci.blocky` (`sync_lists`, `refresh_lists`, `http_request`) | **Done** — LuCI `expect: { '': {} }` |
+| rpcd `luci.blocky` (`sync_lists`, `refresh_lists`, `http_request`, `read_query_log`, `get_version`) | **Done** — LuCI `expect: { '': {} }` |
 | Structured Settings form (not raw YAML only) | **Done** — Advanced YAML still available |
-| CSV query log viewer in LuCI | **Not implemented** (Phase 3) |
-| Consolidate Services + Status menus | **Not implemented** (Phase 5) |
+| Phase 2 detail panels (breakdown, list inventory, cache, avg response) | **Done** — Statistics tab + dashboard summary |
+| CSV query log viewer in LuCI | **Done** — rpcd path allowlist, filters, pagination, tmpfs note |
+| Consolidate Services + Status menus | **Done** — single Services → Blocky entry; `#statistics` hash; legacy status URL redirects |
+| Version display | **Done** — `blocky_build_info` metrics or `blocky version` via rpcd |
+| Dark mode audit | **Done** — modal choice colors use CSS variables |
+| ACL tightening for query logs | **Done** — reads via `read_query_log` only; removed `/bin/sh` / `/bin/ls` / direct log dir ACL |
 
-**Remaining high-value work:** optional CSV query log tab (Phase 3), menu consolidation (Phase 5), track upstream API changes.
+**Remaining high-value work:** track upstream Blocky / blocky-ui API changes.
 
 ---
 
@@ -47,8 +51,8 @@ feeds/luci/luci-app-blocky/
   htdocs/luci-static/resources/blocky-common.js      # shared UI, API, settings form
   htdocs/luci-static/resources/blocky-theme.css
   htdocs/luci-static/resources/view/services/blocky.js   # thin wrapper → createBlockyView()
-  htdocs/luci-static/resources/view/status/blocky.js     # status mode wrapper
-  root/usr/share/rpcd/ucode/luci.blocky.uc               # sync_lists, refresh_lists, http_request
+  htdocs/luci-static/resources/view/status/blocky.js     # legacy redirect → Services → Blocky#statistics
+  root/usr/share/rpcd/ucode/luci.blocky.uc               # sync_lists, refresh_lists, http_request, read_query_log, get_version
   root/usr/share/rpcd/acl.d/luci-app-blocky.json
   root/usr/share/luci/menu.d/luci-app-blocky.json
   root/usr/share/luci-app-blocky/blocklist-catalog.json
@@ -58,16 +62,17 @@ Depends on: `blocky`, `luci-base`. Local HTTP to Blocky goes through **rpcd** �
 
 ### 1.2 Services → Blocky (`services/blocky.js`)
 
-Five tabs:
+Seven tabs:
 
 | Tab | Features |
 |-----|----------|
 | **Dashboard** | Overview metric cards (total queries, blocked, cache hit %, denylist entries); server status card; pause presets (5m/15m/30m/disable); operations (cache flush, list refresh); **real-time charts** from Prometheus polling (1h/24h/7d/30d windows, counter deltas) |
+| **Statistics** | 24h `/api/stats` charts (hourly, top lists, response breakdown, list inventory, cache widget); server status + operations (replaces former Status menu page) |
 | **Configuration** | Structured **Settings** form (upstreams, blocking, ports, statistics, query log) + **Router DNS integration** (`blocky-dnsmasq-sync`); optional raw YAML in Advanced |
 | **Controls** | Enable/disable blocking; custom pause duration; **per-group disable** (`groups=` query param); operations + init.d enable/disable/start/stop/restart |
 | **Block lists** | UCI `blocklist` sections; catalog presets; **Sync to config.yml** (`blocky-lists-sync`) vs **Refresh lists** API (`blocky-lists-refresh`) |
 | **DNS Query** | POST `/api/query` — domain + record type (A, AAAA, CNAME, …), shows response type / RCODE / reason |
-| **Logs** | **Informational only** — detects `queryLog:` in YAML, explains LuCI does not parse logs |
+| **Logs** | CSV query log viewer when `queryLog.type: csv` — rpcd `read_query_log`, filters, pagination, tmpfs note |
 
 **Transport:** rpcd `luci.blocky.http_request` → `blocky-http-api` → `http://127.0.0.1:4000`; `fs.exec` for init.d and `blocky-dnsmasq-sync`; `fs.read`/`fs.write` for config.
 
@@ -76,18 +81,9 @@ Five tabs:
 - **`/usr/sbin/blocky-dnsmasq-sync`** — UCI `blocky.main.dnsmasq_forward`, sets `dhcp.@dnsmasq[].server=127.0.0.1#<port>`, restarts dnsmasq (BusyBox-safe, no `uci add_list` `#` bug).
 - Forwarding status pill (fixed earlier: `fs.exec` vs `exec_direct` stdout handling).
 
-### 1.3 Status → Blocky (`status/blocky.js`)
+### 1.3 Status → Blocky (legacy)
 
-Dedicated status page when Prometheus is enabled:
-
-- Blocking / service summary
-- Overview cards (same metrics as dashboard)
-- **Queries over time** (SVG, Prometheus delta sampling)
-- **Top clients** and **top query types** (from Prometheus label dimensions `client`, `type`)
-- List refresh button
-- Row count selector (5/10/15)
-
-**Data sources:** Primary **`GET /api/stats`** for overview cards, hourly chart, top lists; Prometheus `/metrics` as fallback when statistics disabled.
+Former **Status → Blocky DNS** menu entry removed. Bookmarks to `admin/status/blocky` redirect to **Services → Blocky** (`#statistics` tab). All statistics widgets live under the **Statistics** tab in the unified app.
 
 ### 1.4 Default Blocky package config (`feeds/packages/blocky/files/config.yml`)
 
@@ -251,33 +247,20 @@ Demo: [blocky-ui.vercel.app](https://blocky-ui.vercel.app).
 
 ---
 
-### Phase 2 — Detail panels (1–2 PRs)
+### Phase 2 — Detail panels (1–2 PRs) — **Done**
 
-| Task | Details |
-|------|---------|
-| **Response breakdown** | Bar chart from `byResponseType` / `byQueryType` / `byResponseCode` |
-| **List inventory** | Table of `lists.denylist` / `lists.allowlist` per group |
-| **Cache widget** | Show `cache.entries` + link to flush |
-| **Avg response time** | Display `summary.avgResponseMs` |
+| Task | Status |
+|------|--------|
+| **Response breakdown** | Done — bar charts from `byResponseType` / `byQueryType` / `byResponseCode` on Statistics tab |
+| **List inventory** | Done — denylist/allowlist per group table from `/api/stats` |
+| **Cache widget** | Done — `cache.entries` + flush button |
+| **Avg response time** | Done — `summary.avgResponseMs` in General statistics + dashboard summary meta |
 
 ---
 
-### Phase 3 — Query logs on-router (optional, larger)
+### Phase 3 — Query logs on-router — **Done (CSV MVP)**
 
-blocky-ui expects a **sidecar database or log directory**. On OpenWrt:
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **`queryLog.type: csv`** to `/tmp/blocky-logs/` | Simple, no SQL | tmpfs size, lost on reboot, single-day bias (same as blocky-ui CSV note) |
-| **SQLite on overlay** | Structured queries | Requires `sqlite3` CLI or LuCI RPC parser; flash wear |
-| **External syslog** | No LuCI parser | User leaves LuCI |
-
-**Recommended MVP:** If `queryLog.type: csv` in config, add read-only LuCI tab:
-
-- Tail / parse today’s CSV via `fs.read` (size cap, e.g. 512 KB)
-- Filters: domain substring, client IP, response type (client-side)
-- Pagination (50 rows)
-- No write path; document flash/tmpfs limits
+**Implemented:** read-only Logs tab when `queryLog.type: csv`; rpcd `read_query_log` with `/tmp/blocky-logs` allowlist; 512 KiB tail cap; domain/client/response filters; 50-row pagination; tmpfs RAM note in UI.
 
 **Defer:** MySQL/PostgreSQL/VictoriaLogs (blocky-ui backends) — unrealistic on typical CM5 image.
 
@@ -295,15 +278,15 @@ blocky-ui intentionally avoids config editing; LuCI can exceed blocky-ui here fo
 
 ---
 
-### Phase 5 — Polish & maintenance
+### Phase 5 — Polish & maintenance — **largely complete**
 
-| Task | Details |
-|------|---------|
-| Consolidate **Services + Status** into one menu entry with sub-tabs | Reduce user confusion (“Charts are here; top lists are there”) |
-| **Dark mode** audit | CSS already has `data-darkmode` rules — verify with ImmortalWrt theme |
-| **ACL tightening** | If query logs added, scope read path to log directory only |
-| **Version display** | Parse Blocky version from metrics or `blocky version` for support |
-| Track blocky-ui / Blocky API changes | OpenAPI in upstream repo is source of truth |
+| Task | Status |
+|------|--------|
+| Consolidate **Services + Status** into one menu entry with sub-tabs | Done — Statistics tab; `#statistics` hash; legacy status URL redirects |
+| **Dark mode** audit | Done — modal choice colors use Bootstrap CSS variables |
+| **ACL tightening** | Done — query logs via rpcd `read_query_log` path allowlist |
+| **Version display** | Done — metrics `blocky_build_info` or rpcd `get_version` |
+| Track blocky-ui / Blocky API changes | Ongoing — OpenAPI in upstream repo is source of truth |
 
 ---
 

@@ -1,4 +1,12 @@
 'use strict';
-'require blocky-common as blocky_common';
+'require view';
 
-return blocky_common.createBlockyView({ viewMode: 'status' });
+/*
+ * Legacy Status menu entry removed — redirect bookmarks to Services → Blocky.
+ */
+return view.extend({
+	render: function() {
+		window.location.replace(L.url('admin/services/blocky') + '#statistics');
+		return E('p', { 'class': 'cbi-section-descr' }, [ _('Redirecting to Blocky…') ]);
+	}
+});
