@@ -1,0 +1,129 @@
+{
+	"version": 1,
+	"presets": [
+		{
+			"id": "stevenblack",
+			"name": "StevenBlack Unified",
+			"url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+			"category": "ads",
+			"description": "Unified ads and malware hosts file (English-focused).",
+			"homeUrl": "https://github.com/StevenBlack/hosts"
+		},
+		{
+			"id": "adaway",
+			"name": "AdAway Default Blocklist",
+			"url": "https://adaway.org/hosts.txt",
+			"category": "ads",
+			"description": "Default blocklist from the AdAway project.",
+			"homeUrl": "https://adaway.org/"
+		},
+		{
+			"id": "adguard_dns",
+			"name": "AdGuard DNS filter",
+			"url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
+			"category": "ads",
+			"description": "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters.",
+			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-dns/"
+		},
+		{
+			"id": "peter_lowe",
+			"name": "Peter Lowe's List",
+			"url": "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
+			"category": "ads",
+			"description": "Classic ad server domain blocklist.",
+			"homeUrl": "https://pgl.yoyo.org/adservers/"
+		},
+		{
+			"id": "adguard_tracking",
+			"name": "AdGuard Tracking Protection",
+			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3.txt",
+			"category": "privacy",
+			"description": "Counters, analytics, and web tracking tools.",
+			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
+		},
+		{
+			"id": "adguard_social",
+			"name": "AdGuard Social Media",
+			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_4.txt",
+			"category": "social",
+			"description": "Social widgets, Like/Tweet buttons, and related integrations.",
+			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
+		},
+		{
+			"id": "adguard_mobile",
+			"name": "AdGuard Mobile Ads",
+			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11.txt",
+			"category": "ads",
+			"description": "Advertising on mobile devices and in mobile apps.",
+			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
+		},
+		{
+			"id": "adguard_annoyances",
+			"name": "AdGuard Annoyances",
+			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_14.txt",
+			"category": "annoyances",
+			"description": "Cookie notices, in-page popups, and third-party widgets.",
+			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
+		},
+		{
+			"id": "oisd_full",
+			"name": "OISD Full Domains",
+			"url": "https://big.oisd.nl/domainswild",
+			"category": "comprehensive",
+			"description": "Large curated wildcard domain blocklist (OISD).",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "easyprivacy",
+			"name": "EasyPrivacy",
+			"url": "https://easylist.to/easylist/easyprivacy.txt",
+			"category": "privacy",
+			"description": "Trackers and privacy-related third-party requests (EasyList project).",
+			"homeUrl": "https://easylist.to/"
+		},
+		{
+			"id": "phishing_army",
+			"name": "Phishing Army Extended",
+			"url": "https://phishing.army/download/phishing_army_blocklist_extended.txt",
+			"category": "security",
+			"description": "Extended phishing and scam domain blocklist.",
+			"homeUrl": "https://phishing.army/"
+		},
+		{
+			"id": "hagezi_pro",
+			"name": "HaGeZi Multi PRO",
+			"url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt",
+			"category": "comprehensive",
+			"description": "Aggressive multi-purpose DNS blocklist (HaGeZi PRO).",
+			"homeUrl": "https://github.com/hagezi/dns-blocklists"
+		}
+	],
+	"catalog": [
+		{
+			"id": "general",
+			"title": "General",
+			"description": "Lists that block tracking and advertising on most devices",
+			"items": [
+				"stevenblack",
+				"adaway",
+				"adguard_dns",
+				"peter_lowe",
+				"adguard_tracking",
+				"adguard_social",
+				"adguard_mobile",
+				"adguard_annoyances",
+				"oisd_full",
+				"easyprivacy"
+			]
+		},
+		{
+			"id": "security",
+			"title": "Security",
+			"description": "Lists that block malware, phishing, and scam domains",
+			"items": [
+				"phishing_army",
+				"hagezi_pro"
+			]
+		}
+	]
+}

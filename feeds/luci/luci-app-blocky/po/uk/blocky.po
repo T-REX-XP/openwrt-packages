@@ -853,3 +853,9 @@ msgstr "Класичний blocklist рекламних серверів."
 
 msgid "Close"
 msgstr "Закрити"
+
+msgid "Blocklist catalog is missing or invalid (%s)."
+msgstr "Каталог blocklists відсутній або некоректний (%s)."
+
+msgid "Blocklist catalog has no groups. Edit %s on the router."
+msgstr "У каталозі blocklists немає груп. Відредагуйте %s на роутері."

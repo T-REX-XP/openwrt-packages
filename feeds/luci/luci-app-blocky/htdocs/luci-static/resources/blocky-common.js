@@ -241,118 +241,58 @@ function loadBlockyUciAccess() {
 	});
 }
 
-var BLOCKLIST_PRESETS = [
-	{
-		id: 'stevenblack',
-		name: 'StevenBlack Unified',
-		url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
-		category: 'ads',
-		description: 'Unified ads and malware hosts file (English-focused).'
-	},
-	{
-		id: 'adguard_dns',
-		name: 'AdGuard DNS filter',
-		url: 'https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt',
-		category: 'ads',
-		description: 'DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters.'
-	},
-	{
-		id: 'adguard_tracking',
-		name: 'AdGuard Tracking Protection',
-		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3.txt',
-		category: 'privacy',
-		description: 'Counters, analytics, and web tracking tools.'
-	},
-	{
-		id: 'adguard_social',
-		name: 'AdGuard Social Media',
-		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_4.txt',
-		category: 'social',
-		description: 'Social widgets, Like/Tweet buttons, and related integrations.'
-	},
-	{
-		id: 'adguard_mobile',
-		name: 'AdGuard Mobile Ads',
-		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11.txt',
-		category: 'ads',
-		description: 'Advertising on mobile devices and in mobile apps.'
-	},
-	{
-		id: 'adguard_annoyances',
-		name: 'AdGuard Annoyances',
-		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_14.txt',
-		category: 'annoyances',
-		description: 'Cookie notices, in-page popups, and third-party widgets.'
-	},
-	{
-		id: 'oisd_full',
-		name: 'OISD Full Domains',
-		url: 'https://big.oisd.nl/domainswild',
-		category: 'comprehensive',
-		description: 'Large curated wildcard domain blocklist (OISD).'
-	},
-	{
-		id: 'hagezi_pro',
-		name: 'HaGeZi Multi PRO',
-		url: 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt',
-		category: 'comprehensive',
-		description: 'Aggressive multi-purpose DNS blocklist (HaGeZi PRO).'
-	},
-	{
-		id: 'easyprivacy',
-		name: 'EasyPrivacy',
-		url: 'https://easylist.to/easylist/easyprivacy.txt',
-		category: 'privacy',
-		description: 'Trackers and privacy-related third-party requests (EasyList project).'
-	},
-	{
-		id: 'phishing_army',
-		name: 'Phishing Army Extended',
-		url: 'https://phishing.army/download/phishing_army_blocklist_extended.txt',
-		category: 'security',
-		description: 'Extended phishing and scam domain blocklist.',
-		homeUrl: 'https://phishing.army/'
-	},
-	{
-		id: 'adaway',
-		name: 'AdAway Default Blocklist',
-		url: 'https://adaway.org/hosts.txt',
-		category: 'ads',
-		description: 'Default blocklist from the AdAway project.',
-		homeUrl: 'https://adaway.org/'
-	},
-	{
-		id: 'peter_lowe',
-		name: "Peter Lowe's List",
-		url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext',
-		category: 'ads',
-		description: 'Classic ad server domain blocklist.',
-		homeUrl: 'https://pgl.yoyo.org/adservers/'
+var BLOCKLIST_CATALOG_PATH = '/usr/share/luci-app-blocky/blocklist-catalog.json';
+var EMPTY_BLOCKLIST_CATALOG = { presets: [], catalog: [], presetMap: {} };
+var blocklistCatalogPromise = null;
+
+function normalizeBlocklistCatalog(raw) {
+	var data = null;
+
+	try {
+		if (typeof raw === 'string')
+			data = parseJson(safeString(raw).trim());
+		else if (raw && typeof raw === 'object')
+			data = raw;
 	}
-];
-
-var BLOCKLIST_CATALOG = [
-	{
-		title: 'General',
-		description: 'Lists that block tracking and advertising on most devices',
-		items: [
-			'stevenblack', 'adaway', 'adguard_dns', 'peter_lowe',
-			'adguard_tracking', 'adguard_social', 'adguard_mobile',
-			'adguard_annoyances', 'oisd_full', 'easyprivacy'
-		]
-	},
-	{
-		title: 'Security',
-		description: 'Lists that block malware, phishing, and scam domains',
-		items: [ 'phishing_army', 'hagezi_pro' ]
+	catch (err) {
+		data = null;
 	}
-];
 
-var BLOCKLIST_PRESET_MAP = {};
+	if (!data || !Array.isArray(data.presets))
+		return EMPTY_BLOCKLIST_CATALOG;
 
-BLOCKLIST_PRESETS.forEach(function(preset) {
-	BLOCKLIST_PRESET_MAP[preset.id] = preset;
-});
+	var presetMap = {};
+
+	data.presets.forEach(function(preset) {
+		if (preset && preset.id)
+			presetMap[preset.id] = preset;
+	});
+
+	return {
+		presets: data.presets,
+		catalog: Array.isArray(data.catalog) ? data.catalog : [],
+		presetMap: presetMap
+	};
+}
+
+function loadBlocklistCatalog(forceReload) {
+	if (forceReload)
+		blocklistCatalogPromise = null;
+
+	if (blocklistCatalogPromise)
+		return blocklistCatalogPromise;
+
+	blocklistCatalogPromise = L.resolveDefault(fs.read(BLOCKLIST_CATALOG_PATH), '').then(function(raw) {
+		var catalog = normalizeBlocklistCatalog(raw);
+
+		if (!catalog.presets.length)
+			notify(_('Blocklist catalog is missing or invalid (%s).').format(BLOCKLIST_CATALOG_PATH), 'warning');
+
+		return catalog;
+	});
+
+	return blocklistCatalogPromise;
+}
 
 function blockyPresetHomeUrl(preset) {
 	return preset.homeUrl || preset.url.replace(/\/[^/]*$/, '/');
@@ -541,10 +481,18 @@ function openCustomBlocklistModal(refreshPage, existing) {
 	setTimeout(function() { nameInput.focus(); }, 50);
 }
 
-function openCatalogModal(refreshPage) {
+function openCatalogModal(refreshPage, catalogData) {
+	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
+
+	if (!catalogData.catalog.length) {
+		notify(_('Blocklist catalog has no groups. Edit %s on the router.').format(BLOCKLIST_CATALOG_PATH), 'warning');
+		return Promise.resolve();
+	}
+
 	return loadUciBlocklists().then(function(lists) {
 		var existing = {};
 		var checkboxes = [];
+		var presetMap = catalogData.presetMap || {};
 
 		lists.forEach(function(entry) {
 			existing[entry.id] = true;
@@ -552,11 +500,11 @@ function openCatalogModal(refreshPage) {
 
 		var body = [];
 
-		BLOCKLIST_CATALOG.forEach(function(group) {
+		catalogData.catalog.forEach(function(group) {
 			var rows = [];
 
-			group.items.forEach(function(presetId) {
-				var preset = BLOCKLIST_PRESET_MAP[presetId];
+			(group.items || []).forEach(function(presetId) {
+				var preset = presetMap[presetId];
 
 				if (!preset)
 					return;
@@ -634,7 +582,7 @@ function openCatalogModal(refreshPage) {
 	});
 }
 
-function openNewBlocklistModal(refreshPage) {
+function openNewBlocklistModal(refreshPage, catalogData) {
 	var overlay;
 
 	overlay = blockyOpenModal(
@@ -647,7 +595,7 @@ function openNewBlocklistModal(refreshPage) {
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
 						blockyCloseModal(overlay);
-						return openCatalogModal(refreshPage);
+						return openCatalogModal(refreshPage, catalogData);
 					})
 				}, [ _('Choose from the list') ]),
 				E('button', {
@@ -712,7 +660,8 @@ function applyBlocklistChanges(restart) {
 	});
 }
 
-function renderBlocklistsTab(statsResult, refreshPage) {
+function renderBlocklistsTab(statsResult, refreshPage, catalogData) {
+	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
 
 	function denyCountsMap() {
@@ -822,7 +771,7 @@ function renderBlocklistsTab(statsResult, refreshPage) {
 					'class': 'cbi-button cbi-button-add',
 					'click': ui.createHandlerFn(this, function(ev) {
 						ev.preventDefault();
-						openNewBlocklistModal(refreshPage);
+						openNewBlocklistModal(refreshPage, catalogData);
 					})
 				}, [ _('Add blocklist') ])
 			]),
@@ -3007,7 +2956,8 @@ function loadBlockyPageData() {
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 		loadBlockyUciAccess(),
 		L.resolveDefault(fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { code: 0, stdout: '0\n' }),
-		L.resolveDefault(callServiceList('adblock'), {})
+		L.resolveDefault(callServiceList('adblock'), {}),
+		loadBlocklistCatalog()
 	]).then(function(bootstrap) {
 		applyBlockyApiAccess(bootstrap[1], bootstrap[2]);
 
@@ -3019,7 +2969,8 @@ function loadBlockyPageData() {
 			Promise.resolve(bootstrap[3]),
 			L.resolveDefault(fetchBlockyStats(), { ok: false, data: null }),
 			Promise.resolve(bootstrap[4]),
-			Promise.resolve(bootstrap[2])
+			Promise.resolve(bootstrap[2]),
+			Promise.resolve(bootstrap[5])
 		]);
 	});
 }
@@ -3088,6 +3039,7 @@ function createBlockyView(options) {
 			var dnsFwd = data[4];
 			var statsResult = data[5];
 			var uciAccess = data[7] || { user: '', password: '', localOnly: true };
+			var catalogData = data[8] || EMPTY_BLOCKLIST_CATALOG;
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
@@ -3098,7 +3050,7 @@ function createBlockyView(options) {
 			function refreshPage() {
 				return self.load().then(function(fresh) {
 					mountDashboardContent(dashboardHost, fresh, refreshPage);
-					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage));
+					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage, fresh[8]));
 					controlsHost.replaceChildren(
 						renderBlockingControls(fresh[1], refreshPage),
 						renderOperations(fresh[0], refreshPage),
@@ -3111,7 +3063,7 @@ function createBlockyView(options) {
 			}
 
 			mountDashboardContent(dashboardHost, data, refreshPage);
-			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage));
+			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage, catalogData));
 			logsHost.appendChild(renderQueryLogsTab(config));
 
 			controlsHost.appendChild(renderBlockingControls(status, refreshPage));

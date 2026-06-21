@@ -11,7 +11,7 @@
 				"/usr/sbin/blocky-config-apply": [ "exec" ],
 				"/usr/sbin/blocky-boot": [ "exec" ],
 				"/bin/uclient-fetch": [ "exec" ],
-				"/tmp/blocky-logs/": [ "read" ],
+				"/usr/share/luci-app-blocky/blocklist-catalog.json": [ "read" ],
 				"/var/log/blocky/": [ "read" ],
 				"/bin/sh": [ "exec" ],
 				"/bin/ls": [ "exec" ]

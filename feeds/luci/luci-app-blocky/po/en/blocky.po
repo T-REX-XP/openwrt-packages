@@ -852,3 +852,9 @@ msgstr "Classic ad server domain blocklist."
 
 msgid "Close"
 msgstr "Close"
+
+msgid "Blocklist catalog is missing or invalid (%s)."
+msgstr "Blocklist catalog is missing or invalid (%s)."
+
+msgid "Blocklist catalog has no groups. Edit %s on the router."
+msgstr "Blocklist catalog has no groups. Edit %s on the router."
