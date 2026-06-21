@@ -134,20 +134,20 @@ var callServiceList = rpc.declare({
 var callBlockySyncLists = rpc.declare({
 	object: 'luci.blocky',
 	method: 'sync_lists',
-	expect: { ok: true, code: true, output: true }
+	expect: { '': {} }
 });
 
 var callBlockyRefreshLists = rpc.declare({
 	object: 'luci.blocky',
 	method: 'refresh_lists',
-	expect: { ok: true, code: true, output: true }
+	expect: { '': {} }
 });
 
 var callBlockyHttpRequest = rpc.declare({
 	object: 'luci.blocky',
 	method: 'http_request',
 	params: [ 'method', 'path', 'body' ],
-	expect: { ok: true, code: true, stdout: true, stderr: true }
+	expect: { '': {} }
 });
 
 function notify(message, level) {
