@@ -14,7 +14,8 @@ blocking:
   loading:
     strategy: fast
     refreshPeriod: 4h
-    cachePath: /var/lib/blocky/lists
+    downloads:
+      cachePath: /var/lib/blocky/lists
 
 queryLog:
   type: csv

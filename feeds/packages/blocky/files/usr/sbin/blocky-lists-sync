@@ -72,34 +72,123 @@ write_blocking_section() {
 		echo "  loading:"
 		echo "    strategy: fast"
 		echo "    refreshPeriod: $refresh_period"
-		echo "    cachePath: /var/lib/blocky/lists"
+		echo "    downloads:"
+		echo "      cachePath: /var/lib/blocky/lists"
 	} > "$out_tmp"
 
 	echo "$out_tmp"
 }
 
+# Print the first well-formed top-level YAML section with the given name.
+extract_first_section() {
+	local section="$1"
+	local file="$2"
+
+	[ -n "$section" ] && [ -f "$file" ] || return 1
+
+	awk -v sec="$section" '
+		$0 ~ "^" sec ":[[:space:]]*$" && !found {
+			found = 1
+			print
+			next
+		}
+		found {
+			if ($0 ~ "^" sec ":[[:space:]]*$")
+				exit
+			if ($0 ~ /^[^[:space:]#]/ && $0 !~ "^" sec ":[[:space:]]*$")
+				exit
+			print
+		}
+	' "$file"
+}
+
 merge_config() {
 	local new_blocking="$1"
-	local head_tmp tail_tmp merged_tmp
+	local merged_tmp section body
 
-	head_tmp="$(mktemp)"
-	tail_tmp="$(mktemp)"
 	merged_tmp="$(mktemp)"
 
-	# Keep everything before the blocking: section (do not include blocking or tail).
-	awk '/^blocking:/ { exit } { print }' "$CONFIG_YML" > "$head_tmp"
+	section_body() {
+		local name="$1"
+		local body
 
-	# Keep everything after the blocking: section.
-	awk '
-		/^blocking:/ { skip=1; next }
-		skip && $0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/ { skip=0 }
-		skip { next }
-		{ print }
-	' "$CONFIG_YML" > "$tail_tmp"
+		body="$(extract_first_section "$name" "$CONFIG_YML" 2>/dev/null || true)"
+		case "$name" in
+			queryLog)
+				echo "$body" | grep -q 'type:' || body=""
+				;;
+			ports)
+				echo "$body" | grep -q 'dns:' || body=""
+				;;
+			prometheus|statistics)
+				echo "$body" | grep -q 'enable:' || body=""
+				;;
+		esac
+		printf '%s' "$body"
+	}
 
-	cat "$head_tmp" "$new_blocking" "$tail_tmp" > "$merged_tmp"
+	{
+		if extract_first_section upstreams "$CONFIG_YML"; then
+			:
+		else
+			cat <<'EOF'
+upstreams:
+  groups:
+    default:
+      - 1.1.1.1
+      - 8.8.8.8
+EOF
+		fi
+		echo ""
+		cat "$new_blocking"
+		echo ""
+		body="$(section_body queryLog)"
+		if [ -n "$body" ]; then
+			printf '%s\n' "$body"
+		else
+			cat <<'EOF'
+queryLog:
+  type: csv
+  target: /tmp/blocky-logs
+  logRetentionDays: 7
+  flushInterval: 30s
+EOF
+		fi
+		echo ""
+		body="$(section_body ports)"
+		if [ -n "$body" ]; then
+			printf '%s\n' "$body"
+		else
+			cat <<'EOF'
+ports:
+  dns: 127.0.0.1:5353
+  http: 127.0.0.1:4000
+EOF
+		fi
+		echo ""
+		body="$(section_body prometheus)"
+		if [ -n "$body" ]; then
+			printf '%s\n' "$body"
+		else
+			cat <<'EOF'
+prometheus:
+  enable: true
+  path: /metrics
+EOF
+		fi
+		echo ""
+		body="$(section_body statistics)"
+		if [ -n "$body" ]; then
+			printf '%s\n' "$body"
+		else
+			cat <<'EOF'
+statistics:
+  enable: true
+EOF
+		fi
+	} > "$merged_tmp"
+
 	mv "$merged_tmp" "$CONFIG_YML"
-	rm -f "$head_tmp" "$tail_tmp"
 }
 
 main() {

@@ -11,7 +11,7 @@ changed=0
 mkdir -p /tmp/blocky-logs /var/lib/blocky/lists
 chmod 755 /tmp/blocky-logs /var/lib/blocky/lists
 
-if ! grep -q '^queryLog:' "$CONFIG"; then
+if ! awk '/^queryLog:/{f=1;next} f&&/^[[:space:]]+type:/{ok=1; exit} END{exit !ok}' "$CONFIG" 2>/dev/null; then
 	cat >> "$CONFIG" <<'EOF'
 
 queryLog:
@@ -41,7 +41,5 @@ if grep -qE '^[[:space:]]+http:[[:space:]]+4000[[:space:]]*$' "$CONFIG"; then
 	sed -i 's/^\([[:space:]]*http:\)[[:space:]]*4000[[:space:]]*$/\1 127.0.0.1:4000/' "$CONFIG"
 	changed=1
 fi
-
-[ -x /usr/sbin/blocky-lists-sync ] && /usr/sbin/blocky-lists-sync
 
 echo "$changed"
