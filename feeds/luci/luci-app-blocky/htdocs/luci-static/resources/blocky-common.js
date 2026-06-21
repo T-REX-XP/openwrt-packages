@@ -1039,7 +1039,7 @@ function blockyHttpRequest(method, path, body) {
 	if (body != null && String(body) !== '')
 		args.push(String(body));
 
-	return fs.exec('/usr/sbin/blocky-http-request', args).then(function(res) {
+	return fs.exec('/usr/sbin/blocky-http-api', args).then(function(res) {
 		var code = res != null ? Number(res.code) : 0;
 		var text = execResultStdout(res, '');
 
@@ -1284,7 +1284,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Ad blocking pipeline') ]),
 		E('p', { 'class': 'blocky-dash-widget-descr' }, [
 			ready
-				? _('Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering.')
+				? _('Default first-boot setup routes all DHCP client DNS through Blocky with HaGeZi Light and URLhaus blocklists.')
 				: _('One or more steps below must be fixed before LAN clients receive filtered DNS.')
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, rows.map(function(row) {
@@ -3150,21 +3150,6 @@ function renderQueryLogsTab(config) {
 function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 	var httpEp = parseBlockyPortLine(configYaml, 'http', 4000);
 	var localBind = isLoopbackHost(httpEp.host);
-	var userInput = E('input', {
-		'type': 'text',
-		'class': 'cbi-input-text',
-		'value': uciAccess.user || '',
-		'placeholder': _('username'),
-		'style': 'min-width:12em'
-	});
-	var passInput = E('input', {
-		'type': 'password',
-		'class': 'cbi-input-password',
-		'value': uciAccess.password || '',
-		'placeholder': _('password'),
-		'style': 'min-width:12em',
-		'autocomplete': 'new-password'
-	});
 
 	var body = [
 		E('p', { 'class': 'blocky-config-section-descr' }, [
@@ -3177,41 +3162,7 @@ function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 					blockyPill(localBind ? 'yes' : 'warn', localBind ? _('Localhost') : _('Exposed')),
 					blockyStatusDetail(blockyHttpBaseUrl(configYaml))
 				])
-			]),
-			E('div', { 'class': 'tr' }, [
-				E('div', { 'class': 'td left' }, [ _('LuCI proxy auth') ]),
-				E('div', { 'class': 'td left' }, [
-					uciAccess.user
-						? blockyPill('yes', _('Configured'))
-						: blockyPill('muted', _('None')),
-					blockyStatusDetail(_('Optional HTTP Basic credentials for LuCI when a reverse proxy protects Blocky'))
-				])
 			])
-		]),
-		E('p', {}, [
-			userInput, ' ', passInput, ' ',
-			E('button', {
-				'class': 'cbi-button cbi-button-save',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-
-					return uci.load('blocky').then(function() {
-						uci.set('blocky', 'main', 'api_user', userInput.value.trim());
-						uci.set('blocky', 'main', 'api_password', passInput.value);
-						uci.set('blocky', 'main', 'api_local_only', localBind ? '1' : '0');
-
-						return uci.save();
-					}).then(function() {
-						applyBlockyApiAccess(configYaml, {
-							user: userInput.value.trim(),
-							password: passInput.value
-						});
-						notify(_('API access settings saved.'));
-					}).catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Save API credentials') ])
 		]),
 		E('p', { 'class': 'blocky-note-soft' }, [
 			_('Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy.')
@@ -3765,8 +3716,7 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 	}).then(function() {
 		return execBlockyListsSync();
 	}).then(function() {
-		if (restart)
-			return runInit('restart');
+		return runInit('restart');
 	});
 }
 
@@ -3915,11 +3865,9 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 		blockingSection: parsed.blockingSection
 	};
 
-	function saveHandler(restart) {
-		return saveBlockySettingsForm(state, configYaml, restart).then(function() {
-			notify(restart
-				? _('Settings saved and Blocky restarted.')
-				: _('Settings saved.'));
+	function saveHandler() {
+		return saveBlockySettingsForm(state, configYaml, true).then(function() {
+			notify(_('Settings saved and Blocky restarted.'));
 			if (typeof refreshPage === 'function')
 				return refreshPage();
 		}).catch(function(err) {
@@ -3932,7 +3880,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 			'class': 'cbi-button cbi-button-save',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-				return saveHandler(false);
+				return saveHandler();
 			})
 		}, [ _('Save settings') ]),
 		' ',
@@ -3940,7 +3888,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 			'class': 'cbi-button cbi-button-apply',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-				return saveHandler(true);
+				return saveHandler();
 			})
 		}, [ _('Save & restart Blocky') ])
 	]);

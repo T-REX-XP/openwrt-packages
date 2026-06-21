@@ -208,8 +208,8 @@ msgstr "Dashboard"
 msgid "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
 msgstr "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
 
-msgid "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
-msgstr "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
+msgid "Default first-boot setup routes all DHCP client DNS through Blocky with HaGeZi Light and URLhaus blocklists."
+msgstr "Default first-boot setup routes all DHCP client DNS through Blocky with HaGeZi Light and URLhaus blocklists."
 
 msgid "Denylist entries"
 msgstr "Denylist entries"

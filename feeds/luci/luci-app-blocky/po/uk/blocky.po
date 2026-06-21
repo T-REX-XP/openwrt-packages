@@ -209,8 +209,8 @@ msgstr "Панель"
 msgid "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
 msgstr "Панель Blocky на маршрутизаторі — жива статистика, керування блокуванням і інтеграція DNS."
 
-msgid "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
-msgstr "Типове налаштування при першому завантаженні направляє DNS усіх DHCP-клієнтів через Blocky зі списком StevenBlack."
+msgid "Default first-boot setup routes all DHCP client DNS through Blocky with HaGeZi Light and URLhaus blocklists."
+msgstr "Типове налаштування при першому завантаженні направляє DNS усіх DHCP-клієнтів через Blocky зі списками HaGeZi Light та URLhaus."
 
 msgid "Denylist entries"
 msgstr "Записи denylist"

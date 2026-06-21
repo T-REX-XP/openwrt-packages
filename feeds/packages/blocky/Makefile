@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
 PKG_VERSION:=0.32.1
-PKG_RELEASE:=18
+PKG_RELEASE:=19
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
@@ -64,15 +64,11 @@ define Package/blocky/install
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-dnsmasq-sync $(1)/usr/sbin/blocky-dnsmasq-sync
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-lists-sync $(1)/usr/sbin/blocky-lists-sync
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-lists-refresh $(1)/usr/sbin/blocky-lists-refresh
-	$(INSTALL_BIN) ./files/usr/sbin/blocky-http-request $(1)/usr/sbin/blocky-http-request
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-http-api $(1)/usr/sbin/blocky-http-api
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-config-apply $(1)/usr/sbin/blocky-config-apply
 	$(INSTALL_BIN) ./files/usr/sbin/blocky-boot $(1)/usr/sbin/blocky-boot
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/blocky.defaults $(1)/etc/uci-defaults/90-blocky-enable
-	$(INSTALL_BIN) ./files/blocky-querylog.defaults $(1)/etc/uci-defaults/91-blocky-querylog
-	$(INSTALL_BIN) ./files/blocky-localhost.defaults $(1)/etc/uci-defaults/92-blocky-localhost
-	$(INSTALL_BIN) ./files/blocky-lists.defaults $(1)/etc/uci-defaults/93-blocky-lists
 	$(INSTALL_BIN) ./files/blocky-ensure.defaults $(1)/etc/uci-defaults/94-blocky-ensure
 endef
 

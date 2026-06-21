@@ -1,5 +1,9 @@
 #!/bin/sh
-# Shared helpers for Blocky HTTP API calls on localhost (LuCI / init scripts).
+# Shared Blocky HTTP helpers (sourced by init scripts) and LuCI CLI entry point.
+# LuCI/rpcd cannot run uclient-fetch to localhost; exec this script instead:
+#   blocky-http-api GET metrics
+#   blocky-http-api GET api/stats
+#   blocky-http-api POST api/cache/flush
 
 CONFIG="${BLOCKY_CONFIG:-/etc/blocky/config.yml}"
 BLOCKY_HTTP_HOST_DEFAULT='127.0.0.1'
@@ -13,13 +17,24 @@ blocky_http_port() {
 		return 0
 	}
 
-	line="$(grep -E '^[[:space:]]+http:' "$CONFIG" | head -1)" || true
+	line="$(awk '
+		/^ports:[[:space:]]*$/ { in_ports=1; next }
+		in_ports && /^[^[:space:]#]/ && !/^  / { exit }
+		in_ports && /^  http:/ {
+			sub(/^  http:[[:space:]]*/, "")
+			gsub(/["'"'"']/, "")
+			sub(/#.*$/, "")
+			print
+			exit
+		}
+	' "$CONFIG" 2>/dev/null)" || true
+
 	[ -n "$line" ] || {
 		echo "$BLOCKY_HTTP_PORT_DEFAULT"
 		return 0
 	}
 
-	hostport="$(echo "$line" | sed -n 's/^[[:space:]]*http:[[:space:]]*//p' | tr -d "\"'" | sed 's/#.*$//')"
+	hostport="$line"
 	case "$hostport" in
 		*:*)
 			port="${hostport##*:}"
@@ -123,16 +138,13 @@ blocky_http_post_json() {
 blocky_http_post() {
 	local url="$1"
 	local body="${2:-}"
-	local client
-
-	client="$(blocky_http_client)" || return 1
 
 	if [ -n "$body" ]; then
 		blocky_http_post_json "$url" "$body"
 		return $?
 	fi
 
-	case "$client" in
+	case "$(blocky_http_client)" in
 		uclient-fetch)
 			uclient-fetch -4 -q -O - --timeout=180 --post-data='' "$url" 2>/dev/null
 			;;
@@ -157,3 +169,61 @@ blocky_wait_for_api() {
 
 	return 1
 }
+
+blocky_http_request_cli() {
+	local method="${1:-GET}"
+	local path_part="${2:-metrics}"
+	local body="${3:-}"
+	local base url
+
+	case "$method" in
+		GET|POST) ;;
+		*)
+			echo "blocky-http-api: unsupported method: $method" >&2
+			return 2
+			;;
+	esac
+
+	path_part="${path_part#/}"
+	base="http://${BLOCKY_HTTP_HOST_DEFAULT}:$(blocky_http_port)"
+
+	case "$path_part" in
+		metrics|metrics/*)
+			url="${base}/metrics"
+			;;
+		api/*)
+			url="${base}/${path_part}"
+			;;
+		*)
+			url="${base}/api/${path_part}"
+			;;
+	esac
+
+	case "$method" in
+		GET)
+			blocky_http_get "$url" || {
+				echo "blocky-http-api: GET $url failed" >&2
+				return 1
+			}
+			;;
+		POST)
+			blocky_http_post "$url" "$body" || {
+				echo "blocky-http-api: POST $url failed" >&2
+				return 1
+			}
+			;;
+	esac
+
+	return 0
+}
+
+# CLI mode when executed (not sourced).
+case "$0" in
+	*/blocky-http-api|*/blocky-http-request)
+		[ "${BLOCKY_HTTP_API_SOURCED:-}" = "1" ] && return 0 2>/dev/null || true
+		if [ $# -gt 0 ]; then
+			blocky_http_request_cli "$@"
+			exit $?
+		fi
+		;;
+esac

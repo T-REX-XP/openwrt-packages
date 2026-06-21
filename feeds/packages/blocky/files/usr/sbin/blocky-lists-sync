@@ -254,7 +254,44 @@ EOF
 		fi
 	} > "$merged_tmp"
 
+	append_preserved_sections "$merged_tmp" "$CONFIG_YML.bak.lists-sync"
+
 	mv "$merged_tmp" "$CONFIG_YML"
+}
+
+append_preserved_sections() {
+	local merged="$1"
+	local original="$2"
+
+	[ -s "$original" ] || return 0
+
+	awk '
+		BEGIN {
+			split("upstreams bootstrapDns blocking caching hostsFile log queryLog ports rebindingProtection prometheus statistics", known, " ")
+			for (i in known)
+				skip[known[i]] = 1
+		}
+		/^[^[:space:]#][^:]*:[[:space:]]*$/ {
+			key = $0
+			sub(/:.*/, "", key)
+			if (key in skip) {
+				capturing = 0
+				next
+			}
+			if (buf != "")
+				print buf
+			buf = $0 "\n"
+			capturing = 1
+			next
+		}
+		capturing {
+			buf = buf $0 "\n"
+		}
+		END {
+			if (buf != "")
+				print buf
+		}
+	' "$original" >> "$merged"
 }
 
 main() {

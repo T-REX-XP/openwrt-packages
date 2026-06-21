@@ -19,6 +19,21 @@ wait_for_lan() {
 	return 1
 }
 
+wait_for_blocky() {
+	local i=0
+
+	while [ "$i" -lt 45 ]; do
+		if [ -x /usr/sbin/blocky-http-api ] && \
+			/usr/sbin/blocky-http-api GET api/blocking/status >/dev/null 2>&1; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
+
 boot() {
 	[ -x /usr/sbin/blocky-dnsmasq-sync ] || return 0
 
@@ -29,6 +44,11 @@ boot() {
 
 	wait_for_lan || {
 		logger -t blocky "br-lan not up; skipping dnsmasq sync"
+		return 0
+	}
+
+	wait_for_blocky || {
+		logger -t blocky "Blocky DNS not ready; skipping dnsmasq sync"
 		return 0
 	}
 
