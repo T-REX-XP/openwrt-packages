@@ -17,87 +17,12 @@ var PAUSE_PRESETS = [
 	[ '0', _('Until manually enabled') ]
 ];
 
-var BLOCKY_UI_CSS = [
-	'.luci-app-blocky{font-size:inherit;}',
-	'.blocky-pill{display:inline-block;font-weight:700;font-size:.82em;line-height:1.25;',
-	'text-transform:uppercase;letter-spacing:.04em;padding:.2em .65em;border-radius:4px;',
-	'color:#fff;vertical-align:middle;}',
-	'.blocky-pill-yes{background:#2e7d32;}',
-	'.blocky-pill-no{background:#c62828;}',
-	'.blocky-pill-warn{background:#ef6c00;}',
-	'.blocky-pill-muted{background:#616161;}',
-	'.blocky-pill-note{font-weight:500;text-transform:none;letter-spacing:normal;',
-	'color:var(--text-primary-high, #333);margin-left:.5em;font-size:.95em;}',
-	'body[data-darkmode="1"] .blocky-pill-note{color:var(--text-primary-high, #e0e0e0);}',
-	'.blocky-metric-card{background:#e8e8e8;border-radius:12px;box-sizing:border-box;padding:1em 1.05em;min-width:10em;',
-	'border:1px solid rgba(0,0,0,.06);}',
-	'body[data-darkmode="1"] .blocky-metric-card{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);}',
-	'.blocky-dashboard{display:flex;flex-direction:column;gap:1.15em;margin:.35em 0 1.25em;}',
-	'.blocky-dash-widget{background:#e8e8e8;border-radius:12px;padding:1em 1.1em 1.15em;box-sizing:border-box;',
-	'border:1px solid rgba(0,0,0,.08);}',
-	'body[data-darkmode="1"] .blocky-dash-widget{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);}',
-	'.blocky-dash-widget-title{margin:0;font-size:1.05em;font-weight:700;line-height:1.25;}',
-	'.blocky-dash-widget-descr{margin:.35em 0 .65em;opacity:.88;font-size:.92em;line-height:1.4;}',
-	'.blocky-dash-widget-head-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75em;align-items:flex-start;margin-bottom:.5em;}',
-	'.blocky-metric-strip{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;margin:0 0 .75em;font-size:.92em;}',
-	'.blocky-dashboard-metrics-row{margin:0;}',
-	'.blocky-dashboard-metrics-row .blocky-metric-grid{margin:.25em 0 0;}',
-	'.blocky-status-table .tr{vertical-align:middle;}',
-	'.blocky-metric-grid{display:flex;flex-wrap:wrap;gap:.75em;margin:.5em 0 1em;}',
-	'.blocky-metric-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.5em;margin-bottom:.35em;}',
-	'.blocky-metric-val{font-size:1.85em;font-weight:700;line-height:1.15;margin:.15em 0 .35em;}',
-	'.blocky-cache-track{height:6px;border-radius:3px;background:rgba(0,0,0,.12);overflow:hidden;margin-top:.35em;}',
-	'body[data-darkmode="1"] .blocky-cache-track{background:rgba(255,255,255,.15);}',
-	'.blocky-cache-fill{height:100%;background:#43a047;border-radius:3px;transition:width .35s ease;}',
-	'.blocky-dash-row{display:flex;flex-wrap:wrap;gap:.75em;margin:0;}',
-	'.blocky-dash-card{background:#e8e8e8;border-radius:12px;padding:1em;flex:1 1 18em;box-sizing:border-box;',
-	'border:1px solid rgba(0,0,0,.08);}',
-	'body[data-darkmode="1"] .blocky-dash-card{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);}',
-	'.blocky-dash-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5em;}',
-	'.blocky-btn-grid{display:flex;flex-wrap:wrap;gap:.5em;margin-top:.65em;}',
-	'.blocky-time-range{display:flex;flex-wrap:wrap;gap:.35em;justify-content:flex-end;margin:.35em 0;}',
-	'.blocky-time-range button.cbi-button{padding:.25em .65em;font-size:.9em;}',
-	'.blocky-time-range button.blocky-range-active{background:#fff;color:#111;border-color:#ccc;}',
-	'body[data-darkmode="1"] .blocky-time-range button.blocky-range-active{background:#37474f;color:#eceff1;border-color:#546e7a;}',
-	'.blocky-chart-card{margin:.75em 0 1em;padding:1em;border-radius:10px;background:#e8e8e8;}',
-	'body[data-darkmode="1"] .blocky-chart-card{background:rgba(255,255,255,.06);}',
-	'.blocky-queries-widget{border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1em 1.1em 1.15em;margin:.35em 0 1em;',
-	'background:rgba(255,255,255,.35);box-sizing:border-box;}',
-	'body[data-darkmode="1"] .blocky-queries-widget{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);}',
-	'.blocky-queries-widget--embedded{margin:0;padding:0;border:none;background:transparent;}',
-	'.blocky-queries-widget-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.65em;align-items:flex-start;margin-bottom:.35em;}',
-	'.blocky-queries-widget-head h3{margin:.1em 0 .15em;display:flex;align-items:center;gap:.35em;}',
-	'.blocky-queries-widget-icon{font-size:1.1em;opacity:.85;line-height:1;}',
-	'.blocky-chart-svg-wrap{margin:.35em 0 .15em;}',
-	'.blocky-chart-plot-bg{stroke:rgba(0,0,0,.06);}',
-	'body[data-darkmode="1"] .blocky-chart-plot-bg{stroke:rgba(255,255,255,.08);}',
-	'.blocky-chart-grid line{stroke:rgba(0,0,0,.12);stroke-width:1;}',
-	'body[data-darkmode="1"] .blocky-chart-grid line{stroke:rgba(255,255,255,.14);}',
-	'.blocky-chart-axis text{fill:currentColor;opacity:.75;font-size:11px;font-variant-numeric:tabular-nums;}',
-	'.blocky-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:1em;margin-top:.5em;font-size:.9em;}',
-	'.blocky-legend-dot{display:inline-block;width:.65em;height:.65em;border-radius:50%;margin-right:.35em;vertical-align:middle;}',
-	'.blocky-bar-chart{margin:.75em 0;padding:.5em 0;}',
-	'.blocky-bar-row{display:flex;align-items:center;gap:.65em;margin:.45em 0;font-size:.92em;}',
-	'.blocky-bar-label{flex:0 0 7em;}',
-	'.blocky-bar-track{flex:1;height:1.1em;border-radius:4px;background:rgba(0,0,0,.1);overflow:hidden;display:flex;}',
-	'body[data-darkmode="1"] .blocky-bar-track{background:rgba(255,255,255,.12);}',
-	'.blocky-bar-seg{height:100%;}',
-	'.blocky-bar-val{flex:0 0 3em;text-align:right;font-variant-numeric:tabular-nums;}',
-	'.blocky-vbar-row{display:flex;align-items:flex-end;justify-content:space-between;height:120px;margin-top:.5em;',
-	'padding:0 .25em;border-bottom:1px solid rgba(0,0,0,.15);}',
-	'body[data-darkmode="1"] .blocky-vbar-row{border-bottom-color:rgba(255,255,255,.15);}',
-	'.blocky-vbar-grp{display:flex;flex-direction:row;align-items:flex-end;justify-content:center;',
-	'gap:2px;flex:1;max-width:48px;margin:0 .15em;}',
-	'.blocky-vbar{flex:1;min-width:4px;border-radius:2px 2px 0 0;}',
-	'.blocky-note-soft{opacity:.85;font-size:.92em;margin:.35em 0 .75em;}',
-	'.blocky-toplists-grid{display:flex;flex-wrap:wrap;gap:1.15em;align-items:flex-start;margin:.35em 0 1em;}',
-	'.blocky-toplist-col{flex:1 1 17em;min-width:14em;max-width:100%;}',
-	'.blocky-toplist-toolbar{display:flex;flex-wrap:wrap;gap:.65em;align-items:center;margin:.35em 0 .65em;}',
-	'.blocky-toplist-toolbar label{display:inline-flex;align-items:center;gap:.35em;margin:0;}'
-].join('');
-
 function blockyInjectStyles() {
-	return E('style', { 'type': 'text/css' }, [ BLOCKY_UI_CSS ]);
+	return E('link', {
+		'rel': 'stylesheet',
+		'type': 'text/css',
+		'href': L.resource('blocky-theme.css')
+	});
 }
 
 function blockyPill(kind, label) {
@@ -821,7 +746,7 @@ function buildQueriesChartUnderlay(series, maxY, W, H, padL, padR, padT, padB) {
 		'height': innerH,
 		'rx': '4',
 		'ry': '4',
-		'fill': 'rgba(128,128,128,.07)'
+		'class': 'blocky-chart-shade'
 	});
 
 	for (ti = 0; ti <= ticks; ti++) {
@@ -998,7 +923,7 @@ function renderStatsHourlyChart(stats) {
 	});
 
 	replaceContent(vBarHost, E('div', {
-		'style': 'display:flex;width:100%;align-items:flex-end;justify-content:space-between;height:120px;padding:0 .25em;border-bottom:1px solid rgba(128,128,128,.35)'
+		'class': 'blocky-chart-vbar-wrap'
 	}, perHour.map(function(bucket) {
 		var total = Number(bucket.queries) || 0;
 		var blocked = Number(bucket.blocked) || 0;
@@ -1450,7 +1375,7 @@ function renderRealtimeMetrics(initialMetricsText) {
 			maxB = Math.max(maxB, b.total, b.blocked, b.cached);
 		}
 
-		replaceContent(vBarHost, E('div', { 'style': 'display:flex;width:100%;align-items:flex-end;justify-content:space-between;height:120px;padding:0 .25em;border-bottom:1px solid rgba(128,128,128,.35)' }, buckets.map(function(bucket) {
+		replaceContent(vBarHost, E('div', { 'class': 'blocky-chart-vbar-wrap' }, buckets.map(function(bucket) {
 			colW = 'flex:1;margin:0 3px;max-width:52px;display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:2px';
 
 			function barPortion(val, color) {

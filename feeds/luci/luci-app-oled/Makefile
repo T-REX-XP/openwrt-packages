@@ -9,7 +9,7 @@ LUCI_DEPENDS:=+libconfig +i2c-tools +coreutils-nohup
 LUCI_PKGARCH:=$(if $(realpath src/Makefile),,all)
 
 PKG_VERSION:=20230823
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE src/LICENSE

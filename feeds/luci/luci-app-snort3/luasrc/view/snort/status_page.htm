@@ -1,4 +1,5 @@
 <%+header%>
+<link rel="stylesheet" type="text/css" href="<%=resource%>/snort-theme.css" />
 <h2 name="content"><%:Snort IDS/IPS%></h2>
 
 <script type="text/javascript">//<![CDATA[
@@ -6,12 +7,13 @@ XHR.poll(3, '<%=url("admin/services/snort/get_status")%>', null,
 	function(x, status) {
 		var statusDiv = document.getElementById('snort_status');
 		var memPercent = status.mem_percent || 0;
-		var memColor = memPercent > 80 ? 'red' : (memPercent > 60 ? 'orange' : 'green');
+		var memCls = memPercent > 80 ? 'snort-status-err' :
+			(memPercent > 60 ? 'snort-status-warn' : 'snort-status-ok');
 
 		if (status.running) {
-			statusDiv.innerHTML = '<span style="color:green;font-weight:bold">&#9679; <%:Running%></span>';
+			statusDiv.innerHTML = '<span class="snort-status-ok">&#9679; <%:Running%></span>';
 		} else {
-			statusDiv.innerHTML = '<span style="color:red;font-weight:bold">&#9679; <%:Stopped%></span>';
+			statusDiv.innerHTML = '<span class="snort-status-err">&#9679; <%:Stopped%></span>';
 		}
 
 		document.getElementById('snort_pid').innerHTML = status.pid || 'N/A';
@@ -21,7 +23,7 @@ XHR.poll(3, '<%=url("admin/services/snort/get_status")%>', null,
 		document.getElementById('snort_mode').innerHTML = status.mode || 'N/A';
 		document.getElementById('snort_method').innerHTML = status.method || 'N/A';
 		document.getElementById('sys_mem').innerHTML =
-			'<span style="color:' + memColor + '">' +
+			'<span class="' + memCls + '">' +
 			status.mem_used + ' MB / ' + status.mem_total + ' MB (' + memPercent + '%)</span>';
 	}
 );

@@ -1,0 +1,47 @@
+/*
+ * luci-app-peripherals theme — dark / light / system via luci-theme-bootstrap
+ */
+
+.peripherals-debug-report {
+	width: 100%;
+	min-height: 34em;
+	font-family: var(--font-mono, monospace);
+	white-space: pre;
+	background: var(--background-color-low);
+	border: 1px solid var(--border-color-medium);
+	color: var(--text-color-high);
+}
+
+.peripherals-detect-pre {
+	white-space: pre-wrap;
+	font-family: var(--font-mono, monospace);
+	min-height: 6em;
+	background: var(--background-color-low);
+	padding: 0.5em;
+	border: 1px solid var(--border-color-medium);
+	color: var(--text-color-high);
+}
+
+.peripherals-ir-maps {
+	width: 100%;
+	min-height: 14em;
+	font-family: var(--font-mono, monospace);
+}
+
+.peripherals-code-inline {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-size: 90%;
+	font-family: var(--font-mono, monospace);
+}
+
+.peripherals-keymap-list {
+	margin: 0.5em 0;
+	color: var(--text-color-high);
+}
+
+.peripherals-debug-output {
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: var(--text-color-high);
+}

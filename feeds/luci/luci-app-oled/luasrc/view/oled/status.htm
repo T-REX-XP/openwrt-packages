@@ -1,22 +1,21 @@
+<link rel="stylesheet" type="text/css" href="<%=resource%>/oled-theme.css" />
 <script type="text/javascript">//<![CDATA[
 XHR.poll(3, '<%=url([[admin]], [[services]], [[oled]], [[status]])%>', null,
 	function(x, data) {
 		var tb = document.getElementById('oled_status');
 		if (data && tb) {
 			if (data.running) {
-				var links = '<em><b><font color=green>OLED <%:RUNNING%></font></b></em>';
-				tb.innerHTML = links;
+				tb.innerHTML = '<em><b><span class="oled-status-running">OLED <%:RUNNING%></span></b></em>';
 			} else {
-				tb.innerHTML = '<em><b><font color=red>OLED <%:NOT RUNNING%></font></b></em>';
+				tb.innerHTML = '<em><b><span class="oled-status-stopped">OLED <%:NOT RUNNING%></span></b></em>';
 			}
 		}
 	}
 );
 //]]>
 </script>
-<style>.mar-10 {margin-left: 50px; margin-right: 10px;}</style>
 <fieldset class="cbi-section">
-	<p id="oled_status">
-		<em><%:Collecting data...%></em>
+	<p id="oled_status" class="oled-status-field">
+		<em class="oled-status-loading"><%:Collecting data...%></em>
 	</p>
 </fieldset>

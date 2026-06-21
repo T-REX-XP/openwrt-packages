@@ -1,0 +1,27 @@
+/*
+ * luci-app-buttons theme — dark / light / system via luci-theme-bootstrap
+ */
+
+.buttons-event-log {
+	font-family: var(--font-mono, monospace);
+	font-size: 0.92em;
+}
+
+.buttons-event-line {
+	padding: 0.2em 0;
+	border-bottom: 1px solid var(--border-color-low);
+}
+
+.buttons-event-line:last-child {
+	border-bottom: none;
+}
+
+.buttons-status-ok { color: var(--success-color-high); font-weight: 700; }
+.buttons-status-err { color: var(--error-color-high); font-weight: 700; }
+.buttons-status-warn { color: var(--warn-color-high); font-weight: 700; }
+
+.buttons-script-editor {
+	width: 100%;
+	min-height: 22em;
+	font-family: var(--font-mono, monospace);
+}

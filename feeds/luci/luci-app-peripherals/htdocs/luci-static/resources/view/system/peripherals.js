@@ -250,7 +250,7 @@ function counterDevicesBlock(irDev) {
 		rows.push(E('tr', { 'class': 'tr' }, [
 			E('td', { 'class': 'td' }, [ c.id || '' ]),
 			E('td', { 'class': 'td' }, [ c.name || '—' ]),
-			E('td', { 'class': 'td' }, [ E('code', { 'style': 'white-space:pre-wrap;word-break:break-word;font-size:90%' }, [ counts || '—' ]) ])
+			E('td', { 'class': 'td' }, [ E('code', { 'class': 'peripherals-code-inline' }, [ counts || '—' ]) ])
 		]));
 	}
 
@@ -326,10 +326,9 @@ function debugReportPanel() {
 		}, [ _('No debug log collected yet.') ]),
 		E('textarea', {
 			'id': 'periph-debug-report',
-			'class': 'cbi-input-textarea',
+			'class': 'cbi-input-textarea peripherals-debug-report',
 			'readonly': 'readonly',
-			'placeholder': _('The collected debug log will appear here.'),
-			'style': 'width:100%;min-height:34em;font-family:monospace;white-space:pre'
+			'placeholder': _('The collected debug log will appear here.')
 		})
 	]);
 }
@@ -542,7 +541,7 @@ return view.extend({
 			r = rpcData(r, {});
 			var msg = E('div', {}, [
 				E('p', {}, [ r.ok ? _('The keymaps were applied successfully.') : _('Keymap application reported an error.') ]),
-				r.output ? E('pre', { 'style': 'white-space:pre-wrap;word-break:break-word' }, [ r.output ]) : ''
+				r.output ? E('pre', { 'class': 'peripherals-debug-output' }, [ r.output ]) : ''
 			]);
 			ui.addNotification(null, msg, r.ok ? 'info' : 'warning');
 		});
@@ -764,7 +763,7 @@ return view.extend({
 						E('div', { 'class': 'cbi-value-field' }, [
 							E('pre', {
 								'id': 'periph-oled-detect',
-								'style': 'white-space:pre-wrap;font-family:monospace;min-height:6em;background:rgba(127,127,127,.08);padding:.5em'
+								'class': 'peripherals-detect-pre'
 							}, [ _('Click Scan bus to probe the selected I2C adapter.') ])
 						])
 					]),
@@ -961,7 +960,7 @@ return view.extend({
 		var devRows = (irDev.devices || []).map(function(d) {
 			return E('tr', { 'class': 'tr' }, [
 				E('td', { 'class': 'td' }, [ d.id || '' ]),
-				E('td', { 'class': 'td' }, [ E('code', { 'style': 'white-space:pre-wrap;word-break:break-word;font-size:90%' }, [ d.uevent || '' ]) ])
+				E('td', { 'class': 'td' }, [ E('code', { 'class': 'peripherals-code-inline' }, [ d.uevent || '' ]) ])
 			]);
 		});
 
@@ -970,14 +969,13 @@ return view.extend({
 			E('tbody', {}, devRows)
 		]);
 
-		var kmList = E('ul', { 'style': 'margin:0.5em 0' }, (irKms.files || []).map(function(f) {
+		var kmList = E('ul', { 'class': 'peripherals-keymap-list' }, (irKms.files || []).map(function(f) {
 			return E('li', {}, [ f ]);
 		}));
 
 		var mapsTa = E('textarea', {
 			'id': 'periph-ir-maps',
-			'class': 'cbi-input-textarea',
-			'style': 'width:100%;min-height:14em;font-family:monospace',
+			'class': 'cbi-input-textarea peripherals-ir-maps',
 			'disabled': isReadonlyView
 		}, [ irMaps.content != null ? irMaps.content : '' ]);
 
@@ -1042,6 +1040,11 @@ return view.extend({
 		]);
 
 		var viewRoot = E([], [
+			E('link', {
+				'rel': 'stylesheet',
+				'type': 'text/css',
+				'href': L.resource('peripherals-theme.css')
+			}),
 			E('h2', {}, [ _('Peripherals') ]),
 			E('p', { 'class': 'cbi-map-descr' }, [
 				_('Manage infrared reception, the PWM cooling fan, SSD1306 OLED display, and kernel module diagnostics. Button script editing is handled by the dedicated Buttons app.')

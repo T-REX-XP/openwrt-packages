@@ -1,0 +1,22 @@
+/*
+ * luci-app-oled theme — dark / light / system via luci-theme-bootstrap
+ */
+
+.oled-status-running {
+	color: var(--success-color-high);
+	font-weight: 700;
+}
+
+.oled-status-stopped {
+	color: var(--error-color-high);
+	font-weight: 700;
+}
+
+.oled-status-field {
+	margin-left: 50px;
+	margin-right: 10px;
+}
+
+.oled-status-loading {
+	color: var(--text-color-medium);
+}

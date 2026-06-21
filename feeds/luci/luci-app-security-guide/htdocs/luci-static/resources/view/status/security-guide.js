@@ -211,15 +211,15 @@ function renderLink(link) {
 		]),
 		E('div', { 'class': 'td left' }, [
 			E('div', {}, [ link.description ]),
-			E('small', {}, [ link.url ])
+			E('small', { 'class': 'security-guide-link-url' }, [ link.url ])
 		])
 	]);
 }
 
 function renderSection(section) {
-	return E('div', { 'class': 'cbi-section' }, [
+	return E('div', { 'class': 'cbi-section security-guide-tab-panel' }, [
 		E('h3', {}, [ section.title ]),
-		E('p', { 'class': 'cbi-section-descr' }, [ section.description ]),
+		E('p', { 'class': 'cbi-section-descr security-guide-section-descr' }, [ section.description ]),
 		E('div', { 'class': 'table' }, [
 			E('div', { 'class': 'tr table-titles' }, [
 				E('div', { 'class': 'th left' }, [ _('Tool') ]),
@@ -232,7 +232,7 @@ function renderSection(section) {
 function renderChecklist() {
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Validation Checklist') ]),
-		E('ul', {}, CHECKLIST.map(function(item) {
+		E('ul', { 'class': 'security-guide-checklist' }, CHECKLIST.map(function(item) {
 			return E('li', {}, [ item ]);
 		}))
 	]);
@@ -299,6 +299,11 @@ function renderTabs() {
 return view.extend({
 	render: function() {
 		return E('div', {}, [
+			E('link', {
+				'rel': 'stylesheet',
+				'type': 'text/css',
+				'href': L.resource('security-guide-theme.css')
+			}),
 			E('h2', {}, [ _('Security Guide') ]),
 			E('p', { 'class': 'cbi-section-descr' }, [
 				_('Quick links for validating DNS leaks, public IP, browser leaks, ad blocking, IPv6, TLS, and firewall exposure from LAN clients. This page is static and does not send router data anywhere.')

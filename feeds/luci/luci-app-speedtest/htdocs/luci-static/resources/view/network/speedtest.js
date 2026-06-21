@@ -26,8 +26,7 @@ return view.extend({
 
 	render: function(status) {
 		var output = E('pre', {
-			'class': 'cbi-section',
-			'style': 'white-space: pre-wrap; word-break: break-word; min-height: 12em;'
+			'class': 'cbi-section speedtest-output'
 		}, [ status.available ? _('Ready. Click "Run speed test" to measure the current WAN connection.') : _('speedtest-go is not installed.') ]);
 
 		var button = E('button', {
@@ -52,12 +51,17 @@ return view.extend({
 		button.disabled = !status.available;
 
 		return E('div', { 'class': 'cbi-map' }, [
+			E('link', {
+				'rel': 'stylesheet',
+				'type': 'text/css',
+				'href': L.resource('speedtest-theme.css')
+			}),
 			E('h2', {}, [ _('Speed Test') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('Runs the speedtest-go client on the router and shows the raw result. The measurement uses public Speedtest.net servers and depends on current WAN load.')
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('p', {}, [
+				E('p', { 'class': 'speedtest-binary-label' }, [
 					E('strong', {}, [ _('Binary') ]),
 					': ',
 					status.binary || '/usr/bin/speedtest-go'

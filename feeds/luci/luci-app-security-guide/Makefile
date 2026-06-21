@@ -6,7 +6,7 @@ LUCI_TITLE:=LuCI security and privacy test guide
 LUCI_DEPENDS:=+luci-base
 LUCI_PKGARCH:=all
 PKG_VERSION:=2026.04.26
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>

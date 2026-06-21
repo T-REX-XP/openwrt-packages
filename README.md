@@ -19,6 +19,8 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
+Each LuCI app ships its own `*-theme.css` using **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, …), so **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight** all render correctly without a shared theme library.
+
 ## IDS & traffic analysis (Orange Pi CM5)
 
 OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for Suricata status, Snort3 modes, NPU limits, and mirror-to-Docker patterns.

@@ -89,9 +89,9 @@ function renderLiveStatus(statusHost, eventsHost, data) {
 		return;
 	}
 
-	replaceContent(eventsHost, E('div', { 'class': 'cbi-section', 'style': 'font-family:monospace;font-size:.92em' },
+	replaceContent(eventsHost, E('div', { 'class': 'cbi-section buttons-event-log' },
 		events.slice().reverse().map(function(line) {
-			return E('div', { 'style': 'padding:.2em 0;border-bottom:1px solid rgba(128,128,128,.2)' }, [ line ]);
+			return E('div', { 'class': 'buttons-event-line' }, [ line ]);
 		})
 	));
 }
@@ -254,8 +254,7 @@ return view.extend({
 
 		var editor = E('textarea', {
 			id: 'button-script-editor',
-			'class': 'cbi-input-textarea',
-			'style': 'width:100%;min-height:22em;font-family:monospace',
+			'class': 'cbi-input-textarea buttons-script-editor',
 			disabled: isReadonlyView
 		}, [ script.content || '' ]);
 
@@ -269,6 +268,11 @@ return view.extend({
 		});
 
 		return E([], [
+			E('link', {
+				'rel': 'stylesheet',
+				'type': 'text/css',
+				'href': L.resource('buttons-theme.css')
+			}),
 			E('h2', {}, [ _('Buttons') ]),
 			E('p', { 'class': 'cbi-map-descr' }, [
 				_('Manage OpenWrt GPIO/ADC button hotplug scripts. Scripts live in %s and receive ACTION, BUTTON and SEEN when a mapped key event arrives.').format('/etc/rc.button/')

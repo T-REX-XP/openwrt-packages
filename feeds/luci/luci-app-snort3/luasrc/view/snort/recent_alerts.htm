@@ -1,29 +1,5 @@
 <%+cbi/valueheader%>
-<style type="text/css">
-.snort-recent-alerts {
-	background: #f8f9fa;
-	border-left: 4px solid #dc3545;
-	padding: 12px;
-	margin: 8px 0;
-	border-radius: 4px;
-	font-family: monospace;
-	font-size: 0.85em;
-	max-height: 280px;
-	overflow-y: auto;
-}
-.snort-recent-alerts .alert-line {
-	padding: 6px 0;
-	border-bottom: 1px solid #e0e0e0;
-	word-wrap: break-word;
-}
-.snort-recent-alerts .no-alerts {
-	text-align: center;
-	color: #4caf50;
-	padding: 12px;
-	font-weight: bold;
-}
-</style>
-
+<link rel="stylesheet" type="text/css" href="<%=resource%>/snort-theme.css" />
 <%
 local sys = require "luci.sys"
 local alerts = sys.exec("[ -f /var/log/alert_fast.txt ] && tail -10 /var/log/alert_fast.txt | tac || echo ''")

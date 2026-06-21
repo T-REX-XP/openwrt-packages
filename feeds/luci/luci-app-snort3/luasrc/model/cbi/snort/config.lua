@@ -19,6 +19,12 @@ s = m:section(TypedSection, "snort", translate("Configuration"))
 s.anonymous = true
 s.addremove = false
 
+theme_css = s:option(DummyValue, "_theme_css", " ")
+theme_css.rawhtml = true
+function theme_css.cfgvalue()
+	return '<link rel="stylesheet" type="text/css" href="/luci-static/resources/snort-theme.css" />'
+end
+
 o = s:option(Flag, "enabled", translate("Enable Snort"),
  translate("Enable or disable Snort service"))
 o.default = "0"
@@ -161,17 +167,17 @@ function rules_info.cfgvalue(self, section)
 
 	if sys.call("[ -L " .. config_rules .. " ]") == 0 then
 		local target = util.trim(sys.exec("readlink " .. config_rules))
-		status = '<span style="color:green">&#10003; ' .. translate("Active symbolic link") .. ': ' .. config_rules .. ' &#8594; ' .. target .. '</span>'
+		status = '<span class="snort-rules-ok">&#10003; ' .. translate("Active symbolic link") .. ': ' .. config_rules .. ' &#8594; ' .. target .. '</span>'
 	elseif sys.call("[ -d " .. temp_rules .. " ]") == 0 then
-		status = '<span style="color:orange">&#9888; ' .. translate("Rules are in") .. ' ' .. temp_rules .. '<br>' ..
+		status = '<span class="snort-rules-warn">&#9888; ' .. translate("Rules are in") .. ' ' .. temp_rules .. '<br>' ..
 			'<a href="javascript:fixRulesSymlink()" class="cbi-button cbi-button-apply">' .. translate("Create symbolic link") .. '</a></span>'
 	else
-		status = '<span style="color:red">' .. translate("No rules directory found") .. '</span>'
+		status = '<span class="snort-rules-err">' .. translate("No rules directory found") .. '</span>'
 	end
 
 	local rule_count = util.trim(sys.exec("find /etc/snort/rules -name '*.rules' 2>/dev/null | wc -l"))
 	if tonumber(rule_count) and tonumber(rule_count) > 0 then
-		status = status .. '<br><span style="color:#666">' .. translate("Rule files:") .. ' ' .. rule_count .. '</span>'
+		status = status .. '<br><span class="snort-rules-meta">' .. translate("Rule files:") .. ' ' .. rule_count .. '</span>'
 	end
 
 	return status
