@@ -793,3 +793,63 @@ msgstr "безпека"
 
 msgid "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."
 msgstr "DNS blocklists керуються на вкладці «Block lists»; секція blocking тут перезаписується при застосуванні списків або запуску Blocky."
+
+msgid "Add blocklist"
+msgstr "Додати blocklist"
+
+msgid "New blocklist"
+msgstr "Новий blocklist"
+
+msgid "Choose from the list"
+msgstr "Обрати зі списку"
+
+msgid "Add a custom list"
+msgstr "Додати власний список"
+
+msgid "Choose blocklists"
+msgstr "Обрати blocklists"
+
+msgid "Enter name"
+msgstr "Введіть назву"
+
+msgid "Enter a URL or an absolute path of the list"
+msgstr "Введіть URL або абсолютний шлях до списку"
+
+msgid "Enter a valid URL to the blocklist."
+msgstr "Введіть коректний URL blocklist."
+
+msgid "Homepage"
+msgstr "Домашня сторінка"
+
+msgid "View list source"
+msgstr "Переглянути джерело списку"
+
+msgid "Added"
+msgstr "Додано"
+
+msgid "Selected lists are already configured."
+msgstr "Обрані списки вже налаштовано."
+
+msgid "General"
+msgstr "Загальні"
+
+msgid "Lists that block tracking and advertising on most devices"
+msgstr "Списки, що блокують трекінг і рекламу на більшості пристроїв"
+
+msgid "Lists that block malware, phishing, and scam domains"
+msgstr "Списки для блокування шкідливих, фішингових і шахрайських доменів"
+
+msgid "AdAway Default Blocklist"
+msgstr "AdAway Default Blocklist"
+
+msgid "Default blocklist from the AdAway project."
+msgstr "Стандартний blocklist проєкту AdAway."
+
+msgid "Peter Lowe's List"
+msgstr "Peter Lowe's List"
+
+msgid "Classic ad server domain blocklist."
+msgstr "Класичний blocklist рекламних серверів."
+
+msgid "Close"
+msgstr "Закрити"

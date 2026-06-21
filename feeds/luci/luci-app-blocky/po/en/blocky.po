@@ -792,3 +792,63 @@ msgstr "security"
 
 msgid "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."
 msgstr "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."
+
+msgid "Add blocklist"
+msgstr "Add blocklist"
+
+msgid "New blocklist"
+msgstr "New blocklist"
+
+msgid "Choose from the list"
+msgstr "Choose from the list"
+
+msgid "Add a custom list"
+msgstr "Add a custom list"
+
+msgid "Choose blocklists"
+msgstr "Choose blocklists"
+
+msgid "Enter name"
+msgstr "Enter name"
+
+msgid "Enter a URL or an absolute path of the list"
+msgstr "Enter a URL or an absolute path of the list"
+
+msgid "Enter a valid URL to the blocklist."
+msgstr "Enter a valid URL to the blocklist."
+
+msgid "Homepage"
+msgstr "Homepage"
+
+msgid "View list source"
+msgstr "View list source"
+
+msgid "Added"
+msgstr "Added"
+
+msgid "Selected lists are already configured."
+msgstr "Selected lists are already configured."
+
+msgid "General"
+msgstr "General"
+
+msgid "Lists that block tracking and advertising on most devices"
+msgstr "Lists that block tracking and advertising on most devices"
+
+msgid "Lists that block malware, phishing, and scam domains"
+msgstr "Lists that block malware, phishing, and scam domains"
+
+msgid "AdAway Default Blocklist"
+msgstr "AdAway Default Blocklist"
+
+msgid "Default blocklist from the AdAway project."
+msgstr "Default blocklist from the AdAway project."
+
+msgid "Peter Lowe's List"
+msgstr "Peter Lowe's List"
+
+msgid "Classic ad server domain blocklist."
+msgstr "Classic ad server domain blocklist."
+
+msgid "Close"
+msgstr "Close"

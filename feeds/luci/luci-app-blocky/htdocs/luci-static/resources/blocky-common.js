@@ -310,9 +310,362 @@ var BLOCKLIST_PRESETS = [
 		name: 'Phishing Army Extended',
 		url: 'https://phishing.army/download/phishing_army_blocklist_extended.txt',
 		category: 'security',
-		description: 'Extended phishing and scam domain blocklist.'
+		description: 'Extended phishing and scam domain blocklist.',
+		homeUrl: 'https://phishing.army/'
+	},
+	{
+		id: 'adaway',
+		name: 'AdAway Default Blocklist',
+		url: 'https://adaway.org/hosts.txt',
+		category: 'ads',
+		description: 'Default blocklist from the AdAway project.',
+		homeUrl: 'https://adaway.org/'
+	},
+	{
+		id: 'peter_lowe',
+		name: "Peter Lowe's List",
+		url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext',
+		category: 'ads',
+		description: 'Classic ad server domain blocklist.',
+		homeUrl: 'https://pgl.yoyo.org/adservers/'
 	}
 ];
+
+var BLOCKLIST_CATALOG = [
+	{
+		title: 'General',
+		description: 'Lists that block tracking and advertising on most devices',
+		items: [
+			'stevenblack', 'adaway', 'adguard_dns', 'peter_lowe',
+			'adguard_tracking', 'adguard_social', 'adguard_mobile',
+			'adguard_annoyances', 'oisd_full', 'easyprivacy'
+		]
+	},
+	{
+		title: 'Security',
+		description: 'Lists that block malware, phishing, and scam domains',
+		items: [ 'phishing_army', 'hagezi_pro' ]
+	}
+];
+
+var BLOCKLIST_PRESET_MAP = {};
+
+BLOCKLIST_PRESETS.forEach(function(preset) {
+	BLOCKLIST_PRESET_MAP[preset.id] = preset;
+});
+
+function blockyPresetHomeUrl(preset) {
+	return preset.homeUrl || preset.url.replace(/\/[^/]*$/, '/');
+}
+
+function blockyCloseModal(overlay) {
+	if (overlay && overlay.parentNode)
+		overlay.parentNode.removeChild(overlay);
+}
+
+function blockyOpenModal(title, bodyNodes, footerNodes, options) {
+	options = options || {};
+	var overlay = E('div', { 'class': 'blocky-modal-overlay' });
+	var dialog = E('div', {
+		'class': 'blocky-modal' + (options.wide ? ' blocky-modal-wide' : '')
+	});
+	var closeBtn = E('button', {
+		'type': 'button',
+		'class': 'blocky-modal-close',
+		'title': _('Close'),
+		'click': function(ev) {
+			ev.preventDefault();
+			blockyCloseModal(overlay);
+		}
+	}, [ '×' ]);
+
+	dialog.appendChild(E('div', { 'class': 'blocky-modal-header' }, [
+		E('h4', { 'class': 'blocky-modal-title' }, [ title ]),
+		closeBtn
+	]));
+	dialog.appendChild(E('div', { 'class': 'blocky-modal-body' }, bodyNodes));
+	dialog.appendChild(E('div', { 'class': 'blocky-modal-footer' }, footerNodes));
+
+	overlay.appendChild(dialog);
+	if (!options.noBackdropClose) {
+		overlay.addEventListener('click', function(ev) {
+			if (ev.target === overlay)
+				blockyCloseModal(overlay);
+		});
+	}
+
+	document.body.appendChild(overlay);
+	return overlay;
+}
+
+function blockyModalFooterCancel(onCancel) {
+	return E('button', {
+		'type': 'button',
+		'class': 'cbi-button cbi-button-neutral',
+		'click': function(ev) {
+			ev.preventDefault();
+			if (typeof onCancel === 'function')
+				onCancel();
+		}
+	}, [ _('Cancel') ]);
+}
+
+function blockyModalFooterSave(label, onSave, style) {
+	return E('button', {
+		'type': 'button',
+		'class': 'cbi-button ' + (style || 'cbi-button-save'),
+		'click': ui.createHandlerFn(null, function(ev) {
+			ev.preventDefault();
+			return Promise.resolve().then(onSave).catch(function(err) {
+				notify(err.message || String(err), 'danger');
+			});
+		})
+	}, [ label || _('Save') ]);
+}
+
+function addBlocklistsFromPresets(presets) {
+	if (!presets.length) {
+		notify(_('Select at least one catalog list.'), 'warning');
+		return Promise.resolve(false);
+	}
+
+	return uci.load('blocky').then(function() {
+		var added = 0;
+
+		presets.forEach(function(preset) {
+			if (uci.get('blocky', preset.id))
+				return;
+
+			uci.add('blocky', 'blocklist', preset.id);
+			uci.set('blocky', preset.id, 'name', preset.name);
+			uci.set('blocky', preset.id, 'url', preset.url);
+			uci.set('blocky', preset.id, 'enabled', '1');
+			uci.set('blocky', preset.id, 'category', preset.category || '');
+			uci.set('blocky', preset.id, 'description', preset.description || '');
+			added++;
+		});
+
+		if (!added) {
+			notify(_('Selected lists are already configured.'), 'warning');
+			return false;
+		}
+
+		return applyBlocklistChanges(true).then(function() {
+			notify(_('Catalog lists added.'));
+			return true;
+		});
+	});
+}
+
+function saveCustomBlocklist(fields, existingId) {
+	var name = fields.name.trim();
+	var url = fields.url.trim();
+	var id = existingId || sanitizeBlocklistId(name);
+
+	if (!name || !url) {
+		notify(_('Name and URL are required.'), 'danger');
+		return Promise.resolve(false);
+	}
+
+	if (!/^https?:\/\//i.test(url)) {
+		notify(_('URL must start with http:// or https://'), 'danger');
+		return Promise.resolve(false);
+	}
+
+	if (!id)
+		id = 'custom_' + String(Date.now());
+
+	return uci.load('blocky').then(function() {
+		if (!existingId && uci.get('blocky', id)) {
+			notify(_('A list with this identifier already exists. Choose a different name.'), 'danger');
+			return false;
+		}
+
+		if (!existingId) {
+			uci.add('blocky', 'blocklist', id);
+			uci.set('blocky', id, 'category', 'custom');
+			uci.set('blocky', id, 'description', '');
+			uci.set('blocky', id, 'enabled', '1');
+		}
+
+		uci.set('blocky', id, 'name', name);
+		uci.set('blocky', id, 'url', url);
+
+		return applyBlocklistChanges(true).then(function() {
+			notify(existingId ? _('Block list saved.') : _('Custom block list added.'));
+			return true;
+		});
+	});
+}
+
+function openCustomBlocklistModal(refreshPage, existing) {
+	var nameInput = E('input', {
+		'class': 'cbi-input-text blocky-modal-input',
+		'placeholder': _('Enter name'),
+		'value': existing ? existing.name : ''
+	});
+	var urlInput = E('input', {
+		'class': 'cbi-input-text blocky-modal-input',
+		'placeholder': _('Enter a URL or an absolute path of the list'),
+		'value': existing ? existing.url : ''
+	});
+	var overlay;
+
+	overlay = blockyOpenModal(
+		existing ? _('Edit block list') : _('New blocklist'),
+		[
+			E('div', { 'class': 'blocky-modal-field' }, [ nameInput ]),
+			E('div', { 'class': 'blocky-modal-field' }, [ urlInput ]),
+			E('p', { 'class': 'blocky-note-soft' }, [
+				_('Enter a valid URL to the blocklist.')
+			])
+		],
+		[
+			blockyModalFooterCancel(function() { blockyCloseModal(overlay); }),
+			' ',
+			blockyModalFooterSave(_('Save'), function() {
+				return saveCustomBlocklist({
+					name: nameInput.value,
+					url: urlInput.value
+				}, existing ? existing.id : null).then(function(ok) {
+					if (!ok)
+						return;
+
+					blockyCloseModal(overlay);
+					return refreshPage();
+				});
+			})
+		]
+	);
+
+	setTimeout(function() { nameInput.focus(); }, 50);
+}
+
+function openCatalogModal(refreshPage) {
+	return loadUciBlocklists().then(function(lists) {
+		var existing = {};
+		var checkboxes = [];
+
+		lists.forEach(function(entry) {
+			existing[entry.id] = true;
+		});
+
+		var body = [];
+
+		BLOCKLIST_CATALOG.forEach(function(group) {
+			var rows = [];
+
+			group.items.forEach(function(presetId) {
+				var preset = BLOCKLIST_PRESET_MAP[presetId];
+
+				if (!preset)
+					return;
+
+				var added = !!existing[preset.id];
+				var checkbox = E('input', {
+					'type': 'checkbox',
+					'disabled': added ? '' : null,
+					'checked': added ? '' : null,
+					'data-preset-id': preset.id
+				});
+
+				checkboxes.push({ box: checkbox, preset: preset, added: added });
+
+				rows.push(E('div', { 'class': 'blocky-modal-catalog-row' }, [
+					E('label', { 'class': 'blocky-modal-catalog-label' }, [
+						checkbox, ' ',
+						E('span', { 'class': 'blocky-modal-catalog-name' }, [ _(preset.name) ])
+					]),
+					E('span', { 'class': 'blocky-modal-catalog-links' }, [
+						E('a', {
+							'href': blockyPresetHomeUrl(preset),
+							'target': '_blank',
+							'rel': 'noopener noreferrer',
+							'class': 'blocky-modal-icon-link',
+							'title': _('Homepage')
+						}, [ '⌂' ]),
+						' ',
+						E('a', {
+							'href': preset.url,
+							'target': '_blank',
+							'rel': 'noopener noreferrer',
+							'class': 'blocky-modal-icon-link',
+							'title': _('View list source')
+						}, [ 'ℹ' ])
+					]),
+					added ? E('span', { 'class': 'blocky-modal-added-tag' }, [ _('Added') ]) : ''
+				]));
+			});
+
+			if (!rows.length)
+				return;
+
+			body.push(E('div', { 'class': 'blocky-modal-catalog-group' }, [
+				E('h5', { 'class': 'blocky-modal-catalog-title' }, [ _(group.title) ]),
+				E('p', { 'class': 'blocky-modal-catalog-descr' }, [ _(group.description) ]),
+				E('div', { 'class': 'blocky-modal-catalog-rows' }, rows)
+			]));
+		});
+
+		var overlay = blockyOpenModal(
+			_('Choose blocklists'),
+			[ E('div', { 'class': 'blocky-modal-catalog' }, body) ],
+			[
+				blockyModalFooterCancel(function() { blockyCloseModal(overlay); }),
+				' ',
+				blockyModalFooterSave(_('Save'), function() {
+					var selected = checkboxes.filter(function(row) {
+						return !row.added && row.box.checked;
+					}).map(function(row) {
+						return row.preset;
+					});
+
+					return addBlocklistsFromPresets(selected).then(function(ok) {
+						if (!ok)
+							return;
+
+						blockyCloseModal(overlay);
+						return refreshPage();
+					});
+				})
+			],
+			{ wide: true }
+		);
+	});
+}
+
+function openNewBlocklistModal(refreshPage) {
+	var overlay;
+
+	overlay = blockyOpenModal(
+		_('New blocklist'),
+		[
+			E('div', { 'class': 'blocky-modal-choices' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'blocky-modal-choice blocky-modal-choice-catalog',
+					'click': ui.createHandlerFn(null, function(ev) {
+						ev.preventDefault();
+						blockyCloseModal(overlay);
+						return openCatalogModal(refreshPage);
+					})
+				}, [ _('Choose from the list') ]),
+				E('button', {
+					'type': 'button',
+					'class': 'blocky-modal-choice blocky-modal-choice-custom',
+					'click': ui.createHandlerFn(null, function(ev) {
+						ev.preventDefault();
+						blockyCloseModal(overlay);
+						openCustomBlocklistModal(refreshPage);
+					})
+				}, [ _('Add a custom list') ])
+			])
+		],
+		[
+			blockyModalFooterCancel(function() { blockyCloseModal(overlay); })
+		]
+	);
+}
 
 function sanitizeBlocklistId(raw) {
 	return safeString(raw).toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_|_$/g, '');
@@ -361,76 +714,6 @@ function applyBlocklistChanges(restart) {
 
 function renderBlocklistsTab(statsResult, refreshPage) {
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
-	var presetHost = E('div', { 'class': 'blocky-preset-grid' });
-	var editNameInput = E('input', { 'class': 'cbi-input-text', 'style': 'width:100%' });
-	var editUrlInput = E('input', { 'class': 'cbi-input-text', 'style': 'width:100%' });
-	var editingId = null;
-	var editHost = E('div', { 'class': 'blocky-blocklist-edit', 'style': 'display:none' }, [
-		E('h4', {}, [ _('Edit block list') ]),
-		E('div', { 'class': 'cbi-value' }, [
-			E('label', { 'class': 'cbi-value-title' }, [ _('Name') ]),
-			E('div', { 'class': 'cbi-value-field' }, [ editNameInput ])
-		]),
-		E('div', { 'class': 'cbi-value' }, [
-			E('label', { 'class': 'cbi-value-title' }, [ _('URL') ]),
-			E('div', { 'class': 'cbi-value-field' }, [ editUrlInput ])
-		]),
-		E('p', {}, [
-			E('button', {
-				'class': 'cbi-button cbi-button-save',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-
-					if (!editingId)
-						return;
-
-					var name = editNameInput.value.trim();
-					var url = editUrlInput.value.trim();
-
-					if (!name || !url) {
-						notify(_('Name and URL are required.'), 'danger');
-						return;
-					}
-
-					if (!/^https?:\/\//i.test(url)) {
-						notify(_('URL must start with http:// or https://'), 'danger');
-						return;
-					}
-
-					uci.set('blocky', editingId, 'name', name);
-					uci.set('blocky', editingId, 'url', url);
-
-					return applyBlocklistChanges(true).then(function() {
-						editHost.style.display = 'none';
-						editingId = null;
-						notify(_('Block list saved.'));
-						return refreshPage();
-					}).catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Save') ]),
-			' ',
-			E('button', {
-				'class': 'cbi-button cbi-button-neutral',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-					editHost.style.display = 'none';
-					editingId = null;
-				})
-			}, [ _('Cancel') ])
-		])
-	]);
-	var customNameInput = E('input', {
-		'class': 'cbi-input-text',
-		'placeholder': _('Name'),
-		'style': 'min-width:14em'
-	});
-	var customUrlInput = E('input', {
-		'class': 'cbi-input-text',
-		'placeholder': 'https://…',
-		'style': 'width:100%; max-width:42em'
-	});
 
 	function denyCountsMap() {
 		var stats = statsResult && statsResult.ok ? statsResult.data : null;
@@ -495,10 +778,7 @@ function renderBlocklistsTab(statsResult, refreshPage) {
 							'class': 'cbi-button cbi-button-edit',
 							'click': ui.createHandlerFn(this, function(ev) {
 								ev.preventDefault();
-								editingId = entry.id;
-								editNameInput.value = entry.name;
-								editUrlInput.value = entry.url;
-								editHost.style.display = '';
+								openCustomBlocklistModal(refreshPage, entry);
 							})
 						}, [ _('Edit') ]),
 						' ',
@@ -527,118 +807,7 @@ function renderBlocklistsTab(statsResult, refreshPage) {
 		});
 	}
 
-	function repaintPresets() {
-		return loadUciBlocklists().then(function(lists) {
-			var existing = {};
-
-			lists.forEach(function(entry) {
-				existing[entry.id] = true;
-			});
-
-			replaceContent(presetHost, BLOCKLIST_PRESETS.map(function(preset) {
-				var added = !!existing[preset.id];
-				var checkbox = E('input', {
-					'type': 'checkbox',
-					'disabled': added ? '' : null
-				});
-
-				return E('div', { 'class': 'blocky-preset-card' }, [
-					E('label', { 'class': 'blocky-preset-head' }, [
-						checkbox, ' ',
-						E('strong', {}, [ _(preset.name) ])
-					]),
-					E('div', { 'class': 'blocky-preset-meta' }, [
-						E('span', { 'class': 'blocky-pill blocky-pill-muted' }, [ _(preset.category) ])
-					]),
-					E('p', { 'class': 'blocky-note-soft' }, [ _(preset.description) ]),
-					E('code', { 'class': 'blocky-list-url' }, [ preset.url ]),
-					added ? E('em', { 'class': 'blocky-preset-added' }, [ _('Already added') ]) : ''
-				]);
-			}));
-
-			presetHost._presetCheckboxes = presetHost.querySelectorAll('.blocky-preset-card input[type=checkbox]:not([disabled])');
-		});
-	}
-
-	function addPresetsFromCatalog() {
-		var cards = presetHost.querySelectorAll('.blocky-preset-card');
-		var selected = [];
-
-		for (var i = 0; i < cards.length; i++) {
-			var box = cards[i].querySelector('input[type=checkbox]');
-
-			if (box && !box.disabled && box.checked)
-				selected.push(BLOCKLIST_PRESETS[i]);
-		}
-
-		if (!selected.length) {
-			notify(_('Select at least one catalog list.'), 'warning');
-			return Promise.resolve();
-		}
-
-		return uci.load('blocky').then(function() {
-			selected.forEach(function(preset) {
-				if (uci.get('blocky', preset.id))
-					return;
-
-				uci.add('blocky', 'blocklist', preset.id);
-				uci.set('blocky', preset.id, 'name', preset.name);
-				uci.set('blocky', preset.id, 'url', preset.url);
-				uci.set('blocky', preset.id, 'enabled', '1');
-				uci.set('blocky', preset.id, 'category', preset.category || '');
-				uci.set('blocky', preset.id, 'description', preset.description || '');
-			});
-
-			return applyBlocklistChanges(true);
-		}).then(function() {
-			notify(_('Catalog lists added.'));
-			return refreshPage();
-		});
-	}
-
-	function addCustomList() {
-		var name = customNameInput.value.trim();
-		var url = customUrlInput.value.trim();
-		var id = sanitizeBlocklistId(name);
-
-		if (!name || !url) {
-			notify(_('Name and URL are required.'), 'danger');
-			return Promise.resolve();
-		}
-
-		if (!/^https?:\/\//i.test(url)) {
-			notify(_('URL must start with http:// or https://'), 'danger');
-			return Promise.resolve();
-		}
-
-		if (!id)
-			id = 'custom_' + String(Date.now());
-
-		return uci.load('blocky').then(function() {
-			if (uci.get('blocky', id)) {
-				notify(_('A list with this identifier already exists. Choose a different name.'), 'danger');
-				return;
-			}
-
-			uci.add('blocky', 'blocklist', id);
-			uci.set('blocky', id, 'name', name);
-			uci.set('blocky', id, 'url', url);
-			uci.set('blocky', id, 'enabled', '1');
-			uci.set('blocky', id, 'category', 'custom');
-			uci.set('blocky', id, 'description', '');
-
-			customNameInput.value = '';
-			customUrlInput.value = '';
-
-			return applyBlocklistChanges(true);
-		}).then(function() {
-			notify(_('Custom block list added.'));
-			return refreshPage();
-		});
-	}
-
 	repaintTable();
-	repaintPresets();
 
 	return E('div', { 'class': 'cbi-section blocky-blocklists-section' }, [
 		E('h3', {}, [ _('DNS blocklists') ]),
@@ -646,51 +815,29 @@ function renderBlocklistsTab(statsResult, refreshPage) {
 			_('Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists.')
 		]),
 		tableHost,
-		E('div', { 'class': 'blocky-blocklists-toolbar' }, [
-			actionButton(_('Update lists now'), function() {
-				return blockyApi('/lists/refresh', 'POST');
-			}, 'cbi-button-action', refreshPage),
-			' ',
-			actionButton(_('Save & restart Blocky'), function() {
-				return applyBlocklistChanges(true).then(function() {
-					notify(_('Block lists applied and Blocky restarted.'));
-					return refreshPage();
-				});
-			}, 'cbi-button-apply')
-		]),
-		editHost,
-		E('h4', { 'style': 'margin-top:1.25em' }, [ _('Add custom list') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Add a custom remote blocklist by name and URL (hosts, plain domain, or AdBlock syntax).')
-		]),
-		E('div', { 'class': 'blocky-custom-list-form' }, [
-			customNameInput, ' ',
-			customUrlInput, ' ',
-			E('button', {
-				'class': 'cbi-button cbi-button-add',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-					return addCustomList().catch(function(err) {
-						notify(err.message || String(err), 'danger');
+		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
+			E('div', { 'class': 'blocky-blocklists-toolbar-left' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button cbi-button-add',
+					'click': ui.createHandlerFn(this, function(ev) {
+						ev.preventDefault();
+						openNewBlocklistModal(refreshPage);
+					})
+				}, [ _('Add blocklist') ])
+			]),
+			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
+				actionButton(_('Update lists now'), function() {
+					return blockyApi('/lists/refresh', 'POST');
+				}, 'cbi-button-action', refreshPage),
+				' ',
+				actionButton(_('Save & restart Blocky'), function() {
+					return applyBlocklistChanges(true).then(function() {
+						notify(_('Block lists applied and Blocky restarted.'));
+						return refreshPage();
 					});
-				})
-			}, [ _('Add custom list') ])
-		]),
-		E('h4', { 'style': 'margin-top:1.25em' }, [ _('Choose from catalog') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration.')
-		]),
-		presetHost,
-		E('p', { 'class': 'blocky-blocklists-toolbar' }, [
-			E('button', {
-				'class': 'cbi-button cbi-button-add',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-					return addPresetsFromCatalog().catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Add selected lists') ])
+				}, 'cbi-button-apply')
+			])
 		])
 	]);
 }
