@@ -3230,18 +3230,708 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 	]);
 }
 
-function renderConfig(content) {
+function extractYamlSection(yaml, sectionName) {
+	var lines = safeString(yaml).split('\n');
+	var out = [];
+	var inSection = false;
+	var re = new RegExp('^' + sectionName + ':\\s*$');
+
+	lines.forEach(function(line) {
+		if (re.test(line)) {
+			inSection = true;
+			out.push(line);
+			return;
+		}
+
+		if (!inSection)
+			return;
+
+		if (/^[a-zA-Z0-9_]+:\s*$/.test(line) && !re.test(line))
+			return;
+
+		if (/^[^#\s]/.test(line) && !re.test(line))
+			return;
+
+		out.push(line);
+	});
+
+	return out.length ? out.join('\n') : '';
+}
+
+function parseYamlScalar(sectionYaml, key, fallback) {
+	var m = safeString(sectionYaml).match(new RegExp('(?:^|\\n)\\s+' + key + ':\\s*(.+)$', 'm'));
+
+	if (!m)
+		return fallback;
+
+	return m[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+function parseYamlBool(sectionYaml, key, fallback) {
+	var value = parseYamlScalar(sectionYaml, key, null);
+
+	if (value === null)
+		return fallback;
+
+	value = value.toLowerCase();
+
+	return value === 'true' || value === '1' || value === 'yes';
+}
+
+function parseYamlListItems(sectionYaml) {
+	var items = [];
+
+	safeString(sectionYaml).split('\n').forEach(function(line) {
+		var m = line.match(/^\s+-\s+(.+)$/);
+
+		if (!m)
+			return;
+
+		items.push(m[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
+	});
+
+	return items;
+}
+
+function parseUpstreamGroupResolvers(sectionYaml) {
+	var items = [];
+	var inDefault = false;
+
+	safeString(sectionYaml).split('\n').forEach(function(line) {
+		if (/^\s+default:\s*$/.test(line)) {
+			inDefault = true;
+			return;
+		}
+
+		if (inDefault && /^\s+-\s+(.+)$/.test(line)) {
+			items.push(line.match(/^\s+-\s+(.+)$/)[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
+			return;
+		}
+
+		if (inDefault && /^\s+[A-Za-z0-9_*[\].-]+:\s*$/.test(line))
+			inDefault = false;
+	});
+
+	return items;
+}
+
+function parseBlockySettings(yaml) {
+	var upstreams = extractYamlSection(yaml, 'upstreams');
+	var bootstrap = extractYamlSection(yaml, 'bootstrapDns');
+	var blocking = extractYamlSection(yaml, 'blocking');
+	var caching = extractYamlSection(yaml, 'caching');
+	var hostsFile = extractYamlSection(yaml, 'hostsFile');
+	var logSec = extractYamlSection(yaml, 'log');
+	var queryLog = extractYamlSection(yaml, 'queryLog');
+	var ports = extractYamlSection(yaml, 'ports');
+	var rebinding = extractYamlSection(yaml, 'rebindingProtection');
+	var prometheus = extractYamlSection(yaml, 'prometheus');
+	var statistics = extractYamlSection(yaml, 'statistics');
+	var dnsEp = parseBlockyPortLine(yaml, 'dns', 5353);
+	var httpEp = parseBlockyPortLine(yaml, 'http', 4000);
+	var bootstrapItems = parseYamlListItems(bootstrap);
+	var bootstrapResolvers = [];
+	var initMatch = upstreams.match(/init:\s*\n\s+strategy:\s*(\S+)/);
+	var refreshMatch = blocking.match(/refreshPeriod:\s*(\S+)/);
+	var downloadTimeoutMatch = blocking.match(/downloads:[\s\S]*?\n\s+timeout:\s*(\S+)/);
+	var downloadAttemptsMatch = blocking.match(/downloads:[\s\S]*?\n\s+attempts:\s*(\S+)/);
+	var loadingStrategyMatch = blocking.match(/loading:[\s\S]*?\n\s+strategy:\s*(\S+)/);
+	var cachePathMatch = blocking.match(/cachePath:\s*(\S+)/);
+	var writeTimeoutMatch = blocking.match(/writeTimeout:\s*(\S+)/);
+	var readTimeoutMatch = blocking.match(/readTimeout:\s*(\S+)/);
+	var cooldownMatch = blocking.match(/cooldown:\s*(\S+)/);
+	var concurrencyMatch = blocking.match(/concurrency:\s*(\S+)/);
+
+	bootstrapItems.forEach(function(item) {
+		if (/^resolvFile:/i.test(item))
+			return;
+
+		bootstrapResolvers.push(item);
+	});
+
+	return {
+		upstreamResolvers: parseUpstreamGroupResolvers(upstreams),
+		upstreamInitStrategy: initMatch ? initMatch[1].replace(/['"]/g, '') : 'fast',
+		upstreamTimeout: parseYamlScalar(upstreams, 'timeout', '5s'),
+		bootstrapResolvers: bootstrapResolvers,
+		bootstrapUseWan: bootstrapItems.some(function(item) {
+			return /^resolvFile:/i.test(item);
+		}),
+		listRefreshPeriod: refreshMatch ? refreshMatch[1].replace(/['"]/g, '') : '4h',
+		loadingStrategy: loadingStrategyMatch ? loadingStrategyMatch[1].replace(/['"]/g, '') : 'fast',
+		listCachePath: cachePathMatch ? cachePathMatch[1].replace(/['"]/g, '') : '/var/lib/blocky/lists',
+		listDownloadTimeout: downloadTimeoutMatch ? downloadTimeoutMatch[1].replace(/['"]/g, '') : '60s',
+		listWriteTimeout: writeTimeoutMatch ? writeTimeoutMatch[1].replace(/['"]/g, '') : '60s',
+		listReadTimeout: readTimeoutMatch ? readTimeoutMatch[1].replace(/['"]/g, '') : '60s',
+		listDownloadAttempts: downloadAttemptsMatch ? downloadAttemptsMatch[1].replace(/['"]/g, '') : '5',
+		listCooldown: cooldownMatch ? cooldownMatch[1].replace(/['"]/g, '') : '10s',
+		listConcurrency: concurrencyMatch ? concurrencyMatch[1].replace(/['"]/g, '') : '4',
+		cachingMinTime: parseYamlScalar(caching, 'minTime', '5m'),
+		cachingMaxTime: parseYamlScalar(caching, 'maxTime', '30m'),
+		cachingPrefetch: parseYamlBool(caching, 'prefetching', false),
+		hostsSources: parseYamlListItems(hostsFile),
+		logLevel: parseYamlScalar(logSec, 'level', 'warn'),
+		logPrivacy: parseYamlBool(logSec, 'privacy', false),
+		queryLogType: parseYamlScalar(queryLog, 'type', 'csv'),
+		queryLogTarget: parseYamlScalar(queryLog, 'target', '/tmp/blocky-logs'),
+		queryLogRetention: parseYamlScalar(queryLog, 'logRetentionDays', '7'),
+		queryLogFlush: parseYamlScalar(queryLog, 'flushInterval', '30s'),
+		portDns: dnsEp.host + ':' + String(dnsEp.port),
+		portHttp: httpEp.host + ':' + String(httpEp.port),
+		rebindingEnable: parseYamlBool(rebinding, 'enable', true),
+		prometheusEnable: parseYamlBool(prometheus, 'enable', true),
+		prometheusPath: parseYamlScalar(prometheus, 'path', '/metrics'),
+		statisticsEnable: parseYamlBool(statistics, 'enable', true),
+		blockingSection: blocking
+	};
+}
+
+function yamlQuote(value) {
+	var v = safeString(value).trim();
+
+	if (!v)
+		return '""';
+
+	if (/[:#{}[\],&*?|>!%@`"]|\s/.test(v))
+		return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+
+	return v;
+}
+
+function yamlListLines(items, indent) {
+	var prefix = indent || '      ';
+
+	return items.filter(function(item) {
+		return safeString(item).trim();
+	}).map(function(item) {
+		return prefix + '- ' + yamlQuote(item.trim());
+	}).join('\n');
+}
+
+function buildBlockySettingsYaml(fields, currentYaml) {
+	var blocking = fields.blockingSection || extractYamlSection(currentYaml, 'blocking');
+	var upstreamResolvers = fields.upstreamResolvers.split(/\n/).map(function(s) {
+		return s.trim();
+	}).filter(Boolean);
+	var bootstrapResolvers = fields.bootstrapResolvers.split(/\n/).map(function(s) {
+		return s.trim();
+	}).filter(Boolean);
+	var hostsSources = fields.hostsSources.split(/\n/).map(function(s) {
+		return s.trim();
+	}).filter(Boolean);
+	var bootstrapLines = bootstrapResolvers.slice();
+
+	if (fields.bootstrapUseWan)
+		bootstrapLines.push('resolvFile: /tmp/resolv.conf.auto');
+
+	if (!blocking.trim())
+		blocking = extractYamlSection(currentYaml, 'blocking');
+
+	return [
+		'upstreams:',
+		'  init:',
+		'    strategy: ' + yamlQuote(fields.upstreamInitStrategy || 'fast'),
+		'  timeout: ' + yamlQuote(fields.upstreamTimeout || '5s'),
+		'  groups:',
+		'    default:',
+		yamlListLines(upstreamResolvers, '      '),
+		'',
+		'bootstrapDns:',
+		bootstrapLines.length ? yamlListLines(bootstrapLines, '  ') : '  - tcp+udp:1.1.1.1',
+		'',
+		blocking.trim(),
+		'',
+		'caching:',
+		'  minTime: ' + yamlQuote(fields.cachingMinTime || '5m'),
+		'  maxTime: ' + yamlQuote(fields.cachingMaxTime || '30m'),
+		'  prefetching: ' + (fields.cachingPrefetch ? 'true' : 'false'),
+		'',
+		'hostsFile:',
+		'  sources:',
+		hostsSources.length ? yamlListLines(hostsSources, '    ') : '    - /etc/hosts',
+		'',
+		'log:',
+		'  level: ' + yamlQuote(fields.logLevel || 'warn'),
+		'  privacy: ' + (fields.logPrivacy ? 'true' : 'false'),
+		'',
+		'queryLog:',
+		'  type: ' + yamlQuote(fields.queryLogType || 'csv'),
+		'  target: ' + yamlQuote(fields.queryLogTarget || '/tmp/blocky-logs'),
+		'  logRetentionDays: ' + yamlQuote(fields.queryLogRetention || '7'),
+		'  flushInterval: ' + yamlQuote(fields.queryLogFlush || '30s'),
+		'',
+		'ports:',
+		'  dns: ' + yamlQuote(fields.portDns || '127.0.0.1:5353'),
+		'  http: ' + yamlQuote(fields.portHttp || '127.0.0.1:4000'),
+		'',
+		'rebindingProtection:',
+		'  enable: ' + (fields.rebindingEnable ? 'true' : 'false'),
+		'',
+		'prometheus:',
+		'  enable: ' + (fields.prometheusEnable ? 'true' : 'false'),
+		'  path: ' + yamlQuote(fields.prometheusPath || '/metrics'),
+		'',
+		'statistics:',
+		'  enable: ' + (fields.statisticsEnable ? 'true' : 'false'),
+		''
+	].join('\n');
+}
+
+function patchBlockingLoadingSection(blockingYaml, fields) {
+	var lines = safeString(blockingYaml).split('\n');
+	var out = [];
+	var inLoading = false;
+	var inDownloads = false;
+	var replaced = {};
+
+	function patchLine(line, key, indent, value, flag) {
+		if (replaced[flag])
+			return null;
+
+		if (!new RegExp('^' + indent + key + ':').test(line))
+			return null;
+
+		replaced[flag] = true;
+		return indent + key + ': ' + yamlQuote(value);
+	}
+
+	lines.forEach(function(line) {
+		if (/^\s+loading:\s*$/.test(line)) {
+			inLoading = true;
+			inDownloads = false;
+			out.push(line);
+			return;
+		}
+
+		if (inLoading && /^\s+downloads:\s*$/.test(line)) {
+			inDownloads = true;
+			out.push(line);
+			return;
+		}
+
+		if (inLoading && !inDownloads) {
+			var loadingStrategy = patchLine(line, 'strategy', '    ', fields.loadingStrategy || 'fast', 'loadingStrategy');
+			if (loadingStrategy) {
+				out.push(loadingStrategy);
+				return;
+			}
+		}
+
+		if (inLoading) {
+			var refresh = patchLine(line, 'refreshPeriod', '    ', fields.listRefreshPeriod || '4h', 'refreshPeriod');
+			if (refresh) {
+				out.push(refresh);
+				return;
+			}
+		}
+
+		if (inDownloads) {
+			var patched = patchLine(line, 'cachePath', '      ', fields.listCachePath || '/var/lib/blocky/lists', 'cachePath') ||
+				patchLine(line, 'timeout', '      ', fields.listDownloadTimeout || '60s', 'timeout') ||
+				patchLine(line, 'writeTimeout', '      ', fields.listWriteTimeout || '60s', 'writeTimeout') ||
+				patchLine(line, 'readTimeout', '      ', fields.listReadTimeout || '60s', 'readTimeout') ||
+				patchLine(line, 'attempts', '      ', fields.listDownloadAttempts || '5', 'attempts') ||
+				patchLine(line, 'cooldown', '      ', fields.listCooldown || '10s', 'cooldown') ||
+				patchLine(line, 'concurrency', '      ', fields.listConcurrency || '4', 'concurrency');
+
+			if (patched) {
+				out.push(patched);
+				return;
+			}
+		}
+
+		if (/^\s{2}[A-Za-z0-9_]+:/.test(line) && !/^\s+loading:/.test(line)) {
+			inLoading = false;
+			inDownloads = false;
+		}
+
+		out.push(line);
+	});
+
+	return out.join('\n');
+}
+
+function settingsRow(label, descr, control) {
+	return E('div', { 'class': 'blocky-settings-row' }, [
+		E('div', { 'class': 'blocky-settings-meta' }, [
+			E('label', { 'class': 'blocky-settings-label' }, [ label ]),
+			descr ? E('p', { 'class': 'blocky-settings-hint' }, [ descr ]) : ''
+		]),
+		E('div', { 'class': 'blocky-settings-control' }, [ control ])
+	]);
+}
+
+function settingsPanel(title, descr, rows) {
+	return E('div', { 'class': 'blocky-dash-panel blocky-settings-panel' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ title ]),
+				descr ? E('p', { 'class': 'blocky-dash-panel-subtitle' }, [ descr ]) : ''
+			])
+		]),
+		E('div', { 'class': 'blocky-settings-body' }, rows)
+	]);
+}
+
+function readBlockySettingsForm(state) {
+	return {
+		upstreamResolvers: state.upstreamResolvers.value,
+		upstreamInitStrategy: state.upstreamInitStrategy.value,
+		upstreamTimeout: state.upstreamTimeout.value,
+		bootstrapResolvers: state.bootstrapResolvers.value,
+		bootstrapUseWan: state.bootstrapUseWan.checked,
+		listRefreshPeriod: state.listRefreshPeriod.value,
+		loadingStrategy: state.loadingStrategy.value,
+		listCachePath: state.listCachePath.value.trim(),
+		listDownloadTimeout: state.listDownloadTimeout.value,
+		listWriteTimeout: state.listWriteTimeout.value,
+		listReadTimeout: state.listReadTimeout.value,
+		listDownloadAttempts: state.listDownloadAttempts.value,
+		listCooldown: state.listCooldown.value,
+		listConcurrency: state.listConcurrency.value,
+		cachingMinTime: state.cachingMinTime.value,
+		cachingMaxTime: state.cachingMaxTime.value,
+		cachingPrefetch: state.cachingPrefetch.checked,
+		hostsSources: state.hostsSources.value,
+		logLevel: state.logLevel.value,
+		logPrivacy: state.logPrivacy.checked,
+		queryLogType: 'csv',
+		queryLogTarget: state.queryLogTarget.value,
+		queryLogRetention: state.queryLogRetention.value,
+		queryLogFlush: state.queryLogFlush.value,
+		portDns: state.portDns.value.trim(),
+		portHttp: state.portHttp.value.trim(),
+		rebindingEnable: state.rebindingEnable.checked,
+		prometheusEnable: state.prometheusEnable.checked,
+		prometheusPath: state.prometheusPath.value.trim(),
+		statisticsEnable: state.statisticsEnable.checked,
+		blockingSection: state.blockingSection
+	};
+}
+
+function saveBlockySettingsForm(state, currentYaml, restart) {
+	var fields = readBlockySettingsForm(state);
+
+	fields.blockingSection = patchBlockingLoadingSection(fields.blockingSection, fields);
+
+	if (!/^127\.0\.0\.1:|^localhost:|^\[::1\]:/.test(fields.portDns) ||
+	    !/^127\.0\.0\.1:|^localhost:|^\[::1\]:/.test(fields.portHttp))
+		throw new Error(_('Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router.'));
+
+	var yaml = buildBlockySettingsYaml(fields, currentYaml);
+
+	return fs.write(CONFIG_PATH, yaml).then(function() {
+		return uci.load('blocky').then(function() {
+			uci.set('blocky', 'main', 'refresh_period', fields.listRefreshPeriod || '4h');
+			return uci.save();
+		});
+	}).then(function() {
+		return execBlockyListsSync();
+	}).then(function() {
+		if (restart)
+			return runInit('restart');
+	});
+}
+
+function renderBlockySettingsForm(configYaml, refreshPage) {
+	var parsed = parseBlockySettings(configYaml);
+	var state = {
+		upstreamResolvers: E('textarea', {
+			'class': 'cbi-input-textarea blocky-settings-textarea',
+			'rows': 5
+		}, [ parsed.upstreamResolvers.join('\n') ]),
+		upstreamInitStrategy: E('select', { 'class': 'cbi-input-select' }, [
+			E('option', { 'value': 'fast', 'selected': parsed.upstreamInitStrategy === 'fast' ? '' : null }, [ 'fast' ]),
+			E('option', { 'value': 'blocking', 'selected': parsed.upstreamInitStrategy === 'blocking' ? '' : null }, [ 'blocking' ]),
+			E('option', { 'value': 'failOnError', 'selected': parsed.upstreamInitStrategy === 'failOnError' ? '' : null }, [ 'failOnError' ])
+		]),
+		upstreamTimeout: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.upstreamTimeout,
+			'placeholder': '5s'
+		}),
+		bootstrapResolvers: E('textarea', {
+			'class': 'cbi-input-textarea blocky-settings-textarea',
+			'rows': 3
+		}, [ parsed.bootstrapResolvers.join('\n') ]),
+		bootstrapUseWan: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.bootstrapUseWan ? '' : null
+		}),
+		listRefreshPeriod: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listRefreshPeriod,
+			'placeholder': '4h'
+		}),
+		listDownloadTimeout: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listDownloadTimeout,
+			'placeholder': '60s'
+		}),
+		listDownloadAttempts: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listDownloadAttempts,
+			'placeholder': '5'
+		}),
+		loadingStrategy: E('select', { 'class': 'cbi-input-select' }, [
+			E('option', { 'value': 'fast', 'selected': parsed.loadingStrategy === 'fast' ? '' : null }, [ 'fast' ]),
+			E('option', { 'value': 'blocking', 'selected': parsed.loadingStrategy === 'blocking' ? '' : null }, [ 'blocking' ]),
+			E('option', { 'value': 'failOnError', 'selected': parsed.loadingStrategy === 'failOnError' ? '' : null }, [ 'failOnError' ])
+		]),
+		listCachePath: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listCachePath,
+			'style': 'width:100%'
+		}),
+		listWriteTimeout: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listWriteTimeout,
+			'placeholder': '60s'
+		}),
+		listReadTimeout: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listReadTimeout,
+			'placeholder': '60s'
+		}),
+		listCooldown: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listCooldown,
+			'placeholder': '10s'
+		}),
+		listConcurrency: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.listConcurrency,
+			'placeholder': '4'
+		}),
+		cachingMinTime: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.cachingMinTime,
+			'placeholder': '5m'
+		}),
+		cachingMaxTime: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.cachingMaxTime,
+			'placeholder': '30m'
+		}),
+		cachingPrefetch: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.cachingPrefetch ? '' : null
+		}),
+		hostsSources: E('textarea', {
+			'class': 'cbi-input-textarea blocky-settings-textarea',
+			'rows': 3
+		}, [ parsed.hostsSources.join('\n') ]),
+		logLevel: E('select', { 'class': 'cbi-input-select' }, [
+			'trace', 'debug', 'info', 'warn', 'error'
+		].map(function(level) {
+			return E('option', {
+				'value': level,
+				'selected': parsed.logLevel === level ? '' : null
+			}, [ level ]);
+		})),
+		logPrivacy: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.logPrivacy ? '' : null
+		}),
+		queryLogTarget: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.queryLogTarget,
+			'style': 'width:100%'
+		}),
+		queryLogRetention: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.queryLogRetention,
+			'placeholder': '7'
+		}),
+		queryLogFlush: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.queryLogFlush,
+			'placeholder': '30s'
+		}),
+		portDns: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.portDns,
+			'style': 'width:100%'
+		}),
+		portHttp: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.portHttp,
+			'style': 'width:100%'
+		}),
+		rebindingEnable: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.rebindingEnable ? '' : null
+		}),
+		prometheusEnable: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.prometheusEnable ? '' : null
+		}),
+		prometheusPath: E('input', {
+			'class': 'cbi-input-text',
+			'value': parsed.prometheusPath,
+			'style': 'width:100%'
+		}),
+		statisticsEnable: E('input', {
+			'type': 'checkbox',
+			'checked': parsed.statisticsEnable ? '' : null
+		}),
+		blockingSection: parsed.blockingSection
+	};
+
+	function saveHandler(restart) {
+		return saveBlockySettingsForm(state, configYaml, restart).then(function() {
+			notify(restart
+				? _('Settings saved and Blocky restarted.')
+				: _('Settings saved.'));
+			if (typeof refreshPage === 'function')
+				return refreshPage();
+		}).catch(function(err) {
+			notify(err.message || String(err), 'danger');
+		});
+	}
+
+	return E('div', { 'class': 'blocky-settings-page' }, [
+		E('div', { 'class': 'blocky-settings-toolbar' }, [
+			E('button', {
+				'class': 'cbi-button cbi-button-save',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+					return saveHandler(false);
+				})
+			}, [ _('Save settings') ]),
+			' ',
+			E('button', {
+				'class': 'cbi-button cbi-button-apply',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+					return saveHandler(true);
+				})
+			}, [ _('Save & restart Blocky') ])
+		]),
+		E('div', { 'class': 'blocky-settings-grid' }, [
+			settingsPanel(
+				_('Upstream DNS'),
+				_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
+				[
+					settingsRow(
+						_('Resolvers (default group)'),
+						_('One entry per line.'),
+						state.upstreamResolvers
+					),
+					settingsRow(_('Startup strategy'), _('fast = start quickly; blocking = wait for upstreams.'), state.upstreamInitStrategy),
+					settingsRow(_('Query timeout'), '', state.upstreamTimeout)
+				]
+			),
+			settingsPanel(
+				_('Bootstrap DNS'),
+				_('Used to resolve upstream hostnames and denylist download URLs.'),
+				[
+					settingsRow(
+						_('Bootstrap resolvers'),
+						_('One entry per line (e.g. tcp+udp:1.1.1.1).'),
+						state.bootstrapResolvers
+					),
+					settingsRow(
+						_('Use WAN resolvers'),
+						_('Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS).'),
+						state.bootstrapUseWan
+					)
+				]
+			),
+			settingsPanel(
+				_('Block lists & downloads'),
+				_('Denylist URLs are managed on the Block lists tab. These options control refresh timing.'),
+				[
+					E('p', { 'class': 'blocky-note-soft' }, [
+						_('Edit denylist sources under '),
+						E('strong', {}, [ _('Block lists') ]),
+						_(' — saving here preserves your lists and re-syncs config.yml.')
+					]),
+					settingsRow(_('List refresh period'), _('How often Blocky re-downloads lists (e.g. 4h).'), state.listRefreshPeriod),
+					settingsRow(_('List load strategy'), _('How Blocky waits for lists at startup.'), state.loadingStrategy),
+					settingsRow(_('List cache directory'), _('On-disk cache for downloaded blocklists.'), state.listCachePath),
+					settingsRow(_('Download timeout'), _('Per-URL download timeout.'), state.listDownloadTimeout),
+					settingsRow(_('Write timeout'), _('Timeout writing list data to disk.'), state.listWriteTimeout),
+					settingsRow(_('Read timeout'), _('Timeout reading list data from disk.'), state.listReadTimeout),
+					settingsRow(_('Download attempts'), _('Retries when a list URL fails.'), state.listDownloadAttempts),
+					settingsRow(_('Retry cooldown'), _('Pause between failed download retries.'), state.listCooldown),
+					settingsRow(_('Download concurrency'), _('Parallel list downloads (1–8).'), state.listConcurrency)
+				]
+			),
+			settingsPanel(
+				_('DNS cache'),
+				_('Response cache limits. Prefetching increases upstream traffic.'),
+				[
+					settingsRow(_('Minimum cache time'), '', state.cachingMinTime),
+					settingsRow(_('Maximum cache time'), '', state.cachingMaxTime),
+					settingsRow(_('Enable prefetching'), '', state.cachingPrefetch)
+				]
+			),
+			settingsPanel(
+				_('Hosts file sources'),
+				_('Additional static hostname blocks (paths or URLs).'),
+				[
+					settingsRow(_('Sources'), _('/etc/hosts is included by default.'), state.hostsSources)
+				]
+			),
+			settingsPanel(
+				_('Logging'),
+				_('Blocky service log level. DNS query logging is configured separately below.'),
+				[
+					settingsRow(_('Log level'), '', state.logLevel),
+					settingsRow(_('Obfuscate log output'), _('Mask domains in Blocky logs.'), state.logPrivacy)
+				]
+			),
+			settingsPanel(
+				_('Query log'),
+				_('CSV query logs for the Logs tab.'),
+				[
+					settingsRow(_('Target directory'), '', state.queryLogTarget),
+					settingsRow(_('Retention (days)'), '', state.queryLogRetention),
+					settingsRow(_('Flush interval'), '', state.queryLogFlush)
+				]
+			),
+			settingsPanel(
+				_('Listeners'),
+				_('Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here.'),
+				[
+					settingsRow(_('DNS port'), _('Format: 127.0.0.1:5353'), state.portDns),
+					settingsRow(_('HTTP port (API / metrics)'), _('Format: 127.0.0.1:4000'), state.portHttp)
+				]
+			),
+			settingsPanel(
+				_('Security & observability'),
+				_('Rebinding protection, Prometheus metrics, and in-memory statistics.'),
+				[
+					settingsRow(_('DNS rebinding protection'), '', state.rebindingEnable),
+					settingsRow(_('Prometheus metrics'), '', state.prometheusEnable),
+					settingsRow(_('Metrics path'), '', state.prometheusPath),
+					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Dashboard 24h widgets.'), state.statisticsEnable)
+				]
+			)
+		])
+	]);
+}
+
+function renderBlockySettingsPage(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
+	return E('div', { 'class': 'blocky-config-page' }, [
+		renderRouterDnsIntegration(configYaml, dnsFwdRaw),
+		renderApiSecuritySection(configYaml, uciAccess),
+		renderBlockySettingsForm(configYaml, refreshPage),
+		renderConfigYamlAdvanced(configYaml, refreshPage)
+	]);
+}
+
+function renderConfigYamlAdvanced(content, refreshPage) {
 	var editor = E('textarea', {
-		'class': 'cbi-input-textarea',
-		'style': 'width:100%; min-height:28em; font-family:monospace'
+		'class': 'cbi-input-textarea blocky-settings-yaml',
+		'style': 'width:100%; min-height:22em; font-family:monospace'
 	}, [ content || '' ]);
 
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Configuration') ]),
+	return E('details', { 'class': 'blocky-settings-advanced cbi-section' }, [
+		E('summary', { 'class': 'blocky-settings-advanced-summary' }, [ _('Advanced YAML editor') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Edit %s directly. Save and restart Blocky for changes to take effect.').format(CONFIG_PATH),
-			' ',
-			_('DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts.')
+			_('Edit %s directly. Prefer the settings panels above — the blocking: section is overwritten when block lists sync.').format(CONFIG_PATH)
 		]),
 		editor,
 		E('p', {}, [
@@ -3256,12 +3946,16 @@ function renderConfig(content) {
 					}
 
 					return fs.write(CONFIG_PATH, editor.value).then(function() {
+						return execBlockyListsSync();
+					}).then(function() {
 						notify(_('Configuration saved.'));
+						if (typeof refreshPage === 'function')
+							return refreshPage();
 					}).catch(function(err) {
 						notify(err.message || String(err), 'danger');
 					});
 				})
-			}, [ _('Save configuration') ]),
+			}, [ _('Save YAML') ]),
 			' ',
 			E('button', {
 				'class': 'cbi-button cbi-button-apply',
@@ -3274,14 +3968,18 @@ function renderConfig(content) {
 					}
 
 					return fs.write(CONFIG_PATH, editor.value).then(function() {
+						return execBlockyListsSync();
+					}).then(function() {
 						return runInit('restart');
 					}).then(function() {
 						notify(_('Configuration saved and Blocky restarted.'));
+						if (typeof refreshPage === 'function')
+							return refreshPage();
 					}).catch(function(err) {
 						notify(err.message || String(err), 'danger');
 					});
 				})
-			}, [ _('Save & restart') ])
+			}, [ _('Save YAML & restart') ])
 		])
 	]);
 }
@@ -3437,6 +4135,7 @@ function createBlockyView(options) {
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
 			var blocklistsHost = E('div', {});
+			var configHost = E('div', {});
 			var controlsHost = E('div', {});
 			var logsHost = E('div', {});
 
@@ -3445,6 +4144,12 @@ function createBlockyView(options) {
 					var mounted = mountDashboardContent(dashboardHost, fresh, refreshPage);
 					attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage, fresh[8]));
+					configHost.replaceChildren(renderBlockySettingsPage(
+						fresh[2],
+						blockyCliStdout(execResultStdout(fresh[4], '0\n')),
+						fresh[7] || { user: '', password: '', localOnly: true },
+						refreshPage
+					));
 					controlsHost.replaceChildren(
 						renderBlockingControls(fresh[1], refreshPage),
 						renderOperations(fresh[0], refreshPage),
@@ -3459,6 +4164,7 @@ function createBlockyView(options) {
 			var mounted = mountDashboardContent(dashboardHost, data, refreshPage);
 			attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage, catalogData));
+			configHost.appendChild(renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
 			logsHost.appendChild(renderQueryLogsTab(config));
 
 			controlsHost.appendChild(renderBlockingControls(status, refreshPage));
@@ -3501,11 +4207,7 @@ function createBlockyView(options) {
 					},
 					{
 						title: _('Configuration'),
-						nodes: [
-							renderApiSecuritySection(config, uciAccess),
-							renderRouterDnsIntegration(config, dnsFwdRaw),
-							renderConfig(config)
-						]
+						nodes: [ configHost ]
 					},
 					{
 						title: _('Controls'),

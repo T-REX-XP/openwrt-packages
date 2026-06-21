@@ -1013,3 +1013,121 @@
 	fill: var(--border-color-low);
 	opacity: 0.35;
 }
+
+/* Configuration tab — structured settings */
+.blocky-config-page {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25em;
+	min-width: 0;
+}
+
+.blocky-settings-page {
+	min-width: 0;
+}
+
+.blocky-settings-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	align-items: center;
+	margin: 0 0 0.25em;
+	padding: 0.65em 0.85em;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 6px;
+	background: var(--background-color-low);
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
+
+.blocky-settings-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1em;
+	align-items: start;
+}
+
+.blocky-settings-panel {
+	min-width: 0;
+}
+
+.blocky-settings-panel .blocky-settings-body {
+	padding: 0.85em 1em 1em;
+}
+
+.blocky-settings-row {
+	display: grid;
+	grid-template-columns: minmax(9em, 34%) 1fr;
+	gap: 0.35em 1em;
+	align-items: start;
+	padding: 0.55em 0;
+	border-bottom: 1px solid var(--border-color-low);
+}
+
+.blocky-settings-meta {
+	min-width: 0;
+}
+
+.blocky-settings-row:last-child {
+	border-bottom: none;
+	padding-bottom: 0;
+}
+
+.blocky-settings-label {
+	font-weight: 600;
+	margin: 0;
+	line-height: 1.35;
+}
+
+.blocky-settings-hint {
+	margin: 0.15em 0 0;
+	color: var(--text-color-medium);
+	font-size: 0.88em;
+	line-height: 1.35;
+}
+
+.blocky-settings-control {
+	min-width: 0;
+}
+
+.blocky-settings-control .cbi-input-text,
+.blocky-settings-control .cbi-input-select {
+	max-width: 100%;
+}
+
+.blocky-settings-textarea {
+	width: 100%;
+	min-height: 5.5em;
+	font-family: var(--font-family-monospace, monospace);
+	font-size: 0.92em;
+	resize: vertical;
+}
+
+.blocky-settings-advanced {
+	margin-top: 0.25em;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 6px;
+	padding: 0.65em 0.85em 0.85em;
+}
+
+.blocky-settings-advanced-summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 0.25em 0;
+}
+
+.blocky-settings-yaml {
+	font-size: 0.88em;
+}
+
+@media (max-width: 900px) {
+	.blocky-settings-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.blocky-settings-row {
+		grid-template-columns: 1fr;
+		gap: 0.25em;
+	}
+}

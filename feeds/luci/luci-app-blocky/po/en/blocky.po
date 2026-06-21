@@ -918,3 +918,231 @@ msgstr "Security & malware"
 
 msgid "Malware, phishing, and scam domains"
 msgstr "Malware, phishing, and scam domains"
+
+msgid "Save settings"
+msgstr "Save settings"
+
+msgid "Save & restart Blocky"
+msgstr "Save & restart Blocky"
+
+msgid "Settings saved."
+msgstr "Settings saved."
+
+msgid "Settings saved and Blocky restarted."
+msgstr "Settings saved and Blocky restarted."
+
+msgid "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
+msgstr "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
+
+msgid "Upstream DNS"
+msgstr "Upstream DNS"
+
+msgid "External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs."
+msgstr "External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs."
+
+msgid "Resolvers (default group)"
+msgstr "Resolvers (default group)"
+
+msgid "One entry per line."
+msgstr "One entry per line."
+
+msgid "Startup strategy"
+msgstr "Startup strategy"
+
+msgid "fast = start quickly; blocking = wait for upstreams."
+msgstr "fast = start quickly; blocking = wait for upstreams."
+
+msgid "Query timeout"
+msgstr "Query timeout"
+
+msgid "Bootstrap DNS"
+msgstr "Bootstrap DNS"
+
+msgid "Used to resolve upstream hostnames and denylist download URLs."
+msgstr "Used to resolve upstream hostnames and denylist download URLs."
+
+msgid "Bootstrap resolvers"
+msgstr "Bootstrap resolvers"
+
+msgid "One entry per line (e.g. tcp+udp:1.1.1.1)."
+msgstr "One entry per line (e.g. tcp+udp:1.1.1.1)."
+
+msgid "Use WAN resolvers"
+msgstr "Use WAN resolvers"
+
+msgid "Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS)."
+msgstr "Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS)."
+
+msgid "Block lists & downloads"
+msgstr "Block lists & downloads"
+
+msgid "Denylist URLs are managed on the Block lists tab. These options control refresh timing."
+msgstr "Denylist URLs are managed on the Block lists tab. These options control refresh timing."
+
+msgid "Edit denylist sources under "
+msgstr "Edit denylist sources under "
+
+msgid " — saving here preserves your lists and re-syncs config.yml."
+msgstr " — saving here preserves your lists and re-syncs config.yml."
+
+msgid "List refresh period"
+msgstr "List refresh period"
+
+msgid "How often Blocky re-downloads lists (e.g. 4h)."
+msgstr "How often Blocky re-downloads lists (e.g. 4h)."
+
+msgid "List load strategy"
+msgstr "List load strategy"
+
+msgid "How Blocky waits for lists at startup."
+msgstr "How Blocky waits for lists at startup."
+
+msgid "List cache directory"
+msgstr "List cache directory"
+
+msgid "On-disk cache for downloaded blocklists."
+msgstr "On-disk cache for downloaded blocklists."
+
+msgid "Download timeout"
+msgstr "Download timeout"
+
+msgid "Per-URL download timeout."
+msgstr "Per-URL download timeout."
+
+msgid "Write timeout"
+msgstr "Write timeout"
+
+msgid "Timeout writing list data to disk."
+msgstr "Timeout writing list data to disk."
+
+msgid "Read timeout"
+msgstr "Read timeout"
+
+msgid "Timeout reading list data from disk."
+msgstr "Timeout reading list data from disk."
+
+msgid "Download attempts"
+msgstr "Download attempts"
+
+msgid "Retries when a list URL fails."
+msgstr "Retries when a list URL fails."
+
+msgid "Retry cooldown"
+msgstr "Retry cooldown"
+
+msgid "Pause between failed download retries."
+msgstr "Pause between failed download retries."
+
+msgid "Download concurrency"
+msgstr "Download concurrency"
+
+msgid "Parallel list downloads (1–8)."
+msgstr "Parallel list downloads (1–8)."
+
+msgid "DNS cache"
+msgstr "DNS cache"
+
+msgid "Response cache limits. Prefetching increases upstream traffic."
+msgstr "Response cache limits. Prefetching increases upstream traffic."
+
+msgid "Minimum cache time"
+msgstr "Minimum cache time"
+
+msgid "Maximum cache time"
+msgstr "Maximum cache time"
+
+msgid "Enable prefetching"
+msgstr "Enable prefetching"
+
+msgid "Hosts file sources"
+msgstr "Hosts file sources"
+
+msgid "Additional static hostname blocks (paths or URLs)."
+msgstr "Additional static hostname blocks (paths or URLs)."
+
+msgid "Sources"
+msgstr "Sources"
+
+msgid "/etc/hosts is included by default."
+msgstr "/etc/hosts is included by default."
+
+msgid "Logging"
+msgstr "Logging"
+
+msgid "Blocky service log level. DNS query logging is configured separately below."
+msgstr "Blocky service log level. DNS query logging is configured separately below."
+
+msgid "Log level"
+msgstr "Log level"
+
+msgid "Obfuscate log output"
+msgstr "Obfuscate log output"
+
+msgid "Mask domains in Blocky logs."
+msgstr "Mask domains in Blocky logs."
+
+msgid "Query log"
+msgstr "Query log"
+
+msgid "CSV query logs for the Logs tab."
+msgstr "CSV query logs for the Logs tab."
+
+msgid "Target directory"
+msgstr "Target directory"
+
+msgid "Retention (days)"
+msgstr "Retention (days)"
+
+msgid "Flush interval"
+msgstr "Flush interval"
+
+msgid "Listeners"
+msgstr "Listeners"
+
+msgid "Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here."
+msgstr "Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here."
+
+msgid "DNS port"
+msgstr "DNS port"
+
+msgid "Format: 127.0.0.1:5353"
+msgstr "Format: 127.0.0.1:5353"
+
+msgid "HTTP port (API / metrics)"
+msgstr "HTTP port (API / metrics)"
+
+msgid "Format: 127.0.0.1:4000"
+msgstr "Format: 127.0.0.1:4000"
+
+msgid "Security & observability"
+msgstr "Security & observability"
+
+msgid "Rebinding protection, Prometheus metrics, and in-memory statistics."
+msgstr "Rebinding protection, Prometheus metrics, and in-memory statistics."
+
+msgid "DNS rebinding protection"
+msgstr "DNS rebinding protection"
+
+msgid "Prometheus metrics"
+msgstr "Prometheus metrics"
+
+msgid "Metrics path"
+msgstr "Metrics path"
+
+msgid "In-memory statistics (/api/stats)"
+msgstr "In-memory statistics (/api/stats)"
+
+msgid "Powers the Dashboard 24h widgets."
+msgstr "Powers the Dashboard 24h widgets."
+
+msgid "Advanced YAML editor"
+msgstr "Advanced YAML editor"
+
+msgid "Edit %s directly. Prefer the settings panels above — the blocking: section is overwritten when block lists sync."
+msgstr "Edit %s directly. Prefer the settings panels above — the blocking: section is overwritten when block lists sync."
+
+msgid "Save YAML"
+msgstr "Save YAML"
+
+msgid "Save YAML & restart"
+msgstr "Save YAML & restart"

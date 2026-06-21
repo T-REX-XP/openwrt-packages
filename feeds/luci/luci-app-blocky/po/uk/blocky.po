@@ -919,3 +919,231 @@ msgstr "Безпека та шкідливе ПЗ"
 
 msgid "Malware, phishing, and scam domains"
 msgstr "Malware, фішинг та шахрайські домени"
+
+msgid "Save settings"
+msgstr "Зберегти налаштування"
+
+msgid "Save & restart Blocky"
+msgstr "Зберегти та перезапустити Blocky"
+
+msgid "Settings saved."
+msgstr "Налаштування збережено."
+
+msgid "Settings saved and Blocky restarted."
+msgstr "Налаштування збережено, Blocky перезапущено."
+
+msgid "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
+msgstr "Тримайте DNS та HTTP слухачі на localhost (127.0.0.1) на маршрутизаторі."
+
+msgid "Upstream DNS"
+msgstr "Вихідний DNS"
+
+msgid "External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs."
+msgstr "Зовнішні резолвери Blocky після фільтрації. Підтримуються IP, tcp-tls: та https: DoH URL."
+
+msgid "Resolvers (default group)"
+msgstr "Резолвери (група default)"
+
+msgid "One entry per line."
+msgstr "Один запис на рядок."
+
+msgid "Startup strategy"
+msgstr "Стратегія запуску"
+
+msgid "fast = start quickly; blocking = wait for upstreams."
+msgstr "fast = швидкий старт; blocking = чекати на upstream."
+
+msgid "Query timeout"
+msgstr "Таймаут запиту"
+
+msgid "Bootstrap DNS"
+msgstr "Bootstrap DNS"
+
+msgid "Used to resolve upstream hostnames and denylist download URLs."
+msgstr "Для резолву імен upstream та URL списків блокування."
+
+msgid "Bootstrap resolvers"
+msgstr "Bootstrap резолвери"
+
+msgid "One entry per line (e.g. tcp+udp:1.1.1.1)."
+msgstr "Один запис на рядок (напр. tcp+udp:1.1.1.1)."
+
+msgid "Use WAN resolvers"
+msgstr "Використовувати WAN резолвери"
+
+msgid "Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS)."
+msgstr "Також читати /tmp/resolv.conf.auto (DNS WAN від DHCP OpenWrt)."
+
+msgid "Block lists & downloads"
+msgstr "Списки блокування та завантаження"
+
+msgid "Denylist URLs are managed on the Block lists tab. These options control refresh timing."
+msgstr "URL denylist керуються на вкладці «Списки блокування». Тут — інтервали оновлення."
+
+msgid "Edit denylist sources under "
+msgstr "Редагуйте джерела denylist на вкладці "
+
+msgid " — saving here preserves your lists and re-syncs config.yml."
+msgstr " — збереження тут зберігає списки та повторно синхронізує config.yml."
+
+msgid "List refresh period"
+msgstr "Період оновлення списків"
+
+msgid "How often Blocky re-downloads lists (e.g. 4h)."
+msgstr "Як часто Blocky повторно завантажує списки (напр. 4h)."
+
+msgid "List load strategy"
+msgstr "Стратегія завантаження списків"
+
+msgid "How Blocky waits for lists at startup."
+msgstr "Як Blocky чекає на списки під час запуску."
+
+msgid "List cache directory"
+msgstr "Каталог кешу списків"
+
+msgid "On-disk cache for downloaded blocklists."
+msgstr "Дисковий кеш для завантажених blocklist."
+
+msgid "Download timeout"
+msgstr "Таймаут завантаження"
+
+msgid "Per-URL download timeout."
+msgstr "Таймаут завантаження для кожного URL."
+
+msgid "Write timeout"
+msgstr "Таймаут запису"
+
+msgid "Timeout writing list data to disk."
+msgstr "Таймаут запису даних списку на диск."
+
+msgid "Read timeout"
+msgstr "Таймаут читання"
+
+msgid "Timeout reading list data from disk."
+msgstr "Таймаут читання даних списку з диска."
+
+msgid "Download attempts"
+msgstr "Спроби завантаження"
+
+msgid "Retries when a list URL fails."
+msgstr "Повтори, якщо URL списку не вдалося завантажити."
+
+msgid "Retry cooldown"
+msgstr "Пауза між повторами"
+
+msgid "Pause between failed download retries."
+msgstr "Пауза між невдалими повторами завантаження."
+
+msgid "Download concurrency"
+msgstr "Паралельність завантажень"
+
+msgid "Parallel list downloads (1–8)."
+msgstr "Паралельні завантаження списків (1–8)."
+
+msgid "DNS cache"
+msgstr "DNS кеш"
+
+msgid "Response cache limits. Prefetching increases upstream traffic."
+msgstr "Ліміти кешу відповідей. Prefetching збільшує трафік до upstream."
+
+msgid "Minimum cache time"
+msgstr "Мінімальний час кешу"
+
+msgid "Maximum cache time"
+msgstr "Максимальний час кешу"
+
+msgid "Enable prefetching"
+msgstr "Увімкнути prefetching"
+
+msgid "Hosts file sources"
+msgstr "Джерела hosts-файлів"
+
+msgid "Additional static hostname blocks (paths or URLs)."
+msgstr "Додаткові статичні блокування імен (шляхи або URL)."
+
+msgid "Sources"
+msgstr "Джерела"
+
+msgid "/etc/hosts is included by default."
+msgstr "/etc/hosts включено за замовчуванням."
+
+msgid "Logging"
+msgstr "Журналювання"
+
+msgid "Blocky service log level. DNS query logging is configured separately below."
+msgstr "Рівень логів сервісу Blocky. Лог DNS-запитів налаштовується окремо нижче."
+
+msgid "Log level"
+msgstr "Рівень логів"
+
+msgid "Obfuscate log output"
+msgstr "Маскувати вивід логів"
+
+msgid "Mask domains in Blocky logs."
+msgstr "Приховувати домени в логах Blocky."
+
+msgid "Query log"
+msgstr "Лог запитів"
+
+msgid "CSV query logs for the Logs tab."
+msgstr "CSV логи запитів для вкладки «Логи»."
+
+msgid "Target directory"
+msgstr "Цільовий каталог"
+
+msgid "Retention (days)"
+msgstr "Зберігання (дні)"
+
+msgid "Flush interval"
+msgstr "Інтервал скидання"
+
+msgid "Listeners"
+msgstr "Слухачі"
+
+msgid "Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here."
+msgstr "Тримайте обидва слухачі на 127.0.0.1 — dnsmasq перенаправляє LAN DNS сюди."
+
+msgid "DNS port"
+msgstr "DNS порт"
+
+msgid "Format: 127.0.0.1:5353"
+msgstr "Формат: 127.0.0.1:5353"
+
+msgid "HTTP port (API / metrics)"
+msgstr "HTTP порт (API / метрики)"
+
+msgid "Format: 127.0.0.1:4000"
+msgstr "Формат: 127.0.0.1:4000"
+
+msgid "Security & observability"
+msgstr "Безпека та спостереження"
+
+msgid "Rebinding protection, Prometheus metrics, and in-memory statistics."
+msgstr "Захист від rebinding, метрики Prometheus та статистика в пам'яті."
+
+msgid "DNS rebinding protection"
+msgstr "Захист від DNS rebinding"
+
+msgid "Prometheus metrics"
+msgstr "Метрики Prometheus"
+
+msgid "Metrics path"
+msgstr "Шлях метрик"
+
+msgid "In-memory statistics (/api/stats)"
+msgstr "Статистика в пам'яті (/api/stats)"
+
+msgid "Powers the Dashboard 24h widgets."
+msgstr "Живить віджети Dashboard за 24 години."
+
+msgid "Advanced YAML editor"
+msgstr "Розширений редактор YAML"
+
+msgid "Edit %s directly. Prefer the settings panels above — the blocking: section is overwritten when block lists sync."
+msgstr "Редагуйте %s напряму. Краще використовуйте панелі вище — секція blocking: перезаписується при синхронізації списків."
+
+msgid "Save YAML"
+msgstr "Зберегти YAML"
+
+msgid "Save YAML & restart"
+msgstr "Зберегти YAML та перезапустити"
