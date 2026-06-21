@@ -33,10 +33,16 @@ append_denylist_entry() {
 	id="$(sanitize_id "$section")"
 	[ -n "$id" ] || return 0
 
-	printf '    %s:\n' "$id" >> "$DENY_TMP"
-	printf '      - "%s"\n' "$(yaml_double_quote "$url")" >> "$DENY_TMP"
+	if grep -q "^    ${id}:$" "$DENY_TMP" 2>/dev/null; then
+		printf '      - "%s"\n' "$(yaml_double_quote "$url")" >> "$DENY_TMP"
+	else
+		printf '    %s:\n' "$id" >> "$DENY_TMP"
+		printf '      - "%s"\n' "$(yaml_double_quote "$url")" >> "$DENY_TMP"
+	fi
 
-	[ "$enabled" = "1" ] && printf '%s\n' "$id" >> "$GROUP_TMP"
+	if [ "$enabled" = "1" ] && ! grep -qxF "$id" "$GROUP_TMP" 2>/dev/null; then
+		printf '%s\n' "$id" >> "$GROUP_TMP"
+	fi
 }
 
 write_blocking_section() {
