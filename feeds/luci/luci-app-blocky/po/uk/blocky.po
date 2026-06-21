@@ -1,0 +1,633 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-blocky\n"
+"Language: uk\n"
+"Language-Team: Ukrainian\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "%s denylist entries in memory"
+msgstr "%s записів у denylist у пам'яті"
+
+msgid "15 minutes"
+msgstr "15 хвилин"
+
+msgid "1h"
+msgstr "1 год"
+
+msgid "24h"
+msgstr "24 год"
+
+msgid "24h stats"
+msgstr "статистика 24 год"
+
+msgid "30 minutes"
+msgstr "30 хвилин"
+
+msgid "30d"
+msgstr "30 дн"
+
+msgid "5 minutes"
+msgstr "5 хвилин"
+
+msgid "7d"
+msgstr "7 дн"
+
+msgid "Action completed."
+msgstr "Дію виконано."
+
+msgid "Activity snapshot"
+msgstr "Знімок активності"
+
+msgid "Ad blocking"
+msgstr "Блокування реклами"
+
+msgid "Ad blocking pipeline"
+msgstr "Ланцюг блокування реклами"
+
+msgid "adblock init is running — disable it to avoid conflicting with Blocky"
+msgstr "служба adblock працює — вимкніть її, щоб уникнути конфлікту з Blocky"
+
+msgid "Adblock package"
+msgstr "Пакет Adblock"
+
+msgid "Add queryLog to config.yml for the Logs tab"
+msgstr "Додайте queryLog у config.yml для вкладки «Журнали»"
+
+msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button."
+msgstr "Після зміни DNS-порту в YAML натисніть «Зберегти та перезапустити Blocky», потім знову увімкніть інтеграцію, щоб dnsmasq відповідав. Оновлення списків блокування — кнопка «Оновити списки» на вкладці «Керування»."
+
+msgid "Allowlists"
+msgstr "Allowlist"
+
+msgid "API access"
+msgstr "Доступ до API"
+
+msgid "API access settings saved."
+msgstr "Налаштування доступу до API збережено."
+
+msgid "auto-enables in %s"
+msgstr "увімкнеться автоматично через %s"
+
+msgid "Avg response"
+msgstr "Сер. відповідь"
+
+msgid "Bar chart: summed deltas in the visible window. Below: last polling interval."
+msgstr "Стовпчики: сума приростів у видимому вікні. Нижче — останній інтервал опитування."
+
+msgid "Block lists"
+msgstr "Списки блокування"
+
+msgid "Block lists loaded"
+msgstr "Списки блокування завантажено"
+
+msgid "Blocked"
+msgstr "Заблоковано"
+
+msgid "Blocked Δ"
+msgstr "Заблоковано Δ"
+
+msgid "Blocking"
+msgstr "Блокування"
+
+msgid "Blocking Controls"
+msgstr "Керування блокуванням"
+
+msgid "Blocking disabled in Blocky API"
+msgstr "Блокування вимкнено в API Blocky"
+
+msgid "Blocking is temporarily disabled."
+msgstr "Блокування тимчасово вимкнено."
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Blocky DNS"
+msgstr "Blocky DNS"
+
+msgid "Blocky DNS — Status & Statistics"
+msgstr "Blocky DNS — стан і статистика"
+
+msgid "blocky init failed."
+msgstr "Помилка init.d blocky."
+
+msgid "Blocky service"
+msgstr "Служба Blocky"
+
+msgid "Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics."
+msgstr "Blocky v0.32.x не підтримує API-ключі чи вбудовану HTTP-автентифікацію. Тримайте ports.http на 127.0.0.1, щоб лише процеси на маршрутизаторі (LuCI, локальні скрипти) мали доступ до /api та /metrics."
+
+msgid "blocky-dnsmasq-sync failed."
+msgstr "Помилка blocky-dnsmasq-sync."
+
+msgid "Blue: total queries per hour. Red: blocked. Data from GET /api/stats."
+msgstr "Синій: усі запити за годину. Червоний: заблоковані. Дані з GET /api/stats."
+
+msgid "Breakdown (24h)"
+msgstr "Розподіл (24 год)"
+
+msgid "By query type"
+msgstr "За типом запиту"
+
+msgid "By response code"
+msgstr "За кодом відповіді"
+
+msgid "By response type"
+msgstr "За типом відповіді"
+
+msgid "Cache hit rate"
+msgstr "Частка кеш-попадань"
+
+msgid "Cache hit Δ"
+msgstr "Кеш-попадання Δ"
+
+msgid "Cached"
+msgstr "У кеші"
+
+msgid "Cached responses"
+msgstr "Відповіді в кеші"
+
+msgid "Charts activate once metrics are available."
+msgstr "Графіки з'являться, коли метрики стануть доступні."
+
+msgid "Check"
+msgstr "Перевірити"
+
+msgid "Clear cache"
+msgstr "Очистити кеш"
+
+msgid "Clear DNS cache"
+msgstr "Очистити DNS-кеш"
+
+msgid "Client"
+msgstr "Клієнт"
+
+msgid "Clients"
+msgstr "Клієнти"
+
+msgid "Clients → dnsmasq :53 → Blocky %s"
+msgstr "Клієнти → dnsmasq :53 → Blocky %s"
+
+msgid "Configuration"
+msgstr "Конфігурація"
+
+msgid "Configuration cannot be empty."
+msgstr "Конфігурація не може бути порожньою."
+
+msgid "Configuration saved and Blocky restarted."
+msgstr "Конфігурацію збережено, Blocky перезапущено."
+
+msgid "Configuration saved."
+msgstr "Конфігурацію збережено."
+
+msgid "Configured"
+msgstr "Налаштовано"
+
+msgid "Controls"
+msgstr "Керування"
+
+msgid "Controls mirror the Blocky API: enable blocking, disable it temporarily, or disable specific groups."
+msgstr "Керування відповідає API Blocky: увімкнути блокування, тимчасово вимкнути або вимкнути окремі групи."
+
+msgid "CSV logs under %s"
+msgstr "CSV-журнали в %s"
+
+msgid "Current entry counts per group (point-in-time)."
+msgstr "Поточна кількість записів у групах (на момент перегляду)."
+
+msgid "Currently disabled groups: %s"
+msgstr "Зараз вимкнені групи: %s"
+
+msgid "Custom"
+msgstr "Власний"
+
+msgid "Dashboard"
+msgstr "Панель"
+
+msgid "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
+msgstr "Панель Blocky на маршрутизаторі — жива статистика, керування блокуванням і інтеграція DNS."
+
+msgid "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
+msgstr "Типове налаштування при першому завантаженні направляє DNS усіх DHCP-клієнтів через Blocky зі списком StevenBlack."
+
+msgid "Denylist entries"
+msgstr "Записи denylist"
+
+msgid "Denylist rules active"
+msgstr "Правила denylist активні"
+
+msgid "Denylists"
+msgstr "Denylist"
+
+msgid "Disable"
+msgstr "Вимкнути"
+
+msgid "Disable blocking"
+msgstr "Вимкнути блокування"
+
+msgid "Disable on boot"
+msgstr "Не запускати при завантаженні"
+
+msgid "disabled"
+msgstr "вимкнено"
+
+msgid "Disabled groups"
+msgstr "Вимкнені групи"
+
+msgid "DNS cache"
+msgstr "DNS-кеш"
+
+msgid "DNS Query"
+msgstr "DNS-запит"
+
+msgid "DNS query test"
+msgstr "Тест DNS-запиту"
+
+msgid "DNS query volume and blocking activity."
+msgstr "Обсяг DNS-запитів і активність блокування."
+
+msgid "DNS server is not running."
+msgstr "DNS-сервер не працює."
+
+msgid "DNS server is running and processing queries."
+msgstr "DNS-сервер працює і обробляє запити."
+
+msgid "dnsmasq uses %s"
+msgstr "dnsmasq використовує %s"
+
+msgid "Domains"
+msgstr "Домени"
+
+msgid "Each bar uses the largest counter delta in that polling interval as full width."
+msgstr "Кожен стовпчик масштабується за найбільшим приростом лічильника в інтервалі опитування."
+
+msgid "Edit %s directly. Save and restart Blocky for changes to take effect."
+msgstr "Редагуйте %s безпосередньо. Збережіть і перезапустіть Blocky, щоб зміни набули чинності."
+
+msgid "Enable blocking"
+msgstr "Увімкнути блокування"
+
+msgid "Enable on boot"
+msgstr "Запускати при завантаженні"
+
+msgid "Enable Router DNS integration under Services → Blocky → Configuration"
+msgstr "Увімкніть інтеграцію Router DNS у «Служби → Blocky → Конфігурація»"
+
+msgid "Enable statistics and/or prometheus in Blocky configuration."
+msgstr "Увімкніть statistics та/або prometheus у конфігурації Blocky."
+
+msgid "Enable statistics.enable in config.yml for native 24h stats."
+msgstr "Увімкніть statistics.enable у config.yml для вбудованої 24-годинної статистики."
+
+msgid "Enable, start, stop, or restart the OpenWrt service wrapper."
+msgstr "Увімкнути, запустити, зупинити або перезапустити службу OpenWrt."
+
+msgid "enabled"
+msgstr "увімкнено"
+
+msgid "Enabled"
+msgstr "Увімкнено"
+
+msgid "Enter a domain name first."
+msgstr "Спочатку введіть доменне ім'я."
+
+msgid "Estimated rates from Prometheus counter deltas while this page stays open."
+msgstr "Орієнтовні показники з приростів лічильників Prometheus, поки відкрита ця сторінка."
+
+msgid "Exposed"
+msgstr "Доступно ззовні"
+
+msgid "Filter"
+msgstr "Фільтр"
+
+msgid "Flush cache"
+msgstr "Скинути кеш"
+
+msgid "For 24h rankings use the stats widgets above. This chart tracks Prometheus counter deltas while the page stays open."
+msgstr "Для рейтингів за 24 год використовуйте віджети вище. Цей графік відстежує прирости лічильників Prometheus, поки сторінка відкрита."
+
+msgid "Forwarding"
+msgstr "Переадресація"
+
+msgid "Groups"
+msgstr "Групи"
+
+msgid "Groups must be comma-separated names using letters, numbers, dots, dashes, or underscores."
+msgstr "Групи — імена через кому: літери, цифри, крапки, дефіси або підкреслення."
+
+msgid "Hits vs misses"
+msgstr "Попадання vs промахи"
+
+msgid "Hourly buckets from Blocky in-memory statistics (UTC)."
+msgstr "Погодинні інтервали зі статистики Blocky у пам'яті (UTC)."
+
+msgid "HTTP API listener"
+msgstr "HTTP API (слухач)"
+
+msgid "HTTP listener"
+msgstr "HTTP-слухач"
+
+msgid "LAN DNS chain"
+msgstr "LAN-ланцюг DNS"
+
+msgid "Last 24 hours"
+msgstr "Останні 24 години"
+
+msgid "Latest interval"
+msgstr "Останній інтервал"
+
+msgid "Lifetime counters from Prometheus (stats API unavailable)."
+msgstr "Сумарні лічильники Prometheus (API статистики недоступне)."
+
+msgid "Limited"
+msgstr "Обмежено"
+
+msgid "Listed domains"
+msgstr "Домени у списках"
+
+msgid "Listening on UDP/TCP port %d"
+msgstr "Слухає UDP/TCP порт %d"
+
+msgid "Lists still loading or statistics unavailable — try Refresh lists"
+msgstr "Списки ще завантажуються або статистика недоступна — натисніть «Оновити списки»"
+
+msgid "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
+msgstr "Стан блокування реклами, 24-годинна статистика та останні журнали запитів. Конфігурація та керування — у "
+
+msgid "Localhost"
+msgstr "Локальний хост"
+
+msgid "Logs"
+msgstr "Журнали"
+
+msgid "Long windows need more samples — keep the dashboard open. Past sessions are not stored."
+msgstr "Довгі вікна потребують більше вимірів — тримайте панель відкритою. Минулі сесії не зберігаються."
+
+msgid "LuCI proxy auth"
+msgstr "Автентифікація проксі LuCI"
+
+msgid "Maintenance actions are restricted to the local Blocky service and API endpoint."
+msgstr "Сервісні дії доступні лише для локальної служби Blocky та API."
+
+msgid "Matched rules"
+msgstr "Спрацювали правила"
+
+msgid "Next"
+msgstr "Далі"
+
+msgid "No"
+msgstr "Ні"
+
+msgid "No data"
+msgstr "Немає даних"
+
+msgid "No data in the current 24h window."
+msgstr "Немає даних у поточному 24-годинному вікні."
+
+msgid "No hourly statistics yet."
+msgstr "Погодинної статистики ще немає."
+
+msgid "No log lines loaded."
+msgstr "Рядки журналу не завантажено."
+
+msgid "No Prometheus samples detected yet. Enable prometheus in Blocky and confirm /metrics responds."
+msgstr "Зразків Prometheus ще немає. Увімкніть prometheus у Blocky і перевірте відповідь /metrics."
+
+msgid "No query executed yet."
+msgstr "Запитів ще не виконано."
+
+msgid "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
+msgstr "Файлів журналу запитів у %s не знайдено (очікується YYYY-MM-DD_ALL.log)"
+
+msgid "No queryLog section in config.yml. Add queryLog with type csv and a target directory to browse logs here."
+msgstr "У config.yml немає секції queryLog. Додайте queryLog з type csv і каталогом target, щоб переглядати журнали тут."
+
+msgid "No rows match the current filters."
+msgstr "Жоден рядок не відповідає фільтрам."
+
+msgid "None"
+msgstr "Немає"
+
+msgid "none"
+msgstr "немає"
+
+msgid "Not running (expected when Blocky is the primary filter)"
+msgstr "Не працює (очікувано, коли Blocky — основний фільтр)"
+
+msgid "not scheduled"
+msgstr "не заплановано"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "One or more steps below must be fixed before LAN clients receive filtered DNS."
+msgstr "Потрібно виправити один або кілька кроків нижче, перш ніж LAN-клієнти отримають фільтрований DNS."
+
+msgid "Operations"
+msgstr "Операції"
+
+msgid "Optional HTTP Basic credentials for LuCI when a reverse proxy protects Blocky"
+msgstr "Необов'язкові HTTP Basic облікові дані для LuCI, якщо Blocky захищено зворотним проксі"
+
+msgid "password"
+msgstr "пароль"
+
+msgid "Pause"
+msgstr "Пауза"
+
+msgid "Pause %s"
+msgstr "Пауза %s"
+
+msgid "Pause duration must look like 5m, 1h, or 0."
+msgstr "Тривалість паузи: 5m, 1h або 0."
+
+msgid "Paused"
+msgstr "На паузі"
+
+msgid "Paused — resumes in %s"
+msgstr "На паузі — відновиться через %s"
+
+msgid "Perform maintenance operations on the DNS server."
+msgstr "Сервісні операції DNS-сервера."
+
+msgid "Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings."
+msgstr "Телефони та ноутбуки в Wi‑Fi запитують DNS у dnsmasq на маршрутизаторі (UDP/TCP порт 53). Blocky використовує власний порт (%s у config.yml) і не замінює dnsmasq. Увімкніть, щоб dnsmasq переадресовував запити в Blocky — фільтрація застосовуватиметься до всіх DHCP-клієнтів без ручного налаштування DNS."
+
+msgid "Preset"
+msgstr "Шаблон"
+
+msgid "Previous"
+msgstr "Назад"
+
+msgid "Prometheus"
+msgstr "Prometheus"
+
+msgid "Queries over time"
+msgstr "Запити з часом"
+
+msgid "Queries over time (24h)"
+msgstr "Запити з часом (24 год)"
+
+msgid "Query"
+msgstr "Запит"
+
+msgid "Query log viewer supports queryLog.type: csv with a directory target. Other backends (MySQL, PostgreSQL, VictoriaLogs) require blocky-ui or external tools."
+msgstr "Переглядач журналів підтримує queryLog.type: csv з каталогом target. Інші бекенди (MySQL, PostgreSQL, VictoriaLogs) потребують blocky-ui або зовнішніх інструментів."
+
+msgid "Query logging"
+msgstr "Журнал запитів"
+
+msgid "Query Logs"
+msgstr "Журнали запитів"
+
+msgid "Rankings from Blocky in-memory statistics."
+msgstr "Рейтинги зі статистики Blocky у пам'яті."
+
+msgid "Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB)."
+msgstr "Лише для читання: tab-separated журнали Blocky (%s). Показує найновіший щоденний .log (обмеження 512 КіБ)."
+
+msgid "Reason"
+msgstr "Причина"
+
+msgid "Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy."
+msgstr "Рекомендовано config.yml: ports.http: 127.0.0.1:4000 і ports.dns: 127.0.0.1:5353. Не відкривайте API Blocky в LAN без зовнішнього проксі з автентифікацією."
+
+msgid "Records"
+msgstr "Записи"
+
+msgid "Refresh lists"
+msgstr "Оновити списки"
+
+msgid "Reload"
+msgstr "Оновити"
+
+msgid "Reload allow/deny lists"
+msgstr "Перезавантажити allow/deny списки"
+
+msgid "Response"
+msgstr "Відповідь"
+
+msgid "Response type"
+msgstr "Тип відповіді"
+
+msgid "REST API and metrics at %s (Blocky has no built-in API key)"
+msgstr "REST API і метрики на %s (у Blocky немає вбудованого API-ключа)"
+
+msgid "Restart"
+msgstr "Перезапустити"
+
+msgid "Restart service"
+msgstr "Перезапустити службу"
+
+msgid "Return code"
+msgstr "Код повернення"
+
+msgid "Rolling 24h window from Blocky /api/stats."
+msgstr "Ковзне 24-годинне вікно з Blocky /api/stats."
+
+msgid "Router DNS integration"
+msgstr "Інтеграція Router DNS"
+
+msgid "Running"
+msgstr "Працює"
+
+msgid "running"
+msgstr "працює"
+
+msgid "Save & restart"
+msgstr "Зберегти та перезапустити"
+
+msgid "Save API credentials"
+msgstr "Зберегти облікові дані API"
+
+msgid "Save configuration"
+msgstr "Зберегти конфігурацію"
+
+msgid "Server status"
+msgstr "Стан сервера"
+
+msgid "Service"
+msgstr "Служба"
+
+msgid "Services → Blocky"
+msgstr "Служби → Blocky"
+
+msgid "Since Blocky started"
+msgstr "З моменту запуску Blocky"
+
+msgid "Start"
+msgstr "Запустити"
+
+msgid "Start Blocky from Controls or reboot."
+msgstr "Запустіть Blocky з вкладки «Керування» або перезавантажте."
+
+msgid "Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky."
+msgstr "API статистики вимкнено. Додайте statistics.enable: true у /etc/blocky/config.yml і перезапустіть Blocky."
+
+msgid "Statistics are not available yet. Ensure Blocky is running and statistics are enabled."
+msgstr "Статистика ще недоступна. Переконайтеся, що Blocky працює і statistics увімкнено."
+
+msgid "Stop"
+msgstr "Зупинити"
+
+msgid "Stop forwarding (restore dnsmasq only)"
+msgstr "Припинити переадресацію (лише dnsmasq)"
+
+msgid "stopped"
+msgstr "зупинено"
+
+msgid "Stopped"
+msgstr "Зупинено"
+
+msgid "Test from a phone on Wi‑Fi: open a browser ad-block test page. DNS must point at this router (typically %s)."
+msgstr "Перевірте з телефона в Wi‑Fi: відкрийте сторінку тесту ad-block. DNS має вказувати на цей маршрутизатор (зазвичай %s)."
+
+msgid "Time"
+msgstr "Час"
+
+msgid "Top blocked domains"
+msgstr "Топ заблокованих доменів"
+
+msgid "Top clients"
+msgstr "Топ клієнтів"
+
+msgid "Top domains"
+msgstr "Топ доменів"
+
+msgid "Top lists (24h)"
+msgstr "Топ-списки (24 год)"
+
+msgid "Total"
+msgstr "Усього"
+
+msgid "Total queries"
+msgstr "Усього запитів"
+
+msgid "Total Δ"
+msgstr "Усього Δ"
+
+msgid "Type"
+msgstr "Тип"
+
+msgid "Unsupported service action."
+msgstr "Непідтримувана дія служби."
+
+msgid "Until manually enabled"
+msgstr "До ручного увімкнення"
+
+msgid "Use Blocky for all LAN / Wi-Fi DNS"
+msgstr "Використовувати Blocky для всього LAN / Wi‑Fi DNS"
+
+msgid "username"
+msgstr "ім'я користувача"
+
+msgid "Waiting for the next metrics sample…"
+msgstr "Очікування наступного зразка метрик…"
+
+msgid "WAN / resolv upstream only"
+msgstr "Лише WAN / resolv upstream"
+
+msgid "Yes"
+msgstr "Так"

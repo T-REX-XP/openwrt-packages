@@ -1,0 +1,632 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-blocky\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "%s denylist entries in memory"
+msgstr "%s denylist entries in memory"
+
+msgid "15 minutes"
+msgstr "15 minutes"
+
+msgid "1h"
+msgstr "1h"
+
+msgid "24h"
+msgstr "24h"
+
+msgid "24h stats"
+msgstr "24h stats"
+
+msgid "30 minutes"
+msgstr "30 minutes"
+
+msgid "30d"
+msgstr "30d"
+
+msgid "5 minutes"
+msgstr "5 minutes"
+
+msgid "7d"
+msgstr "7d"
+
+msgid "Action completed."
+msgstr "Action completed."
+
+msgid "Activity snapshot"
+msgstr "Activity snapshot"
+
+msgid "Ad blocking"
+msgstr "Ad blocking"
+
+msgid "Ad blocking pipeline"
+msgstr "Ad blocking pipeline"
+
+msgid "adblock init is running — disable it to avoid conflicting with Blocky"
+msgstr "adblock init is running — disable it to avoid conflicting with Blocky"
+
+msgid "Adblock package"
+msgstr "Adblock package"
+
+msgid "Add queryLog to config.yml for the Logs tab"
+msgstr "Add queryLog to config.yml for the Logs tab"
+
+msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button."
+msgstr "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button."
+
+msgid "Allowlists"
+msgstr "Allowlists"
+
+msgid "API access"
+msgstr "API access"
+
+msgid "API access settings saved."
+msgstr "API access settings saved."
+
+msgid "auto-enables in %s"
+msgstr "auto-enables in %s"
+
+msgid "Avg response"
+msgstr "Avg response"
+
+msgid "Bar chart: summed deltas in the visible window. Below: last polling interval."
+msgstr "Bar chart: summed deltas in the visible window. Below: last polling interval."
+
+msgid "Block lists"
+msgstr "Block lists"
+
+msgid "Block lists loaded"
+msgstr "Block lists loaded"
+
+msgid "Blocked"
+msgstr "Blocked"
+
+msgid "Blocked Δ"
+msgstr "Blocked Δ"
+
+msgid "Blocking"
+msgstr "Blocking"
+
+msgid "Blocking Controls"
+msgstr "Blocking Controls"
+
+msgid "Blocking disabled in Blocky API"
+msgstr "Blocking disabled in Blocky API"
+
+msgid "Blocking is temporarily disabled."
+msgstr "Blocking is temporarily disabled."
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Blocky DNS"
+msgstr "Blocky DNS"
+
+msgid "Blocky DNS — Status & Statistics"
+msgstr "Blocky DNS — Status & Statistics"
+
+msgid "blocky init failed."
+msgstr "blocky init failed."
+
+msgid "Blocky service"
+msgstr "Blocky service"
+
+msgid "Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics."
+msgstr "Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics."
+
+msgid "blocky-dnsmasq-sync failed."
+msgstr "blocky-dnsmasq-sync failed."
+
+msgid "Blue: total queries per hour. Red: blocked. Data from GET /api/stats."
+msgstr "Blue: total queries per hour. Red: blocked. Data from GET /api/stats."
+
+msgid "Breakdown (24h)"
+msgstr "Breakdown (24h)"
+
+msgid "By query type"
+msgstr "By query type"
+
+msgid "By response code"
+msgstr "By response code"
+
+msgid "By response type"
+msgstr "By response type"
+
+msgid "Cache hit rate"
+msgstr "Cache hit rate"
+
+msgid "Cache hit Δ"
+msgstr "Cache hit Δ"
+
+msgid "Cached"
+msgstr "Cached"
+
+msgid "Cached responses"
+msgstr "Cached responses"
+
+msgid "Charts activate once metrics are available."
+msgstr "Charts activate once metrics are available."
+
+msgid "Check"
+msgstr "Check"
+
+msgid "Clear cache"
+msgstr "Clear cache"
+
+msgid "Clear DNS cache"
+msgstr "Clear DNS cache"
+
+msgid "Client"
+msgstr "Client"
+
+msgid "Clients"
+msgstr "Clients"
+
+msgid "Clients → dnsmasq :53 → Blocky %s"
+msgstr "Clients → dnsmasq :53 → Blocky %s"
+
+msgid "Configuration"
+msgstr "Configuration"
+
+msgid "Configuration cannot be empty."
+msgstr "Configuration cannot be empty."
+
+msgid "Configuration saved and Blocky restarted."
+msgstr "Configuration saved and Blocky restarted."
+
+msgid "Configuration saved."
+msgstr "Configuration saved."
+
+msgid "Configured"
+msgstr "Configured"
+
+msgid "Controls"
+msgstr "Controls"
+
+msgid "Controls mirror the Blocky API: enable blocking, disable it temporarily, or disable specific groups."
+msgstr "Controls mirror the Blocky API: enable blocking, disable it temporarily, or disable specific groups."
+
+msgid "CSV logs under %s"
+msgstr "CSV logs under %s"
+
+msgid "Current entry counts per group (point-in-time)."
+msgstr "Current entry counts per group (point-in-time)."
+
+msgid "Currently disabled groups: %s"
+msgstr "Currently disabled groups: %s"
+
+msgid "Custom"
+msgstr "Custom"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
+msgstr "Dashboard for Blocky on your router — live statistics, blocking controls, and DNS integration."
+
+msgid "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
+msgstr "Default first-boot setup routes all DHCP client DNS through Blocky with StevenBlack denylist filtering."
+
+msgid "Denylist entries"
+msgstr "Denylist entries"
+
+msgid "Denylist rules active"
+msgstr "Denylist rules active"
+
+msgid "Denylists"
+msgstr "Denylists"
+
+msgid "Disable"
+msgstr "Disable"
+
+msgid "Disable blocking"
+msgstr "Disable blocking"
+
+msgid "Disable on boot"
+msgstr "Disable on boot"
+
+msgid "disabled"
+msgstr "disabled"
+
+msgid "Disabled groups"
+msgstr "Disabled groups"
+
+msgid "DNS cache"
+msgstr "DNS cache"
+
+msgid "DNS Query"
+msgstr "DNS Query"
+
+msgid "DNS query test"
+msgstr "DNS query test"
+
+msgid "DNS query volume and blocking activity."
+msgstr "DNS query volume and blocking activity."
+
+msgid "DNS server is not running."
+msgstr "DNS server is not running."
+
+msgid "DNS server is running and processing queries."
+msgstr "DNS server is running and processing queries."
+
+msgid "dnsmasq uses %s"
+msgstr "dnsmasq uses %s"
+
+msgid "Domains"
+msgstr "Domains"
+
+msgid "Each bar uses the largest counter delta in that polling interval as full width."
+msgstr "Each bar uses the largest counter delta in that polling interval as full width."
+
+msgid "Edit %s directly. Save and restart Blocky for changes to take effect."
+msgstr "Edit %s directly. Save and restart Blocky for changes to take effect."
+
+msgid "Enable blocking"
+msgstr "Enable blocking"
+
+msgid "Enable on boot"
+msgstr "Enable on boot"
+
+msgid "Enable Router DNS integration under Services → Blocky → Configuration"
+msgstr "Enable Router DNS integration under Services → Blocky → Configuration"
+
+msgid "Enable statistics and/or prometheus in Blocky configuration."
+msgstr "Enable statistics and/or prometheus in Blocky configuration."
+
+msgid "Enable statistics.enable in config.yml for native 24h stats."
+msgstr "Enable statistics.enable in config.yml for native 24h stats."
+
+msgid "Enable, start, stop, or restart the OpenWrt service wrapper."
+msgstr "Enable, start, stop, or restart the OpenWrt service wrapper."
+
+msgid "enabled"
+msgstr "enabled"
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "Enter a domain name first."
+msgstr "Enter a domain name first."
+
+msgid "Estimated rates from Prometheus counter deltas while this page stays open."
+msgstr "Estimated rates from Prometheus counter deltas while this page stays open."
+
+msgid "Exposed"
+msgstr "Exposed"
+
+msgid "Filter"
+msgstr "Filter"
+
+msgid "Flush cache"
+msgstr "Flush cache"
+
+msgid "For 24h rankings use the stats widgets above. This chart tracks Prometheus counter deltas while the page stays open."
+msgstr "For 24h rankings use the stats widgets above. This chart tracks Prometheus counter deltas while the page stays open."
+
+msgid "Forwarding"
+msgstr "Forwarding"
+
+msgid "Groups"
+msgstr "Groups"
+
+msgid "Groups must be comma-separated names using letters, numbers, dots, dashes, or underscores."
+msgstr "Groups must be comma-separated names using letters, numbers, dots, dashes, or underscores."
+
+msgid "Hits vs misses"
+msgstr "Hits vs misses"
+
+msgid "Hourly buckets from Blocky in-memory statistics (UTC)."
+msgstr "Hourly buckets from Blocky in-memory statistics (UTC)."
+
+msgid "HTTP API listener"
+msgstr "HTTP API listener"
+
+msgid "HTTP listener"
+msgstr "HTTP listener"
+
+msgid "LAN DNS chain"
+msgstr "LAN DNS chain"
+
+msgid "Last 24 hours"
+msgstr "Last 24 hours"
+
+msgid "Latest interval"
+msgstr "Latest interval"
+
+msgid "Lifetime counters from Prometheus (stats API unavailable)."
+msgstr "Lifetime counters from Prometheus (stats API unavailable)."
+
+msgid "Limited"
+msgstr "Limited"
+
+msgid "Listed domains"
+msgstr "Listed domains"
+
+msgid "Listening on UDP/TCP port %d"
+msgstr "Listening on UDP/TCP port %d"
+
+msgid "Lists still loading or statistics unavailable — try Refresh lists"
+msgstr "Lists still loading or statistics unavailable — try Refresh lists"
+
+msgid "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
+msgstr "Live ad-blocking health, 24-hour statistics, and recent query logs. Configuration and controls are under "
+
+msgid "Localhost"
+msgstr "Localhost"
+
+msgid "Logs"
+msgstr "Logs"
+
+msgid "Long windows need more samples — keep the dashboard open. Past sessions are not stored."
+msgstr "Long windows need more samples — keep the dashboard open. Past sessions are not stored."
+
+msgid "LuCI proxy auth"
+msgstr "LuCI proxy auth"
+
+msgid "Maintenance actions are restricted to the local Blocky service and API endpoint."
+msgstr "Maintenance actions are restricted to the local Blocky service and API endpoint."
+
+msgid "Matched rules"
+msgstr "Matched rules"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "No"
+msgstr "No"
+
+msgid "No data"
+msgstr "No data"
+
+msgid "No data in the current 24h window."
+msgstr "No data in the current 24h window."
+
+msgid "No hourly statistics yet."
+msgstr "No hourly statistics yet."
+
+msgid "No log lines loaded."
+msgstr "No log lines loaded."
+
+msgid "No Prometheus samples detected yet. Enable prometheus in Blocky and confirm /metrics responds."
+msgstr "No Prometheus samples detected yet. Enable prometheus in Blocky and confirm /metrics responds."
+
+msgid "No query executed yet."
+msgstr "No query executed yet."
+
+msgid "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
+msgstr "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
+
+msgid "No queryLog section in config.yml. Add queryLog with type csv and a target directory to browse logs here."
+msgstr "No queryLog section in config.yml. Add queryLog with type csv and a target directory to browse logs here."
+
+msgid "No rows match the current filters."
+msgstr "No rows match the current filters."
+
+msgid "None"
+msgstr "None"
+
+msgid "none"
+msgstr "none"
+
+msgid "Not running (expected when Blocky is the primary filter)"
+msgstr "Not running (expected when Blocky is the primary filter)"
+
+msgid "not scheduled"
+msgstr "not scheduled"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "One or more steps below must be fixed before LAN clients receive filtered DNS."
+msgstr "One or more steps below must be fixed before LAN clients receive filtered DNS."
+
+msgid "Operations"
+msgstr "Operations"
+
+msgid "Optional HTTP Basic credentials for LuCI when a reverse proxy protects Blocky"
+msgstr "Optional HTTP Basic credentials for LuCI when a reverse proxy protects Blocky"
+
+msgid "password"
+msgstr "password"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Pause %s"
+msgstr "Pause %s"
+
+msgid "Pause duration must look like 5m, 1h, or 0."
+msgstr "Pause duration must look like 5m, 1h, or 0."
+
+msgid "Paused"
+msgstr "Paused"
+
+msgid "Paused — resumes in %s"
+msgstr "Paused — resumes in %s"
+
+msgid "Perform maintenance operations on the DNS server."
+msgstr "Perform maintenance operations on the DNS server."
+
+msgid "Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings."
+msgstr "Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings."
+
+msgid "Preset"
+msgstr "Preset"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Prometheus"
+msgstr "Prometheus"
+
+msgid "Queries over time"
+msgstr "Queries over time"
+
+msgid "Queries over time (24h)"
+msgstr "Queries over time (24h)"
+
+msgid "Query"
+msgstr "Query"
+
+msgid "Query log viewer supports queryLog.type: csv with a directory target. Other backends (MySQL, PostgreSQL, VictoriaLogs) require blocky-ui or external tools."
+msgstr "Query log viewer supports queryLog.type: csv with a directory target. Other backends (MySQL, PostgreSQL, VictoriaLogs) require blocky-ui or external tools."
+
+msgid "Query logging"
+msgstr "Query logging"
+
+msgid "Query Logs"
+msgstr "Query Logs"
+
+msgid "Rankings from Blocky in-memory statistics."
+msgstr "Rankings from Blocky in-memory statistics."
+
+msgid "Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB)."
+msgstr "Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB)."
+
+msgid "Reason"
+msgstr "Reason"
+
+msgid "Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy."
+msgstr "Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy."
+
+msgid "Records"
+msgstr "Records"
+
+msgid "Refresh lists"
+msgstr "Refresh lists"
+
+msgid "Reload"
+msgstr "Reload"
+
+msgid "Reload allow/deny lists"
+msgstr "Reload allow/deny lists"
+
+msgid "Response"
+msgstr "Response"
+
+msgid "Response type"
+msgstr "Response type"
+
+msgid "REST API and metrics at %s (Blocky has no built-in API key)"
+msgstr "REST API and metrics at %s (Blocky has no built-in API key)"
+
+msgid "Restart"
+msgstr "Restart"
+
+msgid "Restart service"
+msgstr "Restart service"
+
+msgid "Return code"
+msgstr "Return code"
+
+msgid "Rolling 24h window from Blocky /api/stats."
+msgstr "Rolling 24h window from Blocky /api/stats."
+
+msgid "Router DNS integration"
+msgstr "Router DNS integration"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "running"
+msgstr "running"
+
+msgid "Save & restart"
+msgstr "Save & restart"
+
+msgid "Save API credentials"
+msgstr "Save API credentials"
+
+msgid "Save configuration"
+msgstr "Save configuration"
+
+msgid "Server status"
+msgstr "Server status"
+
+msgid "Service"
+msgstr "Service"
+
+msgid "Services → Blocky"
+msgstr "Services → Blocky"
+
+msgid "Since Blocky started"
+msgstr "Since Blocky started"
+
+msgid "Start"
+msgstr "Start"
+
+msgid "Start Blocky from Controls or reboot."
+msgstr "Start Blocky from Controls or reboot."
+
+msgid "Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky."
+msgstr "Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky."
+
+msgid "Statistics are not available yet. Ensure Blocky is running and statistics are enabled."
+msgstr "Statistics are not available yet. Ensure Blocky is running and statistics are enabled."
+
+msgid "Stop"
+msgstr "Stop"
+
+msgid "Stop forwarding (restore dnsmasq only)"
+msgstr "Stop forwarding (restore dnsmasq only)"
+
+msgid "stopped"
+msgstr "stopped"
+
+msgid "Stopped"
+msgstr "Stopped"
+
+msgid "Test from a phone on Wi‑Fi: open a browser ad-block test page. DNS must point at this router (typically %s)."
+msgstr "Test from a phone on Wi‑Fi: open a browser ad-block test page. DNS must point at this router (typically %s)."
+
+msgid "Time"
+msgstr "Time"
+
+msgid "Top blocked domains"
+msgstr "Top blocked domains"
+
+msgid "Top clients"
+msgstr "Top clients"
+
+msgid "Top domains"
+msgstr "Top domains"
+
+msgid "Top lists (24h)"
+msgstr "Top lists (24h)"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Total queries"
+msgstr "Total queries"
+
+msgid "Total Δ"
+msgstr "Total Δ"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Unsupported service action."
+msgstr "Unsupported service action."
+
+msgid "Until manually enabled"
+msgstr "Until manually enabled"
+
+msgid "Use Blocky for all LAN / Wi-Fi DNS"
+msgstr "Use Blocky for all LAN / Wi-Fi DNS"
+
+msgid "username"
+msgstr "username"
+
+msgid "Waiting for the next metrics sample…"
+msgstr "Waiting for the next metrics sample…"
+
+msgid "WAN / resolv upstream only"
+msgstr "WAN / resolv upstream only"
+
+msgid "Yes"
+msgstr "Yes"

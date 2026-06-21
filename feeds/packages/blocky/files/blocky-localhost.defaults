@@ -1,0 +1,21 @@
+#!/bin/sh
+
+[ -s /etc/blocky/config.yml ] || exit 0
+
+changed=0
+
+if grep -qE '^[[:space:]]+dns:[[:space:]]+5353[[:space:]]*$' /etc/blocky/config.yml; then
+	sed -i 's/^\([[:space:]]*dns:\)[[:space:]]*5353[[:space:]]*$/\1 127.0.0.1:5353/' /etc/blocky/config.yml
+	changed=1
+fi
+
+if grep -qE '^[[:space:]]+http:[[:space:]]+4000[[:space:]]*$' /etc/blocky/config.yml; then
+	sed -i 's/^\([[:space:]]*http:\)[[:space:]]*4000[[:space:]]*$/\1 127.0.0.1:4000/' /etc/blocky/config.yml
+	changed=1
+fi
+
+if [ "$changed" = "1" ] && /etc/init.d/blocky enabled; then
+	/etc/init.d/blocky restart
+fi
+
+exit 0

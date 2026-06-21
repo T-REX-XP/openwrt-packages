@@ -5,10 +5,14 @@
 'require ui';
 'require poll';
 'require baseclass';
+'require uci';
 
 var CONFIG_PATH = '/etc/blocky/config.yml';
-var API_BASE = 'http://127.0.0.1:4000/api';
-var METRICS_URL = 'http://127.0.0.1:4000/metrics';
+var blockyApiAccess = {
+	baseUrl: 'http://127.0.0.1:4000',
+	user: '',
+	password: ''
+};
 var RECORD_TYPES = [ 'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'PTR' ];
 var PAUSE_PRESETS = [
 	[ '5m', _('5 minutes') ],
@@ -151,7 +155,7 @@ function parseDnsForwardFlag(stdoutRaw) {
 	return line === '1' || line === 'true' || line === 'yes' || line === 'on';
 }
 
-function parseBlockyDnsPort(configYaml) {
+function parseBlockyPortLine(configYaml, key, defaultPort) {
 	var lines = safeString(configYaml).split(/\n/);
 	var inPorts = false;
 	var baseIndent = -1;
@@ -159,6 +163,7 @@ function parseBlockyDnsPort(configYaml) {
 	var line;
 	var m;
 	var lead;
+	var re = new RegExp('^\\s+' + key + '\\s*:\\s*(.+)$');
 
 	for (i = 0; i < lines.length; i++) {
 		line = lines[i];
@@ -178,12 +183,66 @@ function parseBlockyDnsPort(configYaml) {
 		if (lead && lead[1].length <= baseIndent)
 			break;
 
-		m = line.match(/^\s+dns\s*:\s*(\d+)\s*$/);
+		m = line.match(re);
 		if (m)
-			return Number(m[1]);
+			return parseBlockyPortValue(m[1]);
 	}
 
-	return 5353;
+	return { host: '127.0.0.1', port: defaultPort };
+}
+
+function parseBlockyPortValue(raw) {
+	var value = safeString(raw).trim().replace(/['"]/g, '');
+
+	if (/^\d+$/.test(value))
+		return { host: '0.0.0.0', port: Number(value) };
+
+	if (value.charAt(0) === ':')
+		return { host: '0.0.0.0', port: Number(value.slice(1)) || 4000 };
+
+	var m = value.match(/^(\[[^\]]+\]|[^:\s]+):(\d+)$/);
+	if (m)
+		return { host: m[1], port: Number(m[2]) };
+
+	return { host: '127.0.0.1', port: 4000 };
+}
+
+function isLoopbackHost(host) {
+	var h = safeString(host).toLowerCase();
+
+	return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
+}
+
+function blockyHttpBaseUrl(configYaml) {
+	var ep = parseBlockyPortLine(configYaml, 'http', 4000);
+	var host = ep.host;
+
+	if (host === '0.0.0.0' || host === '::' || host === '[::]')
+		host = '127.0.0.1';
+
+	return 'http://' + host + ':' + String(ep.port);
+}
+
+function applyBlockyApiAccess(configYaml, access) {
+	blockyApiAccess.baseUrl = blockyHttpBaseUrl(configYaml);
+	blockyApiAccess.user = access && access.user ? access.user : '';
+	blockyApiAccess.password = access && access.password ? access.password : '';
+}
+
+function loadBlockyUciAccess() {
+	return uci.load('blocky').then(function() {
+		return {
+			user: uci.get('blocky', 'main', 'api_user') || '',
+			password: uci.get('blocky', 'main', 'api_password') || '',
+			localOnly: uci.get('blocky', 'main', 'api_local_only') !== '0'
+		};
+	}).catch(function() {
+		return { user: '', password: '', localOnly: true };
+	});
+}
+
+function parseBlockyDnsPort(configYaml) {
+	return parseBlockyPortLine(configYaml, 'dns', 5353).port;
 }
 
 function execDnsmasqSync(argv) {
@@ -242,6 +301,9 @@ function parseJson(text) {
 function fetchText(url, method, body) {
 	var args = [ '-q', '-O', '-' ];
 
+	if (blockyApiAccess.user)
+		args.push('--user=' + blockyApiAccess.user + ':' + blockyApiAccess.password);
+
 	if (method === 'POST') {
 		args.push('--header=Content-Type: application/json');
 		args.push('--post-data=' + (body || ''));
@@ -272,11 +334,15 @@ function fetchJson(url, method, body) {
 }
 
 function blockyApi(path, method, body) {
-	return fetchJson(API_BASE + path, method || 'GET', body);
+	return fetchJson(blockyApiAccess.baseUrl + '/api' + path, method || 'GET', body);
+}
+
+function blockyMetricsUrl() {
+	return blockyApiAccess.baseUrl + '/metrics';
 }
 
 function fetchBlockyStats() {
-	return fetchText(API_BASE + '/stats').then(function(res) {
+	return fetchText(blockyApiAccess.baseUrl + '/api/stats').then(function(res) {
 		var text = safeString(unwrapFetchText(res)).trim();
 
 		if (!text || /statistics are disabled/i.test(text))
@@ -447,6 +513,11 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 				: _('Lists still loading or statistics unavailable — try Refresh lists')
 		},
 		{
+			label: _('HTTP API listener'),
+			ok: isLoopbackHost(parseBlockyPortLine(configYaml, 'http', 4000).host),
+			detail: _('REST API and metrics at %s (Blocky has no built-in API key)').format(blockyHttpBaseUrl(configYaml))
+		},
+		{
 			label: _('Query logging'),
 			ok: !!(ql && ql.type === 'csv' && ql.target),
 			detail: ql && ql.target
@@ -461,7 +532,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 				: _('Not running (expected when Blocky is the primary filter)')
 		}
 	];
-	var ready = rows.slice(0, 4).every(function(row) { return row.ok; });
+	var ready = rows.slice(0, 5).every(function(row) { return row.ok; });
 
 	return E('div', { 'class': 'blocky-dash-widget blocky-pipeline-widget' }, [
 		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Ad blocking pipeline') ]),
@@ -632,7 +703,7 @@ function registerBlockyMetricsPolling() {
 	registerBlockyMetricsPolling.done = true;
 
 	poll.add(function() {
-		return fetchText(METRICS_URL).then(function(res) {
+		return fetchText(blockyMetricsUrl()).then(function(res) {
 			if (blockyRtMetricsHook)
 				blockyRtMetricsHook(unwrapFetchText(res));
 		});
@@ -2109,6 +2180,77 @@ function renderQueryLogsTab(config) {
 	]);
 }
 
+function renderApiSecuritySection(configYaml, uciAccess) {
+	var httpEp = parseBlockyPortLine(configYaml, 'http', 4000);
+	var localBind = isLoopbackHost(httpEp.host);
+	var userInput = E('input', {
+		'type': 'text',
+		'class': 'cbi-input-text',
+		'value': uciAccess.user || '',
+		'placeholder': _('username'),
+		'style': 'min-width:12em'
+	});
+	var passInput = E('input', {
+		'type': 'password',
+		'class': 'cbi-input-password',
+		'value': uciAccess.password || '',
+		'placeholder': _('password'),
+		'style': 'min-width:12em',
+		'autocomplete': 'new-password'
+	});
+
+	return E('div', { 'class': 'cbi-section' }, [
+		E('h3', {}, [ _('API access') ]),
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics.')
+		]),
+		E('div', { 'class': 'table blocky-status-table' }, [
+			E('div', { 'class': 'tr' }, [
+				E('div', { 'class': 'td left', 'style': 'width:33%' }, [ _('HTTP listener') ]),
+				E('div', { 'class': 'td left' }, [
+					blockyPill(localBind ? 'yes' : 'warn', localBind ? _('Localhost') : _('Exposed')),
+					blockyStatusDetail(blockyHttpBaseUrl(configYaml))
+				])
+			]),
+			E('div', { 'class': 'tr' }, [
+				E('div', { 'class': 'td left' }, [ _('LuCI proxy auth') ]),
+				E('div', { 'class': 'td left' }, [
+					uciAccess.user
+						? blockyPill('yes', _('Configured'))
+						: blockyPill('muted', _('None')),
+					blockyStatusDetail(_('Optional HTTP Basic credentials for LuCI when a reverse proxy protects Blocky'))
+				])
+			])
+		]),
+		E('p', {}, [
+			userInput, ' ', passInput, ' ',
+			E('button', {
+				'class': 'cbi-button cbi-button-save',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+
+					uci.set('blocky', 'main', 'api_user', userInput.value.trim());
+					uci.set('blocky', 'main', 'api_password', passInput.value);
+					uci.set('blocky', 'main', 'api_local_only', localBind ? '1' : '0');
+
+					return uci.save().then(function() {
+						applyBlockyApiAccess(configYaml, {
+							user: userInput.value.trim(),
+							password: passInput.value
+						});
+						notify(_('API access settings saved.'));
+					}).catch(function(err) {
+						notify(err.message || String(err), 'danger');
+					});
+				})
+			}, [ _('Save API credentials') ])
+		]),
+		E('p', { 'class': 'blocky-note-soft' }, [
+			_('Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy.')
+		])
+	]);
+}
+
 function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 	var port = parseBlockyDnsPort(configYaml);
 	var forwardHost = E('div', { 'class': 'td left' });
@@ -2255,13 +2397,24 @@ function renderTabs(tabs, activeIndex) {
 function loadBlockyPageData() {
 	return Promise.all([
 		L.resolveDefault(callServiceList('blocky'), {}),
-		L.resolveDefault(blockyApi('/blocking/status'), { enabled: false }),
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
-		L.resolveDefault(fetchText(METRICS_URL), ''),
+		loadBlockyUciAccess(),
 		L.resolveDefault(fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { code: 0, stdout: '0\n' }),
-		L.resolveDefault(fetchBlockyStats(), { ok: false, data: null }),
 		L.resolveDefault(callServiceList('adblock'), {})
-	]);
+	]).then(function(bootstrap) {
+		applyBlockyApiAccess(bootstrap[1], bootstrap[2]);
+
+		return Promise.all([
+			Promise.resolve(bootstrap[0]),
+			L.resolveDefault(blockyApi('/blocking/status'), { enabled: false }),
+			Promise.resolve(bootstrap[1]),
+			L.resolveDefault(fetchText(blockyMetricsUrl()), ''),
+			Promise.resolve(bootstrap[3]),
+			L.resolveDefault(fetchBlockyStats(), { ok: false, data: null }),
+			Promise.resolve(bootstrap[4]),
+			Promise.resolve(bootstrap[2])
+		]);
+	});
 }
 
 function mountDashboardContent(host, data, refreshPage) {
@@ -2327,6 +2480,7 @@ function createBlockyView(options) {
 			var metrics = data[3];
 			var dnsFwd = data[4];
 			var statsResult = data[5];
+			var uciAccess = data[7] || { user: '', password: '', localOnly: true };
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
@@ -2387,6 +2541,7 @@ function createBlockyView(options) {
 					{
 						title: _('Configuration'),
 						nodes: [
+							renderApiSecuritySection(config, uciAccess),
 							renderRouterDnsIntegration(config, dnsFwdRaw),
 							renderConfig(config)
 						]

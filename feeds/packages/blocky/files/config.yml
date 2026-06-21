@@ -20,8 +20,8 @@ queryLog:
   flushInterval: 30s
 
 ports:
-  dns: 5353
-  http: 4000
+  dns: 127.0.0.1:5353
+  http: 127.0.0.1:4000
 
 prometheus:
   enable: true

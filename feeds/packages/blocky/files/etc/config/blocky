@@ -2,3 +2,6 @@
 config blocky 'main'
 	option dnsmasq_forward '1'
 	option dnsmasq_blocky_port '5353'
+	option api_local_only '1'
+	option api_user ''
+	option api_password ''
