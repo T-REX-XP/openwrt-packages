@@ -1,0 +1,41 @@
+#!/bin/sh /etc/rc.common
+# Apply dnsmasq→Blocky forwarding after LAN (br-lan) is up.
+# Must not run from uci-defaults: boot (START=10) runs before network (START=20).
+
+START=85
+STOP=15
+
+wait_for_lan() {
+	local i=0
+
+	while [ "$i" -lt 45 ]; do
+		if ip link show br-lan up >/dev/null 2>&1; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	return 1
+}
+
+boot() {
+	[ -x /usr/sbin/blocky-dnsmasq-sync ] || return 0
+
+	case "$(uci -q get blocky.main.dnsmasq_forward)" in
+		1|true|yes|on) ;;
+		*) return 0 ;;
+	esac
+
+	wait_for_lan || {
+		logger -t blocky "br-lan not up; skipping dnsmasq sync"
+		return 0
+	}
+
+	/usr/sbin/blocky-dnsmasq-sync enable || {
+		logger -t blocky "dnsmasq sync failed after LAN up"
+		return 0
+	}
+
+	[ -x /usr/sbin/blocky-boot ] && /usr/sbin/blocky-boot &
+}

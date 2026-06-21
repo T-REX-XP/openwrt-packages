@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
 PKG_VERSION:=0.32.1
-PKG_RELEASE:=7
+PKG_RELEASE:=8
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
@@ -55,6 +55,7 @@ define Package/blocky/install
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/blocky $(1)/usr/bin/blocky
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/blocky.init $(1)/etc/init.d/blocky
+	$(INSTALL_BIN) ./files/blocky-lan.init $(1)/etc/init.d/blocky-lan
 	$(INSTALL_DIR) $(1)/etc/blocky
 	$(INSTALL_CONF) ./files/config.yml $(1)/etc/blocky/config.yml
 	$(INSTALL_DIR) $(1)/etc/config

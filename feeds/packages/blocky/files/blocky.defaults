@@ -43,17 +43,14 @@ if [ -x /etc/init.d/adblock ]; then
 	/etc/init.d/adblock stop 2>/dev/null || true
 fi
 
-/etc/init.d/blocky enable
-/etc/init.d/blocky restart
-
-# Route LAN/Wi-Fi DNS (dnsmasq :53) through Blocky by default.
+# Mark dnsmasq→Blocky forwarding for blocky-lan (START=85, after network).
 if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
-	/usr/sbin/blocky-dnsmasq-sync enable
+	uci -q show blocky.main >/dev/null 2>&1 || uci set blocky.main=blocky
+	uci -q set blocky.main.dnsmasq_forward='1'
+	uci -q commit blocky
 fi
 
-# Ensure blocking API is on and lists are fetched (also runs from init after start).
-if [ -x /usr/sbin/blocky-boot ]; then
-	/usr/sbin/blocky-boot &
-fi
+/etc/init.d/blocky enable
+/etc/init.d/blocky-lan enable
 
 exit 0

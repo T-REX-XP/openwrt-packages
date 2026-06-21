@@ -23,7 +23,8 @@ for script in \
 	"$PKG_ROOT/files/usr/sbin/blocky-boot" \
 	"$PKG_ROOT/files/usr/sbin/blocky-config-apply" \
 	"$PKG_ROOT/files/usr/sbin/blocky-dnsmasq-sync" \
-	"$PKG_ROOT/files/blocky.init"
+	"$PKG_ROOT/files/blocky.init" \
+	"$PKG_ROOT/files/blocky-lan.init"
 do
 	[ -f "$script" ] || fail "missing $script"
 	check_sh "$script"

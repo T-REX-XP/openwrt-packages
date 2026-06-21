@@ -16,11 +16,9 @@ fi
 if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
 	case "$(uci -q get blocky.main.dnsmasq_forward)" in
 		1|true|yes|on)
-			/usr/sbin/blocky-dnsmasq-sync enable
+			/etc/init.d/blocky-lan boot 2>/dev/null || /usr/sbin/blocky-dnsmasq-sync enable || true
 			;;
 	esac
 fi
-
-[ -x /usr/sbin/blocky-boot ] && /usr/sbin/blocky-boot &
 
 exit 0
