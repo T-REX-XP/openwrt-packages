@@ -1024,6 +1024,9 @@ msgstr "Advertising and mobile ad domains (DNS hosts / domain lists only)"
 msgid "Malware, phishing, botnet C2, and threat intelligence"
 msgstr "Malware, phishing, botnet C2, and threat intelligence"
 
+msgid "Failed to refresh block lists in Blocky."
+msgstr "Failed to refresh block lists in Blocky."
+
 msgid "Save settings"
 msgstr "Save settings"
 

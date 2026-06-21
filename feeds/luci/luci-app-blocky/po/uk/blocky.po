@@ -1025,6 +1025,9 @@ msgstr "Реклама та мобільна реклама (лише DNS hosts 
 msgid "Malware, phishing, botnet C2, and threat intelligence"
 msgstr "Malware, фішинг, botnet C2 та threat intelligence"
 
+msgid "Failed to refresh block lists in Blocky."
+msgstr "Не вдалося оновити списки блокування в Blocky."
+
 msgid "Save settings"
 msgstr "Зберегти налаштування"
 

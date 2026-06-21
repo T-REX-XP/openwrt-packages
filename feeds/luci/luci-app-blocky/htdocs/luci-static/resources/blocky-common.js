@@ -767,6 +767,17 @@ function execBlockyListsSync() {
 	});
 }
 
+function execBlockyListsRefresh() {
+	return fs.exec('/usr/sbin/blocky-lists-refresh', []).then(function(res) {
+		var code = res != null ? Number(res.code) : 0;
+
+		if (code !== 0)
+			throw new Error(execResultStdout(res, _('Failed to refresh block lists in Blocky.')));
+
+		return res;
+	});
+}
+
 function applyBlocklistChanges(restart) {
 	return uci.load('blocky').then(function() {
 		return uci.save();
@@ -781,7 +792,7 @@ function applyBlocklistChanges(restart) {
 }
 
 function refreshBlockyLists() {
-	return blockyApi('/lists/refresh', 'POST');
+	return execBlockyListsRefresh();
 }
 
 function resolveDenyCount(counts, entry) {
@@ -919,7 +930,9 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData) {
 			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
 				actionButton(_('Update lists now'), function() {
 					return execBlockyListsSync().then(function() {
-						return refreshBlockyLists();
+						return runInit('restart');
+					}).then(function() {
+						return execBlockyListsRefresh();
 					});
 				}, 'cbi-button-action', refreshPage),
 				' ',
@@ -992,14 +1005,20 @@ function parseJson(text) {
 }
 
 function fetchText(url, method, body) {
-	var args = [ '-q', '-O', '-' ];
+	var args = [ '-4', '-q', '-O', '-' ];
 
 	if (blockyApiAccess.user)
 		args.push('--user=' + blockyApiAccess.user + ':' + blockyApiAccess.password);
 
 	if (method === 'POST') {
-		args.push('--header=Content-Type: application/json');
-		args.push('--post-data=' + (body || '{}'));
+		var payload = body != null ? String(body) : '';
+
+		if (payload && payload !== '{}') {
+			args.push('--post-type=application/json');
+			args.push('--post-data=' + payload);
+		} else {
+			args.push('--post-data=');
+		}
 	}
 
 	args.push(url);

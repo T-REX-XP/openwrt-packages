@@ -1,0 +1,25 @@
+#!/bin/sh
+# Ask running Blocky to re-download remote denylist URLs (POST /api/lists/refresh).
+
+set -u
+
+. /usr/sbin/blocky-http-api
+
+API="$(blocky_api_base)"
+MAX_WAIT="${BLOCKY_API_WAIT:-120}"
+
+main() {
+	blocky_wait_for_api "$API" "$MAX_WAIT" || {
+		echo "blocky-lists-refresh: Blocky API not reachable at $API" >&2
+		exit 1
+	}
+
+	blocky_http_post_empty "$API/lists/refresh" || {
+		echo "blocky-lists-refresh: POST $API/lists/refresh failed" >&2
+		exit 1
+	}
+
+	exit 0
+}
+
+main "$@"
