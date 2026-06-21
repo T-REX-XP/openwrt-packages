@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"presets": [
 		{
 			"id": "hagezi_light",
@@ -26,6 +26,22 @@
 			"homeUrl": "https://github.com/StevenBlack/hosts"
 		},
 		{
+			"id": "oisd_big",
+			"name": "OISD Big",
+			"url": "https://big.oisd.nl/",
+			"category": "balanced",
+			"description": "Curated general-purpose list — ads, tracking, malware, with minimal breakage (OISD).",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "oisd_small",
+			"name": "OISD Small",
+			"url": "https://small.oisd.nl/",
+			"category": "balanced",
+			"description": "Lighter OISD list focused mainly on advertising domains.",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
 			"id": "adaway",
 			"name": "AdAway Default Blocklist",
 			"url": "https://adaway.org/hosts.txt",
@@ -34,36 +50,12 @@
 			"homeUrl": "https://adaway.org/"
 		},
 		{
-			"id": "oisd_big",
-			"name": "OISD Big Domains",
-			"url": "https://big.oisd.nl/domains",
-			"category": "ads",
-			"description": "Large domain list with minimal false-positive philosophy (OISD).",
-			"homeUrl": "https://oisd.nl/"
-		},
-		{
 			"id": "oisd_full",
 			"name": "OISD Full Wildcard",
 			"url": "https://big.oisd.nl/domainswild",
-			"category": "comprehensive",
-			"description": "Large curated wildcard domain blocklist (OISD).",
-			"homeUrl": "https://oisd.nl/"
-		},
-		{
-			"id": "urlhaus",
-			"name": "URLhaus Hostfile",
-			"url": "https://urlhaus.abuse.ch/downloads/hostfile/",
-			"category": "security",
-			"description": "Fresh malware and botnet C2 domains (abuse.ch URLhaus).",
-			"homeUrl": "https://urlhaus.abuse.ch/"
-		},
-		{
-			"id": "adguard_dns",
-			"name": "AdGuard DNS filter",
-			"url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
 			"category": "ads",
-			"description": "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters.",
-			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-dns/"
+			"description": "Aggressive OISD wildcard domain blocklist — use if you need maximum coverage.",
+			"homeUrl": "https://oisd.nl/"
 		},
 		{
 			"id": "peter_lowe",
@@ -74,44 +66,20 @@
 			"homeUrl": "https://pgl.yoyo.org/adservers/"
 		},
 		{
-			"id": "adguard_tracking",
-			"name": "AdGuard Tracking Protection",
-			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3.txt",
-			"category": "privacy",
-			"description": "Counters, analytics, and web tracking tools.",
-			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
+			"id": "urlhaus",
+			"name": "URLhaus Hostfile",
+			"url": "https://urlhaus.abuse.ch/downloads/hostfile/",
+			"category": "security",
+			"description": "Fresh malware and botnet C2 domains (abuse.ch URLhaus).",
+			"homeUrl": "https://urlhaus.abuse.ch/"
 		},
 		{
-			"id": "adguard_social",
-			"name": "AdGuard Social Media",
-			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_4.txt",
-			"category": "social",
-			"description": "Social widgets, Like/Tweet buttons, and related integrations.",
-			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
-		},
-		{
-			"id": "adguard_mobile",
-			"name": "AdGuard Mobile Ads",
-			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11.txt",
-			"category": "ads",
-			"description": "Advertising on mobile devices and in mobile apps.",
-			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
-		},
-		{
-			"id": "adguard_annoyances",
-			"name": "AdGuard Annoyances",
-			"url": "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_14.txt",
-			"category": "annoyances",
-			"description": "Cookie notices, in-page popups, and third-party widgets.",
-			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
-		},
-		{
-			"id": "easyprivacy",
-			"name": "EasyPrivacy",
-			"url": "https://easylist.to/easylist/easyprivacy.txt",
-			"category": "privacy",
-			"description": "Trackers and privacy-related third-party requests (EasyList project).",
-			"homeUrl": "https://easylist.to/"
+			"id": "hagezi_tif_medium",
+			"name": "HaGeZi TIF Medium",
+			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/tif.medium.txt",
+			"category": "security",
+			"description": "Threat intelligence feeds — malware, cryptominers, spam, and risky domains.",
+			"homeUrl": "https://github.com/hagezi/dns-blocklists"
 		},
 		{
 			"id": "phishing_army",
@@ -120,6 +88,94 @@
 			"category": "security",
 			"description": "Extended phishing and scam domain blocklist.",
 			"homeUrl": "https://phishing.army/"
+		},
+		{
+			"id": "phishing_database",
+			"name": "Phishing.Database",
+			"url": "https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains.txt",
+			"category": "security",
+			"description": "Regularly updated database of active phishing domains.",
+			"homeUrl": "https://github.com/mitchellkrogza/Phishing.Database"
+		},
+		{
+			"id": "perflyst_smarttv",
+			"name": "Perflyst Smart TV",
+			"url": "https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt",
+			"category": "privacy",
+			"description": "Blocks tracking and ads on LG, Samsung, Sony, Roku, and similar TVs.",
+			"homeUrl": "https://github.com/Perflyst/PiHoleBlocklist"
+		},
+		{
+			"id": "nextdns_windows",
+			"name": "NextDNS Windows Telemetry",
+			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/windows",
+			"category": "privacy",
+			"description": "Windows OS telemetry and analytics domains (NextDNS metadata).",
+			"homeUrl": "https://github.com/nextdns/metadata"
+		},
+		{
+			"id": "nextdns_apple",
+			"name": "NextDNS Apple Telemetry",
+			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/apple",
+			"category": "privacy",
+			"description": "Apple iOS and macOS telemetry domains (NextDNS metadata).",
+			"homeUrl": "https://github.com/nextdns/metadata"
+		},
+		{
+			"id": "nextdns_samsung",
+			"name": "NextDNS Samsung Telemetry",
+			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/samsung",
+			"category": "privacy",
+			"description": "Samsung device telemetry domains (NextDNS metadata).",
+			"homeUrl": "https://github.com/nextdns/metadata"
+		},
+		{
+			"id": "nextdns_xiaomi",
+			"name": "NextDNS Xiaomi Telemetry",
+			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/xiaomi",
+			"category": "privacy",
+			"description": "Xiaomi device telemetry domains (NextDNS metadata).",
+			"homeUrl": "https://github.com/nextdns/metadata"
+		},
+		{
+			"id": "nextdns_huawei",
+			"name": "NextDNS Huawei Telemetry",
+			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/huawei",
+			"category": "privacy",
+			"description": "Huawei device telemetry domains (NextDNS metadata).",
+			"homeUrl": "https://github.com/nextdns/metadata"
+		},
+		{
+			"id": "oisd_nsfw",
+			"name": "OISD NSFW",
+			"url": "https://nsfw.oisd.nl/",
+			"category": "parental",
+			"description": "Adult and shock content domains (OISD NSFW list).",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "oisd_nsfw_small",
+			"name": "OISD NSFW Small",
+			"url": "https://nsfw-small.oisd.nl/",
+			"category": "parental",
+			"description": "Smaller NSFW list — top adult domains from Tranco rankings.",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "stevenblack_porn",
+			"name": "StevenBlack + Porn",
+			"url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts",
+			"category": "parental",
+			"description": "StevenBlack unified list plus adult site blocking.",
+			"homeUrl": "https://github.com/StevenBlack/hosts"
+		},
+		{
+			"id": "hagezi_gambling",
+			"name": "HaGeZi Gambling",
+			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/gambling.txt",
+			"category": "parental",
+			"description": "Online gambling and betting domains (HaGeZi).",
+			"homeUrl": "https://github.com/hagezi/dns-blocklists"
 		}
 	],
 	"catalog": [
@@ -130,41 +186,54 @@
 			"items": [
 				"hagezi_light",
 				"hagezi_pro",
-				"stevenblack"
+				"stevenblack",
+				"oisd_big",
+				"oisd_small"
 			]
 		},
 		{
 			"id": "ads",
 			"title": "Ads & telemetry",
-			"description": "Advertising, mobile ads, and tracking domains",
+			"description": "Advertising and mobile ad domains (DNS hosts / domain lists only)",
 			"items": [
 				"adaway",
-				"oisd_big",
-				"oisd_full",
-				"adguard_dns",
 				"peter_lowe",
-				"adguard_tracking",
-				"adguard_mobile",
-				"easyprivacy"
-			]
-		},
-		{
-			"id": "social",
-			"title": "Social & annoyances",
-			"description": "Social widgets and nuisance elements",
-			"items": [
-				"adguard_social",
-				"adguard_annoyances"
+				"oisd_full"
 			]
 		},
 		{
 			"id": "security",
 			"title": "Security & malware",
-			"description": "Malware, phishing, and scam domains",
+			"description": "Malware, phishing, botnet C2, and threat intelligence",
 			"items": [
 				"urlhaus",
-				"stevenblack",
-				"phishing_army"
+				"hagezi_tif_medium",
+				"phishing_army",
+				"phishing_database"
+			]
+		},
+		{
+			"id": "privacy",
+			"title": "Privacy & device telemetry",
+			"description": "Smart TV tracking and OS/vendor telemetry — assign to specific clients when possible",
+			"items": [
+				"perflyst_smarttv",
+				"nextdns_windows",
+				"nextdns_apple",
+				"nextdns_samsung",
+				"nextdns_xiaomi",
+				"nextdns_huawei"
+			]
+		},
+		{
+			"id": "parental",
+			"title": "Parental control",
+			"description": "Adult content and gambling — use with a dedicated client group",
+			"items": [
+				"oisd_nsfw",
+				"oisd_nsfw_small",
+				"stevenblack_porn",
+				"hagezi_gambling"
 			]
 		}
 	]

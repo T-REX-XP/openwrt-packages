@@ -920,6 +920,111 @@ msgstr "Безпека та шкідливе ПЗ"
 msgid "Malware, phishing, and scam domains"
 msgstr "Malware, фішинг та шахрайські домени"
 
+msgid "OISD Big"
+msgstr "OISD Big"
+
+msgid "Curated general-purpose list — ads, tracking, malware, with minimal breakage (OISD)."
+msgstr "Універсальний список — реклама, трекінг, малварь, мінімум поломок (OISD)."
+
+msgid "OISD Small"
+msgstr "OISD Small"
+
+msgid "Lighter OISD list focused mainly on advertising domains."
+msgstr "Легший OISD — переважно рекламні домени."
+
+msgid "Aggressive OISD wildcard domain blocklist — use if you need maximum coverage."
+msgstr "Агресивний OISD wildcard — максимальне покриття, більше ризику поломок."
+
+msgid "HaGeZi TIF Medium"
+msgstr "HaGeZi TIF Medium"
+
+msgid "Threat intelligence feeds — malware, cryptominers, spam, and risky domains."
+msgstr "Threat intelligence — малварь, криптомайнери, спам і ризикові домени."
+
+msgid "Phishing.Database"
+msgstr "Phishing.Database"
+
+msgid "Regularly updated database of active phishing domains."
+msgstr "Регулярно оновлювана база активних фішингових доменів."
+
+msgid "Perflyst Smart TV"
+msgstr "Perflyst Smart TV"
+
+msgid "Blocks tracking and ads on LG, Samsung, Sony, Roku, and similar TVs."
+msgstr "Блокує трекінг і рекламу на LG, Samsung, Sony, Roku та подібних TV."
+
+msgid "NextDNS Windows Telemetry"
+msgstr "NextDNS — телеметрія Windows"
+
+msgid "Windows OS telemetry and analytics domains (NextDNS metadata)."
+msgstr "Домени телеметрії та аналітики Windows (NextDNS metadata)."
+
+msgid "NextDNS Apple Telemetry"
+msgstr "NextDNS — телеметрія Apple"
+
+msgid "Apple iOS and macOS telemetry domains (NextDNS metadata)."
+msgstr "Домени телеметрії iOS та macOS (NextDNS metadata)."
+
+msgid "NextDNS Samsung Telemetry"
+msgstr "NextDNS — телеметрія Samsung"
+
+msgid "Samsung device telemetry domains (NextDNS metadata)."
+msgstr "Домени телеметрії пристроїв Samsung (NextDNS metadata)."
+
+msgid "NextDNS Xiaomi Telemetry"
+msgstr "NextDNS — телеметрія Xiaomi"
+
+msgid "Xiaomi device telemetry domains (NextDNS metadata)."
+msgstr "Домени телеметрії пристроїв Xiaomi (NextDNS metadata)."
+
+msgid "NextDNS Huawei Telemetry"
+msgstr "NextDNS — телеметрія Huawei"
+
+msgid "Huawei device telemetry domains (NextDNS metadata)."
+msgstr "Домени телеметрії пристроїв Huawei (NextDNS metadata)."
+
+msgid "OISD NSFW"
+msgstr "OISD NSFW"
+
+msgid "Adult and shock content domains (OISD NSFW list)."
+msgstr "Дорослий та shock-контент (список OISD NSFW)."
+
+msgid "OISD NSFW Small"
+msgstr "OISD NSFW Small"
+
+msgid "Smaller NSFW list — top adult domains from Tranco rankings."
+msgstr "Менший NSFW — топ дорослих доменів з рейтингу Tranco."
+
+msgid "StevenBlack + Porn"
+msgstr "StevenBlack + Porn"
+
+msgid "StevenBlack unified list plus adult site blocking."
+msgstr "StevenBlack unified + блокування дорослих сайтів."
+
+msgid "HaGeZi Gambling"
+msgstr "HaGeZi Gambling"
+
+msgid "Online gambling and betting domains (HaGeZi)."
+msgstr "Онлайн-азартні ігри та ставки (HaGeZi)."
+
+msgid "Privacy & device telemetry"
+msgstr "Приватність і телеметрія пристроїв"
+
+msgid "Smart TV tracking and OS/vendor telemetry — assign to specific clients when possible"
+msgstr "Smart TV та телеметрія ОС/вендорів — краще для окремих клієнтів"
+
+msgid "Parental control"
+msgstr "Батьківський контроль"
+
+msgid "Adult content and gambling — use with a dedicated client group"
+msgstr "Дорослий контент і азартні ігри — окрема група клієнтів"
+
+msgid "Advertising and mobile ad domains (DNS hosts / domain lists only)"
+msgstr "Реклама та мобільна реклама (лише DNS hosts / domain lists)"
+
+msgid "Malware, phishing, botnet C2, and threat intelligence"
+msgstr "Malware, фішинг, botnet C2 та threat intelligence"
+
 msgid "Save settings"
 msgstr "Зберегти налаштування"
 
