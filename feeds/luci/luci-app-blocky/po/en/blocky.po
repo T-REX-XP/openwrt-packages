@@ -637,8 +637,8 @@ msgstr "Yes"
 msgid "DNS blocklists"
 msgstr "DNS blocklists"
 
-msgid "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
-msgstr "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
+msgid "Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists."
+msgstr "Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists."
 
 msgid "Rules"
 msgstr "Rules"
@@ -703,12 +703,6 @@ msgstr "Add a custom remote blocklist by name and URL (hosts, plain domain, or A
 msgid "Choose from catalog"
 msgstr "Choose from catalog"
 
-msgid "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
-msgstr "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
-
-msgid "Add selected lists"
-msgstr "Add selected lists"
-
 msgid "Failed to sync block lists to config.yml"
 msgstr "Failed to sync block lists to config.yml"
 
@@ -717,36 +711,6 @@ msgstr "StevenBlack Unified"
 
 msgid "Unified ads and malware hosts file (English-focused)."
 msgstr "Unified ads and malware hosts file (English-focused)."
-
-msgid "AdGuard DNS filter"
-msgstr "AdGuard DNS filter"
-
-msgid "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
-msgstr "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
-
-msgid "AdGuard Tracking Protection"
-msgstr "AdGuard Tracking Protection"
-
-msgid "Counters, analytics, and web tracking tools."
-msgstr "Counters, analytics, and web tracking tools."
-
-msgid "AdGuard Social Media"
-msgstr "AdGuard Social Media"
-
-msgid "Social widgets, Like/Tweet buttons, and related integrations."
-msgstr "Social widgets, Like/Tweet buttons, and related integrations."
-
-msgid "AdGuard Mobile Ads"
-msgstr "AdGuard Mobile Ads"
-
-msgid "Advertising on mobile devices and in mobile apps."
-msgstr "Advertising on mobile devices and in mobile apps."
-
-msgid "AdGuard Annoyances"
-msgstr "AdGuard Annoyances"
-
-msgid "Cookie notices, in-page popups, and third-party widgets."
-msgstr "Cookie notices, in-page popups, and third-party widgets."
 
 msgid "OISD Full Domains"
 msgstr "OISD Full Domains"
@@ -1026,6 +990,27 @@ msgstr "Malware, phishing, botnet C2, and threat intelligence"
 
 msgid "Failed to refresh block lists in Blocky."
 msgstr "Failed to refresh block lists in Blocky."
+
+msgid "Choose a settings section on the left. Block list URLs stay under the Block lists tab."
+msgstr "Choose a settings section on the left. Block list URLs stay under the Block lists tab."
+
+msgid "Router DNS"
+msgstr "Router DNS"
+
+msgid "List downloads"
+msgstr "List downloads"
+
+msgid "Hosts sources"
+msgstr "Hosts sources"
+
+msgid "Security"
+msgstr "Security"
+
+msgid "Advanced YAML"
+msgstr "Advanced YAML"
+
+msgid "Edit %s directly. Prefer the settings sections — the blocking: section is overwritten when block lists sync."
+msgstr "Edit %s directly. Prefer the settings sections — the blocking: section is overwritten when block lists sync."
 
 msgid "Save settings"
 msgstr "Save settings"

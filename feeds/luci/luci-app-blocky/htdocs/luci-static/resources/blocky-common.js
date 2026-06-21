@@ -913,7 +913,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData) {
 	return E('div', { 'class': 'cbi-section blocky-blocklists-section' }, [
 		E('h3', {}, [ _('DNS blocklists') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists.')
+			_('Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists.')
 		]),
 		tableHost,
 		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
@@ -3127,7 +3127,7 @@ function renderQueryLogsTab(config) {
 	]);
 }
 
-function renderApiSecuritySection(configYaml, uciAccess) {
+function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 	var httpEp = parseBlockyPortLine(configYaml, 'http', 4000);
 	var localBind = isLoopbackHost(httpEp.host);
 	var userInput = E('input', {
@@ -3146,9 +3146,8 @@ function renderApiSecuritySection(configYaml, uciAccess) {
 		'autocomplete': 'new-password'
 	});
 
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('API access') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
+	var body = [
+		E('p', { 'class': 'blocky-config-section-descr' }, [
 			_('Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics.')
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, [
@@ -3197,10 +3196,17 @@ function renderApiSecuritySection(configYaml, uciAccess) {
 		E('p', { 'class': 'blocky-note-soft' }, [
 			_('Recommended config.yml: ports.http: 127.0.0.1:4000 and ports.dns: 127.0.0.1:5353. Do not expose the Blocky API on LAN without an external authenticating reverse proxy.')
 		])
-	]);
+	];
+
+	if (embedded)
+		return configSectionPage(_('API access'), '', body);
+
+	return E('div', { 'class': 'cbi-section' }, [
+		E('h3', {}, [ _('API access') ])
+	].concat(body));
 }
 
-function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
+function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	var port = parseBlockyDnsPort(configYaml);
 	var forwardHost = E('div', { 'class': 'td left' });
 
@@ -3223,9 +3229,8 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 
 	paintForward(dnsFwdRaw);
 
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Router DNS integration') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
+	var body = [
+		E('p', { 'class': 'blocky-config-section-descr' }, [
 			_('Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings.').format(String(port))
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, [
@@ -3243,10 +3248,17 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw) {
 				return execDnsmasqSync([ 'disable' ]);
 			}, 'cbi-button-negative', refreshForward)
 		]),
-		E('p', { 'class': 'cbi-section-descr' }, [
+		E('p', { 'class': 'blocky-note-soft' }, [
 			_('After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button.')
 		])
-	]);
+	];
+
+	if (embedded)
+		return configSectionPage(_('Router DNS integration'), '', body);
+
+	return E('div', { 'class': 'cbi-section' }, [
+		E('h3', {}, [ _('Router DNS integration') ])
+	].concat(body));
 }
 
 function extractYamlSection(yaml, sectionName) {
@@ -3592,6 +3604,60 @@ function settingsPanel(title, descr, rows) {
 	]);
 }
 
+function configSectionPage(title, descr, rows) {
+	var nodes = [
+		E('h3', { 'class': 'blocky-config-section-title' }, [ title ])
+	];
+
+	if (descr)
+		nodes.push(E('p', { 'class': 'blocky-config-section-descr' }, [ descr ]));
+
+	nodes.push(E('div', { 'class': 'blocky-config-section-form' }, rows));
+
+	return E('div', { 'class': 'blocky-config-section' }, nodes);
+}
+
+function renderBlockyConfigLayout(sections, toolbar, activeIndex) {
+	var mainHost = E('div', { 'class': 'blocky-config-main' });
+	var navItems = [];
+
+	function activate(index) {
+		if (!sections[index])
+			return;
+
+		navItems.forEach(function(item, pos) {
+			item.classList.toggle('active', pos === index);
+		});
+		replaceContent(mainHost, sections[index].content);
+	}
+
+	var nav = E('nav', { 'class': 'blocky-config-nav', 'role': 'navigation' });
+
+	sections.forEach(function(section, index) {
+		var item = E('button', {
+			'type': 'button',
+			'class': 'blocky-config-nav-item' + (index === activeIndex ? ' active' : ''),
+			'click': function(ev) {
+				ev.preventDefault();
+				activate(index);
+			}
+		}, [ section.title ]);
+
+		navItems.push(item);
+		nav.appendChild(item);
+	});
+
+	activate(activeIndex || 0);
+
+	return E('div', { 'class': 'blocky-config-layout' }, [
+		E('aside', { 'class': 'blocky-config-sidebar' }, [ nav ]),
+		E('div', { 'class': 'blocky-config-content' }, [
+			toolbar,
+			mainHost
+		])
+	]);
+}
+
 function readBlockySettingsForm(state) {
 	return {
 		upstreamResolvers: state.upstreamResolvers.value,
@@ -3652,7 +3718,7 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 	});
 }
 
-function renderBlockySettingsForm(configYaml, refreshPage) {
+function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
 	var parsed = parseBlockySettings(configYaml);
 	var state = {
 		upstreamResolvers: E('textarea', {
@@ -3809,26 +3875,34 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 		});
 	}
 
-	return E('div', { 'class': 'blocky-settings-page' }, [
-		E('div', { 'class': 'blocky-settings-toolbar' }, [
-			E('button', {
-				'class': 'cbi-button cbi-button-save',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-					return saveHandler(false);
-				})
-			}, [ _('Save settings') ]),
-			' ',
-			E('button', {
-				'class': 'cbi-button cbi-button-apply',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-					return saveHandler(true);
-				})
-			}, [ _('Save & restart Blocky') ])
-		]),
-		E('div', { 'class': 'blocky-settings-grid' }, [
-			settingsPanel(
+	var toolbar = E('div', { 'class': 'blocky-settings-toolbar' }, [
+		E('button', {
+			'class': 'cbi-button cbi-button-save',
+			'click': ui.createHandlerFn(this, function(ev) {
+				ev.preventDefault();
+				return saveHandler(false);
+			})
+		}, [ _('Save settings') ]),
+		' ',
+		E('button', {
+			'class': 'cbi-button cbi-button-apply',
+			'click': ui.createHandlerFn(this, function(ev) {
+				ev.preventDefault();
+				return saveHandler(true);
+			})
+		}, [ _('Save & restart Blocky') ])
+	]);
+
+	var sections = [
+		{
+			id: 'router',
+			title: _('Router DNS'),
+			content: renderRouterDnsIntegration(configYaml, dnsFwdRaw, true)
+		},
+		{
+			id: 'upstream',
+			title: _('Upstream DNS'),
+			content: configSectionPage(
 				_('Upstream DNS'),
 				_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
 				[
@@ -3840,8 +3914,12 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 					settingsRow(_('Startup strategy'), _('fast = start quickly; blocking = wait for upstreams.'), state.upstreamInitStrategy),
 					settingsRow(_('Query timeout'), '', state.upstreamTimeout)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'bootstrap',
+			title: _('Bootstrap DNS'),
+			content: configSectionPage(
 				_('Bootstrap DNS'),
 				_('Used to resolve upstream hostnames and denylist download URLs.'),
 				[
@@ -3856,8 +3934,12 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 						state.bootstrapUseWan
 					)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'downloads',
+			title: _('List downloads'),
+			content: configSectionPage(
 				_('Block lists & downloads'),
 				_('Denylist URLs are managed on the Block lists tab. These options control refresh timing.'),
 				[
@@ -3876,8 +3958,12 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 					settingsRow(_('Retry cooldown'), _('Pause between failed download retries.'), state.listCooldown),
 					settingsRow(_('Download concurrency'), _('Parallel list downloads (1–8).'), state.listConcurrency)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'cache',
+			title: _('DNS cache'),
+			content: configSectionPage(
 				_('DNS cache'),
 				_('Response cache limits. Prefetching increases upstream traffic.'),
 				[
@@ -3885,23 +3971,35 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 					settingsRow(_('Maximum cache time'), '', state.cachingMaxTime),
 					settingsRow(_('Enable prefetching'), '', state.cachingPrefetch)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'hosts',
+			title: _('Hosts sources'),
+			content: configSectionPage(
 				_('Hosts file sources'),
 				_('Additional static hostname blocks (paths or URLs).'),
 				[
 					settingsRow(_('Sources'), _('/etc/hosts is included by default.'), state.hostsSources)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'logging',
+			title: _('Logging'),
+			content: configSectionPage(
 				_('Logging'),
 				_('Blocky service log level. DNS query logging is configured separately below.'),
 				[
 					settingsRow(_('Log level'), '', state.logLevel),
 					settingsRow(_('Obfuscate log output'), _('Mask domains in Blocky logs.'), state.logPrivacy)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'querylog',
+			title: _('Query log'),
+			content: configSectionPage(
 				_('Query log'),
 				_('CSV query logs for the Logs tab.'),
 				[
@@ -3909,16 +4007,24 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 					settingsRow(_('Retention (days)'), '', state.queryLogRetention),
 					settingsRow(_('Flush interval'), '', state.queryLogFlush)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'listeners',
+			title: _('Listeners'),
+			content: configSectionPage(
 				_('Listeners'),
 				_('Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here.'),
 				[
 					settingsRow(_('DNS port'), _('Format: 127.0.0.1:5353'), state.portDns),
 					settingsRow(_('HTTP port (API / metrics)'), _('Format: 127.0.0.1:4000'), state.portHttp)
 				]
-			),
-			settingsPanel(
+			)
+		},
+		{
+			id: 'security',
+			title: _('Security'),
+			content: configSectionPage(
 				_('Security & observability'),
 				_('Rebinding protection, Prometheus metrics, and in-memory statistics.'),
 				[
@@ -3928,79 +4034,100 @@ function renderBlockySettingsForm(configYaml, refreshPage) {
 					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Dashboard 24h widgets.'), state.statisticsEnable)
 				]
 			)
-		])
+		},
+		{
+			id: 'api',
+			title: _('API access'),
+			content: renderApiSecuritySection(configYaml, uciAccess, true)
+		},
+		{
+			id: 'advanced',
+			title: _('Advanced YAML'),
+			content: renderConfigYamlAdvanced(configYaml, refreshPage, true)
+		}
+	];
+
+	return E('div', { 'class': 'blocky-settings-page' }, [
+		renderBlockyConfigLayout(sections, toolbar, 0)
 	]);
 }
 
 function renderBlockySettingsPage(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
 	return E('div', { 'class': 'blocky-config-page' }, [
-		renderRouterDnsIntegration(configYaml, dnsFwdRaw),
-		renderApiSecuritySection(configYaml, uciAccess),
-		renderBlockySettingsForm(configYaml, refreshPage),
-		renderConfigYamlAdvanced(configYaml, refreshPage)
+		E('p', { 'class': 'cbi-section-descr blocky-config-intro' }, [
+			_('Choose a settings section on the left. Block list URLs stay under the Block lists tab.')
+		]),
+		renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 	]);
 }
 
-function renderConfigYamlAdvanced(content, refreshPage) {
+function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 	var editor = E('textarea', {
 		'class': 'cbi-input-textarea blocky-settings-yaml',
 		'style': 'width:100%; min-height:22em; font-family:monospace'
 	}, [ content || '' ]);
 
-	return E('details', { 'class': 'blocky-settings-advanced cbi-section' }, [
-		E('summary', { 'class': 'blocky-settings-advanced-summary' }, [ _('Advanced YAML editor') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Edit %s directly. Prefer the settings panels above — the blocking: section is overwritten when block lists sync.').format(CONFIG_PATH)
+	var buttons = E('p', {}, [
+		E('button', {
+			'class': 'cbi-button cbi-button-save',
+			'click': ui.createHandlerFn(this, function(ev) {
+				ev.preventDefault();
+
+				if (!editor.value.trim()) {
+					notify(_('Configuration cannot be empty.'), 'danger');
+					return;
+				}
+
+				return fs.write(CONFIG_PATH, editor.value).then(function() {
+					return execBlockyListsSync();
+				}).then(function() {
+					notify(_('Configuration saved.'));
+					if (typeof refreshPage === 'function')
+						return refreshPage();
+				}).catch(function(err) {
+					notify(err.message || String(err), 'danger');
+				});
+			})
+		}, [ _('Save YAML') ]),
+		' ',
+		E('button', {
+			'class': 'cbi-button cbi-button-apply',
+			'click': ui.createHandlerFn(this, function(ev) {
+				ev.preventDefault();
+
+				if (!editor.value.trim()) {
+					notify(_('Configuration cannot be empty.'), 'danger');
+					return;
+				}
+
+				return fs.write(CONFIG_PATH, editor.value).then(function() {
+					return execBlockyListsSync();
+				}).then(function() {
+					return runInit('restart');
+				}).then(function() {
+					notify(_('Configuration saved and Blocky restarted.'));
+					if (typeof refreshPage === 'function')
+						return refreshPage();
+				}).catch(function(err) {
+					notify(err.message || String(err), 'danger');
+				});
+			})
+		}, [ _('Save YAML & restart') ])
+	]);
+	var body = [
+		E('p', { 'class': 'blocky-config-section-descr' }, [
+			_('Edit %s directly. Prefer the settings sections — the blocking: section is overwritten when block lists sync.').format(CONFIG_PATH)
 		]),
 		editor,
-		E('p', {}, [
-			E('button', {
-				'class': 'cbi-button cbi-button-save',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
+		buttons
+	];
 
-					if (!editor.value.trim()) {
-						notify(_('Configuration cannot be empty.'), 'danger');
-						return;
-					}
+	if (embedded)
+		return configSectionPage(_('Advanced YAML editor'), '', body);
 
-					return fs.write(CONFIG_PATH, editor.value).then(function() {
-						return execBlockyListsSync();
-					}).then(function() {
-						notify(_('Configuration saved.'));
-						if (typeof refreshPage === 'function')
-							return refreshPage();
-					}).catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Save YAML') ]),
-			' ',
-			E('button', {
-				'class': 'cbi-button cbi-button-apply',
-				'click': ui.createHandlerFn(this, function(ev) {
-					ev.preventDefault();
-
-					if (!editor.value.trim()) {
-						notify(_('Configuration cannot be empty.'), 'danger');
-						return;
-					}
-
-					return fs.write(CONFIG_PATH, editor.value).then(function() {
-						return execBlockyListsSync();
-					}).then(function() {
-						return runInit('restart');
-					}).then(function() {
-						notify(_('Configuration saved and Blocky restarted.'));
-						if (typeof refreshPage === 'function')
-							return refreshPage();
-					}).catch(function(err) {
-						notify(err.message || String(err), 'danger');
-					});
-				})
-			}, [ _('Save YAML & restart') ])
-		])
-	]);
+	return E('details', { 'class': 'blocky-settings-advanced cbi-section' }, [
+		E('summary', { 'class': 'blocky-settings-advanced-summary' }, [ _('Advanced YAML editor') ])
+	].concat(body));
 }
 
 function renderTabs(tabs, activeIndex) {

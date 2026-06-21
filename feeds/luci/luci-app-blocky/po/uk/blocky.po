@@ -638,8 +638,8 @@ msgstr "Так"
 msgid "DNS blocklists"
 msgstr "DNS blocklists"
 
-msgid "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
-msgstr "Керування віддаленими DNS blocklists (як у AdGuard Home): перегляд, увімкнення, редагування, видалення та комбінування кількох списків."
+msgid "Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists."
+msgstr "Керування віддаленими DNS blocklists: перегляд, увімкнення, редагування, видалення та комбінування кількох списків."
 
 msgid "Rules"
 msgstr "Правила"
@@ -704,12 +704,6 @@ msgstr "Додати власний віддалений blocklist за назв
 msgid "Choose from catalog"
 msgstr "Обрати з каталогу"
 
-msgid "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
-msgstr "Популярні DNS blocklists за категоріями AdGuard Home. Оберіть один або кілька і додайте до конфігурації."
-
-msgid "Add selected lists"
-msgstr "Додати обрані списки"
-
 msgid "Failed to sync block lists to config.yml"
 msgstr "Не вдалося синхронізувати blocklists у config.yml"
 
@@ -718,36 +712,6 @@ msgstr "StevenBlack Unified"
 
 msgid "Unified ads and malware hosts file (English-focused)."
 msgstr "Об'єднаний hosts-файл реклами та шкідливих доменів (англомовний)."
-
-msgid "AdGuard DNS filter"
-msgstr "AdGuard DNS filter"
-
-msgid "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
-msgstr "DNS-оптимізована комбінація базових фільтрів реклами, мобільної реклами, соцмереж, шпигунського ПЗ і приватності."
-
-msgid "AdGuard Tracking Protection"
-msgstr "AdGuard Tracking Protection"
-
-msgid "Counters, analytics, and web tracking tools."
-msgstr "Лічильники, аналітика та інструменти веб-трекінгу."
-
-msgid "AdGuard Social Media"
-msgstr "AdGuard Social Media"
-
-msgid "Social widgets, Like/Tweet buttons, and related integrations."
-msgstr "Віджети соцмереж, кнопки Like/Tweet та подібні інтеграції."
-
-msgid "AdGuard Mobile Ads"
-msgstr "AdGuard Mobile Ads"
-
-msgid "Advertising on mobile devices and in mobile apps."
-msgstr "Реклама на мобільних пристроях і в мобільних застосунках."
-
-msgid "AdGuard Annoyances"
-msgstr "AdGuard Annoyances"
-
-msgid "Cookie notices, in-page popups, and third-party widgets."
-msgstr "Повідомлення про cookies, спливаючі вікна на сторінках і сторонні віджети."
 
 msgid "OISD Full Domains"
 msgstr "OISD Full Domains"
@@ -1027,6 +991,27 @@ msgstr "Malware, фішинг, botnet C2 та threat intelligence"
 
 msgid "Failed to refresh block lists in Blocky."
 msgstr "Не вдалося оновити списки блокування в Blocky."
+
+msgid "Choose a settings section on the left. Block list URLs stay under the Block lists tab."
+msgstr "Оберіть розділ налаштувань зліва. URL списків блокування залишаються на вкладці «Списки блокування»."
+
+msgid "Router DNS"
+msgstr "Router DNS"
+
+msgid "List downloads"
+msgstr "Завантаження списків"
+
+msgid "Hosts sources"
+msgstr "Джерела hosts"
+
+msgid "Security"
+msgstr "Безпека"
+
+msgid "Advanced YAML"
+msgstr "Розширений YAML"
+
+msgid "Edit %s directly. Prefer the settings sections — the blocking: section is overwritten when block lists sync."
+msgstr "Редагуйте %s напряму. Краще використовуйте розділи налаштувань — секція blocking: перезаписується при синхронізації списків."
 
 msgid "Save settings"
 msgstr "Зберегти налаштування"

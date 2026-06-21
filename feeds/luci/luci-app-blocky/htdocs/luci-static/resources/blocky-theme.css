@@ -1018,8 +1018,108 @@
 .blocky-config-page {
 	display: flex;
 	flex-direction: column;
+	gap: 0.75em;
+	min-width: 0;
+}
+
+.blocky-config-intro {
+	margin: 0 0 0.35em;
+}
+
+.blocky-config-layout {
+	display: flex;
+	align-items: flex-start;
 	gap: 1.25em;
 	min-width: 0;
+}
+
+.blocky-config-sidebar {
+	flex: 0 0 13.5em;
+	min-width: 11em;
+	position: sticky;
+	top: 0.5em;
+	align-self: flex-start;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 8px;
+	background: var(--background-color-low);
+	padding: 0.35em 0;
+}
+
+.blocky-config-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 0.1em;
+	padding: 0.15em;
+}
+
+.blocky-config-nav-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	border: none;
+	border-left: 3px solid transparent;
+	border-radius: 0 6px 6px 0;
+	background: transparent;
+	color: var(--text-color-high);
+	padding: 0.55em 0.85em 0.55em 0.7em;
+	font: inherit;
+	font-size: 0.94em;
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.blocky-config-nav-item:hover {
+	background: var(--background-color-medium);
+}
+
+.blocky-config-nav-item.active {
+	background: var(--background-color-high);
+	border-left-color: var(--primary-color-high, #00a870);
+	color: var(--primary-color-high, #00a870);
+	font-weight: 600;
+}
+
+.blocky-config-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.blocky-config-main {
+	min-width: 0;
+}
+
+.blocky-config-section {
+	border: 1px solid var(--border-color-medium);
+	border-radius: 8px;
+	background: var(--background-color-high, var(--background-color-low));
+	padding: 1em 1.1em 1.15em;
+	min-width: 0;
+}
+
+.blocky-config-section-title {
+	margin: 0 0 0.35em;
+	font-size: 1.35em;
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.blocky-config-section-descr {
+	margin: 0 0 1em;
+	color: var(--text-color-medium);
+	font-size: 0.92em;
+	line-height: 1.45;
+	max-width: 52em;
+}
+
+.blocky-config-section-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+}
+
+.blocky-config-section-form .blocky-note-soft {
+	margin-top: 0;
 }
 
 .blocky-settings-page {
@@ -1031,7 +1131,7 @@
 	flex-wrap: wrap;
 	gap: 0.5em;
 	align-items: center;
-	margin: 0 0 0.25em;
+	margin: 0 0 0.85em;
 	padding: 0.65em 0.85em;
 	border: 1px solid var(--border-color-medium);
 	border-radius: 6px;
@@ -1122,6 +1222,35 @@
 }
 
 @media (max-width: 900px) {
+	.blocky-config-layout {
+		flex-direction: column;
+	}
+
+	.blocky-config-sidebar {
+		position: static;
+		flex: 1 1 auto;
+		width: 100%;
+	}
+
+	.blocky-config-nav {
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 0.35em;
+	}
+
+	.blocky-config-nav-item {
+		width: auto;
+		border-left: none;
+		border-bottom: 2px solid transparent;
+		border-radius: 6px;
+		padding: 0.45em 0.75em;
+	}
+
+	.blocky-config-nav-item.active {
+		border-left-color: transparent;
+		border-bottom-color: var(--primary-color-high, #00a870);
+	}
+
 	.blocky-settings-grid {
 		grid-template-columns: 1fr;
 	}
