@@ -87,7 +87,7 @@ write_blocking_section() {
 		echo "      readTimeout: 60s"
 		echo "      attempts: 5"
 		echo "      cooldown: 10s"
-		echo "      concurrency: 4"
+		echo "    concurrency: 4"
 	} > "$out_tmp"
 
 	echo "$out_tmp"

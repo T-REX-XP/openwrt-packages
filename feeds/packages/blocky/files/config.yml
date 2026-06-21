@@ -37,7 +37,7 @@ blocking:
       readTimeout: 60s
       attempts: 5
       cooldown: 10s
-      concurrency: 4
+    concurrency: 4
 
 caching:
   minTime: 5m

@@ -97,6 +97,51 @@ blocky_http_post_empty() {
 	esac
 }
 
+blocky_http_post_json() {
+	local url="$1"
+	local body="$2"
+	local client
+
+	client="$(blocky_http_client)" || return 1
+
+	case "$client" in
+		uclient-fetch)
+			uclient-fetch -4 -q -O - --timeout=30 \
+				--post-type=application/json \
+				--post-data="$body" \
+				"$url" 2>/dev/null
+			;;
+		wget)
+			wget -4 -q -O - -T 30 \
+				--header='Content-Type: application/json' \
+				--post-data="$body" \
+				"$url" 2>/dev/null
+			;;
+	esac
+}
+
+blocky_http_post() {
+	local url="$1"
+	local body="${2:-}"
+	local client
+
+	client="$(blocky_http_client)" || return 1
+
+	if [ -n "$body" ]; then
+		blocky_http_post_json "$url" "$body"
+		return $?
+	fi
+
+	case "$client" in
+		uclient-fetch)
+			uclient-fetch -4 -q -O - --timeout=180 --post-data='' "$url" 2>/dev/null
+			;;
+		wget)
+			wget -4 -q -O - -T 180 --post-data='' "$url" 2>/dev/null
+			;;
+	esac
+}
+
 blocky_wait_for_api() {
 	local base="$1"
 	local max_wait="${2:-90}"

@@ -110,4 +110,23 @@ if grep -qE '^[[:space:]]+http:[[:space:]]+4000[[:space:]]*$' "$CONFIG"; then
 	changed=1
 fi
 
+if grep -qE '^[[:space:]]{6}concurrency:' "$CONFIG" 2>/dev/null; then
+	conc="$(grep -E '^[[:space:]]{6}concurrency:' "$CONFIG" | head -1 | sed 's/.*concurrency:[[:space:]]*//; s/[[:space:]]*$//')"
+	[ -n "$conc" ] || conc=4
+	sed -i '/^[[:space:]]\{6\}concurrency:/d' "$CONFIG"
+	if ! grep -qE '^[[:space:]]{4}concurrency:' "$CONFIG" 2>/dev/null; then
+		awk -v c="$conc" '
+			/^  loading:/ { loading=1 }
+			loading && /^    refreshPeriod:/ && !done {
+				print
+				print "    concurrency: " c
+				done=1
+				next
+			}
+			{ print }
+		' "$CONFIG" > "${CONFIG}.tmp" && mv "${CONFIG}.tmp" "$CONFIG"
+	fi
+	changed=1
+fi
+
 echo "$changed"

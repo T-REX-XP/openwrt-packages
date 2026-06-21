@@ -1004,26 +1004,42 @@ function parseJson(text) {
 	}
 }
 
-function fetchText(url, method, body) {
-	var args = [ '-4', '-q', '-O', '-' ];
+function blockyPathFromUrl(url) {
+	var path = safeString(url).trim();
 
-	if (blockyApiAccess.user)
-		args.push('--user=' + blockyApiAccess.user + ':' + blockyApiAccess.password);
+	if (!path)
+		return 'metrics';
 
-	if (method === 'POST') {
-		var payload = body != null ? String(body) : '';
+	if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) {
+		var base = blockyApiAccess.baseUrl;
 
-		if (payload && payload !== '{}') {
-			args.push('--post-type=application/json');
-			args.push('--post-data=' + payload);
-		} else {
-			args.push('--post-data=');
+		if (path.indexOf(base) === 0)
+			path = path.slice(base.length);
+		else {
+			var m = path.match(/\/\/[^/]+(\/.*)?$/);
+
+			path = m && m[1] ? m[1] : '/metrics';
 		}
 	}
 
-	args.push(url);
+	path = path.replace(/^\//, '');
 
-	return fs.exec('/bin/uclient-fetch', args).then(function(res) {
+	if (path === 'metrics' || path.indexOf('metrics?') === 0)
+		return 'metrics';
+
+	if (path.indexOf('api/') === 0)
+		return path;
+
+	return 'api/' + path;
+}
+
+function blockyHttpRequest(method, path, body) {
+	var args = [ method || 'GET', path || 'metrics' ];
+
+	if (body != null && String(body) !== '')
+		args.push(String(body));
+
+	return fs.exec('/usr/sbin/blocky-http-request', args).then(function(res) {
 		var code = res != null ? Number(res.code) : 0;
 		var text = execResultStdout(res, '');
 
@@ -1032,6 +1048,10 @@ function fetchText(url, method, body) {
 
 		return text;
 	});
+}
+
+function fetchText(url, method, body) {
+	return blockyHttpRequest(method || 'GET', blockyPathFromUrl(url), body);
 }
 
 function unwrapFetchText(res) {
@@ -3546,6 +3566,12 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 				out.push(loadingStrategy);
 				return;
 			}
+
+			var loadingConcurrency = patchLine(line, 'concurrency', '    ', fields.listConcurrency || '4', 'concurrency');
+			if (loadingConcurrency) {
+				out.push(loadingConcurrency);
+				return;
+			}
 		}
 
 		if (inLoading) {
@@ -3557,13 +3583,15 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 		}
 
 		if (inDownloads) {
+			if (/^\s{6}concurrency:/.test(line))
+				return;
+
 			var patched = patchLine(line, 'cachePath', '      ', fields.listCachePath || '/var/lib/blocky/lists', 'cachePath') ||
 				patchLine(line, 'timeout', '      ', fields.listDownloadTimeout || '60s', 'timeout') ||
 				patchLine(line, 'writeTimeout', '      ', fields.listWriteTimeout || '60s', 'writeTimeout') ||
 				patchLine(line, 'readTimeout', '      ', fields.listReadTimeout || '60s', 'readTimeout') ||
 				patchLine(line, 'attempts', '      ', fields.listDownloadAttempts || '5', 'attempts') ||
-				patchLine(line, 'cooldown', '      ', fields.listCooldown || '10s', 'cooldown') ||
-				patchLine(line, 'concurrency', '      ', fields.listConcurrency || '4', 'concurrency');
+				patchLine(line, 'cooldown', '      ', fields.listCooldown || '10s', 'cooldown');
 
 			if (patched) {
 				out.push(patched);
@@ -3578,6 +3606,30 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 
 		out.push(line);
 	});
+
+	if (!replaced.concurrency) {
+		var insertAt = -1;
+		var i;
+
+		for (i = 0; i < out.length; i++) {
+			if (/^\s+refreshPeriod:/.test(out[i])) {
+				insertAt = i + 1;
+				break;
+			}
+		}
+
+		if (insertAt < 0) {
+			for (i = 0; i < out.length; i++) {
+				if (/^\s+loading:\s*$/.test(out[i])) {
+					insertAt = i + 1;
+					break;
+				}
+			}
+		}
+
+		if (insertAt >= 0)
+			out.splice(insertAt, 0, '    concurrency: ' + yamlQuote(fields.listConcurrency || '4'));
+	}
 
 	return out.join('\n');
 }
