@@ -11,6 +11,10 @@ sanitize_id() {
 	echo "$1" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_' '_' | sed 's/_*$//; s/^_*//'
 }
 
+yaml_double_quote() {
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 cleanup() {
 	[ -n "$DENY_TMP" ] && rm -f "$DENY_TMP"
 	[ -n "$GROUP_TMP" ] && rm -f "$GROUP_TMP"
@@ -29,8 +33,8 @@ append_denylist_entry() {
 	id="$(sanitize_id "$section")"
 	[ -n "$id" ] || return 0
 
-	printf '\t%s:\n' "$id" >> "$DENY_TMP"
-	printf '\t  - %s\n' "$url" >> "$DENY_TMP"
+	printf '    %s:\n' "$id" >> "$DENY_TMP"
+	printf '      - "%s"\n' "$(yaml_double_quote "$url")" >> "$DENY_TMP"
 
 	[ "$enabled" = "1" ] && printf '%s\n' "$id" >> "$GROUP_TMP"
 }
@@ -49,8 +53,8 @@ write_blocking_section() {
 	config_foreach append_denylist_entry blocklist
 
 	if [ ! -s "$DENY_TMP" ]; then
-		printf '\tstevenblack:\n' >> "$DENY_TMP"
-		printf '\t  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n' >> "$DENY_TMP"
+		printf '    stevenblack:\n' >> "$DENY_TMP"
+		printf '      - "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"\n' >> "$DENY_TMP"
 		printf 'stevenblack\n' >> "$GROUP_TMP"
 	fi
 
@@ -76,36 +80,26 @@ write_blocking_section() {
 
 merge_config() {
 	local new_blocking="$1"
-	local head_tmp merged_tmp
+	local head_tmp tail_tmp merged_tmp
 
 	head_tmp="$(mktemp)"
+	tail_tmp="$(mktemp)"
 	merged_tmp="$(mktemp)"
 
+	# Keep everything before the blocking: section (do not include blocking or tail).
+	awk '/^blocking:/ { exit } { print }' "$CONFIG_YML" > "$head_tmp"
+
+	# Keep everything after the blocking: section.
 	awk '
 		/^blocking:/ { skip=1; next }
-		skip {
-			if ($0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/) skip=0
-			else next
-		}
+		skip && $0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/ { skip=0 }
+		skip { next }
 		{ print }
-	' "$CONFIG_YML" > "$head_tmp"
+	' "$CONFIG_YML" > "$tail_tmp"
 
-	cat "$head_tmp" "$new_blocking" > "$merged_tmp"
-
-	awk '
-		/^blocking:/ { skip=1; next }
-		skip {
-			if ($0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/) {
-				skip=0
-				print
-			}
-			next
-		}
-		{ next }
-	' "$CONFIG_YML" >> "$merged_tmp"
-
+	cat "$head_tmp" "$new_blocking" "$tail_tmp" > "$merged_tmp"
 	mv "$merged_tmp" "$CONFIG_YML"
-	rm -f "$head_tmp"
+	rm -f "$head_tmp" "$tail_tmp"
 }
 
 main() {
@@ -117,6 +111,8 @@ main() {
 	}
 
 	trap cleanup EXIT
+
+	cp "$CONFIG_YML" "$CONFIG_YML.bak.lists-sync" 2>/dev/null || true
 
 	blocking_file="$(write_blocking_section)"
 	merge_config "$blocking_file"
