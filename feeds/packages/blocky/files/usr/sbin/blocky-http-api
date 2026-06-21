@@ -104,7 +104,7 @@ blocky_http_post_empty() {
 
 	case "$client" in
 		uclient-fetch)
-			uclient-fetch -4 -q -O /dev/null --timeout=180 --post-data='' "$url"
+			uclient-fetch -4 -q -O /dev/null --timeout=180 --method=POST "$url"
 			;;
 		wget)
 			wget -4 -q -O /dev/null -T 180 --post-data='' "$url"
@@ -146,7 +146,7 @@ blocky_http_post() {
 
 	case "$(blocky_http_client)" in
 		uclient-fetch)
-			uclient-fetch -4 -q -O - --timeout=180 --post-data='' "$url" 2>/dev/null
+			uclient-fetch -4 -q -O - --timeout=180 --method=POST "$url" 2>/dev/null
 			;;
 		wget)
 			wget -4 -q -O - -T 180 --post-data='' "$url" 2>/dev/null

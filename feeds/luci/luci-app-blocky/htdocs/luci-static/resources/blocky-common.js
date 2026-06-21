@@ -131,6 +131,25 @@ var callServiceList = rpc.declare({
 	expect: { '': {} }
 });
 
+var callBlockySyncLists = rpc.declare({
+	object: 'luci.blocky',
+	method: 'sync_lists',
+	expect: { ok: true, code: true, output: true }
+});
+
+var callBlockyRefreshLists = rpc.declare({
+	object: 'luci.blocky',
+	method: 'refresh_lists',
+	expect: { ok: true, code: true, output: true }
+});
+
+var callBlockyHttpRequest = rpc.declare({
+	object: 'luci.blocky',
+	method: 'http_request',
+	params: [ 'method', 'path', 'body' ],
+	expect: { ok: true, code: true, stdout: true, stderr: true }
+});
+
 function notify(message, level) {
 	ui.addNotification(null, E('p', {}, [ message ]), level || 'info');
 }
@@ -757,22 +776,18 @@ function loadUciBlocklists() {
 }
 
 function execBlockyListsSync() {
-	return fs.exec('/usr/sbin/blocky-lists-sync', []).then(function(res) {
-		var code = res != null ? Number(res.code) : 0;
-
-		if (code !== 0)
-			throw new Error(execResultStdout(res, _('Failed to sync block lists to config.yml')));
+	return callBlockySyncLists().then(function(res) {
+		if (!res || !res.ok)
+			throw new Error((res && res.output) || _('Failed to sync block lists to config.yml'));
 
 		return res;
 	});
 }
 
 function execBlockyListsRefresh() {
-	return fs.exec('/usr/sbin/blocky-lists-refresh', []).then(function(res) {
-		var code = res != null ? Number(res.code) : 0;
-
-		if (code !== 0)
-			throw new Error(execResultStdout(res, _('Failed to refresh block lists in Blocky.')));
+	return callBlockyRefreshLists().then(function(res) {
+		if (!res || !res.ok)
+			throw new Error((res && res.output) || _('Failed to refresh block lists in Blocky.'));
 
 		return res;
 	});
@@ -1034,17 +1049,11 @@ function blockyPathFromUrl(url) {
 }
 
 function blockyHttpRequest(method, path, body) {
-	var args = [ method || 'GET', path || 'metrics' ];
+	return callBlockyHttpRequest(method || 'GET', path || 'metrics', body != null ? String(body) : '').then(function(res) {
+		var text = res && res.stdout ? res.stdout : '';
 
-	if (body != null && String(body) !== '')
-		args.push(String(body));
-
-	return fs.exec('/usr/sbin/blocky-http-api', args).then(function(res) {
-		var code = res != null ? Number(res.code) : 0;
-		var text = execResultStdout(res, '');
-
-		if (code !== 0)
-			throw new Error(text.trim() || _('Request to Blocky failed.'));
+		if (!res || !res.ok)
+			throw new Error((res && (res.stderr || res.stdout)) || _('Request to Blocky failed.'));
 
 		return text;
 	});

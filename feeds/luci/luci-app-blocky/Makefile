@@ -5,7 +5,7 @@ include $(TOPDIR)/rules.mk
 LUCI_TITLE:=LuCI support for Blocky DNS
 LUCI_DEPENDS:=+blocky +luci-base
 LUCI_PKGARCH:=all
-PKG_RELEASE:=37
+PKG_RELEASE:=38
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
