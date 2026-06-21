@@ -1,6 +1,6 @@
 # luci-app-blocky — feature analysis & implementation plan
 
-*Orange Pi CM5 / ImmortalWrt feed · Last updated: 2026-06-20.*
+*Orange Pi CM5 / ImmortalWrt feed · Last updated: 2026-06-21.*
 
 This document compares three surfaces:
 
@@ -16,16 +16,25 @@ Target Blocky version in feed: **v0.32.1** ([release notes](https://github.com/0
 
 ## Executive summary
 
-**luci-app-blocky already covers the core Blocky API** (blocking, cache flush, list refresh, DNS query test) and adds **OpenWrt-specific dnsmasq forwarding** that blocky-ui does not provide. Dashboards are built from **Prometheus `/metrics` counter deltas** while the page is open — workable, but fragile compared to Blocky’s native **`GET /api/stats`** (rolling 24h in-memory statistics, Blocky ≥ recent versions).
+**luci-app-blocky covers the core Blocky API** (blocking, cache flush, list refresh, DNS query test) and adds **OpenWrt-specific dnsmasq forwarding** that blocky-ui does not provide. Dashboards use **`GET /api/stats`** (24h in-memory statistics) with Prometheus `/metrics` fallback. Shared logic lives in **`blocky-common.js`**; `services/blocky.js` and `status/blocky.js` are thin wrappers.
 
 **blocky-ui** adds a polished UX (countdown timer, cards, query-log table with filters) and optional **external log backends** (MySQL, PostgreSQL, SQLite, CSV, VictoriaLogs). On a router, shipping a separate Next.js container is impractical; the goal is to **port the useful ideas into LuCI**, not bundle blocky-ui.
 
-**Highest-value next steps:**
+### Implementation status (2026-06-21)
 
-1. Wire **`GET /api/stats`** and enable **`statistics`** in default `config.yml`.
-2. Replace Prometheus-only top lists / charts where `/stats` is clearer (`perHour`, `topClients`, `topDomains`, `topBlockedDomains`).
-3. Improve blocking UX (live countdown, fewer full page reloads).
-4. Optional **CSV query log viewer** (read-only, tmpfs path) — only if `queryLog` is enabled in YAML.
+| Area | Status |
+|------|--------|
+| `statistics` + `queryLog` in default `config.yml` | **Done** — localhost ports `127.0.0.1:5353` / `127.0.0.1:4000` |
+| `blocky-common.js` shared module | **Done** |
+| `/api/stats` dashboard widgets | **Done** — with graceful 503 banner |
+| Pause countdown (`autoEnableInSec`) | **Done** — 1s poll on Dashboard / Controls |
+| UCI blocklists → `blocky-lists-sync` | **Done** |
+| rpcd `luci.blocky` (`sync_lists`, `refresh_lists`, `http_request`) | **Done** — LuCI `expect: { '': {} }` |
+| Structured Settings form (not raw YAML only) | **Done** — Advanced YAML still available |
+| CSV query log viewer in LuCI | **Not implemented** (Phase 3) |
+| Consolidate Services + Status menus | **Not implemented** (Phase 5) |
+
+**Remaining high-value work:** optional CSV query log tab (Phase 3), menu consolidation (Phase 5), track upstream API changes.
 
 ---
 
@@ -35,13 +44,17 @@ Target Blocky version in feed: **v0.32.1** ([release notes](https://github.com/0
 
 ```text
 feeds/luci/luci-app-blocky/
-  htdocs/luci-static/resources/view/services/blocky.js   # main app (tabs)
-  htdocs/luci-static/resources/view/status/blocky.js     # status / charts
-  root/usr/share/luci/menu.d/luci-app-blocky.json
+  htdocs/luci-static/resources/blocky-common.js      # shared UI, API, settings form
+  htdocs/luci-static/resources/blocky-theme.css
+  htdocs/luci-static/resources/view/services/blocky.js   # thin wrapper → createBlockyView()
+  htdocs/luci-static/resources/view/status/blocky.js     # status mode wrapper
+  root/usr/share/rpcd/ucode/luci.blocky.uc               # sync_lists, refresh_lists, http_request
   root/usr/share/rpcd/acl.d/luci-app-blocky.json
+  root/usr/share/luci/menu.d/luci-app-blocky.json
+  root/usr/share/luci-app-blocky/blocklist-catalog.json
 ```
 
-Depends on: `blocky`, `luci-base`, `uclient-fetch` (local HTTP to Blocky on `:4000`).
+Depends on: `blocky`, `luci-base`. Local HTTP to Blocky goes through **rpcd** → `/usr/sbin/blocky-http-api` (not browser-side fetch).
 
 ### 1.2 Services → Blocky (`services/blocky.js`)
 
@@ -50,12 +63,13 @@ Five tabs:
 | Tab | Features |
 |-----|----------|
 | **Dashboard** | Overview metric cards (total queries, blocked, cache hit %, denylist entries); server status card; pause presets (5m/15m/30m/disable); operations (cache flush, list refresh); **real-time charts** from Prometheus polling (1h/24h/7d/30d windows, counter deltas) |
-| **Configuration** | **Router DNS integration** — `blocky-dnsmasq-sync` enable/disable dnsmasq → Blocky upstream; raw **`/etc/blocky/config.yml`** textarea (save / save & restart) |
+| **Configuration** | Structured **Settings** form (upstreams, blocking, ports, statistics, query log) + **Router DNS integration** (`blocky-dnsmasq-sync`); optional raw YAML in Advanced |
 | **Controls** | Enable/disable blocking; custom pause duration; **per-group disable** (`groups=` query param); operations + init.d enable/disable/start/stop/restart |
+| **Block lists** | UCI `blocklist` sections; catalog presets; **Sync to config.yml** (`blocky-lists-sync`) vs **Refresh lists** API (`blocky-lists-refresh`) |
 | **DNS Query** | POST `/api/query` — domain + record type (A, AAAA, CNAME, …), shows response type / RCODE / reason |
 | **Logs** | **Informational only** — detects `queryLog:` in YAML, explains LuCI does not parse logs |
 
-**Transport:** `uclient-fetch` to `http://127.0.0.1:4000/api/*` and `/metrics`; `fs.exec` for init.d and `blocky-dnsmasq-sync`; `fs.read`/`fs.write` for config.
+**Transport:** rpcd `luci.blocky.http_request` → `blocky-http-api` → `http://127.0.0.1:4000`; `fs.exec` for init.d and `blocky-dnsmasq-sync`; `fs.read`/`fs.write` for config.
 
 **OpenWrt-only (not in blocky-ui):**
 
@@ -73,24 +87,29 @@ Dedicated status page when Prometheus is enabled:
 - List refresh button
 - Row count selector (5/10/15)
 
-**Limitation:** Rankings depend on Prometheus exposing labeled counters; no use of **`GET /api/stats`**.
+**Data sources:** Primary **`GET /api/stats`** for overview cards, hourly chart, top lists; Prometheus `/metrics` as fallback when statistics disabled.
 
 ### 1.4 Default Blocky package config (`feeds/packages/blocky/files/config.yml`)
 
 ```yaml
 ports:
-  dns: 5353
-  http: 4000
+  dns: 127.0.0.1:5353
+  http: 127.0.0.1:4000
+queryLog:
+  type: csv
+  target: /tmp/blocky-logs
+statistics:
+  enable: true
 prometheus:
   enable: true
   path: /metrics
 ```
 
-**Missing for full API stats:** no `statistics:` section (required for `/api/stats`). No `queryLog:` (expected on router).
+UCI `/etc/config/blocky`: `main.dnsmasq_forward`, `main.refresh_period`, `blocklist` sections (name, url, enabled, category, description).
 
 ### 1.5 ACL / security model
 
-`luci-app-blocky.json` grants read/write to `config.yml`, exec on init.d, dnsmasq-sync, and `uclient-fetch`. No Blocky API authentication (matches upstream default — API bound to localhost on router).
+`luci-app-blocky.json` grants read/write to `config.yml`, UCI `blocky`, exec on init.d and `blocky-dnsmasq-sync`, and ubus `luci.blocky` methods. No Blocky API authentication (matches upstream default — API bound to localhost on router).
 
 ---
 
@@ -109,7 +128,7 @@ Base path: **`/api`** on the HTTP port (default **4000**).
 | `POST` | `/cache/flush` | Clear DNS cache | Yes |
 | `POST` | `/lists/refresh` | Reload allow/deny lists | Yes |
 | `POST` | `/query` | `{ query, type }` → resolution result | Yes |
-| `GET` | `/stats` | Rolling **24h** in-memory statistics | **No** |
+| `GET` | `/stats` | Rolling **24h** in-memory statistics | Yes (primary dashboard source) |
 | — | `GET /metrics` | Prometheus text exposition | Yes (LuCI only) |
 
 ### 2.2 `GET /api/stats` payload (high level)
@@ -202,35 +221,33 @@ Demo: [blocky-ui.vercel.app](https://blocky-ui.vercel.app).
 
 ## 5. Recommended implementation plan
 
-### Phase 0 — Foundation (1–2 PRs)
+### Phase 0 — Foundation (1–2 PRs) — **largely complete**
 
 **Goal:** Correct data sources for v0.32.1; less jarring UX.
 
-| Task | Details |
-|------|---------|
-| Enable **`statistics`** in [default config.yml](../feeds/packages/blocky/files/config.yml) | Required for `GET /api/stats`; document in LuCI if disabled |
-| Add **`blockyApi('/stats')`** helper + graceful 503 handling | Show “enable statistics in config” banner |
-| **Pause countdown** on Dashboard / Controls | Poll `/blocking/status` every 1s when `autoEnableInSec > 0` (blocky-ui pattern) |
-| **Stop full reload** after operations | Re-call `load()` data or patch DOM; use notifications only |
-| Shared **`blocky-common.js`** module | Deduplicate `blockyApi`, metrics parsers, CSS between `services/blocky.js` and `status/blocky.js` (~1.5k lines duplicated) |
+| Task | Status |
+|------|--------|
+| Enable **`statistics`** in default `config.yml` | Done |
+| Add **`/api/stats`** helper + graceful 503 handling | Done |
+| **Pause countdown** on Dashboard / Controls | Done |
+| **Stop full reload** after operations | Done (notifications + partial refresh) |
+| Shared **`blocky-common.js`** module | Done |
 
 **Acceptance:** With default config, `/stats` returns JSON; pause timer visible; cache flush does not reload entire LuCI page.
 
 ---
 
-### Phase 1 — Native statistics dashboard (2–3 PRs)
+### Phase 1 — Native statistics dashboard (2–3 PRs) — **largely complete**
 
 **Goal:** Match blocky-ui overview + charts using `/api/stats`, reduce reliance on Prometheus label hacks.
 
-| Task | Details |
-|------|---------|
-| **Overview cards** | Prefer `summary.queries`, `summary.blocked`, `summary.cacheHitRate`, sum of `lists.denylist` counts; fallback to Prometheus if stats 503 |
-| **Queries over time** | Chart from `perHour[]` (fixed 24h UTC buckets) — stable without keeping page open |
-| **Top lists widget** | `topClients`, `topDomains`, `topBlockedDomains` with tabs or columns (blocky-ui “Top Lists”) |
-| **Poll `/stats` every 30–60s** on Dashboard/Status | Lighter than 10s Prometheus poll |
-| Status page | Merge or link — avoid maintaining two chart implementations |
-
-**Acceptance:** Top clients/domains work without Prometheus `client` labels; chart shows last 24h after single page load.
+| Task | Status |
+|------|--------|
+| **Overview cards** from `summary.*` + denylist counts | Done |
+| **Queries over time** from `perHour[]` | Done |
+| **Top lists** (`topClients`, `topDomains`, `topBlockedDomains`) | Done |
+| Poll `/stats` on Dashboard/Status | Done |
+| Status page shares `blocky-common.js` | Done |
 
 ---
 
@@ -307,12 +324,11 @@ blocky-ui intentionally avoids config editing; LuCI can exceed blocky-ui here fo
 
 | File | Change |
 |------|--------|
-| `feeds/packages/blocky/files/config.yml` | Add `statistics: enable: true` (exact key per upstream v0.32 docs) |
-| `feeds/luci/luci-app-blocky/htdocs/.../blocky-common.js` | **New** — shared API, stats renderers |
-| `services/blocky.js` | Consume `/stats`, countdown, reload fixes |
-| `status/blocky.js` | Merge with services or thin wrapper |
-| `root/usr/share/rpcd/acl.d/luci-app-blocky.json` | Optional log path read |
-| `PKG_RELEASE` | Bump on each LuCI publish |
+| `feeds/packages/blocky/files/config.yml` | `statistics`, `queryLog`, localhost ports — **done** |
+| `feeds/luci/luci-app-blocky/htdocs/.../blocky-common.js` | Shared API, stats renderers — **done** |
+| `root/usr/share/rpcd/ucode/luci.blocky.uc` | rpcd bridge for localhost HTTP — **done** |
+| `services/blocky.js` / `status/blocky.js` | Thin wrappers — **done** |
+| `PKG_RELEASE` | Bump on each LuCI/blocky recipe change |
 
 ---
 

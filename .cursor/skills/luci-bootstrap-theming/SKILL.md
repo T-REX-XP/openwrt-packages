@@ -12,8 +12,8 @@ Each LuCI app ships its own `*-theme.css`. There is **no shared theme library**.
 
 ## Required theme support
 
-1. **Light** — default Bootstrap variables
-2. **Dark** — `:root[data-darkmode="true"]` and `:root[data-darkmode="1"]`
+1. **Light** — default Bootstrap / **BootstrapLight**
+2. **Dark** — **BootstrapDark** via `:root[data-darkmode="true"]` and `:root[data-darkmode="1"]`
 3. **System** — `@media (prefers-color-scheme: dark)` when dark mode is not forced off
 
 ## CSS variable usage

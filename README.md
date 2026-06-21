@@ -9,6 +9,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | Path | Package |
 |------|---------|
 | `feeds/packages/blocky` | **blocky** — DNS proxy / ad-block (Go) |
+| `feeds/packages/cm5-button-scripts` | **cm5-button-scripts** — GPIO key handlers (used by **luci-app-buttons** on CM5) |
 | `feeds/luci/luci-app-blocky` | **luci-app-blocky** — LuCI for Blocky |
 | `feeds/luci/luci-app-speedtest` | **luci-app-speedtest** — LuCI for speedtest-go |
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |
@@ -20,6 +21,8 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
 Each LuCI app ships its own `*-theme.css` using **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, …), so **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight** all render correctly without a shared theme library.
+
+**Third-party feed note:** packages here are **not** on the official ImmortalWrt index (`immortalwrt.org`). Use compile-time linking (options A–C below) or the published GitHub Pages / Release feed (option D) to install `.apk` files on a running router.
 
 ## IDS & traffic analysis (Orange Pi CM5)
 

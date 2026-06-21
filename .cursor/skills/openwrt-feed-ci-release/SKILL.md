@@ -10,13 +10,15 @@ description: >-
 
 ## CI (unsigned)
 
-Workflow: `.github/workflows/build-packages.yml`
+Workflow: `.github/workflows/ci.yml` (entry point; calls reusable `.github/workflows/build-packages.yml`)
 
 - Runs on push/PR to verify packages compile
-- Uses ImmortalWrt SDK Docker image
+- Uses ImmortalWrt SDK Docker image (`aarch64_generic-25.12-SNAPSHOT`)
 - **Must set:** `FEEDNAME=openwrt_packages`, `FEED_DIR=${{ github.workspace }}/feeds`
 
 Without `FEED_DIR`, the action mounts repo root and finds no packages.
+
+**Badge in README** points at `ci.yml` — do not rename without updating README.
 
 ## Release (signed + Pages)
 

@@ -53,6 +53,18 @@ apk add banip luci-app-banip snort3 tcpdump-mini vnstat2 luci-app-vnstat2
 
 Enable banIP under *Services → banIP*. Run `snort-mgr check` before starting Snort IPS mode.
 
+## Blocky DNS integration (CM5)
+
+| Piece | Role |
+|-------|------|
+| Blocky | Listens `127.0.0.1:5353` (DNS), `127.0.0.1:4000` (HTTP API) |
+| dnsmasq | LAN `:53` → `127.0.0.1#5353` when `blocky.main.dnsmasq_forward=1` |
+| `blocky-lists-sync` | UCI blocklists → `/etc/blocky/config.yml` |
+| `blocky-lists-refresh` | POST `/api/lists/refresh` (re-download remote lists) |
+| LuCI | *Router DNS integration* toggles `blocky-dnsmasq-sync`; Controls tab refreshes lists via API |
+
+Do not run **adblock** alongside Blocky as primary LAN filter (CM5 image disables adblock when Blocky is enabled).
+
 ## CM5 network notes
 
 - Default LAN: `br-lan`, ports `eth1`/`eth2`, `192.168.8.1/24` (see immortalwrt `99-opi-cm5-network-migrate`)
