@@ -163,6 +163,25 @@ var callBlockyGetVersion = rpc.declare({
 	expect: { '': {} }
 });
 
+function blockyRpcOk(res) {
+	return !!(res && typeof res === 'object' && res.ok);
+}
+
+function blockyRpcError(res, fallback) {
+	if (res && typeof res === 'object') {
+		if (res.output)
+			return res.output;
+		if (res.stderr)
+			return res.stderr;
+		if (res.stdout)
+			return res.stdout;
+		if (res.error)
+			return res.error;
+	}
+
+	return fallback;
+}
+
 var BLOCKY_TAB_HASH = {
 	'dashboard': 0,
 	'statistics': 1,
@@ -813,8 +832,8 @@ function loadUciBlocklists() {
 
 function execBlockyListsSync() {
 	return callBlockySyncLists().then(function(res) {
-		if (!res || !res.ok)
-			throw new Error((res && res.output) || _('Failed to sync block lists to config.yml'));
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Failed to sync block lists to config.yml')));
 
 		return res;
 	});
@@ -822,8 +841,8 @@ function execBlockyListsSync() {
 
 function execBlockyListsRefresh() {
 	return callBlockyRefreshLists().then(function(res) {
-		if (!res || !res.ok)
-			throw new Error((res && res.output) || _('Failed to refresh block lists in Blocky.'));
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Failed to refresh block lists in Blocky.')));
 
 		return res;
 	});
@@ -863,14 +882,17 @@ function resolveDenyCount(counts, entry) {
 	return null;
 }
 
-function renderBlocklistsTab(statsResult, refreshPage, catalogData) {
+function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText) {
 	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
+	metricsText = safeString(metricsText);
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
 
 	function denyCountsMap() {
 		var stats = statsResult && statsResult.ok ? statsResult.data : null;
+		var fromStats = stats && stats.lists && stats.lists.denylist ? stats.lists.denylist : {};
+		var fromMetrics = parseDenylistGroupCounts(metricsText);
 
-		return stats && stats.lists && stats.lists.denylist ? stats.lists.denylist : {};
+		return mergeDenyCounts(fromStats, fromMetrics);
 	}
 
 	function repaintTable() {
@@ -1088,8 +1110,8 @@ function blockyHttpRequest(method, path, body) {
 	return callBlockyHttpRequest(method || 'GET', path || 'metrics', body != null ? String(body) : '').then(function(res) {
 		var text = res && res.stdout ? res.stdout : '';
 
-		if (!res || !res.ok)
-			throw new Error((res && (res.stderr || res.stdout)) || _('Request to Blocky failed.'));
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Request to Blocky failed.')));
 
 		return text;
 	});
@@ -1127,16 +1149,27 @@ function blockyMetricsUrl() {
 }
 
 function fetchBlockyStats() {
-	return fetchText(blockyApiAccess.baseUrl + '/api/stats').then(function(res) {
-		var text = safeString(unwrapFetchText(res)).trim();
+	return callBlockyHttpRequest('GET', 'api/stats', '').then(function(res) {
+		var text = safeString(res && res.stdout).trim();
+		var errText = safeString(res && res.stderr).trim();
 
-		if (!text || /statistics are disabled/i.test(text))
-			return { ok: false, disabled: true, data: null };
+		if (!blockyRpcOk(res)) {
+			if (/statistics are disabled/i.test(errText || text))
+				return { ok: false, disabled: true, data: null };
+
+			return { ok: false, disabled: false, data: null };
+		}
+
+		if (!text)
+			return { ok: false, disabled: false, data: null };
 
 		try {
 			var data = parseJson(text);
 
-			if (!data || typeof data !== 'object' || !data.summary)
+			if (!data || typeof data !== 'object')
+				return { ok: false, disabled: false, data: null };
+
+			if (!data.summary && !(data.lists && (data.lists.denylist || data.lists.allowlist)))
 				return { ok: false, disabled: false, data: null };
 
 			return { ok: true, disabled: false, data: data };
@@ -1408,6 +1441,63 @@ function parseMetrics(text) {
 	});
 
 	return metrics;
+}
+
+function parseLabeledMetricGauge(text, metricNames, labelName) {
+	var map = {};
+	var lines = safeString(text).split(/\n/);
+	var names = Array.isArray(metricNames) ? metricNames : [ metricNames ];
+	var labelRe = new RegExp(labelName + '="([^"]+)"');
+	var i;
+	var line;
+	var match;
+	var labels;
+	var labelMatch;
+	var value;
+
+	for (i = 0; i < lines.length; i++) {
+		line = lines[i];
+
+		if (!line || line.charAt(0) === '#')
+			continue;
+
+		match = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/);
+		if (!match || names.indexOf(match[1]) === -1)
+			continue;
+
+		labels = match[2] || '';
+		labelMatch = labels.match(labelRe);
+		value = Number(match[3]);
+
+		if (!labelMatch || !isFinite(value))
+			continue;
+
+		map[labelMatch[1]] = value;
+	}
+
+	return map;
+}
+
+function parseDenylistGroupCounts(metricsText) {
+	return parseLabeledMetricGauge(metricsText, [
+		'blocky_denylist_cache_entries',
+		'blocky_denylist_cache'
+	], 'group');
+}
+
+function mergeDenyCounts(primary, fallback) {
+	var map = {};
+	var key;
+
+	Object.keys(fallback || {}).forEach(function(name) {
+		map[name] = fallback[name];
+	});
+
+	Object.keys(primary || {}).forEach(function(name) {
+		map[name] = primary[name];
+	});
+
+	return map;
 }
 
 function metricValue(metrics, names) {
@@ -4457,7 +4547,12 @@ function createBlockyView(options) {
 					var mounted = mountDashboardContent(dashboardHost, fresh, refreshPage);
 					attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 					statisticsHost.replaceChildren(renderStatisticsTab(fresh, refreshPage));
-					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage, fresh[8]));
+					blocklistsHost.replaceChildren(renderBlocklistsTab(
+						fresh[5],
+						refreshPage,
+						fresh[8],
+						unwrapFetchText(fresh[3])
+					));
 					configHost.replaceChildren(renderBlockySettingsPage(
 						fresh[2],
 						blockyCliStdout(execResultStdout(fresh[4], '0\n')),
@@ -4478,7 +4573,7 @@ function createBlockyView(options) {
 			var mounted = mountDashboardContent(dashboardHost, data, refreshPage);
 			attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 			statisticsHost.appendChild(renderStatisticsTab(data, refreshPage));
-			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage, catalogData));
+			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload));
 			configHost.appendChild(renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
 			logsHost.appendChild(renderQueryLogsTab(config));
 
