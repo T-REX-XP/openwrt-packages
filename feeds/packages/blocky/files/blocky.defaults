@@ -19,12 +19,18 @@ fi
 
 if [ "$has_blocklists" = "0" ]; then
 	uci -q batch <<'EOF'
-set blocky.stevenblack=blocklist
-set blocky.stevenblack.name='StevenBlack Unified'
-set blocky.stevenblack.url='https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts'
-set blocky.stevenblack.enabled='1'
-set blocky.stevenblack.category='ads'
-set blocky.stevenblack.description='Unified ads and malware hosts list (English-focused).'
+set blocky.hagezi_light=blocklist
+set blocky.hagezi_light.name='HaGeZi Light'
+set blocky.hagezi_light.url='https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt'
+set blocky.hagezi_light.enabled='1'
+set blocky.hagezi_light.category='balanced'
+set blocky.hagezi_light.description='Balanced DNS blocklist — low false positives (HaGeZi).'
+set blocky.urlhaus=blocklist
+set blocky.urlhaus.name='URLhaus Hostfile'
+set blocky.urlhaus.url='https://urlhaus.abuse.ch/downloads/hostfile/'
+set blocky.urlhaus.enabled='1'
+set blocky.urlhaus.category='security'
+set blocky.urlhaus.description='Malware and botnet domains (abuse.ch URLhaus).'
 set blocky.main.refresh_period='4h'
 commit blocky
 EOF

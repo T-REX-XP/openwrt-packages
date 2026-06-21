@@ -862,3 +862,60 @@ msgstr "У каталозі blocklists немає груп. Відредагуй
 
 msgid "All catalog lists are already configured."
 msgstr "Усі списки з каталогу вже налаштовано."
+
+msgid "HaGeZi Light"
+msgstr "HaGeZi Light"
+
+msgid "Balanced DNS blocklist — low false positives, ideal first list (HaGeZi)."
+msgstr "Збалансований DNS blocklist — мало хибних спрацьовувань, ідеально для старту (HaGeZi)."
+
+msgid "HaGeZi Multi Pro"
+msgstr "HaGeZi Multi Pro"
+
+msgid "Stronger multi-purpose DNS blocklist, still curated for safety (HaGeZi Pro)."
+msgstr "Потужніший багатофункціональний DNS blocklist, безпечно відібраний (HaGeZi Pro)."
+
+msgid "Classic unified ads, trackers, and malware hosts file."
+msgstr "Класичний об'єднаний список реклами, трекерів і malware (hosts)."
+
+msgid "Mobile ads and trackers (AdAway hosts format)."
+msgstr "Мобільна реклама та трекери (формат hosts AdAway)."
+
+msgid "OISD Big Domains"
+msgstr "OISD Big Domains"
+
+msgid "Large domain list with minimal false-positive philosophy (OISD)."
+msgstr "Великий список доменів з мінімумом хибних блокувань (OISD)."
+
+msgid "OISD Full Wildcard"
+msgstr "OISD Full Wildcard"
+
+msgid "URLhaus Hostfile"
+msgstr "URLhaus Hostfile"
+
+msgid "Fresh malware and botnet C2 domains (abuse.ch URLhaus)."
+msgstr "Свіжі домени malware та botnet C2 (abuse.ch URLhaus)."
+
+msgid "Balanced & universal"
+msgstr "Збалансовані та універсальні"
+
+msgid "Recommended starting lists — good coverage with fewer false positives"
+msgstr "Рекомендовані стартові списки — добре покриття з меншою кількістю хибних блокувань"
+
+msgid "Ads & telemetry"
+msgstr "Реклама та телеметрія"
+
+msgid "Advertising, mobile ads, and tracking domains"
+msgstr "Реклама, мобільна реклама та домени відстеження"
+
+msgid "Social & annoyances"
+msgstr "Соцмережі та дражливі елементи"
+
+msgid "Social widgets and nuisance elements"
+msgstr "Віджети соцмереж та набридливі елементи"
+
+msgid "Security & malware"
+msgstr "Безпека та шкідливе ПЗ"
+
+msgid "Malware, phishing, and scam domains"
+msgstr "Malware, фішинг та шахрайські домени"

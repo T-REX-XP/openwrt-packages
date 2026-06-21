@@ -1,21 +1,56 @@
+# ImmortalWrt / OpenWrt defaults — Blocky listens on localhost; dnsmasq :53 forwards here.
+# Upstream ideas: https://comfy.guide/server/blocky/ (adapted for router + Blocky 0.32.x syntax)
+
 upstreams:
+  init:
+    strategy: fast
+  timeout: 5s
   groups:
     default:
       - 1.1.1.1
-      - 8.8.8.8
+      - 9.9.9.9
+      - tcp-tls:1.1.1.1:853
+      - https://1.1.1.1/dns-query
+
+# Resolve denylist URLs and upstream hostnames (WAN resolvers on OpenWrt)
+bootstrapDns:
+  - tcp+udp:1.1.1.1
+  - resolvFile: /tmp/resolv.conf.auto
 
 blocking:
   denylists:
-    stevenblack:
-      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    hagezi_light:
+      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt
+    urlhaus:
+      - https://urlhaus.abuse.ch/downloads/hostfile/
   clientGroupsBlock:
     default:
-      - stevenblack
+      - hagezi_light
+      - urlhaus
   loading:
     strategy: fast
     refreshPeriod: 4h
     downloads:
       cachePath: /var/lib/blocky/lists
+      timeout: 60s
+      writeTimeout: 60s
+      readTimeout: 60s
+      attempts: 5
+      cooldown: 10s
+      concurrency: 4
+
+caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: false
+
+hostsFile:
+  sources:
+    - /etc/hosts
+
+log:
+  level: warn
+  privacy: false
 
 queryLog:
   type: csv
@@ -26,6 +61,9 @@ queryLog:
 ports:
   dns: 127.0.0.1:5353
   http: 127.0.0.1:4000
+
+rebindingProtection:
+  enable: true
 
 prometheus:
   enable: true

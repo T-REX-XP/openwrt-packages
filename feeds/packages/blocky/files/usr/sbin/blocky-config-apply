@@ -1,5 +1,5 @@
 #!/bin/sh
-# Idempotent config.yml fixes: query log, statistics, localhost bind, blocklists sync.
+# Idempotent config.yml fixes: upstream/bootstrap, caching, log, query log, localhost bind.
 
 set -u
 
@@ -10,6 +10,64 @@ changed=0
 
 mkdir -p /tmp/blocky-logs /var/lib/blocky/lists
 chmod 755 /tmp/blocky-logs /var/lib/blocky/lists
+
+append_if_missing_section() {
+	local marker="$1"
+	shift
+
+	grep -q "^${marker}:" "$CONFIG" 2>/dev/null && return 0
+
+	cat >> "$CONFIG" <<EOF
+
+$*
+EOF
+	changed=1
+}
+
+if awk '/^upstreams:/{u=1} u && /^  init:/{i=1} END{exit !(u && !i)}' "$CONFIG" 2>/dev/null; then
+	awk '
+		/^upstreams:/ {
+			print
+			print "  init:"
+			print "    strategy: fast"
+			next
+		}
+		{ print }
+	' "$CONFIG" > "${CONFIG}.tmp" && mv "${CONFIG}.tmp" "$CONFIG"
+	changed=1
+fi
+
+if awk '/^upstreams:/{u=1} u && /^  timeout:/{t=1} END{exit !(u && !t)}' "$CONFIG" 2>/dev/null; then
+	awk '
+		/^upstreams:/ {
+			print
+			print "  timeout: 5s"
+			next
+		}
+		{ print }
+	' "$CONFIG" > "${CONFIG}.tmp" && mv "${CONFIG}.tmp" "$CONFIG"
+	changed=1
+fi
+
+append_if_missing_section bootstrapDns 'bootstrapDns:
+  - tcp+udp:1.1.1.1
+  - resolvFile: /tmp/resolv.conf.auto'
+
+append_if_missing_section caching 'caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: false'
+
+append_if_missing_section hostsFile 'hostsFile:
+  sources:
+    - /etc/hosts'
+
+append_if_missing_section log 'log:
+  level: warn
+  privacy: false'
+
+append_if_missing_section rebindingProtection 'rebindingProtection:
+  enable: true'
 
 if ! awk '/^queryLog:/{f=1;next} f&&/^[[:space:]]+type:/{ok=1; exit} END{exit !ok}' "$CONFIG" 2>/dev/null; then
 	cat >> "$CONFIG" <<'EOF'
@@ -23,11 +81,21 @@ EOF
 	changed=1
 fi
 
-if ! grep -q '^statistics:' "$CONFIG"; then
+if ! grep -q '^statistics:' "$CONFIG" 2>/dev/null; then
 	cat >> "$CONFIG" <<'EOF'
 
 statistics:
   enable: true
+EOF
+	changed=1
+fi
+
+if ! grep -q '^prometheus:' "$CONFIG" 2>/dev/null; then
+	cat >> "$CONFIG" <<'EOF'
+
+prometheus:
+  enable: true
+  path: /metrics
 EOF
 	changed=1
 fi

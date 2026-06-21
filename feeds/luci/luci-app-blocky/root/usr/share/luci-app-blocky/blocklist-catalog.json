@@ -1,12 +1,28 @@
 {
-	"version": 1,
+	"version": 2,
 	"presets": [
+		{
+			"id": "hagezi_light",
+			"name": "HaGeZi Light",
+			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt",
+			"category": "balanced",
+			"description": "Balanced DNS blocklist — low false positives, ideal first list (HaGeZi).",
+			"homeUrl": "https://github.com/hagezi/dns-blocklists"
+		},
+		{
+			"id": "hagezi_pro",
+			"name": "HaGeZi Multi Pro",
+			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt",
+			"category": "balanced",
+			"description": "Stronger multi-purpose DNS blocklist, still curated for safety (HaGeZi Pro).",
+			"homeUrl": "https://github.com/hagezi/dns-blocklists"
+		},
 		{
 			"id": "stevenblack",
 			"name": "StevenBlack Unified",
 			"url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
-			"category": "ads",
-			"description": "Unified ads and malware hosts file (English-focused).",
+			"category": "balanced",
+			"description": "Classic unified ads, trackers, and malware hosts file.",
 			"homeUrl": "https://github.com/StevenBlack/hosts"
 		},
 		{
@@ -14,8 +30,32 @@
 			"name": "AdAway Default Blocklist",
 			"url": "https://adaway.org/hosts.txt",
 			"category": "ads",
-			"description": "Default blocklist from the AdAway project.",
+			"description": "Mobile ads and trackers (AdAway hosts format).",
 			"homeUrl": "https://adaway.org/"
+		},
+		{
+			"id": "oisd_big",
+			"name": "OISD Big Domains",
+			"url": "https://big.oisd.nl/domains",
+			"category": "ads",
+			"description": "Large domain list with minimal false-positive philosophy (OISD).",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "oisd_full",
+			"name": "OISD Full Wildcard",
+			"url": "https://big.oisd.nl/domainswild",
+			"category": "comprehensive",
+			"description": "Large curated wildcard domain blocklist (OISD).",
+			"homeUrl": "https://oisd.nl/"
+		},
+		{
+			"id": "urlhaus",
+			"name": "URLhaus Hostfile",
+			"url": "https://urlhaus.abuse.ch/downloads/hostfile/",
+			"category": "security",
+			"description": "Fresh malware and botnet C2 domains (abuse.ch URLhaus).",
+			"homeUrl": "https://urlhaus.abuse.ch/"
 		},
 		{
 			"id": "adguard_dns",
@@ -66,14 +106,6 @@
 			"homeUrl": "https://adguard.com/kb/general/ad-filtering/adguard-filters/"
 		},
 		{
-			"id": "oisd_full",
-			"name": "OISD Full Domains",
-			"url": "https://big.oisd.nl/domainswild",
-			"category": "comprehensive",
-			"description": "Large curated wildcard domain blocklist (OISD).",
-			"homeUrl": "https://oisd.nl/"
-		},
-		{
 			"id": "easyprivacy",
 			"name": "EasyPrivacy",
 			"url": "https://easylist.to/easylist/easyprivacy.txt",
@@ -88,41 +120,51 @@
 			"category": "security",
 			"description": "Extended phishing and scam domain blocklist.",
 			"homeUrl": "https://phishing.army/"
-		},
-		{
-			"id": "hagezi_pro",
-			"name": "HaGeZi Multi PRO",
-			"url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt",
-			"category": "comprehensive",
-			"description": "Aggressive multi-purpose DNS blocklist (HaGeZi PRO).",
-			"homeUrl": "https://github.com/hagezi/dns-blocklists"
 		}
 	],
 	"catalog": [
 		{
-			"id": "general",
-			"title": "General",
-			"description": "Lists that block tracking and advertising on most devices",
+			"id": "balanced",
+			"title": "Balanced & universal",
+			"description": "Recommended starting lists — good coverage with fewer false positives",
 			"items": [
-				"stevenblack",
+				"hagezi_light",
+				"hagezi_pro",
+				"stevenblack"
+			]
+		},
+		{
+			"id": "ads",
+			"title": "Ads & telemetry",
+			"description": "Advertising, mobile ads, and tracking domains",
+			"items": [
 				"adaway",
+				"oisd_big",
+				"oisd_full",
 				"adguard_dns",
 				"peter_lowe",
 				"adguard_tracking",
-				"adguard_social",
 				"adguard_mobile",
-				"adguard_annoyances",
-				"oisd_full",
 				"easyprivacy"
 			]
 		},
 		{
-			"id": "security",
-			"title": "Security",
-			"description": "Lists that block malware, phishing, and scam domains",
+			"id": "social",
+			"title": "Social & annoyances",
+			"description": "Social widgets and nuisance elements",
 			"items": [
-				"phishing_army",
-				"hagezi_pro"
+				"adguard_social",
+				"adguard_annoyances"
+			]
+		},
+		{
+			"id": "security",
+			"title": "Security & malware",
+			"description": "Malware, phishing, and scam domains",
+			"items": [
+				"urlhaus",
+				"stevenblack",
+				"phishing_army"
 			]
 		}
 	]

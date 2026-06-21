@@ -59,9 +59,11 @@ write_blocking_section() {
 	config_foreach append_denylist_entry blocklist
 
 	if [ ! -s "$DENY_TMP" ]; then
-		printf '    stevenblack:\n' >> "$DENY_TMP"
-		printf '      - "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"\n' >> "$DENY_TMP"
-		printf 'stevenblack\n' >> "$GROUP_TMP"
+		printf '    hagezi_light:\n' >> "$DENY_TMP"
+		printf '      - "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt"\n' >> "$DENY_TMP"
+		printf '    urlhaus:\n' >> "$DENY_TMP"
+		printf '      - "https://urlhaus.abuse.ch/downloads/hostfile/"\n' >> "$DENY_TMP"
+		printf 'hagezi_light\nurlhaus\n' >> "$GROUP_TMP"
 	fi
 
 	{
@@ -73,13 +75,19 @@ write_blocking_section() {
 		if [ -s "$GROUP_TMP" ]; then
 			sed 's/^/      - /' "$GROUP_TMP"
 		else
-			echo "      - stevenblack"
+			echo "      - hagezi_light"
 		fi
 		echo "  loading:"
 		echo "    strategy: fast"
 		echo "    refreshPeriod: $refresh_period"
 		echo "    downloads:"
 		echo "      cachePath: /var/lib/blocky/lists"
+		echo "      timeout: 60s"
+		echo "      writeTimeout: 60s"
+		echo "      readTimeout: 60s"
+		echo "      attempts: 5"
+		echo "      cooldown: 10s"
+		echo "      concurrency: 4"
 	} > "$out_tmp"
 
 	echo "$out_tmp"
@@ -129,8 +137,35 @@ merge_config() {
 			prometheus|statistics)
 				echo "$body" | grep -q 'enable:' || body=""
 				;;
+			bootstrapDns)
+				echo "$body" | grep -Eq 'resolvFile:|tcp|https:' || body=""
+				;;
+			caching)
+				echo "$body" | grep -Eq 'minTime:|maxTime:|prefetching:' || body=""
+				;;
+			log)
+				echo "$body" | grep -q 'level:' || body=""
+				;;
+			hostsFile)
+				echo "$body" | grep -q 'sources:' || body=""
+				;;
+			rebindingProtection)
+				echo "$body" | grep -q 'enable:' || body=""
+				;;
 		esac
 		printf '%s' "$body"
+	}
+
+	append_section() {
+		local name="$1"
+		local default="$2"
+
+		body="$(section_body "$name")"
+		if [ -n "$body" ]; then
+			printf '%s\n' "$body"
+		else
+			printf '%s\n' "$default"
+		fi
 	}
 
 	{
@@ -139,14 +174,36 @@ merge_config() {
 		else
 			cat <<'EOF'
 upstreams:
+  init:
+    strategy: fast
+  timeout: 5s
   groups:
     default:
       - 1.1.1.1
-      - 8.8.8.8
+      - 9.9.9.9
+      - tcp-tls:1.1.1.1:853
+      - https://1.1.1.1/dns-query
 EOF
 		fi
 		echo ""
+		append_section bootstrapDns 'bootstrapDns:
+  - tcp+udp:1.1.1.1
+  - resolvFile: /tmp/resolv.conf.auto'
+		echo ""
 		cat "$new_blocking"
+		echo ""
+		append_section caching 'caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: false'
+		echo ""
+		append_section hostsFile 'hostsFile:
+  sources:
+    - /etc/hosts'
+		echo ""
+		append_section log 'log:
+  level: warn
+  privacy: false'
 		echo ""
 		body="$(section_body queryLog)"
 		if [ -n "$body" ]; then
@@ -171,6 +228,9 @@ ports:
   http: 127.0.0.1:4000
 EOF
 		fi
+		echo ""
+		append_section rebindingProtection 'rebindingProtection:
+  enable: true'
 		echo ""
 		body="$(section_body prometheus)"
 		if [ -n "$body" ]; then

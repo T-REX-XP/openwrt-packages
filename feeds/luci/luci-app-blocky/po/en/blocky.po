@@ -861,3 +861,60 @@ msgstr "Blocklist catalog has no groups. Edit %s on the router."
 
 msgid "All catalog lists are already configured."
 msgstr "All catalog lists are already configured."
+
+msgid "HaGeZi Light"
+msgstr "HaGeZi Light"
+
+msgid "Balanced DNS blocklist — low false positives, ideal first list (HaGeZi)."
+msgstr "Balanced DNS blocklist — low false positives, ideal first list (HaGeZi)."
+
+msgid "HaGeZi Multi Pro"
+msgstr "HaGeZi Multi Pro"
+
+msgid "Stronger multi-purpose DNS blocklist, still curated for safety (HaGeZi Pro)."
+msgstr "Stronger multi-purpose DNS blocklist, still curated for safety (HaGeZi Pro)."
+
+msgid "Classic unified ads, trackers, and malware hosts file."
+msgstr "Classic unified ads, trackers, and malware hosts file."
+
+msgid "Mobile ads and trackers (AdAway hosts format)."
+msgstr "Mobile ads and trackers (AdAway hosts format)."
+
+msgid "OISD Big Domains"
+msgstr "OISD Big Domains"
+
+msgid "Large domain list with minimal false-positive philosophy (OISD)."
+msgstr "Large domain list with minimal false-positive philosophy (OISD)."
+
+msgid "OISD Full Wildcard"
+msgstr "OISD Full Wildcard"
+
+msgid "URLhaus Hostfile"
+msgstr "URLhaus Hostfile"
+
+msgid "Fresh malware and botnet C2 domains (abuse.ch URLhaus)."
+msgstr "Fresh malware and botnet C2 domains (abuse.ch URLhaus)."
+
+msgid "Balanced & universal"
+msgstr "Balanced & universal"
+
+msgid "Recommended starting lists — good coverage with fewer false positives"
+msgstr "Recommended starting lists — good coverage with fewer false positives"
+
+msgid "Ads & telemetry"
+msgstr "Ads & telemetry"
+
+msgid "Advertising, mobile ads, and tracking domains"
+msgstr "Advertising, mobile ads, and tracking domains"
+
+msgid "Social & annoyances"
+msgstr "Social & annoyances"
+
+msgid "Social widgets and nuisance elements"
+msgstr "Social widgets and nuisance elements"
+
+msgid "Security & malware"
+msgstr "Security & malware"
+
+msgid "Malware, phishing, and scam domains"
+msgstr "Malware, phishing, and scam domains"
