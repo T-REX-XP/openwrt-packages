@@ -1,0 +1,82 @@
+---
+name: openwrt-feed-ci-release
+description: >-
+  Build, test, and publish the openwrt-packages feed via GitHub Actions. Use when
+  editing CI workflows, creating release tags, configuring GitHub Pages apk feed,
+  apk signing secrets, or troubleshooting deploy-pages 404 errors.
+---
+
+# OpenWrt feed CI & release (openwrt-packages)
+
+## CI (unsigned)
+
+Workflow: `.github/workflows/build-packages.yml`
+
+- Runs on push/PR to verify packages compile
+- Uses ImmortalWrt SDK Docker image
+- **Must set:** `FEEDNAME=openwrt_packages`, `FEED_DIR=${{ github.workspace }}/feeds`
+
+Without `FEED_DIR`, the action mounts repo root and finds no packages.
+
+## Release (signed + Pages)
+
+Workflow: `.github/workflows/release.yml`
+
+Triggered by version tags: `v2026.06.16`
+
+**Target:** ImmortalWrt **25.12**, `aarch64_generic` (Orange Pi CM5 Base)
+
+### GitHub Pages feed URL
+
+```text
+https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/
+```
+
+Public key: `https://t-rex-xp.github.io/openwrt-packages/public-key.pem`
+
+### One-time Pages setup
+
+Settings → Pages → Build and deployment → Source: **GitHub Actions**
+
+Without this, `deploy-pages` returns **404**. Re-run Release workflow after enabling.
+
+### Router install (apk)
+
+```sh
+wget -O /tmp/public-key.pem \
+  https://t-rex-xp.github.io/openwrt-packages/public-key.pem
+# Install key per image docs, add repository line, then:
+apk update
+apk add blocky luci-app-blocky
+```
+
+### Offline install
+
+Download from [GitHub Releases](https://github.com/T-REX-XP/openwrt-packages/releases):
+
+`openwrt_packages_aarch64_generic-immortalwrt-25.12-SNAPSHOT.tar.gz`
+
+Verify with attached `SHA256SUMS`.
+
+## Maintainer secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `PRIVATE_KEY` | Sign apk index on release |
+| `PUBLIC_KEY` | Published as `public-key.pem` on Pages |
+| `KEY_BUILD` / `KEY_BUILD_PUB` | Legacy ipk signing (optional) |
+
+PR CI builds are **unsigned** — compile verification only.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `deploy-pages` 404 | Enable Pages source: GitHub Actions |
+| No packages found in CI | Set `FEED_DIR` to `feeds/` |
+| Release OK, Pages yellow | Expected until Pages enabled; Release tarballs still work |
+
+## Docs
+
+- `docs/ci-github-actions-plan.md`
+- `docs/ci-github-actions-optimization.md`

@@ -21,6 +21,82 @@ var PAUSE_PRESETS = [
 	[ '0', _('Until manually enabled') ]
 ];
 
+var BLOCKY_CHART_FALLBACK = {
+	total: '#2196f3',
+	blocked: '#e53935',
+	cached: '#43a047'
+};
+
+function blockyThemeRoot() {
+	return document.querySelector('.luci-app-blocky') || document.documentElement;
+}
+
+function blockyCssVar(name, fallback) {
+	var val = getComputedStyle(blockyThemeRoot()).getPropertyValue(name).trim();
+
+	return val || fallback || '';
+}
+
+function blockyChartColor(key) {
+	return blockyCssVar('--blocky-chart-' + key, BLOCKY_CHART_FALLBACK[key]);
+}
+
+function blockyChartFill(key) {
+	return blockyCssVar('--blocky-chart-' + key + '-fill', 'transparent');
+}
+
+function blockyLegendDot(tone) {
+	return E('span', { 'class': 'blocky-legend-dot blocky-legend-dot--' + tone });
+}
+
+function applyBlockyChartPathTheme(paths) {
+	if (!paths)
+		return;
+
+	paths.totalFill.setAttribute('fill', blockyChartFill('total'));
+	paths.totalStroke.setAttribute('stroke', blockyChartColor('total'));
+	paths.blockedFill.setAttribute('fill', blockyChartFill('blocked'));
+	paths.blockedStroke.setAttribute('stroke', blockyChartColor('blocked'));
+	paths.cachedFill.setAttribute('fill', blockyChartFill('cached'));
+	paths.cachedStroke.setAttribute('stroke', blockyChartColor('cached'));
+}
+
+function blockyAttachThemeSync(onThemeChange) {
+	var root = document.documentElement;
+	var mq = window.matchMedia('(prefers-color-scheme: dark)');
+	var observer;
+
+	if (typeof onThemeChange !== 'function')
+		return function() {};
+
+	function sync() {
+		onThemeChange();
+	}
+
+	if (typeof MutationObserver !== 'undefined') {
+		observer = new MutationObserver(sync);
+		observer.observe(root, {
+			attributes: true,
+			attributeFilter: [ 'data-darkmode' ]
+		});
+	}
+
+	if (typeof mq.addEventListener === 'function')
+		mq.addEventListener('change', sync);
+	else if (typeof mq.addListener === 'function')
+		mq.addListener(sync);
+
+	return function() {
+		if (observer)
+			observer.disconnect();
+
+		if (typeof mq.removeEventListener === 'function')
+			mq.removeEventListener('change', sync);
+		else if (typeof mq.removeListener === 'function')
+			mq.removeListener(sync);
+	};
+}
+
 function blockyInjectStyles() {
 	return E('link', {
 		'rel': 'stylesheet',
@@ -988,15 +1064,17 @@ function mapToBarRows(items, limit) {
 	return { rows: rows, max: max };
 }
 
-function topListBarRow(label, val, maxVal, color) {
+function topListBarRow(label, val, maxVal, tone) {
 	var pct = Math.round(100 * val / Math.max(1, maxVal));
+
+	tone = tone || 'queries';
 
 	return E('div', { 'class': 'blocky-bar-row' }, [
 		E('div', { 'class': 'blocky-bar-label', 'title': label }, [ label ]),
 		E('div', { 'class': 'blocky-bar-track' }, [
 			E('div', {
-				'class': 'blocky-bar-seg',
-				'style': 'width:%d%%;background:%s'.format(Math.min(100, pct), color)
+				'class': 'blocky-bar-seg blocky-bar-seg--' + tone,
+				'style': 'width:%d%%'.format(Math.min(100, pct))
 			})
 		]),
 		E('div', { 'class': 'blocky-bar-val' }, [ formatNumber(val) ])
@@ -1565,7 +1643,7 @@ function buildQueriesChartAxisLabels(series, maxY, W, H, padL, padR, padT, padB)
 	return E('g', { 'class': 'blocky-chart-axis' }, axisTexts);
 }
 
-function renderOverview(statsResult, metricsText) {
+function gatherOverviewMetrics(statsResult, metricsText) {
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 	var summary = stats && stats.summary ? stats.summary : null;
 	var metrics = parseMetrics(metricsText);
@@ -1577,9 +1655,6 @@ function renderOverview(statsResult, metricsText) {
 		: promOverview.blockedRate;
 	var cacheHitRate = summary ? summary.cacheHitRate : promOverview.cacheHitRate;
 	var listedEntries = stats ? sumDenylistEntries(stats) : promOverview.denylistEntries;
-	var listedLabel = listedEntries >= 1000
-		? formatCompactNumber(listedEntries)
-		: formatNumber(listedEntries);
 	var avgMs = summary ? summary.avgResponseMs : null;
 	var sourceDetail;
 
@@ -1592,61 +1667,210 @@ function renderOverview(statsResult, metricsText) {
 	else
 		sourceDetail = _('Enable statistics and/or prometheus in Blocky configuration.');
 
+	return {
+		stats: stats,
+		totalQueries: totalQueries,
+		blockedQueries: blockedQueries,
+		blockedRate: blockedRate,
+		cacheHitRate: cacheHitRate,
+		listedEntries: listedEntries,
+		listedLabel: listedEntries >= 1000
+			? formatCompactNumber(listedEntries)
+			: formatNumber(listedEntries),
+		avgMs: avgMs,
+		sourceDetail: sourceDetail,
+		hasStats: !!stats,
+		hasPrometheus: promOverview.hasMetrics
+	};
+}
+
+function renderDashboardSummaryGrid(overview, statsResult) {
+	var stats = statsResult && statsResult.ok;
+
+	return E('div', { 'class': 'blocky-dash-summary-grid' }, [
+		E('div', { 'class': 'blocky-summary-card blocky-summary-card--queries' }, [
+			E('p', { 'class': 'blocky-summary-card-label' }, [ _('DNS queries') ]),
+			E('p', { 'class': 'blocky-summary-card-val' }, [ formatNumber(overview.totalQueries) ]),
+			E('p', { 'class': 'blocky-summary-card-meta' }, [
+				stats ? _('Last 24 hours') : _('Since Blocky started')
+			])
+		]),
+		E('div', { 'class': 'blocky-summary-card blocky-summary-card--blocked' }, [
+			overview.totalQueries > 0
+				? E('span', { 'class': 'blocky-summary-card-badge' }, [ formatPercent(overview.blockedRate) ])
+				: '',
+			E('p', { 'class': 'blocky-summary-card-label' }, [ _('Blocked by filters') ]),
+			E('p', { 'class': 'blocky-summary-card-val' }, [ formatNumber(overview.blockedQueries) ]),
+			E('p', { 'class': 'blocky-summary-card-meta' }, [ _('Matched denylist rules') ])
+		]),
+		E('div', { 'class': 'blocky-summary-card blocky-summary-card--cache' }, [
+			E('p', { 'class': 'blocky-summary-card-label' }, [ _('Cache hit rate') ]),
+			E('p', { 'class': 'blocky-summary-card-val' }, [ formatPercent(overview.cacheHitRate) ]),
+			E('div', { 'class': 'blocky-cache-track' }, [
+				E('div', {
+					'class': 'blocky-cache-fill',
+					'style': 'width:%.1f%%'.format(Math.min(100, Math.max(0, overview.cacheHitRate)))
+				})
+			])
+		]),
+		E('div', { 'class': 'blocky-summary-card blocky-summary-card--lists' }, [
+			E('p', { 'class': 'blocky-summary-card-label' }, [ _('Listed domains') ]),
+			E('p', { 'class': 'blocky-summary-card-val' }, [ overview.listedLabel ]),
+			E('p', { 'class': 'blocky-summary-card-meta' }, [ _('Denylist entries in memory') ])
+		])
+	]);
+}
+
+function renderStatRow(label, value) {
+	return E('div', { 'class': 'blocky-stat-row' }, [
+		E('div', { 'class': 'blocky-stat-label' }, [ label ]),
+		E('div', { 'class': 'blocky-stat-value' }, [ value ])
+	]);
+}
+
+function renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage) {
+	var running = isRunning(service);
+	var blocking = !!(status && status.enabled && !(status.autoEnableInSec > 0));
+	var paused = !!(status && status.autoEnableInSec > 0);
+	var refresh = refreshPage || function() {};
+	var rows = [
+		renderStatRow(_('DNS queries'), formatNumber(overview.totalQueries)),
+		renderStatRow(_('Blocked by filters'), formatNumber(overview.blockedQueries)),
+		renderStatRow(_('Block rate'), overview.totalQueries > 0 ? formatPercent(overview.blockedRate) : '—'),
+		renderStatRow(_('Cache hit rate'), formatPercent(overview.cacheHitRate)),
+		overview.avgMs !== null
+			? renderStatRow(_('Avg processing time'), formatNumber(overview.avgMs) + ' ms')
+			: '',
+		renderStatRow(_('Listed domains'), overview.listedLabel),
+		renderStatRow(_('Service'), running ? _('Running') : _('Stopped')),
+		renderStatRow(_('Blocking'), paused
+			? _('Paused (%s)').format(formatDuration(status.autoEnableInSec))
+			: (blocking ? _('Enabled') : _('Disabled')))
+	];
+
+	return E('div', { 'class': 'blocky-dash-panel' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('General statistics') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
+					overview.hasStats ? _('For the last 24 hours') : overview.sourceDetail
+				])
+			]),
+			overview.hasStats ? blockyPill('yes', _('24h stats')) :
+				overview.hasPrometheus ? blockyPill('warn', _('Prometheus')) :
+					blockyPill('no', _('Limited'))
+		]),
+		E('div', { 'class': 'blocky-stat-table' }, rows),
+		E('div', { 'class': 'blocky-btn-grid' }, [
+			actionButton(_('Enable blocking'), function() {
+				return blockyApi('/blocking/enable');
+			}, 'cbi-button-action', refresh),
+			actionButton(_('Pause 5m'), function() {
+				return blockyApi('/blocking/disable?duration=5m');
+			}, 'cbi-button-action', refresh),
+			actionButton(_('Clear cache'), function() {
+				return blockyApi('/cache/flush', 'POST');
+			}, 'cbi-button-action', refresh)
+		])
+	]);
+}
+
+function renderClientTableRows(items, limit) {
+	var rows = (items || []).slice(0, limit || 10);
+	var total = 0;
+	var i;
+
+	for (i = 0; i < rows.length; i++)
+		total += Number(rows[i].count) || 0;
+
+	if (!rows.length)
+		return E('em', {}, [ _('No data in the current 24h window.') ]);
+
+	return E('div', { 'class': 'blocky-client-table' }, [
+		E('div', { 'class': 'blocky-client-table-head' }, [
+			E('span', {}, [ _('Client') ]),
+			E('span', {}, [ '' ]),
+			E('span', {}, [ _('Requests') ]),
+			E('span', {}, [ '%' ])
+		])
+	].concat(rows.map(function(row) {
+		var count = Number(row.count) || 0;
+		var pct = total > 0 ? count / total * 100 : 0;
+
+		return E('div', { 'class': 'blocky-client-row' }, [
+			E('div', { 'class': 'blocky-client-name', 'title': row.name }, [ row.name ]),
+			E('div', { 'class': 'blocky-client-bar' }, [
+				E('div', {
+					'class': 'blocky-client-bar-fill',
+					'style': 'width:%.1f%%'.format(Math.min(100, pct))
+				})
+			]),
+			E('div', { 'class': 'blocky-client-count' }, [ formatNumber(count) ]),
+			E('div', { 'class': 'blocky-client-pct' }, [ formatPercent(pct) ])
+		]);
+	})));
+}
+
+function renderTopClientsPanel(statsResult, limit) {
+	var stats = statsResult && statsResult.ok ? statsResult.data : null;
+	var bodyHost = E('div', {});
+
+	if (!stats) {
+		replaceContent(bodyHost, E('em', {}, [
+			statsResult && statsResult.disabled
+				? _('Statistics API is disabled.')
+				: _('Statistics are not available yet.')
+		]));
+	}
+	else {
+		replaceContent(bodyHost, renderClientTableRows(stats.topClients, limit || 10));
+	}
+
+	return E('div', { 'class': 'blocky-dash-panel' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Top clients') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [ _('For the last 24 hours') ])
+			])
+		]),
+		bodyHost
+	]);
+}
+
+function renderTopDomainColumn(title, items, limit, tone) {
+	var pack = mapToBarRows(items, limit || 8);
+
+	return E('div', { 'class': 'blocky-dash-panel blocky-dash-panel--nested' }, [
+		E('h4', { 'class': 'blocky-dash-panel-title', 'style': 'font-size:0.98em;margin:0 0 0.65em' }, [ title ]),
+		pack.rows.length
+			? E('div', {}, pack.rows.map(function(row) {
+				return topListBarRow(row.name, row.count, pack.max, tone);
+			}))
+			: E('em', {}, [ _('No data') ])
+	]);
+}
+
+function renderTopDomainsStack(stats) {
+	if (!stats)
+		return E('div', {});
+
+	return E('div', { 'class': 'blocky-dash-stack' }, [
+		renderTopDomainColumn(_('Top queried domains'), stats.topDomains, 8, 'queries'),
+		renderTopDomainColumn(_('Top blocked domains'), stats.topBlockedDomains, 8, 'blocked')
+	]);
+}
+
+function renderOverview(statsResult, metricsText) {
+	var overview = gatherOverviewMetrics(statsResult, metricsText);
+
 	return E('div', { 'class': 'blocky-dashboard-metrics-row' }, [
 		E('div', { 'class': 'blocky-metric-strip' }, [
-			stats ? blockyPill('yes', _('24h stats')) :
-				promOverview.hasMetrics ? blockyPill('warn', _('Prometheus')) :
+			overview.hasStats ? blockyPill('yes', _('24h stats')) :
+				overview.hasPrometheus ? blockyPill('warn', _('Prometheus')) :
 					blockyPill('no', _('Limited')),
-			blockyStatusDetail(sourceDetail)
+			blockyStatusDetail(overview.sourceDetail)
 		]),
-		E('div', { 'class': 'blocky-metric-grid', 'style': 'margin:0' }, [
-			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
-				E('div', { 'class': 'blocky-metric-card-head' }, [
-					E('strong', {}, [ _('Total queries') ]),
-					''
-				]),
-				E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(totalQueries) ]),
-				E('small', {}, [ stats ? _('Last 24 hours') : _('Since Blocky started') ])
-			]),
-			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
-				E('div', { 'class': 'blocky-metric-card-head' }, [
-					E('strong', {}, [ _('Blocked') ]),
-					totalQueries > 0 ? blockyPill('no', formatPercent(blockedRate)) : ''
-				]),
-				E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(blockedQueries) ]),
-				E('small', {}, [ _('Matched rules') ])
-			]),
-			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
-				E('div', { 'class': 'blocky-metric-card-head' }, [
-					E('strong', {}, [ _('Cache hit rate') ]),
-					''
-				]),
-				E('div', { 'class': 'blocky-metric-val' }, [ formatPercent(cacheHitRate) ]),
-				E('div', { 'class': 'blocky-cache-track' }, [
-					E('div', {
-						'class': 'blocky-cache-fill',
-						'style': 'width:%.1f%%'.format(Math.min(100, Math.max(0, cacheHitRate)))
-					})
-				]),
-				E('small', {}, [ _('Hits vs misses') ])
-			]),
-			E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
-				E('div', { 'class': 'blocky-metric-card-head' }, [
-					E('strong', {}, [ _('Listed domains') ]),
-					''
-				]),
-				E('div', { 'class': 'blocky-metric-val' }, [ listedLabel ]),
-				E('small', {}, [ _('Denylist entries') ])
-			]),
-			avgMs !== null ? E('div', { 'class': 'blocky-metric-card', 'style': 'flex:1 1 11em' }, [
-				E('div', { 'class': 'blocky-metric-card-head' }, [
-					E('strong', {}, [ _('Avg response') ]),
-					''
-				]),
-				E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(avgMs) + ' ms' ]),
-				E('small', {}, [ _('Last 24 hours') ])
-			]) : ''
-		])
+		renderDashboardSummaryGrid(overview, statsResult)
 	]);
 }
 
@@ -1681,39 +1905,38 @@ function renderStatsHourlyChart(stats) {
 		var blocked = Number(bucket.blocked) || 0;
 		var scale = Math.max(1, maxB);
 
-		function barPortion(val, color) {
+		function barPortion(val, tone) {
 			var bh = Math.round(110 * val / scale);
 
 			return E('div', {
+				'class': 'blocky-vbar blocky-vbar--' + tone,
 				'title': formatNumber(val),
-				'style': 'flex:1;min-width:3px;height:%dpx;background:%s;border-radius:2px 2px 0 0'.format(bh, color)
+				'style': 'flex:1;min-width:3px;height:%dpx'.format(bh)
 			});
 		}
 
 		return E('div', {
 			'style': 'flex:1;margin:0 2px;max-width:48px;display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:2px'
 		}, [
-			barPortion(total, '#2196f3'),
-			barPortion(blocked, '#e53935')
+			barPortion(total, 'total'),
+			barPortion(blocked, 'blocked')
 		]);
 	})));
 
-	return E('div', { 'class': 'blocky-dash-widget' }, [
-		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Queries over time (24h)') ]),
-		E('p', { 'class': 'blocky-dash-widget-descr' }, [
-			_('Blue: total queries per hour. Red: blocked. Data from GET /api/stats.')
+	return E('div', { 'class': 'blocky-dash-panel blocky-dash-widget' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Queries over time (24h)') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
+					_('Hourly buckets from Blocky in-memory statistics (UTC).')
+				])
+			])
 		]),
 		vBarHost,
 		E('div', { 'class': 'blocky-chart-legend' }, [
-			E('span', {}, [
-				E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
-				_('Total')
-			]),
+			E('span', {}, [ blockyLegendDot('total'), _('Total') ]),
 			' ',
-			E('span', {}, [
-				E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
-				_('Blocked')
-			])
+			E('span', {}, [ blockyLegendDot('blocked'), _('Blocked') ])
 		])
 	]);
 }
@@ -1726,22 +1949,22 @@ function renderStatsTopLists(stats, rowLimit) {
 	function redraw() {
 		var pack;
 		var title;
-		var color = '#2196f3';
+		var tone = 'queries';
 
 		if (tabState.key === 'domains') {
 			pack = mapToBarRows(stats.topDomains, limit);
 			title = _('Top domains');
-			color = '#2196f3';
+			tone = 'queries';
 		}
 		else if (tabState.key === 'blocked') {
 			pack = mapToBarRows(stats.topBlockedDomains, limit);
 			title = _('Top blocked domains');
-			color = '#e53935';
+			tone = 'blocked';
 		}
 		else {
 			pack = mapToBarRows(stats.topClients, limit);
 			title = _('Top clients');
-			color = '#43a047';
+			tone = 'clients';
 		}
 
 		if (!pack.rows.length) {
@@ -1752,7 +1975,7 @@ function renderStatsTopLists(stats, rowLimit) {
 		replaceContent(bodyHost, E('div', {}, [
 			E('h4', {}, [ title ]),
 			E('div', {}, pack.rows.map(function(row) {
-				return topListBarRow(row.name, row.count, pack.max, color);
+				return topListBarRow(row.name, row.count, pack.max, tone);
 			}))
 		]));
 	}
@@ -1784,7 +2007,7 @@ function renderStatsTopLists(stats, rowLimit) {
 	]);
 }
 
-function renderMapBreakdown(title, mapObj, color) {
+function renderMapBreakdown(title, mapObj, tone) {
 	var rows = [];
 
 	Object.keys(mapObj || {}).forEach(function(key) {
@@ -1806,7 +2029,7 @@ function renderMapBreakdown(title, mapObj, color) {
 	return E('div', { 'class': 'blocky-toplist-col' }, [
 		E('h4', {}, [ title ]),
 		E('div', {}, pack.rows.map(function(row) {
-			return topListBarRow(row.name, row.count, pack.max, color);
+			return topListBarRow(row.name, row.count, pack.max, tone);
 		}))
 	]);
 }
@@ -1815,12 +2038,14 @@ function renderStatsBreakdown(stats) {
 	if (!stats)
 		return E('div', {});
 
-	return E('div', { 'class': 'blocky-dash-widget' }, [
-		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Breakdown (24h)') ]),
+	return E('div', { 'class': 'blocky-dash-panel blocky-dash-widget' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Breakdown (24h)') ])
+		]),
 		E('div', { 'class': 'blocky-toplists-grid' }, [
-			renderMapBreakdown(_('By query type'), stats.byQueryType, '#2196f3'),
-			renderMapBreakdown(_('By response type'), stats.byResponseType, '#e53935'),
-			renderMapBreakdown(_('By response code'), stats.byResponseCode, '#43a047')
+			renderMapBreakdown(_('By query type'), stats.byQueryType, 'queries'),
+			renderMapBreakdown(_('By response type'), stats.byResponseType, 'blocked'),
+			renderMapBreakdown(_('By response code'), stats.byResponseCode, 'response')
 		])
 	]);
 }
@@ -1840,10 +2065,14 @@ function renderListInventory(stats) {
 		});
 	}
 
-	return E('div', { 'class': 'blocky-dash-widget' }, [
-		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Block lists') ]),
-		E('p', { 'class': 'blocky-dash-widget-descr' }, [
-			_('Current entry counts per group (point-in-time).')
+	return E('div', { 'class': 'blocky-dash-panel blocky-dash-widget' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Block lists') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
+					_('Current entry counts per group (point-in-time).')
+				])
+			])
 		]),
 		E('div', { 'class': 'blocky-toplists-grid' }, [
 			E('div', { 'class': 'blocky-toplist-col' }, [
@@ -1880,7 +2109,7 @@ function renderStatsDashboard(statsResult, onRefresh) {
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 
 	if (!stats) {
-		return E('div', { 'class': 'alert-message warning' }, [
+		return E('div', { 'class': 'alert-message warning blocky-stats-dashboard' }, [
 			statsResult && statsResult.disabled
 				? _('Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky.')
 				: _('Statistics are not available yet. Ensure Blocky is running and statistics are enabled.')
@@ -1888,14 +2117,55 @@ function renderStatsDashboard(statsResult, onRefresh) {
 	}
 
 	return E('div', { 'class': 'blocky-stats-dashboard' }, [
-		renderStatsHourlyChart(stats),
-		renderStatsTopLists(stats, 10),
-		renderStatsBreakdown(stats),
-		renderListInventory(stats),
-		E('div', { 'class': 'blocky-metric-grid' }, [
-			renderCacheWidget(stats, onRefresh)
+		E('div', { 'class': 'blocky-dash-grid' }, [
+			renderStatsHourlyChart(stats),
+			E('div', { 'class': 'blocky-dash-panel' }, [
+				E('div', { 'class': 'blocky-dash-panel-head' }, [
+					E('div', {}, [
+						E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Top domains') ]),
+						E('p', { 'class': 'blocky-dash-panel-subtitle' }, [ _('For the last 24 hours') ])
+					])
+				]),
+				renderTopDomainsStack(stats)
+			])
+		]),
+		E('div', { 'class': 'blocky-dash-grid' }, [
+			renderStatsBreakdown(stats),
+			renderListInventory(stats)
+		]),
+		E('div', { 'class': 'blocky-dash-grid' }, [
+			E('div', { 'class': 'blocky-dash-panel' }, [
+				E('div', { 'class': 'blocky-dash-panel-head' }, [
+					E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('DNS cache') ])
+				]),
+				renderCacheWidget(stats, onRefresh)
+			]),
+			E('div', {})
 		])
 	]);
+}
+
+function renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage) {
+	var overview = gatherOverviewMetrics(statsResult, metricsPayload);
+	var stats = statsResult && statsResult.ok ? statsResult.data : null;
+	var nodes = [
+		renderDashboardSummaryGrid(overview, statsResult),
+		E('div', { 'class': 'blocky-dash-grid' }, [
+			renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage),
+			renderTopClientsPanel(statsResult, 10)
+		])
+	];
+
+	if (stats)
+		nodes.push(renderStatsDashboard(statsResult, refreshPage));
+	else
+		nodes.push(E('div', { 'class': 'alert-message warning' }, [
+			statsResult && statsResult.disabled
+				? _('Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky.')
+				: _('Statistics are not available yet. Ensure Blocky is running and statistics are enabled.')
+		]));
+
+	return E('div', { 'class': 'blocky-dash-stats-zone' }, nodes);
 }
 
 function renderStatusDashboard(status, service, onRefresh) {
@@ -2011,39 +2281,35 @@ function renderRealtimeMetrics(initialMetricsText) {
 	var padB = 42;
 	var chartUnderlayG = E('g', {});
 	var axisLabelsG = E('g', {});
-	var pathTotalFill = E('path', {
-		'fill': 'rgba(33,150,243,0.18)',
-		'stroke': 'none'
-	});
+	var pathTotalFill = E('path', { 'fill': 'transparent', 'stroke': 'none' });
 	var pathTotalStroke = E('path', {
 		'fill': 'none',
-		'stroke': '#2196f3',
 		'stroke-width': '2',
 		'stroke-linejoin': 'round',
 		'stroke-linecap': 'round'
 	});
-	var pathBlockedFill = E('path', {
-		'fill': 'rgba(229,57,53,0.2)',
-		'stroke': 'none'
-	});
+	var pathBlockedFill = E('path', { 'fill': 'transparent', 'stroke': 'none' });
 	var pathBlockedStroke = E('path', {
 		'fill': 'none',
-		'stroke': '#e53935',
 		'stroke-width': '2',
 		'stroke-linejoin': 'round',
 		'stroke-linecap': 'round'
 	});
-	var pathCachedFill = E('path', {
-		'fill': 'rgba(67,160,71,0.2)',
-		'stroke': 'none'
-	});
+	var pathCachedFill = E('path', { 'fill': 'transparent', 'stroke': 'none' });
 	var pathCachedStroke = E('path', {
 		'fill': 'none',
-		'stroke': '#43a047',
 		'stroke-width': '2',
 		'stroke-linejoin': 'round',
 		'stroke-linecap': 'round'
 	});
+	var chartPaths = {
+		totalFill: pathTotalFill,
+		totalStroke: pathTotalStroke,
+		blockedFill: pathBlockedFill,
+		blockedStroke: pathBlockedStroke,
+		cachedFill: pathCachedFill,
+		cachedStroke: pathCachedStroke
+	};
 	var svg = E('svg', {
 		'width': '100%',
 		'height': '286',
@@ -2081,15 +2347,15 @@ function renderRealtimeMetrics(initialMetricsText) {
 	var activeCls = 'cbi-button cbi-button-action blocky-range-active';
 	var idleCls = 'cbi-button';
 
-	function barRowSingle(label, val, maxVal, color) {
+	function barRowSingle(label, val, maxVal, tone) {
 		var pct = Math.round(100 * val / Math.max(1, maxVal));
 
 		return E('div', { 'class': 'blocky-bar-row' }, [
 			E('div', { 'class': 'blocky-bar-label' }, [ label ]),
 			E('div', { 'class': 'blocky-bar-track' }, [
 				E('div', {
-					'class': 'blocky-bar-seg',
-					'style': 'width:%d%%;background:%s'.format(Math.min(100, pct), color)
+					'class': 'blocky-bar-seg blocky-bar-seg--' + tone,
+					'style': 'width:%d%%'.format(Math.min(100, pct))
 				})
 			]),
 			E('div', { 'class': 'blocky-bar-val' }, [ formatNumber(val) ])
@@ -2104,9 +2370,9 @@ function renderRealtimeMetrics(initialMetricsText) {
 
 		replaceContent(mixHost, E('div', {}, [
 			E('h4', {}, [ _('Latest interval') ]),
-			barRowSingle(_('Total Δ'), totalVal, maxVal, '#2196f3'),
-			barRowSingle(_('Blocked Δ'), blockedVal, maxVal, '#e53935'),
-			barRowSingle(_('Cache hit Δ'), cachedVal, maxVal, '#43a047'),
+			barRowSingle(_('Total Δ'), totalVal, maxVal, 'total'),
+			barRowSingle(_('Blocked Δ'), blockedVal, maxVal, 'blocked'),
+			barRowSingle(_('Cache hit Δ'), cachedVal, maxVal, 'cached'),
 			E('p', { 'class': 'cbi-section-descr', 'style': 'margin-top:.75em' }, [
 				_('Each bar uses the largest counter delta in that polling interval as full width.')
 			])
@@ -2130,20 +2396,21 @@ function renderRealtimeMetrics(initialMetricsText) {
 		replaceContent(vBarHost, E('div', { 'class': 'blocky-chart-vbar-wrap' }, buckets.map(function(bucket) {
 			colW = 'flex:1;margin:0 3px;max-width:52px;display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:2px';
 
-			function barPortion(val, color) {
+			function barPortion(val, tone) {
 				scale = Math.max(1, maxB);
 				bh = Math.round(110 * val / scale);
 
 				return E('div', {
+					'class': 'blocky-vbar blocky-vbar--' + tone,
 					'title': formatNumber(val),
-					'style': 'flex:1;min-width:3px;height:%dpx;background:%s;border-radius:2px 2px 0 0'.format(bh, color)
+					'style': 'flex:1;min-width:3px;height:%dpx'.format(bh)
 				});
 			}
 
 			return E('div', { 'style': colW }, [
-				barPortion(bucket.total, '#2196f3'),
-				barPortion(bucket.blocked, '#e53935'),
-				barPortion(bucket.cached, '#43a047')
+				barPortion(bucket.total, 'total'),
+				barPortion(bucket.blocked, 'blocked'),
+				barPortion(bucket.cached, 'cached')
 			]);
 		})));
 	}
@@ -2186,6 +2453,7 @@ function renderRealtimeMetrics(initialMetricsText) {
 		pathBlockedStroke.setAttribute('d', buildSmoothLinePath(dBlocked));
 		pathCachedFill.setAttribute('d', buildSmoothAreaPath(dCached, baselineY));
 		pathCachedStroke.setAttribute('d', buildSmoothLinePath(dCached));
+		applyBlockyChartPathTheme(chartPaths);
 	}
 
 	function redrawChart(filtered) {
@@ -2312,6 +2580,10 @@ function renderRealtimeMetrics(initialMetricsText) {
 	setBlockyMetricsPollingHook(hook);
 	state.lastRaw = safeString(initialMetricsText);
 	ingestMetrics(state.lastRaw);
+	applyBlockyChartPathTheme(chartPaths);
+	blockyAttachThemeSync(function() {
+		applyBlockyChartPathTheme(chartPaths);
+	});
 	redrawAll();
 
 	return E('div', {}, [
@@ -2332,20 +2604,11 @@ function renderRealtimeMetrics(initialMetricsText) {
 				metricsBannerHost,
 				E('div', { 'class': 'blocky-chart-svg-wrap' }, [ svg ]),
 				E('div', { 'class': 'blocky-chart-legend' }, [
-					E('span', {}, [
-						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#2196f3' }),
-						_('Total')
-					]),
+					E('span', {}, [ blockyLegendDot('total'), _('Total') ]),
 					' ',
-					E('span', {}, [
-						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#e53935' }),
-						_('Blocked')
-					]),
+					E('span', {}, [ blockyLegendDot('blocked'), _('Blocked') ]),
 					' ',
-					E('span', {}, [
-						E('span', { 'class': 'blocky-legend-dot', 'style': 'background:#43a047' }),
-						_('Cached')
-					])
+					E('span', {}, [ blockyLegendDot('cached'), _('Cached') ])
 				]),
 				E('p', { 'class': 'blocky-note-soft', 'style': 'margin-bottom:0;margin-top:.65em' }, [
 					_('Long windows need more samples — keep the dashboard open. Past sessions are not stored.')
@@ -3032,11 +3295,19 @@ function mountDashboardContent(host, data, refreshPage) {
 	var metricsPayload = unwrapFetchText(metrics);
 
 	host.replaceChildren(
+		renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage),
 		renderAdBlockerPipeline(status, service, dnsFwdRaw, config, statsResult, adblockService),
-		renderOverview(statsResult, metricsPayload),
-		renderStatusDashboard(status, service, refreshPage),
-		renderStatsDashboard(statsResult, refreshPage),
-		renderRealtimeMetrics(metricsPayload)
+		E('div', { 'class': 'blocky-dash-full blocky-dash-panel' }, [
+			E('div', { 'class': 'blocky-dash-panel-head' }, [
+				E('div', {}, [
+					E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Live metrics') ]),
+					E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
+						_('Prometheus counter deltas while this page stays open.')
+					])
+				])
+			]),
+			renderRealtimeMetrics(metricsPayload)
+		])
 	);
 
 	return {
@@ -3048,6 +3319,12 @@ function mountDashboardContent(host, data, refreshPage) {
 	};
 }
 
+function attachDashboardHostState(host, service, status, refreshPage) {
+	host._blockyService = service;
+	host._blockyStatus = status;
+	host._blockyRefresh = refreshPage;
+}
+
 function registerStatsPoll(dashboardHost, getMetricsPayload, refreshPage) {
 	poll.add(function() {
 		return fetchBlockyStats().then(function(sr) {
@@ -3055,13 +3332,14 @@ function registerStatsPoll(dashboardHost, getMetricsPayload, refreshPage) {
 				return;
 
 			var metricsPayload = typeof getMetricsPayload === 'function' ? getMetricsPayload() : '';
-			var overview = dashboardHost.querySelector('.blocky-dashboard-metrics-row');
-			if (overview)
-				overview.replaceWith(renderOverview(sr, metricsPayload));
+			var statsZone = dashboardHost.querySelector('.blocky-dash-stats-zone');
+			var service = dashboardHost._blockyService;
+			var status = dashboardHost._blockyStatus;
 
-			var statsSection = dashboardHost.querySelector('.blocky-stats-dashboard');
-			if (statsSection)
-				statsSection.replaceWith(renderStatsDashboard(sr, refreshPage));
+			if (statsZone && typeof dashboardHost._blockyRefresh === 'function')
+				statsZone.replaceWith(renderDashboardStatsZone(sr, metricsPayload, status, service, dashboardHost._blockyRefresh));
+			else if (statsZone)
+				statsZone.replaceWith(renderDashboardStatsZone(sr, metricsPayload, status, service, function() {}));
 		});
 	}, 45);
 }
@@ -3094,7 +3372,8 @@ function createBlockyView(options) {
 
 			function refreshPage() {
 				return self.load().then(function(fresh) {
-					mountDashboardContent(dashboardHost, fresh, refreshPage);
+					var mounted = mountDashboardContent(dashboardHost, fresh, refreshPage);
+					attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage, fresh[8]));
 					controlsHost.replaceChildren(
 						renderBlockingControls(fresh[1], refreshPage),
@@ -3107,7 +3386,8 @@ function createBlockyView(options) {
 				});
 			}
 
-			mountDashboardContent(dashboardHost, data, refreshPage);
+			var mounted = mountDashboardContent(dashboardHost, data, refreshPage);
+			attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage, catalogData));
 			logsHost.appendChild(renderQueryLogsTab(config));
 
