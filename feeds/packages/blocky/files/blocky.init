@@ -7,6 +7,8 @@ PROG=/usr/bin/blocky
 CONFIG=/etc/blocky/config.yml
 
 start_service() {
+	[ -x /usr/sbin/blocky-lists-sync ] && /usr/sbin/blocky-lists-sync
+
 	mkdir -p /tmp/blocky-logs
 	chmod 755 /tmp/blocky-logs
 

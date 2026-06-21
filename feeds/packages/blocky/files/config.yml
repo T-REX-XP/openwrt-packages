@@ -6,11 +6,11 @@ upstreams:
 
 blocking:
   denylists:
-    ads:
+    stevenblack:
       - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
   clientGroupsBlock:
     default:
-      - ads
+      - stevenblack
   refreshPeriod: 4h
 
 queryLog:

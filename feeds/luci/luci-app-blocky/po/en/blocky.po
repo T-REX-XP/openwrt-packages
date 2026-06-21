@@ -630,3 +630,162 @@ msgstr "WAN / resolv upstream only"
 
 msgid "Yes"
 msgstr "Yes"
+
+msgid "DNS blocklists"
+msgstr "DNS blocklists"
+
+msgid "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
+msgstr "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
+
+msgid "Rules"
+msgstr "Rules"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "No block lists configured."
+msgstr "No block lists configured."
+
+msgid "Block list updated."
+msgstr "Block list updated."
+
+msgid "Edit block list"
+msgstr "Edit block list"
+
+msgid "Delete block list “%s”?"
+msgstr "Delete block list “%s”?"
+
+msgid "Block list deleted."
+msgstr "Block list deleted."
+
+msgid "Already added"
+msgstr "Already added"
+
+msgid "Select at least one catalog list."
+msgstr "Select at least one catalog list."
+
+msgid "Catalog lists added."
+msgstr "Catalog lists added."
+
+msgid "Name and URL are required."
+msgstr "Name and URL are required."
+
+msgid "URL must start with http:// or https://"
+msgstr "URL must start with http:// or https://"
+
+msgid "A list with this identifier already exists. Choose a different name."
+msgstr "A list with this identifier already exists. Choose a different name."
+
+msgid "Custom block list added."
+msgstr "Custom block list added."
+
+msgid "Update lists now"
+msgstr "Update lists now"
+
+msgid "Save & restart Blocky"
+msgstr "Save & restart Blocky"
+
+msgid "Block lists applied and Blocky restarted."
+msgstr "Block lists applied and Blocky restarted."
+
+msgid "Block list saved."
+msgstr "Block list saved."
+
+msgid "Add custom list"
+msgstr "Add custom list"
+
+msgid "Add a custom remote blocklist by name and URL (hosts, plain domain, or AdBlock syntax)."
+msgstr "Add a custom remote blocklist by name and URL (hosts, plain domain, or AdBlock syntax)."
+
+msgid "Choose from catalog"
+msgstr "Choose from catalog"
+
+msgid "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
+msgstr "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
+
+msgid "Add selected lists"
+msgstr "Add selected lists"
+
+msgid "Failed to sync block lists to config.yml"
+msgstr "Failed to sync block lists to config.yml"
+
+msgid "StevenBlack Unified"
+msgstr "StevenBlack Unified"
+
+msgid "Unified ads and malware hosts file (English-focused)."
+msgstr "Unified ads and malware hosts file (English-focused)."
+
+msgid "AdGuard DNS filter"
+msgstr "AdGuard DNS filter"
+
+msgid "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
+msgstr "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
+
+msgid "AdGuard Tracking Protection"
+msgstr "AdGuard Tracking Protection"
+
+msgid "Counters, analytics, and web tracking tools."
+msgstr "Counters, analytics, and web tracking tools."
+
+msgid "AdGuard Social Media"
+msgstr "AdGuard Social Media"
+
+msgid "Social widgets, Like/Tweet buttons, and related integrations."
+msgstr "Social widgets, Like/Tweet buttons, and related integrations."
+
+msgid "AdGuard Mobile Ads"
+msgstr "AdGuard Mobile Ads"
+
+msgid "Advertising on mobile devices and in mobile apps."
+msgstr "Advertising on mobile devices and in mobile apps."
+
+msgid "AdGuard Annoyances"
+msgstr "AdGuard Annoyances"
+
+msgid "Cookie notices, in-page popups, and third-party widgets."
+msgstr "Cookie notices, in-page popups, and third-party widgets."
+
+msgid "OISD Full Domains"
+msgstr "OISD Full Domains"
+
+msgid "Large curated wildcard domain blocklist (OISD)."
+msgstr "Large curated wildcard domain blocklist (OISD)."
+
+msgid "HaGeZi Multi PRO"
+msgstr "HaGeZi Multi PRO"
+
+msgid "Aggressive multi-purpose DNS blocklist (HaGeZi PRO)."
+msgstr "Aggressive multi-purpose DNS blocklist (HaGeZi PRO)."
+
+msgid "EasyPrivacy"
+msgstr "EasyPrivacy"
+
+msgid "Trackers and privacy-related third-party requests (EasyList project)."
+msgstr "Trackers and privacy-related third-party requests (EasyList project)."
+
+msgid "Phishing Army Extended"
+msgstr "Phishing Army Extended"
+
+msgid "Extended phishing and scam domain blocklist."
+msgstr "Extended phishing and scam domain blocklist."
+
+msgid "ads"
+msgstr "ads"
+
+msgid "privacy"
+msgstr "privacy"
+
+msgid "social"
+msgstr "social"
+
+msgid "annoyances"
+msgstr "annoyances"
+
+msgid "comprehensive"
+msgstr "comprehensive"
+
+msgid "security"
+msgstr "security"
+
+msgid "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."
+msgstr "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."

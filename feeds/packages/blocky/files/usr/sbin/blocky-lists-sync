@@ -1,0 +1,123 @@
+#!/bin/sh
+# Merge /etc/config/blocky blocklist sections into blocking: in /etc/blocky/config.yml
+
+. /lib/functions.sh
+
+CONFIG_YML=/etc/blocky/config.yml
+DENY_TMP=
+GROUP_TMP=
+
+sanitize_id() {
+	echo "$1" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_' '_' | sed 's/_*$//; s/^_*//'
+}
+
+cleanup() {
+	[ -n "$DENY_TMP" ] && rm -f "$DENY_TMP"
+	[ -n "$GROUP_TMP" ] && rm -f "$GROUP_TMP"
+}
+
+append_denylist_entry() {
+	local section="$1"
+	local id name url enabled
+
+	config_get name "$section" name "$section"
+	config_get url "$section" url ""
+	config_get enabled "$section" enabled "1"
+
+	[ -n "$url" ] || return 0
+
+	id="$(sanitize_id "$section")"
+	[ -n "$id" ] || return 0
+
+	printf '\t%s:\n' "$id" >> "$DENY_TMP"
+	printf '\t  - %s\n' "$url" >> "$DENY_TMP"
+
+	[ "$enabled" = "1" ] && printf '%s\n' "$id" >> "$GROUP_TMP"
+}
+
+write_blocking_section() {
+	local refresh_period out_tmp
+
+	config_load blocky
+	config_get refresh_period main refresh_period "4h"
+	[ -n "$refresh_period" ] || refresh_period="4h"
+
+	DENY_TMP="$(mktemp)"
+	GROUP_TMP="$(mktemp)"
+	out_tmp="$(mktemp)"
+
+	config_foreach append_denylist_entry blocklist
+
+	if [ ! -s "$DENY_TMP" ]; then
+		printf '\tstevenblack:\n' >> "$DENY_TMP"
+		printf '\t  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n' >> "$DENY_TMP"
+		printf 'stevenblack\n' >> "$GROUP_TMP"
+	fi
+
+	{
+		echo "blocking:"
+		echo "  denylists:"
+		cat "$DENY_TMP"
+		echo "  clientGroupsBlock:"
+		echo "    default:"
+		if [ -s "$GROUP_TMP" ]; then
+			sed 's/^/      - /' "$GROUP_TMP"
+		else
+			echo "      - stevenblack"
+		fi
+		echo "  refreshPeriod: $refresh_period"
+	} > "$out_tmp"
+
+	echo "$out_tmp"
+}
+
+merge_config() {
+	local new_blocking="$1"
+	local head_tmp merged_tmp
+
+	head_tmp="$(mktemp)"
+	merged_tmp="$(mktemp)"
+
+	awk '
+		/^blocking:/ { skip=1; next }
+		skip {
+			if ($0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/) skip=0
+			else next
+		}
+		{ print }
+	' "$CONFIG_YML" > "$head_tmp"
+
+	cat "$head_tmp" "$new_blocking" > "$merged_tmp"
+
+	awk '
+		/^blocking:/ { skip=1; next }
+		skip {
+			if ($0 ~ /^[^[:space:]#]/ && $0 !~ /^blocking:/) {
+				skip=0
+				print
+			}
+			next
+		}
+		{ next }
+	' "$CONFIG_YML" >> "$merged_tmp"
+
+	mv "$merged_tmp" "$CONFIG_YML"
+	rm -f "$head_tmp"
+}
+
+main() {
+	local blocking_file
+
+	[ -s "$CONFIG_YML" ] || {
+		echo "blocky-lists-sync: missing $CONFIG_YML" >&2
+		exit 1
+	}
+
+	trap cleanup EXIT
+
+	blocking_file="$(write_blocking_section)"
+	merge_config "$blocking_file"
+	rm -f "$blocking_file"
+}
+
+main "$@"

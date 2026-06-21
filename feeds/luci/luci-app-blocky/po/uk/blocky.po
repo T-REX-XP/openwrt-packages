@@ -631,3 +631,162 @@ msgstr "Лише WAN / resolv upstream"
 
 msgid "Yes"
 msgstr "Так"
+
+msgid "DNS blocklists"
+msgstr "DNS blocklists"
+
+msgid "Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists."
+msgstr "Керування віддаленими DNS blocklists (як у AdGuard Home): перегляд, увімкнення, редагування, видалення та комбінування кількох списків."
+
+msgid "Rules"
+msgstr "Правила"
+
+msgid "Actions"
+msgstr "Дії"
+
+msgid "No block lists configured."
+msgstr "Blocklists не налаштовано."
+
+msgid "Block list updated."
+msgstr "Blocklist оновлено."
+
+msgid "Edit block list"
+msgstr "Редагувати blocklist"
+
+msgid "Delete block list “%s”?"
+msgstr "Видалити blocklist «%s»?"
+
+msgid "Block list deleted."
+msgstr "Blocklist видалено."
+
+msgid "Already added"
+msgstr "Уже додано"
+
+msgid "Select at least one catalog list."
+msgstr "Оберіть хоча б один список з каталогу."
+
+msgid "Catalog lists added."
+msgstr "Списки з каталогу додано."
+
+msgid "Name and URL are required."
+msgstr "Потрібні назва та URL."
+
+msgid "URL must start with http:// or https://"
+msgstr "URL має починатися з http:// або https://"
+
+msgid "A list with this identifier already exists. Choose a different name."
+msgstr "Список з таким ідентифікатором уже існує. Оберіть іншу назву."
+
+msgid "Custom block list added."
+msgstr "Власний blocklist додано."
+
+msgid "Update lists now"
+msgstr "Оновити списки зараз"
+
+msgid "Save & restart Blocky"
+msgstr "Зберегти та перезапустити Blocky"
+
+msgid "Block lists applied and Blocky restarted."
+msgstr "Blocklists застосовано, Blocky перезапущено."
+
+msgid "Block list saved."
+msgstr "Blocklist збережено."
+
+msgid "Add custom list"
+msgstr "Додати власний список"
+
+msgid "Add a custom remote blocklist by name and URL (hosts, plain domain, or AdBlock syntax)."
+msgstr "Додати власний віддалений blocklist за назвою та URL (hosts, домени або синтаксис AdBlock)."
+
+msgid "Choose from catalog"
+msgstr "Обрати з каталогу"
+
+msgid "Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration."
+msgstr "Популярні DNS blocklists за категоріями AdGuard Home. Оберіть один або кілька і додайте до конфігурації."
+
+msgid "Add selected lists"
+msgstr "Додати обрані списки"
+
+msgid "Failed to sync block lists to config.yml"
+msgstr "Не вдалося синхронізувати blocklists у config.yml"
+
+msgid "StevenBlack Unified"
+msgstr "StevenBlack Unified"
+
+msgid "Unified ads and malware hosts file (English-focused)."
+msgstr "Об'єднаний hosts-файл реклами та шкідливих доменів (англомовний)."
+
+msgid "AdGuard DNS filter"
+msgstr "AdGuard DNS filter"
+
+msgid "DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters."
+msgstr "DNS-оптимізована комбінація базових фільтрів реклами, мобільної реклами, соцмереж, шпигунського ПЗ і приватності."
+
+msgid "AdGuard Tracking Protection"
+msgstr "AdGuard Tracking Protection"
+
+msgid "Counters, analytics, and web tracking tools."
+msgstr "Лічильники, аналітика та інструменти веб-трекінгу."
+
+msgid "AdGuard Social Media"
+msgstr "AdGuard Social Media"
+
+msgid "Social widgets, Like/Tweet buttons, and related integrations."
+msgstr "Віджети соцмереж, кнопки Like/Tweet та подібні інтеграції."
+
+msgid "AdGuard Mobile Ads"
+msgstr "AdGuard Mobile Ads"
+
+msgid "Advertising on mobile devices and in mobile apps."
+msgstr "Реклама на мобільних пристроях і в мобільних застосунках."
+
+msgid "AdGuard Annoyances"
+msgstr "AdGuard Annoyances"
+
+msgid "Cookie notices, in-page popups, and third-party widgets."
+msgstr "Повідомлення про cookies, спливаючі вікна на сторінках і сторонні віджети."
+
+msgid "OISD Full Domains"
+msgstr "OISD Full Domains"
+
+msgid "Large curated wildcard domain blocklist (OISD)."
+msgstr "Великий curated wildcard blocklist доменів (OISD)."
+
+msgid "HaGeZi Multi PRO"
+msgstr "HaGeZi Multi PRO"
+
+msgid "Aggressive multi-purpose DNS blocklist (HaGeZi PRO)."
+msgstr "Агресивний багатофункціональний DNS blocklist (HaGeZi PRO)."
+
+msgid "EasyPrivacy"
+msgstr "EasyPrivacy"
+
+msgid "Trackers and privacy-related third-party requests (EasyList project)."
+msgstr "Трекери та сторонні запити, пов'язані з приватністю (проєкт EasyList)."
+
+msgid "Phishing Army Extended"
+msgstr "Phishing Army Extended"
+
+msgid "Extended phishing and scam domain blocklist."
+msgstr "Розширений blocklist фішингових і шахрайських доменів."
+
+msgid "ads"
+msgstr "реклама"
+
+msgid "privacy"
+msgstr "приватність"
+
+msgid "social"
+msgstr "соцмережі"
+
+msgid "annoyances"
+msgstr "дратівливості"
+
+msgid "comprehensive"
+msgstr "комплексний"
+
+msgid "security"
+msgstr "безпека"
+
+msgid "DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts."
+msgstr "DNS blocklists керуються на вкладці «Block lists»; секція blocking тут перезаписується при застосуванні списків або запуску Blocky."

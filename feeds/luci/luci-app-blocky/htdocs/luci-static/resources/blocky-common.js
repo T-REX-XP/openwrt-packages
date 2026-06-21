@@ -241,6 +241,460 @@ function loadBlockyUciAccess() {
 	});
 }
 
+var BLOCKLIST_PRESETS = [
+	{
+		id: 'stevenblack',
+		name: 'StevenBlack Unified',
+		url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
+		category: 'ads',
+		description: 'Unified ads and malware hosts file (English-focused).'
+	},
+	{
+		id: 'adguard_dns',
+		name: 'AdGuard DNS filter',
+		url: 'https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt',
+		category: 'ads',
+		description: 'DNS-optimized combination of base ad, mobile, social, spyware, and privacy filters.'
+	},
+	{
+		id: 'adguard_tracking',
+		name: 'AdGuard Tracking Protection',
+		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3.txt',
+		category: 'privacy',
+		description: 'Counters, analytics, and web tracking tools.'
+	},
+	{
+		id: 'adguard_social',
+		name: 'AdGuard Social Media',
+		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_4.txt',
+		category: 'social',
+		description: 'Social widgets, Like/Tweet buttons, and related integrations.'
+	},
+	{
+		id: 'adguard_mobile',
+		name: 'AdGuard Mobile Ads',
+		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11.txt',
+		category: 'ads',
+		description: 'Advertising on mobile devices and in mobile apps.'
+	},
+	{
+		id: 'adguard_annoyances',
+		name: 'AdGuard Annoyances',
+		url: 'https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_14.txt',
+		category: 'annoyances',
+		description: 'Cookie notices, in-page popups, and third-party widgets.'
+	},
+	{
+		id: 'oisd_full',
+		name: 'OISD Full Domains',
+		url: 'https://big.oisd.nl/domainswild',
+		category: 'comprehensive',
+		description: 'Large curated wildcard domain blocklist (OISD).'
+	},
+	{
+		id: 'hagezi_pro',
+		name: 'HaGeZi Multi PRO',
+		url: 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt',
+		category: 'comprehensive',
+		description: 'Aggressive multi-purpose DNS blocklist (HaGeZi PRO).'
+	},
+	{
+		id: 'easyprivacy',
+		name: 'EasyPrivacy',
+		url: 'https://easylist.to/easylist/easyprivacy.txt',
+		category: 'privacy',
+		description: 'Trackers and privacy-related third-party requests (EasyList project).'
+	},
+	{
+		id: 'phishing_army',
+		name: 'Phishing Army Extended',
+		url: 'https://phishing.army/download/phishing_army_blocklist_extended.txt',
+		category: 'security',
+		description: 'Extended phishing and scam domain blocklist.'
+	}
+];
+
+function sanitizeBlocklistId(raw) {
+	return safeString(raw).toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function loadUciBlocklists() {
+	return uci.load('blocky').then(function() {
+		return uci.sections('blocky', 'blocklist').map(function(section) {
+			var id = section['.name'];
+
+			return {
+				id: id,
+				name: uci.get('blocky', id, 'name') || id,
+				url: uci.get('blocky', id, 'url') || '',
+				enabled: uci.get('blocky', id, 'enabled') !== '0',
+				category: uci.get('blocky', id, 'category') || '',
+				description: uci.get('blocky', id, 'description') || ''
+			};
+		}).sort(function(a, b) {
+			return safeString(a.name).localeCompare(safeString(b.name));
+		});
+	});
+}
+
+function execBlockyListsSync() {
+	return fs.exec('/usr/sbin/blocky-lists-sync', []).then(function(res) {
+		var code = res != null ? Number(res.code) : 0;
+
+		if (code !== 0)
+			throw new Error(execResultStdout(res, _('Failed to sync block lists to config.yml')));
+
+		return res;
+	});
+}
+
+function applyBlocklistChanges(restart) {
+	return uci.save().then(function() {
+		return execBlockyListsSync();
+	}).then(function() {
+		if (restart)
+			return runInit('restart');
+
+		return blockyApi('/lists/refresh', 'POST');
+	});
+}
+
+function renderBlocklistsTab(statsResult, refreshPage) {
+	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
+	var presetHost = E('div', { 'class': 'blocky-preset-grid' });
+	var editNameInput = E('input', { 'class': 'cbi-input-text', 'style': 'width:100%' });
+	var editUrlInput = E('input', { 'class': 'cbi-input-text', 'style': 'width:100%' });
+	var editingId = null;
+	var editHost = E('div', { 'class': 'blocky-blocklist-edit', 'style': 'display:none' }, [
+		E('h4', {}, [ _('Edit block list') ]),
+		E('div', { 'class': 'cbi-value' }, [
+			E('label', { 'class': 'cbi-value-title' }, [ _('Name') ]),
+			E('div', { 'class': 'cbi-value-field' }, [ editNameInput ])
+		]),
+		E('div', { 'class': 'cbi-value' }, [
+			E('label', { 'class': 'cbi-value-title' }, [ _('URL') ]),
+			E('div', { 'class': 'cbi-value-field' }, [ editUrlInput ])
+		]),
+		E('p', {}, [
+			E('button', {
+				'class': 'cbi-button cbi-button-save',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+
+					if (!editingId)
+						return;
+
+					var name = editNameInput.value.trim();
+					var url = editUrlInput.value.trim();
+
+					if (!name || !url) {
+						notify(_('Name and URL are required.'), 'danger');
+						return;
+					}
+
+					if (!/^https?:\/\//i.test(url)) {
+						notify(_('URL must start with http:// or https://'), 'danger');
+						return;
+					}
+
+					uci.set('blocky', editingId, 'name', name);
+					uci.set('blocky', editingId, 'url', url);
+
+					return applyBlocklistChanges(true).then(function() {
+						editHost.style.display = 'none';
+						editingId = null;
+						notify(_('Block list saved.'));
+						return refreshPage();
+					}).catch(function(err) {
+						notify(err.message || String(err), 'danger');
+					});
+				})
+			}, [ _('Save') ]),
+			' ',
+			E('button', {
+				'class': 'cbi-button cbi-button-neutral',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+					editHost.style.display = 'none';
+					editingId = null;
+				})
+			}, [ _('Cancel') ])
+		])
+	]);
+	var customNameInput = E('input', {
+		'class': 'cbi-input-text',
+		'placeholder': _('Name'),
+		'style': 'min-width:14em'
+	});
+	var customUrlInput = E('input', {
+		'class': 'cbi-input-text',
+		'placeholder': 'https://…',
+		'style': 'width:100%; max-width:42em'
+	});
+
+	function denyCountsMap() {
+		var stats = statsResult && statsResult.ok ? statsResult.data : null;
+
+		return stats && stats.lists && stats.lists.denylist ? stats.lists.denylist : {};
+	}
+
+	function repaintTable() {
+		return loadUciBlocklists().then(function(lists) {
+			var counts = denyCountsMap();
+
+			if (!lists.length) {
+				replaceContent(tableHost, E('em', {}, [ _('No block lists configured.') ]));
+				return;
+			}
+
+			replaceContent(tableHost, [
+				E('div', { 'class': 'tr table-titles' }, [
+					E('div', { 'class': 'th', 'style': 'width:4em' }, [ _('Enabled') ]),
+					E('div', { 'class': 'th', 'style': 'width:18%' }, [ _('Name') ]),
+					E('div', { 'class': 'th' }, [ _('URL') ]),
+					E('div', { 'class': 'th', 'style': 'width:7em' }, [ _('Rules') ]),
+					E('div', { 'class': 'th', 'style': 'width:10em' }, [ _('Actions') ])
+				])
+			].concat(lists.map(function(entry) {
+				var countKey = sanitizeBlocklistId(entry.id);
+				var rules = counts[countKey];
+				var rulesLabel = rules != null
+					? formatNumber(rules)
+					: (entry.enabled ? '…' : '0');
+
+				return E('div', { 'class': 'tr' }, [
+					E('div', { 'class': 'td' }, [
+						E('input', {
+							'type': 'checkbox',
+							'checked': entry.enabled ? '' : null,
+							'change': ui.createHandlerFn(this, function(ev) {
+								uci.set('blocky', entry.id, 'enabled', ev.target.checked ? '1' : '0');
+
+								return applyBlocklistChanges(true).then(function() {
+									notify(_('Block list updated.'));
+									return refreshPage();
+								}).catch(function(err) {
+									notify(err.message || String(err), 'danger');
+									ev.target.checked = !ev.target.checked;
+								});
+							})
+						})
+					]),
+					E('div', { 'class': 'td left' }, [
+						E('strong', {}, [ entry.name ]),
+						entry.description
+							? E('div', { 'class': 'blocky-note-soft' }, [ entry.description ])
+							: ''
+					]),
+					E('div', { 'class': 'td left' }, [
+						E('code', { 'class': 'blocky-list-url' }, [ entry.url ])
+					]),
+					E('div', { 'class': 'td left' }, [ rulesLabel ]),
+					E('div', { 'class': 'td' }, [
+						E('button', {
+							'class': 'cbi-button cbi-button-edit',
+							'click': ui.createHandlerFn(this, function(ev) {
+								ev.preventDefault();
+								editingId = entry.id;
+								editNameInput.value = entry.name;
+								editUrlInput.value = entry.url;
+								editHost.style.display = '';
+							})
+						}, [ _('Edit') ]),
+						' ',
+						E('button', {
+							'class': 'cbi-button cbi-button-negative',
+							'click': ui.createHandlerFn(this, function(ev) {
+								ev.preventDefault();
+
+								if (!confirm(_('Delete block list “%s”?').format(entry.name)))
+									return;
+
+								return uci.load('blocky').then(function() {
+									uci.remove('blocky', entry.id);
+									return applyBlocklistChanges(true);
+								}).then(function() {
+									notify(_('Block list deleted.'));
+									return refreshPage();
+								}).catch(function(err) {
+									notify(err.message || String(err), 'danger');
+								});
+							})
+						}, [ _('Delete') ])
+					])
+				]);
+			})));
+		});
+	}
+
+	function repaintPresets() {
+		return loadUciBlocklists().then(function(lists) {
+			var existing = {};
+
+			lists.forEach(function(entry) {
+				existing[entry.id] = true;
+			});
+
+			replaceContent(presetHost, BLOCKLIST_PRESETS.map(function(preset) {
+				var added = !!existing[preset.id];
+				var checkbox = E('input', {
+					'type': 'checkbox',
+					'disabled': added ? '' : null
+				});
+
+				return E('div', { 'class': 'blocky-preset-card' }, [
+					E('label', { 'class': 'blocky-preset-head' }, [
+						checkbox, ' ',
+						E('strong', {}, [ _(preset.name) ])
+					]),
+					E('div', { 'class': 'blocky-preset-meta' }, [
+						E('span', { 'class': 'blocky-pill blocky-pill-muted' }, [ _(preset.category) ])
+					]),
+					E('p', { 'class': 'blocky-note-soft' }, [ _(preset.description) ]),
+					E('code', { 'class': 'blocky-list-url' }, [ preset.url ]),
+					added ? E('em', { 'class': 'blocky-preset-added' }, [ _('Already added') ]) : ''
+				]);
+			}));
+
+			presetHost._presetCheckboxes = presetHost.querySelectorAll('.blocky-preset-card input[type=checkbox]:not([disabled])');
+		});
+	}
+
+	function addPresetsFromCatalog() {
+		var cards = presetHost.querySelectorAll('.blocky-preset-card');
+		var selected = [];
+
+		for (var i = 0; i < cards.length; i++) {
+			var box = cards[i].querySelector('input[type=checkbox]');
+
+			if (box && !box.disabled && box.checked)
+				selected.push(BLOCKLIST_PRESETS[i]);
+		}
+
+		if (!selected.length) {
+			notify(_('Select at least one catalog list.'), 'warning');
+			return Promise.resolve();
+		}
+
+		return uci.load('blocky').then(function() {
+			selected.forEach(function(preset) {
+				if (uci.get('blocky', preset.id))
+					return;
+
+				uci.add('blocky', 'blocklist', preset.id);
+				uci.set('blocky', preset.id, 'name', preset.name);
+				uci.set('blocky', preset.id, 'url', preset.url);
+				uci.set('blocky', preset.id, 'enabled', '1');
+				uci.set('blocky', preset.id, 'category', preset.category || '');
+				uci.set('blocky', preset.id, 'description', preset.description || '');
+			});
+
+			return applyBlocklistChanges(true);
+		}).then(function() {
+			notify(_('Catalog lists added.'));
+			return refreshPage();
+		});
+	}
+
+	function addCustomList() {
+		var name = customNameInput.value.trim();
+		var url = customUrlInput.value.trim();
+		var id = sanitizeBlocklistId(name);
+
+		if (!name || !url) {
+			notify(_('Name and URL are required.'), 'danger');
+			return Promise.resolve();
+		}
+
+		if (!/^https?:\/\//i.test(url)) {
+			notify(_('URL must start with http:// or https://'), 'danger');
+			return Promise.resolve();
+		}
+
+		if (!id)
+			id = 'custom_' + String(Date.now());
+
+		return uci.load('blocky').then(function() {
+			if (uci.get('blocky', id)) {
+				notify(_('A list with this identifier already exists. Choose a different name.'), 'danger');
+				return;
+			}
+
+			uci.add('blocky', 'blocklist', id);
+			uci.set('blocky', id, 'name', name);
+			uci.set('blocky', id, 'url', url);
+			uci.set('blocky', id, 'enabled', '1');
+			uci.set('blocky', id, 'category', 'custom');
+			uci.set('blocky', id, 'description', '');
+
+			customNameInput.value = '';
+			customUrlInput.value = '';
+
+			return applyBlocklistChanges(true);
+		}).then(function() {
+			notify(_('Custom block list added.'));
+			return refreshPage();
+		});
+	}
+
+	repaintTable();
+	repaintPresets();
+
+	return E('div', { 'class': 'cbi-section blocky-blocklists-section' }, [
+		E('h3', {}, [ _('DNS blocklists') ]),
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Manage remote DNS blocklists (similar to AdGuard Home): view, enable, edit, delete, and combine multiple filter lists.')
+		]),
+		tableHost,
+		E('div', { 'class': 'blocky-blocklists-toolbar' }, [
+			actionButton(_('Update lists now'), function() {
+				return blockyApi('/lists/refresh', 'POST');
+			}, 'cbi-button-action', refreshPage),
+			' ',
+			actionButton(_('Save & restart Blocky'), function() {
+				return applyBlocklistChanges(true).then(function() {
+					notify(_('Block lists applied and Blocky restarted.'));
+					return refreshPage();
+				});
+			}, 'cbi-button-apply')
+		]),
+		editHost,
+		E('h4', { 'style': 'margin-top:1.25em' }, [ _('Add custom list') ]),
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Add a custom remote blocklist by name and URL (hosts, plain domain, or AdBlock syntax).')
+		]),
+		E('div', { 'class': 'blocky-custom-list-form' }, [
+			customNameInput, ' ',
+			customUrlInput, ' ',
+			E('button', {
+				'class': 'cbi-button cbi-button-add',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+					return addCustomList().catch(function(err) {
+						notify(err.message || String(err), 'danger');
+					});
+				})
+			}, [ _('Add custom list') ])
+		]),
+		E('h4', { 'style': 'margin-top:1.25em' }, [ _('Choose from catalog') ]),
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Popular DNS blocklists inspired by AdGuard Home categories. Select one or more, then add them to your configuration.')
+		]),
+		presetHost,
+		E('p', { 'class': 'blocky-blocklists-toolbar' }, [
+			E('button', {
+				'class': 'cbi-button cbi-button-add',
+				'click': ui.createHandlerFn(this, function(ev) {
+					ev.preventDefault();
+					return addPresetsFromCatalog().catch(function(err) {
+						notify(err.message || String(err), 'danger');
+					});
+				})
+			}, [ _('Add selected lists') ])
+		])
+	]);
+}
+
 function parseBlockyDnsPort(configYaml) {
 	return parseBlockyPortLine(configYaml, 'dns', 5353).port;
 }
@@ -2309,7 +2763,9 @@ function renderConfig(content) {
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Configuration') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Edit %s directly. Save and restart Blocky for changes to take effect.').format(CONFIG_PATH)
+			_('Edit %s directly. Save and restart Blocky for changes to take effect.').format(CONFIG_PATH),
+			' ',
+			_('DNS blocklists are managed under the Block lists tab; the blocking section here is overwritten when lists are applied or Blocky starts.')
 		]),
 		editor,
 		E('p', {}, [
@@ -2484,12 +2940,14 @@ function createBlockyView(options) {
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
+			var blocklistsHost = E('div', {});
 			var controlsHost = E('div', {});
 			var logsHost = E('div', {});
 
 			function refreshPage() {
 				return self.load().then(function(fresh) {
 					mountDashboardContent(dashboardHost, fresh, refreshPage);
+					blocklistsHost.replaceChildren(renderBlocklistsTab(fresh[5], refreshPage));
 					controlsHost.replaceChildren(
 						renderBlockingControls(fresh[1], refreshPage),
 						renderOperations(fresh[0], refreshPage),
@@ -2502,6 +2960,7 @@ function createBlockyView(options) {
 			}
 
 			mountDashboardContent(dashboardHost, data, refreshPage);
+			blocklistsHost.appendChild(renderBlocklistsTab(statsResult, refreshPage));
 			logsHost.appendChild(renderQueryLogsTab(config));
 
 			controlsHost.appendChild(renderBlockingControls(status, refreshPage));
@@ -2537,6 +2996,10 @@ function createBlockyView(options) {
 					{
 						title: _('Dashboard'),
 						nodes: [ dashboardHost ]
+					},
+					{
+						title: _('Block lists'),
+						nodes: [ blocklistsHost ]
 					},
 					{
 						title: _('Configuration'),
