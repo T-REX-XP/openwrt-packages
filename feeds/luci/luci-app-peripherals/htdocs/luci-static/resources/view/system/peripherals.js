@@ -726,7 +726,7 @@ return view.extend({
 			cbiSection(
 				_('Board wiring'),
 				[
-					_('SSD1306 panels on the CM5 Base carrier typically connect to an enabled I2C bus (often i2c1). Run I2C detect and look for address 0x3c before enabling the daemon.')
+					_('SSD1306 panels on the CM5 Base FPC expansion port use i2c7 (typically /dev/i2c-3 after firmware enable). Run I2C detect and look for address 0x3c before enabling the daemon. Onboard RTC remains on i2c1 @ 0x51.')
 				],
 				[ oledBoardInfoBlock(oled) ]
 			),

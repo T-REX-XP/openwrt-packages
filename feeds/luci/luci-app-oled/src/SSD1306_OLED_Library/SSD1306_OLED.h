@@ -33,14 +33,20 @@ SOFTWARE.
 
 /* Lib's */
 #include <stdbool.h>
+#include <stddef.h>
 
 /* Find Min and Max - MACROS */
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-/* I2C Address of SSD1306 */
+/* I2C Address (SSD1306 / SH1106) */
 #define SSD1306_OLED_ADDR 0x3C
-#define DISPLAY_BUFF_SIZE (SSD1306_LCDWIDTH * SSD1306_LCDHEIGHT / 8)
+
+/* Runtime panel geometry (set via display_set_chip() before init) */
+short oled_lcd_width(void);
+short oled_lcd_height(void);
+size_t oled_display_buf_size(void);
+void display_set_chip(const char *chip);
 
 /* COLOR MACROS */
 #define WHITE 1
@@ -60,26 +66,8 @@ SOFTWARE.
 #define SSD1306_CNTRL_CMD 0x00
 #define SSD1306_CNTRL_DATA 0x40
 
-/*-----------------------Enable the WxL of the Display
- * ---------------------------*/
-//#define SSD1306_128_64
-#define SSD1306_128_32
-//#define SSD1306_96_16
-/*--------------------------------------------------------------------------------*/
-
-/* LCD HxW i.e. 64x128 || WxL i.e. 128x64 */
-#if defined SSD1306_128_64
-#define SSD1306_LCDWIDTH 128
-#define SSD1306_LCDHEIGHT 64
-#endif
-#if defined SSD1306_128_32
-#define SSD1306_LCDWIDTH 128
-#define SSD1306_LCDHEIGHT 32
-#endif
-#if defined SSD1306_96_16
-#define SSD1306_LCDWIDTH 96
-#define SSD1306_LCDHEIGHT 16
-#endif
+/* Default panel profile if display_set_chip() is not called */
+#define OLED_DEFAULT_CHIP "ssd1306_128x32"
 
 /* SSD1306 Commands */
 #define SSD1306_DISPLAY_OFF 0xAE
@@ -117,29 +105,12 @@ SOFTWARE.
 
 /* SSD1306 Configuration Commands */
 #define SSD1306_DISPCLK_DIV 0x80
-#if defined SSD1306_128_64
-#define SSD1306_MULT_64 0x3F
-#endif
-#if defined SSD1306_128_32
-#define SSD1306_MULT_64 0x1F
-#endif
-#define SSD1306_MULT_64 0x1F
 #define SSD1306_DISP_OFFSET_VAL 0x00
-#define SSD1306_COL_START_ADDR 0x00		     // Reset to = 0
-#define SSD1306_COL_END_ADDR (SSD1306_LCDWIDTH - 1)  // Reset to = 127
 #define SSD1306_PG_START_ADDR 0x00
-#define SSD1306_PG_END_ADDR 7
 #define SSD1306_CHARGE_PUMP_EN 0x14
-#if defined SSD1306_128_64
-#define SSD1306_CONFIG_COM_PINS 0x12
-#endif
-#if defined SSD1306_128_32
-#define SSD1306_CONFIG_COM_PINS 0x02
-#endif
 #define SSD1306_CONTRAST_VAL 0xCF  // 207
 #define SSD1306_PRECHARGE_VAL 0xF1
 #define SSD1306_VCOMH_VAL 0x40
-#define SSD1306_MULT_DAT (SSD1306_LCDHEIGHT - 1)
 #define SSD1306_HOR_MM 0x00
 
 /*SSD1306 Display API's */

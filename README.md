@@ -171,4 +171,5 @@ PR / push CI builds **unsigned** packages for compile verification only.
 - [CI/CD optimization report](docs/ci-github-actions-optimization.md)
 - [luci-app-blocky feature plan](docs/luci-app-blocky-feature-plan.md)
 - [SSD1306 OLED research](docs/ssd1306-oled-openwrt-research.md)
+- [CM5 + Waveshare 1.3" OLED HAT wiring](docs/cm5-waveshare-oled-hat-wiring.md)
 - [IDS / traffic analysis research (CM5)](docs/ids-traffic-analysis-openwrt-research.md)

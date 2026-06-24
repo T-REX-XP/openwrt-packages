@@ -294,10 +294,10 @@ function oled_board_info() {
 	return {
 		board: 'Orange Pi CM5 Base',
 		manual: 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3',
-		panel: 'SSD1306 128×32 or 128×64 I2C OLED',
-		default_bus: '/dev/i2c-1',
+		panel: 'SSD1306 128×32 (daemon); Waveshare 1.3" HAT is SH1106 128×64',
+		default_bus: '/dev/i2c-3',
 		default_address: '0x3c',
-		shared_bus: 'i2c1 also hosts RTC at 0x51',
+		shared_bus: 'FPC expansion: i2c7m3 (GPIO4_B2/B3); onboard RTC stays on i2c1 @ 0x51',
 		lan_interface: 'br-lan',
 		daemon: 'luci-app-oled userspace (/usr/bin/oled)',
 		kernel: 'CONFIG_I2C + CONFIG_I2C_CHARDEV + CONFIG_I2C_RK3X (built-in on CM5)'

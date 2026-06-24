@@ -107,4 +107,5 @@ Use these Cursor skills when working in this repo:
 - [README.md](README.md) — user-facing feed docs
 - [docs/luci-app-blocky-feature-plan.md](docs/luci-app-blocky-feature-plan.md)
 - [docs/ssd1306-oled-openwrt-research.md](docs/ssd1306-oled-openwrt-research.md)
+- [docs/cm5-waveshare-oled-hat-wiring.md](docs/cm5-waveshare-oled-hat-wiring.md) — CM5 FPC → Waveshare 1.3" HAT harness
 - [OpenWrt feeds guide](https://openwrt.org/docs/guide-developer/feeds)

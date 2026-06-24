@@ -16,12 +16,35 @@ EOF
 
 . /lib/functions/system.sh
 
+cm5_oled_i2c_path() {
+	local dev bus
+	for dev in /dev/i2c-*; do
+		[ -c "$dev" ] || continue
+		bus="${dev#/dev/i2c-}"
+		i2cdetect -y "$bus" 2>/dev/null | grep -qE '(^|[^0-9a-f])3c([^0-9a-f]|$)' || continue
+		echo "$dev"
+		return 0
+	done
+	return 1
+}
+
 case "$(board_name)" in
 hinlink,opc-h69k)
 	uci_write_config '/dev/i2c-5' 1 1 eth0
 	;;
 xunlong,orangepi-cm5-base)
-	uci_write_config '/dev/i2c-1' 0 0 br-lan
+	if cm5_path="$(cm5_oled_i2c_path)"; then
+		uci_write_config "$cm5_path" 0 0 br-lan
+	else
+		uci -q batch <<-EOF >/dev/null
+			set oled.@oled[0].showmenu="1"
+			set oled.@oled[0].enable="0"
+			set oled.@oled[0].path="/dev/i2c-3"
+			set oled.@oled[0].ipifname="br-lan"
+			set oled.@oled[0].netsource="br-lan"
+			commit oled
+EOF
+	fi
 	;;
 esac
 

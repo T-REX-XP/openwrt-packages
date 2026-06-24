@@ -1,6 +1,20 @@
 # SSD1306 OLED on OpenWrt / ImmortalWrt — Research Report
 
-*Last updated: 2026-06-20.*
+*Last updated: 2026-06-24.*
+
+## CM5 Base + Waveshare 1.3" OLED HAT (hardware)
+
+For **wire-by-wire** connection of a [Waveshare 1.3" OLED HAT](https://www.waveshare.com/1.3inch-oled-hat.htm) to the **Orange Pi CM5 Base** 12-pin FPC expansion port, see **[cm5-waveshare-oled-hat-wiring.md](cm5-waveshare-oled-hat-wiring.md)**.
+
+Key points that affect software choices below:
+
+| Topic | Detail |
+|-------|--------|
+| **FPC I2C** | Pads 10/11 = GPIO4_B3/B2 = **`i2c7m3`** — requires enabling **`i2c7`** in CM5 device tree (stock image only enables **`i2c1`** for onboard RTC @ `0x51`) |
+| **UCI path** | After DT change, set `oled.@oled[0].path` to the `/dev/i2c-N` where `i2cdetect` shows **`0x3c`** (not necessarily `/dev/i2c-1`) |
+| **Controller** | Waveshare HAT uses **SH1106 128×64**; **`luci-app-oled`** targets **SSD1306 128×32** — expect wrong/partial display until the daemon is adapted |
+
+---
 
 ## Summary
 
@@ -135,7 +149,9 @@ From **`immortal_opi_cm5`** device trees:
 - **`i2c0`**, **`i2c1`**, **`i2c2`** are enabled in the CM5 DTS
 - **`i2c1`** already hosts an **RTC at `0x51`** — a typical SSD1306 at **`0x3c`** can share the same bus if the carrier breaks out SDA/SCL to that controller
 
-Confirm wiring against the **CM5 Base carrier schematic** (which header pins map to which I2C instance).
+**Waveshare 1.3" OLED HAT on the 12-pin FPC:** the natural I2C pair is **`i2c7m3`** on GPIO4_B2/B3 (FPC pads 11/10), which is **not** enabled in the current DT. See **[cm5-waveshare-oled-hat-wiring.md](cm5-waveshare-oled-hat-wiring.md)** for the full pin map, jumper settings, and verification steps.
+
+Confirm other wiring against the **CM5 Base carrier schematic** (which header pins map to which I2C instance).
 
 ---
 
@@ -188,5 +204,6 @@ Confirm wiring against the **CM5 Base carrier schematic** (which header pins map
 
 ## Related internal docs
 
+- [cm5-waveshare-oled-hat-wiring.md](cm5-waveshare-oled-hat-wiring.md) — CM5 Base FPC → Waveshare 1.3" OLED HAT wire harness
 - `immortal_opi_cm5/docs/FEATURES_AND_DEBUG.md` — **luci-app-peripherals**, fan, IR, CM5 packages
 - `openwrt-packages/docs/reticulum-nomadnet-openwrt-research.md` — separate mesh networking research
