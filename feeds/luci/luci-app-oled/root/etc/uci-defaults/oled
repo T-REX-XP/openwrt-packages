@@ -18,16 +18,14 @@ EOF
 . /lib/functions/system.sh
 
 cm5_oled_i2c_path() {
-	local dev bus hits
+	local dev bus
 	for dev in /dev/i2c-*; do
 		[ -c "$dev" ] || continue
 		bus="${dev#/dev/i2c-}"
 		# Onboard RTC only — not the FPC OLED bus
 		[ "$bus" = "1" ] && continue
-		hits=$(i2cdetect -y "$bus" 2>/dev/null | grep -oE '[0-9a-f]{2}' | sort -u | wc -l)
-		# Stuck I2C bus: dozens of false addresses; real OLED scan shows one cell (3c)
-		[ "$hits" -le 2 ] || continue
-		i2cdetect -y "$bus" 2>/dev/null | grep -qE '(^|[^0-9a-f])3c([^0-9a-f]|$)' || continue
+		# i2cdetect on CM5 FPC can show a noisy grid; probe 0x3c directly
+		i2cget -y "$bus" 0x3c 0x00 b >/dev/null 2>&1 || continue
 		echo "$dev"
 		return 0
 	done

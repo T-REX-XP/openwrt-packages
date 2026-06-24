@@ -65,6 +65,7 @@ static unsigned char _col_start = 0;
 static unsigned char _col_end = 127;
 static unsigned char _pg_start = 0;
 static unsigned char _pg_end = 3;
+static unsigned char _is_sh1106 = 0;
 static unsigned char _multiplex = 0x1F;
 static unsigned char _com_pins = 0x02;
 static size_t _display_buf_size = 512;
@@ -98,13 +99,15 @@ static void apply_chip_profile(unsigned char col_start, unsigned char col_end,
 
 void display_set_chip(const char *chip)
 {
+	_is_sh1106 = 0;
 	if (!chip || !strcmp(chip, "ssd1306_128x32") || !strcmp(chip, "ssd1306"))
 		apply_chip_profile(0, 127, 3, 0x1F, 0x02, 32);
 	else if (!strcmp(chip, "ssd1306_128x64"))
 		apply_chip_profile(0, 127, 7, 0x3F, 0x12, 64);
-	else if (!strcmp(chip, "sh1106_128x64") || !strcmp(chip, "sh1106"))
+	else if (!strcmp(chip, "sh1106_128x64") || !strcmp(chip, "sh1106")) {
 		apply_chip_profile(2, 129, 7, 0x3F, 0x12, 64);
-	else
+		_is_sh1106 = 1;
+	} else
 		apply_chip_profile(0, 127, 3, 0x1F, 0x02, 32);
 }
 
@@ -122,6 +125,7 @@ static unsigned char screen[1024] = {0};
 
 /* Static Functions */
 static void transfer();
+static void sh1106_display(void);
 static void drawFastVLine(short x, short y, short h, short color);
 static void writeFastVLine(short x, short y, short h, short color);
 static void drawFastHLine(short x, short y, short w, short color);
@@ -666,6 +670,38 @@ void display_rotate() {
  * Returns       : NONE.
  * Params        : NONE.
  ****************************************************************/
+static void sh1106_display(void)
+{
+	unsigned char page;
+	size_t index = 0;
+
+	for (page = _pg_start; page <= _pg_end; page++) {
+		if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
+				       0xB0 | (page & 0x0F)) != I2C_TWO_BYTES)
+			exit(1);
+		if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
+				       _col_start & 0x0F) != I2C_TWO_BYTES)
+			exit(1);
+		if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
+				       0x10 | ((_col_start >> 4) & 0x0F)) != I2C_TWO_BYTES)
+			exit(1);
+
+		size_t remaining = (size_t)_lcd_width;
+		while (remaining > 0) {
+			size_t chunk_data = remaining > 16 ? 16 : remaining;
+
+			chunk[0] = SSD1306_CNTRL_DATA;
+			for (size_t i = 0; i < chunk_data; i++)
+				chunk[i + 1] = screen[index++];
+			if (i2c_multiple_writes(I2C_DEV_2.fd_i2c, chunk_data + 1,
+						chunk) != (int)(chunk_data + 1))
+				exit(1);
+			remaining -= chunk_data;
+			memset(chunk, 0x00, 17);
+		}
+	}
+}
+
 void transfer() {
 	short index = 0;
 	size_t buflen = _display_buf_size;
@@ -698,6 +734,10 @@ void transfer() {
  * Note          : Each new form can be preceded by a clearDisplay.
  ****************************************************************/
 void Display() {
+	if (_is_sh1106) {
+		sh1106_display();
+		return;
+	}
 	Init_Col_PG_addrs(_col_start, _col_end, _pg_start, _pg_end);
 	transfer();
 }
