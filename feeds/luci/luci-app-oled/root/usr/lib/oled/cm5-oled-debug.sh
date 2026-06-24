@@ -41,7 +41,17 @@ else
 fi
 
 echo
-echo "=== I2C scan (HAT connected, RST should be high) ==="
+echo "=== I2C probe (prefer i2cget over i2cdetect) ==="
+echo "i2cdetect can show a false stuck-bus grid even when the panel answers."
+if [ -c /dev/i2c-7 ]; then
+	echo "--- i2cget -y 7 0x3c 0x00 b (expect 0x00 or byte, not 'Error') ---"
+	i2cget -y 7 0x3c 0x00 b 2>&1 || echo "i2cget failed (RST low, wrong bus, or HAT disconnected)"
+else
+	echo "(no /dev/i2c-7)"
+fi
+
+echo
+echo "=== I2C scan (i2cdetect — unreliable on SH1106) ==="
 for dev in /dev/i2c-*; do
 	[ -c "$dev" ] || continue
 	bus="${dev#/dev/i2c-}"
@@ -51,13 +61,22 @@ done
 
 echo
 echo "=== stuck-bus hint ==="
-echo "Healthy: almost all '--', single '3c' on i2c-7."
-echo "Bad: many addresses show hex digits (08-77 grid) = SDA/SCL stuck or RST low."
-echo "Test with HAT fully disconnected: i2cdetect -y 7 should be all '--'."
+echo "Healthy: i2cget -y 7 0x3c 0x00 b succeeds; i2cdetect may still look wrong."
+echo "Bad: i2cget errors and many hex digits on i2cdetect = SDA/SCL stuck or RST low."
+echo "Test with HAT fully disconnected: i2cget -y 7 0x3c 0x00 b should error."
 
 echo
 echo "=== dmesg (i2c / gpio) ==="
 dmesg 2>/dev/null | grep -iE 'i2c7|gpio4|waveshare|oled' | tail -20
+
+echo
+echo "=== package (ImmortalWrt apk) ==="
+if command -v apk >/dev/null 2>&1; then
+	apk info -e luci-app-oled 2>/dev/null && apk info -a luci-app-oled 2>/dev/null | head -5
+	apk list -I luci-app-oled 2>/dev/null || true
+else
+	echo "(apk not found)"
+fi
 
 echo
 echo "=== UCI / daemon ==="
@@ -65,11 +84,22 @@ uci show oled 2>/dev/null || echo "(no oled uci)"
 pgrep -af oled 2>/dev/null || echo "oled daemon not running"
 
 echo
+echo "=== one-shot oled init test (luci-app-oled r13+ karabek SH1106 init) ==="
+if [ -x /usr/bin/oled ]; then
+	echo "  /etc/init.d/oled stop"
+	echo "  /usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan"
+	echo "(expect 'Successfully connected' and process stays up; Ctrl+C to stop)"
+else
+	echo "(no /usr/bin/oled)"
+fi
+
+echo
 echo "=== manual RST release ==="
 echo "  # ImmortalWrt uses apk (not opkg): apk update && apk add gpiod-tools"
 echo "  # libgpiod 2.2+ on ImmortalWrt — no -m flag:"
 echo "  gpioset -c gpiochip4 -z 12=1"
 echo "  # or background: gpioset -c gpiochip4 12=1 &"
-echo "  sleep 1 && gpioget -c gpiochip4 12 && i2cdetect -y 7"
+echo "  sleep 1 && gpioget -c gpiochip4 12 && i2cget -y 7 0x3c 0x00 b"
+echo "  # i2cdetect is unreliable on SH1106; use i2cget to confirm 0x3c"
 echo "  # if DT gpio-leds present:"
 echo "  echo 1 > /sys/class/leds/waveshare-oled-rst/brightness"

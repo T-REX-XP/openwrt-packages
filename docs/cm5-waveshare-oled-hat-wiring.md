@@ -205,7 +205,7 @@ The HAT ships in **4-wire SPI** mode (`BS0=0`, `BS1=0`). SPI needs **SCLK, MOSI,
 | **FPC pitch** | CM5 socket is **0.5 mm**. Use a **0.5 mm** cable/breakout. A 1.0 mm breakout will not fit. |
 | **Pin 1 orientation** | Align cable **pin 1** to the **`1`** mark on the CM5 connector (bottom-right). A reversed cable swaps power and data. |
 | **Current** | FPC 3.3 V is rated ~500 mA; OLED draw is small (~tens of mA). |
-| **I2C pull-ups** | HAT typically includes pull-ups; usually fine. If the bus is unstable, verify with `i2cdetect` or a scope. |
+| **I2C pull-ups** | HAT typically includes pull-ups; usually fine. Confirm the panel with **`i2cget -y 7 0x3c 0x00 b`** (more reliable than `i2cdetect` on SH1106). |
 | **Controller chip** | HAT is **SH1106 128×64** — UCI must use `chip='sh1106_128x64'`, not `ssd1306_*`. |
 | **Unused HAT pins** | Joystick and buttons on the HAT are not wired in this harness; ignore unless you add more GPIO lines from the FPC. |
 
@@ -218,8 +218,8 @@ Wiring is necessary but not sufficient. See [ssd1306-oled-openwrt-research.md](s
 | Issue | Detail |
 |-------|--------|
 | **Wrong I2C controller** | Image enables **`i2c1`** (RTC on GPIO0). FPC needs **`i2c7`** with `pinctrl-0 = <&i2c7m3_xfer>` in CM5 device tree |
-| **Wrong `/dev/i2c-N`** | With `i2c7` enabled, the FPC bus is usually **`/dev/i2c-3`** (after `i2c0`, `i2c2`, `i2c1`); confirm with `i2cdetect` and set `oled.@oled[0].path` to the bus showing **`0x3c`** |
-| **SH1106 vs SSD1306** | HAT is **SH1106 128×64**; set UCI `chip='sh1106_128x64'` (`luci-app-oled` r7+). Wrong chip → blank or garbled output |
+| **Wrong `/dev/i2c-N`** | With `i2c7` enabled, the FPC bus is usually **`/dev/i2c-7`** on recent CM5 images; confirm with **`i2cget -y N 0x3c 0x00 b`** and set `oled.@oled[0].path` accordingly |
+| **SH1106 vs SSD1306** | HAT is **SH1106 128×64**; set UCI `chip='sh1106_128x64'` (`luci-app-oled` r13+ uses dedicated Waveshare init: `AD 8B`, page mode, col offset 2; no SSD1306 scroll/charge-pump). Wrong chip → daemon exits or blank display |
 | **No bus conflict** | Onboard RTC stays on `i2c1` @ `0x51`; OLED on separate `i2c7` @ `0x3c` |
 
 ---
@@ -295,7 +295,7 @@ The Waveshare HAT has a **40-pin Pi header**, not a 12-pin FPC socket. The CM5 *
 
 | Signal | CM5 | OpenWrt tool | Notes |
 |--------|-----|--------------|-------|
-| **SDA / SCL** | FPC pads **10 / 11** | `i2cdetect`, `i2cget` | Muxed to **I2C7** — **not** readable with `gpioget` while `i2c7` is bound |
+| **SDA / SCL** | FPC pads **10 / 11** | `i2cget`, `i2cdetect` | Muxed to **I2C7** — prefer **`i2cget -y 7 0x3c 0x00 b`**; `i2cdetect` can show a false stuck-bus grid on SH1106 |
 | **RST** | FPC pad **9** → HAT pin **22** | `gpioinfo`, `gpioset` | **GPIO4_B4** = **line 12** on **`gpiochip4`** |
 | **Power** | FPC pad **2** → HAT pin **1** | multimeter | Must be **3.3 V** (never 5 V) |
 
@@ -322,7 +322,7 @@ On **Orange Pi CM5 Base**:
 | GPIO25 | **GPIO4_B4** (pad **9**) |
 | Header pin 22 | Wire to Waveshare **pin 22** |
 
-**Without RST high**, `i2cdetect -y 7` often shows a **stuck bus** (many hex digits across the grid) instead of a clean **`3c`**.
+**Without RST high**, `i2cdetect -y 7` often shows a **stuck bus** (many hex digits across the grid). **`i2cget -y 7 0x3c 0x00 b`** is a better probe when RST is high and wiring is correct.
 
 **Immediate test on CM5 (before reflash)** — ImmortalWrt uses **`apk`**, not `opkg`. Your **`gpioset`** is **libgpiod 2.2+** (no **`-m`** option):
 
@@ -337,7 +337,8 @@ gpioset -c gpiochip4 -z 12=1
 
 sleep 1
 gpioget -c gpiochip4 12    # expect: "12"=active or 1
-i2cdetect -y 7
+i2cget -y 7 0x3c 0x00 b    # expect: 0x00 (panel answers)
+i2cdetect -y 7               # optional; may look wrong on SH1106 even when i2cget works
 ```
 
 If patch **999** (gpio-leds) is on the image, also try:
@@ -345,7 +346,7 @@ If patch **999** (gpio-leds) is on the image, also try:
 ```sh
 ls /sys/class/leds/waveshare-oled-rst
 echo 1 > /sys/class/leds/waveshare-oled-rst/brightness
-i2cdetect -y 7
+i2cget -y 7 0x3c 0x00 b
 ```
 
 Chip name is **`gpiochip4`**, not `gpiochip128`. Do **not** use `-m signal` — that flag was removed in libgpiod 2.2+.
@@ -364,10 +365,10 @@ You still must **wire pad 9 → HAT pin 22**.
 Work bottom-up: **power → RST → I2C idle → scan → UCI → daemon**.
 
 1. **FPC orientation** — pin **1** at the CM5 **`1`** silkscreen mark (bottom-right). Reversed cable swaps power and I2C.
-2. **HAT disconnected** — `i2cdetect -y 7` must be **all `--`**. If not, CM5 bus or image (patch **998**) is wrong.
+2. **HAT disconnected** — `i2cget -y 7 0x3c 0x00 b` must **error**. `i2cdetect -y 7` should be all `--` (if not, CM5 bus or image patch **998** is wrong).
 3. **Only 3V3 + GND** to HAT (pads **2→1**, **3→6**) — still all `--`.
 4. **Drive RST high** (`gpioset` above or DT patch).
-5. **Add SDA + SCL** (pads **10→3**, **11→5**) — expect **only `3c`**, not a full 08–77 grid.
+5. **Add SDA + SCL** (pads **10→3**, **11→5**) — `i2cget -y 7 0x3c 0x00 b` should return a byte (often `0x00`); `i2cdetect` may still show a full grid on SH1106.
 6. If still stuck, try **swapping SDA/SCL** once (pads 10 ↔ 11) in case breakout labels differ from your cable.
 
 Multimeter: SDA and SCL should **idle near 3.3 V** when nothing is pulling the bus low.
@@ -377,31 +378,39 @@ Multimeter: SDA and SCL should **idle near 3.3 V** when nothing is pulling the b
 ```sh
 echo "=== buses ===" && ls /dev/i2c-* 2>/dev/null
 echo "=== RST line ===" && gpioinfo -c gpiochip4 2>/dev/null | grep 'line  12'
-echo "=== scan ===" && for b in /dev/i2c-*; do n=${b#/dev/i2c-}; echo "--- $b"; i2cdetect -y "$n"; done
+echo "=== i2cget (reliable) ===" && i2cget -y 7 0x3c 0x00 b 2>&1
+echo "=== i2cdetect (may lie on SH1106) ===" && for b in /dev/i2c-*; do n=${b#/dev/i2c-}; echo "--- $b"; i2cdetect -y "$n"; done
+echo "=== package ===" && apk info -e luci-app-oled && apk list -I luci-app-oled
 echo "=== dmesg i2c7 ===" && dmesg | grep -i i2c7
 echo "=== uci ===" && uci show oled 2>/dev/null
 echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
 ```
 
-**Healthy pattern:** `i2c-7` present; **`gpiochip4` line 12 = output**; **`0x3c` alone** on `i2c-7`; UCI `path='/dev/i2c-7'`, `chip='sh1106_128x64'`; `oled` running when enabled.
+**Healthy pattern:** `i2c-7` present; **`gpiochip4` line 12 = output** or **`waveshare-oled-rst` brightness = 1**; **`i2cget -y 7 0x3c 0x00 b` succeeds**; UCI `path='/dev/i2c-7'`, `chip='sh1106_128x64'`; `luci-app-oled` r13+ installed; `oled` running when enabled.
 
 ### Quick decision tree
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Full hex grid on `i2c-7` | RST low, bad wiring, or stuck bus | Drive RST; check 5 wires; HAT off → all `--` |
+| Full hex grid on `i2c-7` but `i2cget` OK | SH1106 quirk / `i2cdetect` false positive | Trust `i2cget`; fix UCI `chip` if daemon exits |
+| Full hex grid and `i2cget` fails | RST low, bad wiring, or stuck bus | Drive RST; check 5 wires; HAT off → `i2cget` errors |
 | `line 12` = input / unnamed | Old gpio-hog without pinctrl | Reflash with updated patch **999** or `gpioset` fallback |
 | No `0x3c` on any bus | I2C jumpers still SPI, or patch **998** missing | §2 jumpers; flash **998** |
 | Only `0x51` on `i2c-1` | Normal RTC; OLED on wrong bus | Use **`/dev/i2c-7`**, not `i2c-1` |
-| `0x3c` present, blank display | Wrong `chip` | `uci set oled.@oled[0].chip='sh1106_128x64'` |
+| `0x3c` present, daemon exits 1 | Wrong `chip` or old `luci-app-oled` (SSD1306 init on SH1106) | `apk list -I luci-app-oled` (need r13+); `uci set oled.@oled[0].chip='sh1106_128x64'` |
+| `0x3c` present, blank display | Wrong `chip` or init failure | Check `logread \| grep oled`; one-shot test below |
 | `enable='0'` | Stuck bus at first boot | Fix hardware, then `uci set oled.@oled[0].enable='1'` |
 
 ### Manual daemon test
 
 ```sh
+apk list -I luci-app-oled    # confirm r12+ after upgrade
 /etc/init.d/oled stop
-/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan
+/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan 2>&1 | head -5
+# expect: "Successfully connected" and process stays running (no exit 1)
 ```
+
+Or run the bundled script: `sh /usr/lib/oled/cm5-oled-debug.sh`
 
 Re-enable with `/etc/init.d/oled start` when done.
 
