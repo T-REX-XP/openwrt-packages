@@ -12,7 +12,7 @@ Key points that affect software choices below:
 |-------|--------|
 | **FPC I2C** | Pads 10/11 = GPIO4_B3/B2 = **`i2c7m3`** — requires enabling **`i2c7`** in CM5 device tree (stock image only enables **`i2c1`** for onboard RTC @ `0x51`) |
 | **UCI path** | After DT change, set `oled.@oled[0].path` to the `/dev/i2c-N` where `i2cdetect` shows **`0x3c`** (not necessarily `/dev/i2c-1`) |
-| **Controller** | Waveshare HAT uses **SH1106 128×64**; **`luci-app-oled`** targets **SSD1306 128×32** — expect wrong/partial display until the daemon is adapted |
+| **Controller** | Waveshare HAT uses **SH1106 128×64** — set `oled.@oled[0].chip='sh1106_128x64'` in UCI (CM5 uci-defaults when `0x3c` is found on FPC I2C) |
 
 ---
 
@@ -56,7 +56,7 @@ On a stock CM5 image you usually **do not** need `kmod-i2c-core` — bus driver 
 apk add i2c-tools coreutils-nohup   # if not on image
 apk add luci-app-oled               # after vendoring into feed
 i2cdetect -y 1                      # expect 0x3c on i2c1 (adjust N)
-# Configure /etc/config/oled: i2cDevPath (/dev/i2c-1), br-lan, 128×32/64
+# Configure /etc/config/oled: chip (ssd1306_128x32 | sh1106_128x64), i2cDevPath, br-lan
 /etc/init.d/oled enable && /etc/init.d/oled start
 ```
 

@@ -302,9 +302,10 @@ function oledMetaBlock(oled) {
 		]);
 	}
 	return E('p', {}, [
-		_('Service: %s, enabled in UCI: %s, I2C path: %s').format(
+		_('Service: %s, enabled in UCI: %s, chip: %s, I2C path: %s').format(
 			oled.running ? _('running') : _('stopped'),
 			oled.enable === '1' ? _('yes') : _('no'),
+			oled.chip || 'ssd1306_128x32',
 			oled.path || '—'
 		)
 	]);
@@ -614,6 +615,7 @@ return view.extend({
 		return {
 			enable: flag('periph-oled-enable'),
 			path: val('periph-oled-path', '/dev/i2c-1'),
+			chip: val('periph-oled-chip', 'ssd1306_128x32'),
 			rotate: flag('periph-oled-rotate'),
 			date: flag('periph-oled-date'),
 			lanip: flag('periph-oled-lanip'),
@@ -726,14 +728,14 @@ return view.extend({
 			cbiSection(
 				_('Board wiring'),
 				[
-					_('SSD1306 panels on the CM5 Base FPC expansion port use i2c7 (typically /dev/i2c-3 after firmware enable). Run I2C detect and look for address 0x3c before enabling the daemon. Onboard RTC remains on i2c1 @ 0x51.')
+					_('Waveshare 1.3" HAT (SH1106 128×64) on the CM5 FPC uses i2c7 — set chip to sh1106_128x64. Run I2C detect and look for 0x3c before enabling the daemon.')
 				],
 				[ oledBoardInfoBlock(oled) ]
 			),
 			cbiSection(
-				_('SSD1306 status display'),
+				_('OLED status display'),
 				[
-					_('Managed by the luci-app-oled userspace daemon. Full screensaver options remain under Services → OLED when the menu is enabled.')
+					_('Managed by the luci-app-oled userspace daemon (SSD1306 / SH1106). Full screensaver options remain under Services → OLED when the menu is enabled.')
 				],
 				[
 					E('div', { 'id': 'periph-oled-meta', 'class': 'cbi-value-field' }, [ oledMetaBlock(oled) ]),
@@ -756,6 +758,19 @@ return view.extend({
 								'click': ui.createHandlerFn(this, 'handleOledDetect'),
 								'disabled': isReadonlyView
 							}, [ _('Scan bus') ])
+						])
+					]),
+					E('div', { 'class': 'cbi-value' }, [
+						E('label', { 'class': 'cbi-value-title' }, [ _('Controller chip') ]),
+						E('div', { 'class': 'cbi-value-field' }, [
+							E('select', {
+								'id': 'periph-oled-chip',
+								'disabled': isReadonlyView
+							}, [
+								E('option', { 'value': 'ssd1306_128x32', 'selected': (oled.chip || 'ssd1306_128x32') === 'ssd1306_128x32' }, [ _('SSD1306 128×32') ]),
+								E('option', { 'value': 'ssd1306_128x64', 'selected': oled.chip === 'ssd1306_128x64' }, [ _('SSD1306 128×64') ]),
+								E('option', { 'value': 'sh1106_128x64', 'selected': oled.chip === 'sh1106_128x64' }, [ _('SH1106 128×64 (Waveshare 1.3" HAT)') ])
+							])
 						])
 					]),
 					E('div', { 'class': 'cbi-value' }, [

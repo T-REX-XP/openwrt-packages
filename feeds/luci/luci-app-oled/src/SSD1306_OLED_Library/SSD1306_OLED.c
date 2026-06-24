@@ -59,10 +59,54 @@ SOFTWARE.
 
 /* static Variables */
 static unsigned char _rotation = 0, textsize = 0;
-static short _width = SSD1306_LCDWIDTH;
-static short _height = SSD1306_LCDHEIGHT;
+static short _lcd_width = 128;
+static short _lcd_height = 32;
+static unsigned char _col_start = 0;
+static unsigned char _col_end = 127;
+static unsigned char _pg_start = 0;
+static unsigned char _pg_end = 3;
+static unsigned char _multiplex = 0x1F;
+static unsigned char _com_pins = 0x02;
+static size_t _display_buf_size = 512;
+static short _width = 128;
+static short _height = 32;
 static short cursor_x = 0, cursor_y = 0, textcolor = 0, textbgcolor = 0;
 static bool _cp437 = false, wrap = true;
+
+short oled_lcd_width(void) { return _lcd_width; }
+
+short oled_lcd_height(void) { return _lcd_height; }
+
+size_t oled_display_buf_size(void) { return _display_buf_size; }
+
+static void apply_chip_profile(unsigned char col_start, unsigned char col_end,
+			       unsigned char pg_end, unsigned char multiplex,
+			       unsigned char com_pins, short height)
+{
+	_lcd_width = 128;
+	_lcd_height = height;
+	_width = _lcd_width;
+	_height = _lcd_height;
+	_col_start = col_start;
+	_col_end = col_end;
+	_pg_start = 0;
+	_pg_end = pg_end;
+	_multiplex = multiplex;
+	_com_pins = com_pins;
+	_display_buf_size = (size_t)_lcd_width * (size_t)_lcd_height / 8;
+}
+
+void display_set_chip(const char *chip)
+{
+	if (!chip || !strcmp(chip, "ssd1306_128x32") || !strcmp(chip, "ssd1306"))
+		apply_chip_profile(0, 127, 3, 0x1F, 0x02, 32);
+	else if (!strcmp(chip, "ssd1306_128x64"))
+		apply_chip_profile(0, 127, 7, 0x3F, 0x12, 64);
+	else if (!strcmp(chip, "sh1106_128x64") || !strcmp(chip, "sh1106"))
+		apply_chip_profile(2, 129, 7, 0x3F, 0x12, 64);
+	else
+		apply_chip_profile(0, 127, 3, 0x1F, 0x02, 32);
+}
 
 /* static struct objects */
 static GFXfontPtr gfxFont;
@@ -73,8 +117,8 @@ extern I2C_DeviceT I2C_DEV_2;
 /* Chunk Buffer */
 static unsigned char chunk[17] = {0};
 
-/* Memory buffer for displaying data on LCD - This is an Apple - Fruit */
-static unsigned char screen[DISPLAY_BUFF_SIZE] = {0};
+/* Memory buffer for displaying data on LCD (max 128×64) */
+static unsigned char screen[1024] = {0};
 
 /* Static Functions */
 static void transfer();
@@ -219,7 +263,7 @@ static const unsigned char ssd1306_font5x7[] = {
  * Returns       : NONE.
  * Params        : NONE.
  ****************************************************************/
-void clearDisplay() { memset(screen, 0x00, DISPLAY_BUFF_SIZE); }
+void clearDisplay() { memset(screen, 0x00, _display_buf_size); }
 
 /****************************************************************
  * Function Name : display_Init_seq
@@ -284,7 +328,7 @@ void display_Init_seq() {
 
 	/* Send display MULT command parameter */
 	if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
-			       SSD1306_MULT_DAT) == I2C_TWO_BYTES) {
+			       _multiplex) == I2C_TWO_BYTES) {
 #ifdef SSD1306_DBG
 		printf("Display MULT Command Parameter Passed\r\n");
 #endif
@@ -406,7 +450,7 @@ void display_Init_seq() {
 
 	/* Send display COM command parameter */
 	if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
-			       SSD1306_CONFIG_COM_PINS) == I2C_TWO_BYTES) {
+			       _com_pins) == I2C_TWO_BYTES) {
 #ifdef SSD1306_DBG
 		printf("Display COM Command Parameter Passed\r\n");
 #endif
@@ -623,25 +667,25 @@ void display_rotate() {
  * Params        : NONE.
  ****************************************************************/
 void transfer() {
-	short loop_1 = 0, loop_2 = 0;
-	short index = 0x00;
-	for (loop_1 = 0; loop_1 < 1024; loop_1++) {
+	short index = 0;
+	size_t buflen = _display_buf_size;
+
+	while (index < (short)buflen) {
+		short chunk_data = (short)buflen - index;
+
+		if (chunk_data > 16)
+			chunk_data = 16;
 		chunk[0] = 0x40;
-		for (loop_2 = 1; loop_2 < 17; loop_2++)
+		for (short loop_2 = 1; loop_2 <= chunk_data; loop_2++)
 			chunk[loop_2] = screen[index++];
-		if (i2c_multiple_writes(I2C_DEV_2.fd_i2c, 17, chunk) == 17) {
-#ifdef SSD1306_DBG
-			printf("Chunk written to RAM - Completed\r\n");
-#endif
-		} else {
+		if (i2c_multiple_writes(I2C_DEV_2.fd_i2c, chunk_data + 1,
+					chunk) != chunk_data + 1) {
 #ifdef SSD1306_DBG
 			printf("Chunk written to RAM - Failed\r\n");
 #endif
 			exit(1);
 		}
-
 		memset(chunk, 0x00, 17);
-		if (index == 1024) break;
 	}
 }
 
@@ -654,8 +698,7 @@ void transfer() {
  * Note          : Each new form can be preceded by a clearDisplay.
  ****************************************************************/
 void Display() {
-	Init_Col_PG_addrs(SSD1306_COL_START_ADDR, SSD1306_COL_END_ADDR,
-			  SSD1306_PG_START_ADDR, SSD1306_PG_END_ADDR);
+	Init_Col_PG_addrs(_col_start, _col_end, _pg_start, _pg_end);
 	transfer();
 }
 
@@ -761,13 +804,13 @@ void setRotation(unsigned char x) {
 	switch (_rotation) {
 		case 0:
 		case 2:
-			_width = SSD1306_LCDWIDTH;
-			_height = SSD1306_LCDHEIGHT;
+			_width = _lcd_width;
+			_height = _lcd_height;
 			break;
 		case 1:
 		case 3:
-			_width = SSD1306_LCDHEIGHT;
-			_height = SSD1306_LCDWIDTH;
+			_width = _lcd_height;
+			_height = _lcd_width;
 			break;
 	}
 }
@@ -1030,7 +1073,7 @@ void startscrolldiagright(unsigned char start, unsigned char stop) {
 	}
 
 	if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
-			       SSD1306_LCDHEIGHT) == I2C_TWO_BYTES) {
+			       (unsigned char)_lcd_height) == I2C_TWO_BYTES) {
 #ifdef SSD1306_DBG
 		printf("DIAG_SR Param_2 Passed\r\n");
 #endif
@@ -1166,7 +1209,7 @@ void startscrolldiagleft(unsigned char start, unsigned char stop) {
 	}
 
 	if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD,
-			       SSD1306_LCDHEIGHT) == I2C_TWO_BYTES) {
+			       (unsigned char)_lcd_height) == I2C_TWO_BYTES) {
 #ifdef SSD1306_DBG
 		printf("DIAG_SR Param_2 Passed\r\n");
 #endif
@@ -1337,15 +1380,15 @@ signed char drawPixel(short x, short y, short color) {
 	/* x is the column */
 	switch (color) {
 		case WHITE:
-			screen[x + (y / 8) * SSD1306_LCDWIDTH] |=
+			screen[x + (y / 8) * _lcd_width] |=
 			    (1 << (y & 7));
 			break;
 		case BLACK:
-			screen[x + (y / 8) * SSD1306_LCDWIDTH] &=
+			screen[x + (y / 8) * _lcd_width] &=
 			    ~(1 << (y & 7));
 			break;
 		case INVERSE:
-			screen[x + (y / 8) * SSD1306_LCDWIDTH] ^=
+			screen[x + (y / 8) * _lcd_width] ^=
 			    (1 << (y & 7));
 			break;
 	}

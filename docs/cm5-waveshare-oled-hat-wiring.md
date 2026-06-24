@@ -29,9 +29,9 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 | **Minimum wires** | 4: 3V3, GND, SDA, SCL |
 | **Recommended wires** | 5: add **RST** (FPC pad 9 → HAT pin 22) |
 | **Firmware gap** | ImmortalWrt CM5 DT patch **`998-*-fpc-i2c7`** enables **`i2c7`** + `i2c7m3_xfer` on the FPC; onboard RTC remains on **`i2c1`** @ `0x51` |
-| **Software gap** | HAT controller is **SH1106 128×64**; `luci-app-oled` targets **SSD1306 128×32** |
+| **Software** | Set UCI **`chip`** to **`sh1106_128x64`** for the Waveshare HAT (`luci-app-oled` also supports SSD1306 128×32/64) |
 
-Wiring alone does not light the display — plan for a device-tree change and UCI path update. See [Firmware and software requirements](#firmware-and-software-requirements).
+Wiring alone does not light the display — enable **`i2c7`** in firmware, set the correct **`path`**, and **`chip`** for SH1106. See [Firmware and software requirements](#firmware-and-software-requirements).
 
 ---
 
@@ -257,6 +257,7 @@ dmesg | grep -iE 'i2c|ssd1306|oled|sh1106'
 ### 4) Configure and start OLED daemon
 
 ```sh
+uci set oled.@oled[0].chip='sh1106_128x64'
 uci set oled.@oled[0].path='/dev/i2c-N'    # replace N with bus where 3c appears
 uci set oled.@oled[0].enable='1'
 uci commit oled
@@ -278,7 +279,7 @@ pgrep -af oled
 3. Wire **4–5 lines**: 3V3, GND, SDA (pad 10), SCL (pad 11), optional RST (pad 9 → HAT pin 22)
 4. **Enable `i2c7` + `i2c7m3_xfer`** in CM5 device tree (firmware change in `immortalwrt`)
 5. Point UCI `path` at the correct `/dev/i2c-N`
-6. Plan for **SH1106 128×64** vs current **SSD1306 128×32** daemon behavior
+6. Set UCI **`chip`** to **`sh1106_128x64`** (CM5 first-boot default when OLED is detected on FPC I2C)
 
 ---
 

@@ -47,7 +47,7 @@ SOFTWARE.
 
 #include "SSD1306_OLED.h"
 
-#define BUFMAX SSD1306_LCDWIDTH *SSD1306_LCDHEIGHT
+#define BUFMAX 1024
 
 /* MACRO's */
 #define LOGO16_GLCD_HEIGHT 16
@@ -86,26 +86,26 @@ int display_offset = 7;
 /* draw many lines */
 void testdrawline() {
 	short i = 0;
-	for (i = 0; i < SSD1306_LCDWIDTH; i += 4) {
-		drawLine(0, 0, i, SSD1306_LCDHEIGHT - 1, WHITE);
+	for (i = 0; i < oled_lcd_width(); i += 4) {
+		drawLine(0, 0, i, oled_lcd_height() - 1, WHITE);
 		Display();
 		usleep(1000);
 	}
-	for (i = 0; i < SSD1306_LCDHEIGHT; i += 4) {
-		drawLine(0, 0, SSD1306_LCDWIDTH - 1, i, WHITE);
+	for (i = 0; i < oled_lcd_height(); i += 4) {
+		drawLine(0, 0, oled_lcd_width() - 1, i, WHITE);
 		Display();
 		usleep(1000);
 	}
 	usleep(250000);
 
 	clearDisplay();
-	for (i = 0; i < SSD1306_LCDWIDTH; i += 4) {
-		drawLine(0, SSD1306_LCDHEIGHT - 1, i, 0, WHITE);
+	for (i = 0; i < oled_lcd_width(); i += 4) {
+		drawLine(0, oled_lcd_height() - 1, i, 0, WHITE);
 		Display();
 		usleep(1000);
 	}
-	for (i = SSD1306_LCDHEIGHT - 1; i >= 0; i -= 4) {
-		drawLine(0, SSD1306_LCDHEIGHT - 1, SSD1306_LCDWIDTH - 1, i,
+	for (i = oled_lcd_height() - 1; i >= 0; i -= 4) {
+		drawLine(0, oled_lcd_height() - 1, oled_lcd_width() - 1, i,
 			 WHITE);
 		Display();
 		usleep(1000);
@@ -113,14 +113,14 @@ void testdrawline() {
 	usleep(250000);
 
 	clearDisplay();
-	for (i = SSD1306_LCDWIDTH - 1; i >= 0; i -= 4) {
-		drawLine(SSD1306_LCDWIDTH - 1, SSD1306_LCDHEIGHT - 1, i, 0,
+	for (i = oled_lcd_width() - 1; i >= 0; i -= 4) {
+		drawLine(oled_lcd_width() - 1, oled_lcd_height() - 1, i, 0,
 			 WHITE);
 		Display();
 		usleep(1000);
 	}
-	for (i = SSD1306_LCDHEIGHT - 1; i >= 0; i -= 4) {
-		drawLine(SSD1306_LCDWIDTH - 1, SSD1306_LCDHEIGHT - 1, 0, i,
+	for (i = oled_lcd_height() - 1; i >= 0; i -= 4) {
+		drawLine(oled_lcd_width() - 1, oled_lcd_height() - 1, 0, i,
 			 WHITE);
 		Display();
 		usleep(1000);
@@ -128,13 +128,13 @@ void testdrawline() {
 	usleep(250000);
 
 	clearDisplay();
-	for (i = 0; i < SSD1306_LCDHEIGHT; i += 4) {
-		drawLine(SSD1306_LCDWIDTH - 1, 0, 0, i, WHITE);
+	for (i = 0; i < oled_lcd_height(); i += 4) {
+		drawLine(oled_lcd_width() - 1, 0, 0, i, WHITE);
 		Display();
 		usleep(1000);
 	}
-	for (i = 0; i < SSD1306_LCDWIDTH; i += 4) {
-		drawLine(SSD1306_LCDWIDTH - 1, 0, i, SSD1306_LCDHEIGHT - 1,
+	for (i = 0; i < oled_lcd_width(); i += 4) {
+		drawLine(oled_lcd_width() - 1, 0, i, oled_lcd_height() - 1,
 			 WHITE);
 		Display();
 		usleep(1000);
@@ -145,9 +145,9 @@ void testdrawline() {
 /* draw rectangles */
 void testdrawrect() {
 	short i = 0;
-	for (i = 0; i < SSD1306_LCDHEIGHT / 2; i += 2) {
-		drawRect(i, i, SSD1306_LCDWIDTH - 2 * i,
-			 SSD1306_LCDHEIGHT - 2 * i, WHITE);
+	for (i = 0; i < oled_lcd_height() / 2; i += 2) {
+		drawRect(i, i, oled_lcd_width() - 2 * i,
+			 oled_lcd_height() - 2 * i, WHITE);
 		Display();
 		usleep(1000);
 	}
@@ -157,10 +157,10 @@ void testdrawrect() {
 void testfillrect() {
 	unsigned char color = 1;
 	short i = 0;
-	for (i = 0; i < SSD1306_LCDHEIGHT / 2; i += 3) {
+	for (i = 0; i < oled_lcd_height() / 2; i += 3) {
 		// alternate colors
-		fillRect(i, i, SSD1306_LCDWIDTH - i * 2,
-			 SSD1306_LCDHEIGHT - i * 2, color % 2);
+		fillRect(i, i, oled_lcd_width() - i * 2,
+			 oled_lcd_height() - i * 2, color % 2);
 		Display();
 		usleep(1000);
 		color++;
@@ -170,8 +170,8 @@ void testfillrect() {
 /* draw mulitple circles */
 void testdrawcircle() {
 	short i = 0;
-	for (i = 0; i < SSD1306_LCDHEIGHT; i += 2) {
-		drawCircle(SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2, i,
+	for (i = 0; i < oled_lcd_height(); i += 2) {
+		drawCircle(oled_lcd_width() / 2, oled_lcd_height() / 2, i,
 			   WHITE);
 		Display();
 		usleep(1000);
@@ -181,9 +181,9 @@ void testdrawcircle() {
 /*draw a white circle, 10 pixel radius */
 void testdrawroundrect() {
 	short i = 0;
-	for (i = 0; i < SSD1306_LCDHEIGHT / 2 - 2; i += 2) {
-		drawRoundRect(i, i, SSD1306_LCDWIDTH - 2 * i,
-			      SSD1306_LCDHEIGHT - 2 * i, SSD1306_LCDHEIGHT / 4,
+	for (i = 0; i < oled_lcd_height() / 2 - 2; i += 2) {
+		drawRoundRect(i, i, oled_lcd_width() - 2 * i,
+			      oled_lcd_height() - 2 * i, oled_lcd_height() / 4,
 			      WHITE);
 		Display();
 		usleep(1000);
@@ -193,9 +193,9 @@ void testdrawroundrect() {
 /* Fill the round rectangle */
 void testfillroundrect() {
 	short color = WHITE, i = 0;
-	for (i = 0; i < SSD1306_LCDHEIGHT / 2 - 2; i += 2) {
-		fillRoundRect(i, i, SSD1306_LCDWIDTH - 2 * i,
-			      SSD1306_LCDHEIGHT - 2 * i, SSD1306_LCDHEIGHT / 4,
+	for (i = 0; i < oled_lcd_height() / 2 - 2; i += 2) {
+		fillRoundRect(i, i, oled_lcd_width() - 2 * i,
+			      oled_lcd_height() - 2 * i, oled_lcd_height() / 4,
 			      color);
 		if (color == WHITE)
 			color = BLACK;
@@ -209,11 +209,11 @@ void testfillroundrect() {
 /* Draw triangles */
 void testdrawtriangle() {
 	short i = 0;
-	for (i = 0; i < MIN(SSD1306_LCDWIDTH, SSD1306_LCDHEIGHT) / 2; i += 5) {
+	for (i = 0; i < MIN(oled_lcd_width(), oled_lcd_height()) / 2; i += 5) {
 		drawTriangle(
-		    SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2 - i,
-		    SSD1306_LCDWIDTH / 2 - i, SSD1306_LCDHEIGHT / 2 + i,
-		    SSD1306_LCDWIDTH / 2 + i, SSD1306_LCDHEIGHT / 2 + i, WHITE);
+		    oled_lcd_width() / 2, oled_lcd_height() / 2 - i,
+		    oled_lcd_width() / 2 - i, oled_lcd_height() / 2 + i,
+		    oled_lcd_width() / 2 + i, oled_lcd_height() / 2 + i, WHITE);
 		Display();
 		usleep(1000);
 	}
@@ -223,11 +223,11 @@ void testdrawtriangle() {
 void testfilltriangle() {
 	unsigned char color = WHITE;
 	short i = 0;
-	for (i = MIN(SSD1306_LCDWIDTH, SSD1306_LCDHEIGHT) / 2; i > 0; i -= 5) {
+	for (i = MIN(oled_lcd_width(), oled_lcd_height()) / 2; i > 0; i -= 5) {
 		fillTriangle(
-		    SSD1306_LCDWIDTH / 2, SSD1306_LCDHEIGHT / 2 - i,
-		    SSD1306_LCDWIDTH / 2 - i, SSD1306_LCDHEIGHT / 2 + i,
-		    SSD1306_LCDWIDTH / 2 + i, SSD1306_LCDHEIGHT / 2 + i, WHITE);
+		    oled_lcd_width() / 2, oled_lcd_height() / 2 - i,
+		    oled_lcd_width() / 2 - i, oled_lcd_height() / 2 + i,
+		    oled_lcd_width() / 2 + i, oled_lcd_height() / 2 + i, WHITE);
 		if (color == WHITE)
 			color = BLACK;
 		else
@@ -311,7 +311,7 @@ void testdrawbitmap(const unsigned char *bitmap, unsigned char w,
 
 	// initialize
 	for (f = 0; f < NUMFLAKES; f++) {
-		icons[f][XPOS] = rand() % SSD1306_LCDWIDTH;
+		icons[f][XPOS] = rand() % oled_lcd_width();
 		icons[f][YPOS] = 0;
 		icons[f][DELTAY] = (rand() % 5) + 1;
 
@@ -342,8 +342,8 @@ void testdrawbitmap(const unsigned char *bitmap, unsigned char w,
 			icons[f][YPOS] += icons[f][DELTAY];
 
 			// if its gone, reinit
-			if (icons[f][YPOS] > SSD1306_LCDHEIGHT) {
-				icons[f][XPOS] = rand() % SSD1306_LCDWIDTH;
+			if (icons[f][YPOS] > oled_lcd_height()) {
+				icons[f][XPOS] = rand() % oled_lcd_width();
 				icons[f][YPOS] = 0;
 				icons[f][DELTAY] = (rand() % 5) + 1;
 			}

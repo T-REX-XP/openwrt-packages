@@ -1,4 +1,4 @@
-m = Map("oled", translate("OLED"), translate("A LuCI app that helps you config your oled display (SSD1306, 0.91', 128X32) with screensavers! <br /> <br /> Any issues, please go to: ")..[[<a href="https://github.com/natelol/luci-app-oled" target="_blank">luci-app-oled</a>]])
+m = Map("oled", translate("OLED"), translate("A LuCI app that helps you config your OLED display (SSD1306 / SH1106) with screensavers! <br /> <br /> Any issues, please go to: ")..[[<a href="https://github.com/natelol/luci-app-oled" target="_blank">luci-app-oled</a>]])
 
 --m.chain("luci")
 
@@ -16,6 +16,11 @@ o = s:taboption("info", Flag, "enable", translate("Enable"))
 o.default=0
 o = s:taboption("info", Value, "path", translate("I2C PATH"))
 o.default='/dev/i2c-0'
+o = s:taboption("info", ListValue, "chip", translate("Controller chip"))
+o:value("ssd1306_128x32", translate("SSD1306 128×32"))
+o:value("ssd1306_128x64", translate("SSD1306 128×64"))
+o:value("sh1106_128x64", translate("SH1106 128×64 (Waveshare 1.3\" HAT)"))
+o.default='ssd1306_128x32'
 o = s:taboption("info", Flag, "rotate", translate("180 degree rotation"))
 o.default=0
 o = s:taboption("info", Flag, "autoswitch", translate("Enable Auto switch"))
