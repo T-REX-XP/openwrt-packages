@@ -18,10 +18,15 @@ EOF
 . /lib/functions/system.sh
 
 cm5_oled_i2c_path() {
-	local dev bus
+	local dev bus hits
 	for dev in /dev/i2c-*; do
 		[ -c "$dev" ] || continue
 		bus="${dev#/dev/i2c-}"
+		# Onboard RTC only — not the FPC OLED bus
+		[ "$bus" = "1" ] && continue
+		hits=$(i2cdetect -y "$bus" 2>/dev/null | grep -oE '[0-9a-f]{2}' | sort -u | wc -l)
+		# Stuck I2C bus: dozens of false addresses; real OLED scan shows one cell (3c)
+		[ "$hits" -le 2 ] || continue
 		i2cdetect -y "$bus" 2>/dev/null | grep -qE '(^|[^0-9a-f])3c([^0-9a-f]|$)' || continue
 		echo "$dev"
 		return 0
@@ -40,7 +45,7 @@ xunlong,orangepi-cm5-base)
 		uci -q batch <<-EOF >/dev/null
 			set oled.@oled[0].showmenu="1"
 			set oled.@oled[0].enable="0"
-			set oled.@oled[0].path="/dev/i2c-3"
+			set oled.@oled[0].path="/dev/i2c-7"
 			set oled.@oled[0].chip="sh1106_128x64"
 			set oled.@oled[0].ipifname="br-lan"
 			set oled.@oled[0].netsource="br-lan"

@@ -285,69 +285,125 @@ pgrep -af oled
 
 ## 10. Debugging
 
+### What “works on Raspberry Pi @ 0x3c” tells you
+
+If the same HAT shows **`0x3c`** on a Pi with I2C jumpers set, the panel and address are fine. The CM5 problem is **not** the SH1106 chip — it is **FPC wiring**, **RST held in reset**, or **I2C7 not enabled** in firmware.
+
+The Waveshare HAT has a **40-pin Pi header**, not a 12-pin FPC socket. The CM5 **12-pin FPC** goes to a breakout; you still need **5 dupont wires** to HAT pins **1, 3, 5, 6, 22** (3V3, SDA, SCL, GND, RST).
+
+### GPIO vs I2C on OpenWrt (what you can actually inspect)
+
+| Signal | CM5 | OpenWrt tool | Notes |
+|--------|-----|--------------|-------|
+| **SDA / SCL** | FPC pads **10 / 11** | `i2cdetect`, `i2cget` | Muxed to **I2C7** — **not** readable with `gpioget` while `i2c7` is bound |
+| **RST** | FPC pad **9** → HAT pin **22** | `gpioinfo`, `gpioset` | **GPIO4_B4** = **line 12** on **`gpiochip4`** |
+| **Power** | FPC pad **2** → HAT pin **1** | multimeter | Must be **3.3 V** (never 5 V) |
+
+On your router, **`gpioinfo -c gpiochip4 | grep line 12`** showed **`input` / `unnamed`** even though the DT node existed — the old **gpio-hog** patch did not mux the pin to GPIO. Patch **`999`** (updated) uses **gpio-leds + pinctrl** so line 12 should read **`output`** and **`waveshare-oled-rst`**.
+
+Run the bundled script (after upgrading `luci-app-oled`):
+
+```sh
+sh /usr/lib/oled/cm5-oled-debug.sh
+```
+
 ### RST line (Raspberry Pi vs CM5)
 
-On **Raspberry Pi**, the Waveshare HAT connects **RST** to **40-pin header pin 22** (**GPIO25**). The panel stays in reset until that line is **high**. On Bookworm:
+On **Raspberry Pi**, RST is **GPIO25** (header pin **22**). The panel stays in reset until that line is **high**:
 
 ```sh
 gpioset $(gpiofind GPIO25)=1
-# or: raspi-gpio set 25 op dh
 ```
 
-On **Orange Pi CM5 Base**, the equivalent is:
+On **Orange Pi CM5 Base**:
 
 | Pi | CM5 FPC |
 |----|---------|
 | GPIO25 | **GPIO4_B4** (pad **9**) |
 | Header pin 22 | Wire to Waveshare **pin 22** |
 
-**Without RST high**, I2C may show a **stuck bus** (full `i2cdetect` grid) or no **`0x3c`**.
+**Without RST high**, `i2cdetect -y 7` often shows a **stuck bus** (many hex digits across the grid) instead of a clean **`3c`**.
 
-**Immediate test on CM5 (before reflash):**
+**Immediate test on CM5 (before reflash)** — ImmortalWrt uses **`apk`**, not `opkg`. Your **`gpioset`** is **libgpiod 2.2+** (no **`-m`** option):
 
 ```sh
-opkg update && opkg install gpiod-tools
-gpioset -c gpiochip128 12=1 -m signal &
+apk update && apk add gpiod-tools   # if gpioset missing
+/etc/init.d/oled stop
+uci set oled.@oled[0].enable='0' && uci commit oled
+
+# libgpiod 2.2+ (ImmortalWrt) — hold RST high:
+gpioset -c gpiochip4 -z 12=1
+# or: gpioset -c gpiochip4 12=1 &
+
 sleep 1
+gpioget -c gpiochip4 12    # expect: "12"=active or 1
 i2cdetect -y 7
 ```
 
-If `gpiochip128` fails, list chips: `ls /dev/gpiochip*; gpioinfo | head -40`
+If patch **999** (gpio-leds) is on the image, also try:
 
-**After reflash** with ImmortalWrt patch **`999-*-oled-rst`**, pad 9 is driven high at boot (`waveshare-oled-rst` gpio-hog). You still must **wire pad 9 → HAT pin 22**.
+```sh
+ls /sys/class/leds/waveshare-oled-rst
+echo 1 > /sys/class/leds/waveshare-oled-rst/brightness
+i2cdetect -y 7
+```
 
-Work bottom-up: **hardware → I2C scan → UCI → daemon → LuCI**.
+Chip name is **`gpiochip4`**, not `gpiochip128`. Do **not** use `-m signal` — that flag was removed in libgpiod 2.2+.
+
+**After reflash** with patch **`999-*-oled-rst`**, pad 9 is driven high at boot. Verify:
+
+```sh
+gpioinfo -c gpiochip4 | grep -A1 'line  12'
+# expect: waveshare-oled-rst, output, active
+```
+
+You still must **wire pad 9 → HAT pin 22**.
+
+### Step-by-step hardware isolation
+
+Work bottom-up: **power → RST → I2C idle → scan → UCI → daemon**.
+
+1. **FPC orientation** — pin **1** at the CM5 **`1`** silkscreen mark (bottom-right). Reversed cable swaps power and I2C.
+2. **HAT disconnected** — `i2cdetect -y 7` must be **all `--`**. If not, CM5 bus or image (patch **998**) is wrong.
+3. **Only 3V3 + GND** to HAT (pads **2→1**, **3→6**) — still all `--`.
+4. **Drive RST high** (`gpioset` above or DT patch).
+5. **Add SDA + SCL** (pads **10→3**, **11→5**) — expect **only `3c`**, not a full 08–77 grid.
+6. If still stuck, try **swapping SDA/SCL** once (pads 10 ↔ 11) in case breakout labels differ from your cable.
+
+Multimeter: SDA and SCL should **idle near 3.3 V** when nothing is pulling the bus low.
 
 ### Sanity script (SSH)
 
 ```sh
 echo "=== buses ===" && ls /dev/i2c-* 2>/dev/null
+echo "=== RST line ===" && gpioinfo -c gpiochip4 2>/dev/null | grep 'line  12'
 echo "=== scan ===" && for b in /dev/i2c-*; do n=${b#/dev/i2c-}; echo "--- $b"; i2cdetect -y "$n"; done
 echo "=== dmesg i2c7 ===" && dmesg | grep -i i2c7
 echo "=== uci ===" && uci show oled 2>/dev/null
 echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
 ```
 
-**Healthy pattern:** `i2c7` in dmesg; **`0x3c`** on one bus (not the RTC bus with `0x51`); UCI `chip='sh1106_128x64'` and matching `path`; `oled` in `pgrep`.
+**Healthy pattern:** `i2c-7` present; **`gpiochip4` line 12 = output**; **`0x3c` alone** on `i2c-7`; UCI `path='/dev/i2c-7'`, `chip='sh1106_128x64'`; `oled` running when enabled.
 
 ### Quick decision tree
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| No `0x3c` on any bus | Wiring, I2C jumpers, or image without patch `998` | §1–2; flash firmware with `i2c7` enabled |
-| Only `0x51` on `i2c-1` | Normal RTC; OLED bus missing or unwired | Enable DT `i2c7`; check FPC pads 10/11 |
-| `0x3c` present, UCI `path` wrong | Pointing at RTC bus | `uci set oled.@oled[0].path='/dev/i2c-N'` (bus with `3c`) |
-| Blank / garbled display | Wrong `chip` | `uci set oled.@oled[0].chip='sh1106_128x64'` |
-| `enable='0'` | OLED unplugged at first boot | `uci set oled.@oled[0].enable='1'`; restart daemon |
+| Full hex grid on `i2c-7` | RST low, bad wiring, or stuck bus | Drive RST; check 5 wires; HAT off → all `--` |
+| `line 12` = input / unnamed | Old gpio-hog without pinctrl | Reflash with updated patch **999** or `gpioset` fallback |
+| No `0x3c` on any bus | I2C jumpers still SPI, or patch **998** missing | §2 jumpers; flash **998** |
+| Only `0x51` on `i2c-1` | Normal RTC; OLED on wrong bus | Use **`/dev/i2c-7`**, not `i2c-1` |
+| `0x3c` present, blank display | Wrong `chip` | `uci set oled.@oled[0].chip='sh1106_128x64'` |
+| `enable='0'` | Stuck bus at first boot | Fix hardware, then `uci set oled.@oled[0].enable='1'` |
 
 ### Manual daemon test
 
 ```sh
 /etc/init.d/oled stop
-/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-N --chip=sh1106_128x64 --ipIfName=br-lan
+/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan
 ```
 
-Replace `N` with the bus where `i2cdetect` shows `3c`. Re-enable with `/etc/init.d/oled start` when done.
+Re-enable with `/etc/init.d/oled start` when done.
 
 ---
 
