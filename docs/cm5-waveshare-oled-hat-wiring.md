@@ -26,8 +26,8 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 | **CM5 connector** | 12-pin **0.5 mm** FPC expansion port (not a MIPI CSI camera port) |
 | **I2C on FPC** | Pads **10/11** = GPIO4_B3/B2 = **`i2c7m3_xfer`** (SDA/SCL) |
 | **Power** | **3.3 V only** from FPC pad **2** — never 5 V |
-| **Minimum wires** | 4: 3V3, GND, SDA, SCL |
-| **Recommended wires** | 5: add **RST** (FPC pad 9 → HAT pin 22) |
+| **Minimum wires** | 5: 3V3, GND, SDA, SCL, **RST** (pad 9 → HAT pin 22) |
+| **RST (required)** | FPC pad **9** (GPIO4_B4) → HAT pin **22** — must be **driven high** (Pi: `GPIO25`; CM5: DT patch **`999-*-oled-rst`** or `gpioset`) |
 | **Firmware gap** | ImmortalWrt CM5 DT patch **`998-*-fpc-i2c7`** enables **`i2c7`** + `i2c7m3_xfer` on the FPC; onboard RTC remains on **`i2c1`** @ `0x51` |
 | **Software** | Set UCI **`chip`** to **`sh1106_128x64`** for the Waveshare HAT (`luci-app-oled` also supports SSD1306 128×32/64) |
 
@@ -59,7 +59,7 @@ Connector numbering: **pin 1 = bottom-right** (at the `1` mark on the board), **
 | **6** | **B3** | GPIO1_B3 | General GPIO / SPI0_CLK_m2 |
 | **7** | **B2** | GPIO1_B2 | General GPIO / SPI0_MOSI_m2 |
 | **8** | **B5** | GPIO4_B5 | General GPIO / SPI3_MISO_m1 |
-| **9** | **B4** | GPIO4_B4 | General GPIO — good candidate for **RST** |
+| **9** | **B4** | GPIO4_B4 | **RST** → Waveshare HAT pin **22** (Pi **GPIO25** equivalent; hold **high**) |
 | **10** | **B3** | GPIO4_B3 | **I2C7 SDA** (`i2c7m3_xfer`) |
 | **11** | **B2** | GPIO4_B2 | **I2C7 SCL** (`i2c7m3_xfer`) |
 | **12** | *(no test pad)* | — | Likely NC / mechanical |
@@ -284,6 +284,37 @@ pgrep -af oled
 ---
 
 ## 10. Debugging
+
+### RST line (Raspberry Pi vs CM5)
+
+On **Raspberry Pi**, the Waveshare HAT connects **RST** to **40-pin header pin 22** (**GPIO25**). The panel stays in reset until that line is **high**. On Bookworm:
+
+```sh
+gpioset $(gpiofind GPIO25)=1
+# or: raspi-gpio set 25 op dh
+```
+
+On **Orange Pi CM5 Base**, the equivalent is:
+
+| Pi | CM5 FPC |
+|----|---------|
+| GPIO25 | **GPIO4_B4** (pad **9**) |
+| Header pin 22 | Wire to Waveshare **pin 22** |
+
+**Without RST high**, I2C may show a **stuck bus** (full `i2cdetect` grid) or no **`0x3c`**.
+
+**Immediate test on CM5 (before reflash):**
+
+```sh
+opkg update && opkg install gpiod-tools
+gpioset -c gpiochip128 12=1 -m signal &
+sleep 1
+i2cdetect -y 7
+```
+
+If `gpiochip128` fails, list chips: `ls /dev/gpiochip*; gpioinfo | head -40`
+
+**After reflash** with ImmortalWrt patch **`999-*-oled-rst`**, pad 9 is driven high at boot (`waveshare-oled-rst` gpio-hog). You still must **wire pad 9 → HAT pin 22**.
 
 Work bottom-up: **hardware → I2C scan → UCI → daemon → LuCI**.
 
