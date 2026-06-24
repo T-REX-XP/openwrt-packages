@@ -12,7 +12,6 @@
 #include <string.h>
 
 #include "I2C.h"
-#include "SSD1306_OLED.h"
 
 extern I2C_DeviceT I2C_DEV_2;
 
@@ -26,7 +25,7 @@ typedef struct {
 
 static int sh1106_cmd(unsigned char cmd)
 {
-	if (i2c_write_register(I2C_DEV_2.fd_i2c, SSD1306_CNTRL_CMD, cmd) !=
+	if (i2c_write_register(I2C_DEV_2.fd_i2c, OLED_CNTRL_CMD, cmd) !=
 	    I2C_TWO_BYTES) {
 		fprintf(stderr, "oled: sh1106 cmd 0x%02x failed\n", cmd);
 		return -1;
@@ -95,7 +94,7 @@ void sh1106_upload(const uint8_t *screen, size_t buf_len)
 		while (remaining > 0) {
 			size_t chunk_data = remaining > 16 ? 16 : remaining;
 
-			chunk[0] = SSD1306_CNTRL_DATA;
+			chunk[0] = OLED_CNTRL_DATA;
 			for (size_t n = 0; n < chunk_data; n++)
 				chunk[n + 1] = screen[index++];
 			if (i2c_multiple_writes(I2C_DEV_2.fd_i2c,
@@ -105,5 +104,16 @@ void sh1106_upload(const uint8_t *screen, size_t buf_len)
 			remaining -= chunk_data;
 			memset(chunk, 0x00, sizeof(chunk));
 		}
+	}
+}
+
+void sh1106_set_rotation(int normal)
+{
+	if (normal) {
+		sh1106_cmd(0xA1);
+		sh1106_cmd(0xC8);
+	} else {
+		sh1106_cmd(0xA0);
+		sh1106_cmd(0xC0);
 	}
 }

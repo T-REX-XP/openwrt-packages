@@ -26,5 +26,4 @@ config oled
 	option scroll '0'
 	option text 'CM5'
 	option netsource 'br-lan'
-	option path '/dev/i2c-1'
-	option chip 'ssd1306_128x32'
+	option path '/dev/i2c-7'

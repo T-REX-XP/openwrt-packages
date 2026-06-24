@@ -16,15 +16,11 @@ LDFLAGS := -lpthread -lconfig
 oled: $(OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-ssd1306: $(OBJS)
-	$(CC) $^ -o $@ $(LDFLAGS) --static
-	strip $@
-
-clean:
-	rm -rf oled ssd1306 $(OBJS)
-
 compile: oled
 
 install: compile
 	mkdir -p $(DESTDIR)/usr/bin
 	cp oled $(DESTDIR)/usr/bin/oled
+
+clean:
+	rm -rf oled $(OBJS)

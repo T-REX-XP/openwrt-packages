@@ -14,7 +14,12 @@
 #define SH1106_HEIGHT 64
 #define SH1106_PAGES 8
 
+#define OLED_I2C_ADDR 0x3C
+#define OLED_CNTRL_CMD 0x00
+#define OLED_CNTRL_DATA 0x40
+
 void sh1106_init(void);
 void sh1106_upload(const uint8_t *screen, size_t buf_len);
+void sh1106_set_rotation(int normal);
 
 #endif /* SH1106_H_ */

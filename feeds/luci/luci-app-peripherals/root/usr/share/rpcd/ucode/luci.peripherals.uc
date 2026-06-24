@@ -294,8 +294,8 @@ function oled_board_info() {
 	return {
 		board: 'Orange Pi CM5 Base',
 		manual: 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3',
-		panel: 'SH1106 128×64 (Waveshare 1.3" HAT) or SSD1306 via UCI chip option',
-		default_bus: '/dev/i2c-3',
+		panel: 'SH1106 128×64 (Waveshare 1.3" HAT)',
+		default_bus: '/dev/i2c-7',
 		default_address: '0x3c',
 		shared_bus: 'FPC expansion: i2c7m3 (GPIO4_B2/B3); onboard RTC stays on i2c1 @ 0x51',
 		lan_interface: 'br-lan',
@@ -413,8 +413,7 @@ function oled_get_config() {
 		running: oled_running(),
 		showmenu: oled_uci_get('showmenu', '0'),
 		enable: oled_uci_get('enable', '0'),
-		path: oled_uci_get('path', '/dev/i2c-1'),
-		chip: oled_uci_get('chip', 'ssd1306_128x32'),
+		path: oled_uci_get('path', '/dev/i2c-7'),
 		rotate: oled_uci_get('rotate', '0'),
 		date: oled_uci_get('date', '0'),
 		lanip: oled_uci_get('lanip', '0'),
@@ -432,7 +431,7 @@ function oled_get_config() {
 }
 
 const OLED_SET_OPTS = [
-	'enable', 'path', 'chip', 'rotate', 'date', 'lanip', 'ipifname', 'cputemp', 'cpufreq',
+	'enable', 'path', 'rotate', 'date', 'lanip', 'ipifname', 'cputemp', 'cpufreq',
 	'netspeed', 'netsource', 'time', 'scroll', 'text', 'showmenu'
 ];
 

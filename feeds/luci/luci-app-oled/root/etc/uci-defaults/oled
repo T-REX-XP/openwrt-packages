@@ -6,10 +6,9 @@ uci_write_config() {
 		set oled.@oled[0].showmenu="1"
 		set oled.@oled[0].enable="1"
 		set oled.@oled[0].path="$1"
-		set oled.@oled[0].chip="$2"
-		set oled.@oled[0].rotate="$3"
-		set oled.@oled[0].netspeed="$4"
-		set oled.@oled[0].netsource="$5"
+		set oled.@oled[0].rotate="$2"
+		set oled.@oled[0].netspeed="$3"
+		set oled.@oled[0].netsource="$4"
 		set oled.@oled[0].ipifname="br-lan"
 		commit oled
 EOF
@@ -32,19 +31,17 @@ cm5_oled_i2c_path() {
 	return 1
 }
 
+uci -q delete oled.@oled[0].chip 2>/dev/null
+
 case "$(board_name)" in
-hinlink,opc-h69k)
-	uci_write_config '/dev/i2c-5' 'ssd1306_128x32' 1 1 eth0
-	;;
 xunlong,orangepi-cm5-base)
 	if cm5_path="$(cm5_oled_i2c_path)"; then
-		uci_write_config "$cm5_path" 'sh1106_128x64' 0 0 br-lan
+		uci_write_config "$cm5_path" 0 0 br-lan
 	else
 		uci -q batch <<-EOF >/dev/null
 			set oled.@oled[0].showmenu="1"
 			set oled.@oled[0].enable="0"
 			set oled.@oled[0].path="/dev/i2c-7"
-			set oled.@oled[0].chip="sh1106_128x64"
 			set oled.@oled[0].ipifname="br-lan"
 			set oled.@oled[0].netsource="br-lan"
 			commit oled

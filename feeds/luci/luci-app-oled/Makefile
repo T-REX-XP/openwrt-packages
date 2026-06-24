@@ -4,12 +4,12 @@
 
 include $(TOPDIR)/rules.mk
 
-LUCI_TITLE:=LuCI support for SSD1306 / SH1106 OLED display
+LUCI_TITLE:=LuCI support for SH1106 128×64 OLED display
 LUCI_DEPENDS:=+libconfig +i2c-tools +coreutils-nohup
 LUCI_PKGARCH:=$(if $(realpath src/Makefile),,all)
 
 PKG_VERSION:=20230823
-PKG_RELEASE:=13
+PKG_RELEASE:=14
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE src/LICENSE

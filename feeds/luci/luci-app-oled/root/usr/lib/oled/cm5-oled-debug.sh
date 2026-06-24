@@ -84,10 +84,10 @@ uci show oled 2>/dev/null || echo "(no oled uci)"
 pgrep -af oled 2>/dev/null || echo "oled daemon not running"
 
 echo
-echo "=== one-shot oled init test (luci-app-oled r13+ karabek SH1106 init) ==="
+echo "=== one-shot oled init test (SH1106 128×64) ==="
 if [ -x /usr/bin/oled ]; then
 	echo "  /etc/init.d/oled stop"
-	echo "  /usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan"
+	echo "  /usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --displayDate --displayIp --displayCpuTemp --displayCpuFreq --ipIfName=br-lan"
 	echo "(expect 'Successfully connected' and process stays up; Ctrl+C to stop)"
 else
 	echo "(no /usr/bin/oled)"

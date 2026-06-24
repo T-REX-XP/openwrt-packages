@@ -298,9 +298,9 @@ void display_bitmap() { drawBitmap(30, 16, logo16_glcd_bmp, 16, 16, 1); }
 
 /* Invert Display and Normalize it */
 void display_invert_normal() {
-	invertDisplay(SSD1306_INVERT_DISPLAY);
+	invertDisplay(1);
 	usleep(1000000);
-	invertDisplay(SSD1306_NORMALIZE_DISPLAY);
+	invertDisplay(0);
 	usleep(1000000);
 }
 

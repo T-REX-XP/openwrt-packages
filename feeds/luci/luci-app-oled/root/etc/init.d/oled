@@ -32,9 +32,6 @@ start_service() {
 	config_get param "$section" path
 	[ "$param" != "" ]  && procd_append_param command --i2cDevPath="$param"
 
-	config_get param "$section" chip
-	[ "$param" != "" ]  && procd_append_param command --chip="$param"
-
 	# from begin_minitues to end_minitues
 	# default 0 - 1440
 	config_get param "$section" from

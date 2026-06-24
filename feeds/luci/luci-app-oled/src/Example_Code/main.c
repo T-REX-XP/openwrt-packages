@@ -51,7 +51,6 @@ struct st_config {
 	unsigned int scroll;
 	char *scroll_text;
 	char *i2c_dev_path;
-	char *chip;
 	unsigned int rotate;
 	unsigned int need_init;
 	int from;
@@ -69,7 +68,6 @@ Options:\n\
   --config=file or -c file          Specify configuration file.\n\
 \n\
   --i2cDevPath=path or -d path      Specify the i2c device, default is /dev/i2c-0.\n\
-  --chip=name or -M name            Panel chip: ssd1306_128x32 (default), ssd1306_128x64, sh1106_128x64.\n\
   --from=minutes or -f minites      Specify the time(in minutes of day) to start displaying, default is 0.\n\
   --to=minutes or -t minites        Specify the time(in minutes of day) to stop displaying, default is 1440.\n\
   --neetInit or -N                  Turn on init, default is on.\n\
@@ -153,10 +151,6 @@ static void read_conf_file(const char *filename, struct st_config *stcfg) {
 
 	if (config_lookup_string(&cfg, "i2cDevPath", (const char **)&buff)) {
 		sprintf(stcfg->i2c_dev_path, "%s", buff);
-	}
-
-	if (config_lookup_string(&cfg, "chip", (const char **)&buff)) {
-		sprintf(stcfg->chip, "%s", buff);
 	}
 
 	config_lookup_int(&cfg, "rotate", &stcfg->rotate);
@@ -359,7 +353,6 @@ int main(int argc, char *argv[]) {
 	    {"scroll", no_argument, 0, 'O'},
 	    {"scrollText", required_argument, 0, 'o'},
 	    {"i2cDevPath", required_argument, 0, 'd'},
-	    {"chip", required_argument, 0, 'M'},
 	    {"rotate", no_argument, 0, 'H'},
 	    {"needInit", no_argument, 0, 'N'},
 	    {"from", required_argument, 0, 'f'},
@@ -387,12 +380,10 @@ int main(int argc, char *argv[]) {
 	stcfg->i2c_dev_path = malloc(sizeof(char) * 20);
 	sprintf(stcfg->i2c_dev_path, "%s", I2C_DEV0_PATH);
 
-	stcfg->chip = malloc(sizeof(char) * 24);
-	sprintf(stcfg->chip, "%s", OLED_DEFAULT_CHIP);
 	/* The end of set default value for config */
 
 	while ((option = getopt_long(argc, argv,
-				     "c:hvDAa:Ss:TFIl:LWwCRrGgBEOo:d:MHNf:t:",
+				     "c:hvDAa:Ss:TFIl:LWwCRrGgBEOo:d:HNf:t:",
 				     long_options, &option_index)) != -1) {
 		switch (option) {
 			case 'c':
@@ -421,7 +412,7 @@ int main(int argc, char *argv[]) {
 	// Update config from the command params
 	optind = 0;
 	while ((option = getopt_long(argc, argv,
-				     "c:hvDAa:Ss:TFIl:LWwCRrGgBEOo:d:MHNf:t:",
+				     "c:hvDAa:Ss:TFIl:LWwCRrGgBEOo:d:HNf:t:",
 				     long_options, &option_index)) != -1) {
 		switch (option) {
 			case 'D':
@@ -490,9 +481,6 @@ int main(int argc, char *argv[]) {
 			case 'd':
 				sprintf(stcfg->i2c_dev_path, "%s", optarg);
 				break;
-			case 'M':
-				sprintf(stcfg->chip, "%s", optarg);
-				break;
 			case 'H':
 				stcfg->rotate = 1;
 				break;
@@ -514,9 +502,7 @@ int main(int argc, char *argv[]) {
 	if (stcfg->i2c_dev_path == NULL)
 		sprintf(stcfg->i2c_dev_path, "%s", I2C_DEV0_PATH);
 
-	display_set_chip(stcfg->chip);
-
-	/* Initialize I2C bus and connect to the I2C Device */
+	/* Initialize I2C bus and connect to the SH1106 device */
 	if (init_i2c_dev(stcfg->i2c_dev_path, SSD1306_OLED_ADDR) == 0) {
 		printf("Successfully connected to I2C device: %s\n",
 		       stcfg->i2c_dev_path);
