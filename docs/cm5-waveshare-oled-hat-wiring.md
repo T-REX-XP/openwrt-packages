@@ -206,7 +206,7 @@ The HAT ships in **4-wire SPI** mode (`BS0=0`, `BS1=0`). SPI needs **SCLK, MOSI,
 | **Pin 1 orientation** | Align cable **pin 1** to the **`1`** mark on the CM5 connector (bottom-right). A reversed cable swaps power and data. |
 | **Current** | FPC 3.3 V is rated ~500 mA; OLED draw is small (~tens of mA). |
 | **I2C pull-ups** | HAT typically includes pull-ups; usually fine. If the bus is unstable, verify with `i2cdetect` or a scope. |
-| **Controller chip** | **SH1106 ≠ SSD1306** — expect partial or incorrect image until the daemon or driver is adapted for 128×64 SH1106. |
+| **Controller chip** | HAT is **SH1106 128×64** — UCI must use `chip='sh1106_128x64'`, not `ssd1306_*`. |
 | **Unused HAT pins** | Joystick and buttons on the HAT are not wired in this harness; ignore unless you add more GPIO lines from the FPC. |
 
 ---
@@ -219,7 +219,7 @@ Wiring is necessary but not sufficient. See [ssd1306-oled-openwrt-research.md](s
 |-------|--------|
 | **Wrong I2C controller** | Image enables **`i2c1`** (RTC on GPIO0). FPC needs **`i2c7`** with `pinctrl-0 = <&i2c7m3_xfer>` in CM5 device tree |
 | **Wrong `/dev/i2c-N`** | With `i2c7` enabled, the FPC bus is usually **`/dev/i2c-3`** (after `i2c0`, `i2c2`, `i2c1`); confirm with `i2cdetect` and set `oled.@oled[0].path` to the bus showing **`0x3c`** |
-| **SH1106 vs SSD1306** | HAT is **SH1106 128×64**; `luci-app-oled` builds for **SSD1306 128×32** — display may be wrong or partial until adapted |
+| **SH1106 vs SSD1306** | HAT is **SH1106 128×64**; set UCI `chip='sh1106_128x64'` (`luci-app-oled` r7+). Wrong chip → blank or garbled output |
 | **No bus conflict** | Onboard RTC stays on `i2c1` @ `0x51`; OLED on separate `i2c7` @ `0x3c` |
 
 ---
@@ -280,6 +280,43 @@ pgrep -af oled
 4. **Enable `i2c7` + `i2c7m3_xfer`** in CM5 device tree (firmware change in `immortalwrt`)
 5. Point UCI `path` at the correct `/dev/i2c-N`
 6. Set UCI **`chip`** to **`sh1106_128x64`** (CM5 first-boot default when OLED is detected on FPC I2C)
+
+---
+
+## 10. Debugging
+
+Work bottom-up: **hardware → I2C scan → UCI → daemon → LuCI**.
+
+### Sanity script (SSH)
+
+```sh
+echo "=== buses ===" && ls /dev/i2c-* 2>/dev/null
+echo "=== scan ===" && for b in /dev/i2c-*; do n=${b#/dev/i2c-}; echo "--- $b"; i2cdetect -y "$n"; done
+echo "=== dmesg i2c7 ===" && dmesg | grep -i i2c7
+echo "=== uci ===" && uci show oled 2>/dev/null
+echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
+```
+
+**Healthy pattern:** `i2c7` in dmesg; **`0x3c`** on one bus (not the RTC bus with `0x51`); UCI `chip='sh1106_128x64'` and matching `path`; `oled` in `pgrep`.
+
+### Quick decision tree
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| No `0x3c` on any bus | Wiring, I2C jumpers, or image without patch `998` | §1–2; flash firmware with `i2c7` enabled |
+| Only `0x51` on `i2c-1` | Normal RTC; OLED bus missing or unwired | Enable DT `i2c7`; check FPC pads 10/11 |
+| `0x3c` present, UCI `path` wrong | Pointing at RTC bus | `uci set oled.@oled[0].path='/dev/i2c-N'` (bus with `3c`) |
+| Blank / garbled display | Wrong `chip` | `uci set oled.@oled[0].chip='sh1106_128x64'` |
+| `enable='0'` | OLED unplugged at first boot | `uci set oled.@oled[0].enable='1'`; restart daemon |
+
+### Manual daemon test
+
+```sh
+/etc/init.d/oled stop
+/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-N --chip=sh1106_128x64 --ipIfName=br-lan
+```
+
+Replace `N` with the bus where `i2cdetect` shows `3c`. Re-enable with `/etc/init.d/oled start` when done.
 
 ---
 
