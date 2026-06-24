@@ -1,5 +1,7 @@
 #!/bin/sh
 # Orange Pi CM5 Base + Waveshare 1.3" OLED HAT (FPC I2C mode @ 0x3c) diagnostics.
+# J4 harness (verified): pad 1 = 3V3; pad 4 = GND; pads 11/12 = I2C7 SCL/SDA;
+# pad 9 = RST (GPIO1_B4 → HAT pin 22). Schematic OPI_CM5_BASE V1.2.
 # Run on the router: sh /usr/lib/oled/cm5-oled-debug.sh
 
 set -u
@@ -24,20 +26,21 @@ echo "=== RST: device tree ==="
 find /sys/firmware/devicetree/base -name '*oled*' -o -name '*waveshare*' 2>/dev/null | head -20
 
 echo
-echo "=== RST: sysfs led (DT gpio-leds patch 999) ==="
+echo "=== RST: sysfs led (DT gpio-leds patch 999 — drives GPIO4_B4, not pad 9) ==="
 if [ -e /sys/class/leds/waveshare-oled-rst/brightness ]; then
 	echo "brightness=$(cat /sys/class/leds/waveshare-oled-rst/brightness)"
+	echo "(patch 999 targets GPIO4_B4; FPC pad 9 is GPIO1_B4 per schematic)"
 else
 	echo "(no /sys/class/leds/waveshare-oled-rst — old image or patch 999 not applied)"
 fi
 
 echo
-echo "=== RST: gpiochip4 line 12 (GPIO4_B4, FPC pad 9) ==="
+echo "=== RST: gpiochip1 line 12 (GPIO1_B4, FPC pad 9 → HAT pin 22) ==="
 if command -v gpioinfo >/dev/null 2>&1; then
-	gpioinfo -c gpiochip4 2>/dev/null | sed -n '1,3p'
-	gpioinfo -c gpiochip4 2>/dev/null | grep -E '^[[:space:]]*line[[:space:]]*12:' || true
+	gpioinfo -c gpiochip1 2>/dev/null | sed -n '1,3p'
+	gpioinfo -c gpiochip1 2>/dev/null | grep -E '^[[:space:]]*line[[:space:]]*12:' || true
 else
-	echo "install gpiod-tools for GPIO state (opkg install gpiod-tools)"
+	echo "install gpiod-tools for GPIO state (apk add gpiod-tools)"
 fi
 
 echo
@@ -67,7 +70,7 @@ echo "Test with HAT fully disconnected: i2cget -y 7 0x3c 0x00 b should error."
 
 echo
 echo "=== dmesg (i2c / gpio) ==="
-dmesg 2>/dev/null | grep -iE 'i2c7|gpio4|waveshare|oled' | tail -20
+dmesg 2>/dev/null | grep -iE 'i2c7|gpio1|gpio4|waveshare|oled' | tail -20
 
 echo
 echo "=== package (ImmortalWrt apk) ==="
@@ -94,12 +97,11 @@ else
 fi
 
 echo
-echo "=== manual RST release ==="
+echo "=== manual RST release (FPC pad 9 = GPIO1_B4) ==="
 echo "  # ImmortalWrt uses apk (not opkg): apk update && apk add gpiod-tools"
 echo "  # libgpiod 2.2+ on ImmortalWrt — no -m flag:"
-echo "  gpioset -c gpiochip4 -z 12=1"
-echo "  # or background: gpioset -c gpiochip4 12=1 &"
-echo "  sleep 1 && gpioget -c gpiochip4 12 && i2cget -y 7 0x3c 0x00 b"
+echo "  gpioset -c gpiochip1 -z 12=1"
+echo "  # or background: gpioset -c gpiochip1 12=1 &"
+echo "  sleep 1 && gpioget -c gpiochip1 12 && i2cget -y 7 0x3c 0x00 b"
 echo "  # i2cdetect is unreliable on SH1106; use i2cget to confirm 0x3c"
-echo "  # if DT gpio-leds present:"
-echo "  echo 1 > /sys/class/leds/waveshare-oled-rst/brightness"
+echo "  # patch 999 waveshare-oled-rst drives GPIO4_B4 — not the pad 9 net"
