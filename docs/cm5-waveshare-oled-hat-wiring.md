@@ -295,7 +295,7 @@ The Waveshare HAT has a **40-pin Pi header**, not a 12-pin FPC socket. The CM5 *
 
 | Signal | CM5 | OpenWrt tool | Notes |
 |--------|-----|--------------|-------|
-| **SDA / SCL** | FPC pads **10 / 11** | `i2cget`, `i2cdetect` | Muxed to **I2C7** — prefer **`i2cget -y 7 0x3c 0x00 b`**; `i2cdetect` can show a false stuck-bus grid on SH1106 |
+| **SDA / SCL** | FPC pads **10 / 11** | `i2cget`, `i2cdetect` | Muxed to **I2C7** — **`i2cdetect -y 7`** should show all **`--`** with nothing connected, and **`3c`** only with the HAT wired |
 | **RST** | FPC pad **9** → HAT pin **22** | `gpioinfo`, `gpioset` | **GPIO4_B4** = **line 12** on **`gpiochip4`** |
 | **Power** | FPC pad **2** → HAT pin **1** | multimeter | Must be **3.3 V** (never 5 V) |
 
@@ -368,8 +368,8 @@ Work bottom-up: **power → RST → I2C idle → scan → UCI → daemon**.
 2. **HAT disconnected** — `i2cget -y 7 0x3c 0x00 b` must **error**. `i2cdetect -y 7` should be all `--` (if not, CM5 bus or image patch **998** is wrong).
 3. **Only 3V3 + GND** to HAT (pads **2→1**, **3→6**) — still all `--`.
 4. **Drive RST high** (`gpioset` above or DT patch).
-5. **Add SDA + SCL** (pads **10→3**, **11→5**) — `i2cget -y 7 0x3c 0x00 b` should return a byte (often `0x00`); `i2cdetect` may still show a full grid on SH1106.
-6. If still stuck, try **swapping SDA/SCL** once (pads 10 ↔ 11) in case breakout labels differ from your cable.
+5. **Add SDA + SCL** (pads **10→3**, **11→5**) — with DT patch **`9999-*`** (pull-ups), **`i2cdetect -y 7`** should show all **`--`**; with the HAT connected it should show **`3c`** at **0x3c** only.
+6. If **`i2cdetect`** still shows a full address grid, reflash an image with patches **`998`/`9999`** — that pattern means SDA is stuck low (missing pull-ups or bad wiring), not normal SH1106 behaviour.
 
 Multimeter: SDA and SCL should **idle near 3.3 V** when nothing is pulling the bus low.
 

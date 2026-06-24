@@ -234,7 +234,8 @@ static inline int get_sleep_flag() {
 	return flag;
 }
 
-static void *pth_netspeed(char *ifname) {
+static void *pth_netspeed(void *arg) {
+	char *ifname = arg;
 	char rxbytes_path[80];
 	char txbytes_path[80];
 	unsigned long long int llu_bytes;
@@ -296,6 +297,7 @@ static void *pth_netspeed(char *ifname) {
 		last_uptime = uptime;
 		usleep(NETSPEED_INTERVAL);
 	}
+	return NULL;
 }
 
 /* Alarm Signal Handler */
@@ -514,8 +516,7 @@ int main(int argc, char *argv[]) {
 
 	if (stcfg->disp_net_speed == 1 &&
 	    strcmp(stcfg->speed_if_name, "") != 0) {
-		pthread_create(&tid, NULL, (void *)pth_netspeed,
-			       stcfg->speed_if_name);
+		pthread_create(&tid, NULL, pth_netspeed, stcfg->speed_if_name);
 	}
 
 	/* Run SDD1306 Initialization Sequence */

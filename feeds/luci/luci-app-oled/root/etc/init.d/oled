@@ -11,7 +11,7 @@ get_section() {
 }
 
 start_service() {
-	[ -x /usr/lib/oled/cm5-waveshare-rst.sh ] && /usr/lib/oled/cm5-waveshare-rst.sh
+	[ -f /usr/lib/oled/cm5-waveshare-rst.sh ] && sh /usr/lib/oled/cm5-waveshare-rst.sh
 
 	local mainsection
 	config_load oled
