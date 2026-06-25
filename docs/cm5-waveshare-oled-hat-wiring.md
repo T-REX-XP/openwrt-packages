@@ -7,6 +7,7 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 **Related docs:**
 
 - [SSD1306 OLED on OpenWrt / ImmortalWrt — Research Report](ssd1306-oled-openwrt-research.md) — software stack, kernel options, `luci-app-oled` vs mainline DRM
+- [CM5 fan and IR hardware validation](cm5-fan-ir-hardware.md) — FAN1 / onboard IR pin mux vs DTS
 - [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/) — CM5 status daemon (userspace I2C)
 - [`feeds/luci/luci-app-peripherals`](../feeds/luci/luci-app-peripherals/) — **System → Peripherals → I2C** tab (bus scan only; no OLED UCI)
 
@@ -46,6 +47,8 @@ The CM5 Base has **four separate MIPI CSI camera FPCs** plus one **12-pin, 0.5 m
 - Multiplexable: UART, PWM, I2C, SPI, CAN, GPIO
 
 The silkscreen under **J4** labels **GPIO1** (right columns) and **GPIO4** (left columns). `B0`–`B5` denote **bank B, bit N** on that GPIO controller (Rockchip naming: `GPIO4_B2` = `gpio4`, line `RK_PB2`).
+
+Fan (**FAN1**) and onboard IR are **not** on J4 — see [cm5-fan-ir-hardware.md](cm5-fan-ir-hardware.md) (fan: **PWM13_M1** / GPIO4_B6; IR: **PWM7_IR_M0** / GPIO0_D0).
 
 ### Schematic pin map (OPI_CM5_BASE V1.2)
 

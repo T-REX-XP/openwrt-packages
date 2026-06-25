@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 
 #include "SSD1306_OLED.h"
@@ -541,8 +542,12 @@ void oledd_menu_check_idle(unsigned idle_sec)
 	if (g_screen == SCREEN_BOOT)
 		return;
 
-	if ((unsigned)(now - g_last_activity) >= idle_sec)
+	if ((unsigned)(now - g_last_activity) >= idle_sec) {
+		if (!g_dimmed)
+			syslog(LOG_INFO, "idle dim after %us (view=%s)", idle_sec,
+			       oledd_menu_view_name());
 		g_dimmed = 1;
+	}
 }
 
 const char *oledd_menu_view_name(void)
@@ -608,9 +613,28 @@ int oledd_menu_set_view(const char *view)
 	return 1;
 }
 
+static const char *screen_mode_name(enum screen_mode mode)
+{
+	switch (mode) {
+	case SCREEN_BOOT:
+		return "boot";
+	case SCREEN_ROTATE:
+		return view_name(g_rotate_view);
+	case SCREEN_MENU_LIST:
+		return "menu";
+	case SCREEN_MENU_DETAIL:
+		return view_name(g_detail_view);
+	default:
+		return "?";
+	}
+}
+
 static void leave_boot(void)
 {
+	enum screen_mode prev = g_screen;
+
 	g_view_started = time(NULL);
+	oledd_menu_wake();
 	if (g_interactive) {
 		g_screen = SCREEN_MENU_LIST;
 		g_menu_sel = ITEM_SYSTEM;
@@ -618,6 +642,8 @@ static void leave_boot(void)
 		g_screen = SCREEN_ROTATE;
 		g_rotate_view = VIEW_PORTS;
 	}
+	syslog(LOG_INFO, "view %s -> %s", screen_mode_name(prev),
+	       screen_mode_name(g_screen));
 }
 
 static void open_detail_for_selection(void)
@@ -696,9 +722,9 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 	if (g_screen == SCREEN_BOOT) {
 		if (boot_active()) {
 			if ((unsigned)(now - g_boot_started) >= BOOT_TIMEOUT_SEC) {
-				fprintf(stderr,
-					"oledd: boot timeout (%us) — leaving splash\n",
-					BOOT_TIMEOUT_SEC);
+				syslog(LOG_WARNING,
+				       "boot timeout (%us) — leaving splash",
+				       BOOT_TIMEOUT_SEC);
 				leave_boot();
 				redraw = 1;
 			} else if (evt != OLEDD_EV_NONE) {
@@ -738,10 +764,12 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 
 void oledd_menu_render(double elapsed_sec)
 {
+	const char *view = oledd_menu_view_name();
+
 	if (g_dimmed) {
 		clearDisplay();
 		if (Display() != 0)
-			fprintf(stderr, "oledd: display flush failed (dim)\n");
+			syslog(LOG_WARNING, "display flush failed (dim, view=%s)", view);
 		return;
 	}
 
@@ -764,5 +792,5 @@ void oledd_menu_render(double elapsed_sec)
 
 	oledd_alert_draw();
 	if (Display() != 0)
-		fprintf(stderr, "oledd: display flush failed\n");
+		syslog(LOG_WARNING, "display flush failed (view=%s)", view);
 }
