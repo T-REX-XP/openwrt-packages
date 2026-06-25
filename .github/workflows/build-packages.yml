@@ -98,9 +98,15 @@ jobs:
             echo "No feed output at $FEED_SRC" >&2
             exit 1
           fi
+          if [[ ! -f "$FEED_SRC/packages.adb" ]]; then
+            echo "::error::packages.adb missing — set INDEX=1 and PRIVATE_KEY for signed release builds"
+            ls -la "$FEED_SRC" || true
+            exit 1
+          fi
           TARBALL="openwrt_packages_${{ inputs.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz"
           tar -c -z -f "$TARBALL" -C "$FEED_SRC" .
           ls -la "$TARBALL"
+          tar -tzf "$TARBALL" | head -20
 
       - name: Upload package tree
         if: inputs.upload_packages || failure()

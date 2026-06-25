@@ -1,6 +1,6 @@
 # GitHub Actions CI/CD — optimization report
 
-*Last updated: 2026-06-19. SDK target: ImmortalWrt **25.12.0** (`25.12-SNAPSHOT` Docker tags).*
+*Last updated: 2026-06-25. SDK target: ImmortalWrt **25.12.0** (`25.12-SNAPSHOT` Docker tags).*
 
 This document records the initial pipeline review, gaps found, and the optimizations applied. It complements the original [CI plan](ci-github-actions-plan.md).
 
@@ -17,13 +17,16 @@ After optimization:
 | CI matrix (default) | 2 full SDK builds | **1** (`aarch64_generic-25.12-SNAPSHOT` / CM5) |
 | CI on doc-only changes | Always runs | **Skipped** (`paths` filter) |
 | Duplicate in-flight runs | Allowed | **Cancelled** (`concurrency`) |
-| Release partial publish | Possible (`continue-on-error`) | **Blocked** (all arches must pass) |
+| Release partial publish | Possible (`continue-on-error`) | **Blocked** — Pages verify step fails if feed URL 404 |
+| Release blocked by Pages | Combined publish job | **Split** — `github-release` and `pages` jobs |
+| CI workflow inactive | `ci.yml_` suffix | **`ci.yml`** (badge + PR builds) |
+| Pages republish | Full SDK rebuild | **`skip_build`** workflow_dispatch (~2 min) |
 | Artifacts per release arch | 2 (tarball + Pages tree) | **1** tarball |
 | Shared build logic | Duplicated in 2 files | **Reusable workflow** |
 | SDK action pin | `@master` | **Commit SHA** |
 | Checkout depth (CI) | Full history | **Shallow** (`fetch-depth: 1`) |
 | CI artifact upload | Every green run (~7d) | **Skipped** (upload on failure only; optional via manual dispatch) |
-| Release publish jobs | 2 runners, 2× artifact download | **1** combined job |
+| Release publish jobs | 2 runners, 2× artifact download | **Split** `github-release` + `pages` (release not blocked by Pages env) |
 | Workflows (entry points) | 3 files + 1 reusable | **Unchanged** — already minimal |
 
 ---
@@ -47,8 +50,8 @@ flowchart LR
 
   subgraph rel [Release tag v*]
     T[tag push] --> CM5[aarch64_generic / CM5]
-    CM5 --> GR[GitHub Release]
-    CM5 --> PG[GitHub Pages]
+    CM5 --> GR[GitHub Release job]
+    CM5 --> PG[GitHub Pages job]
   end
 ```
 
@@ -161,7 +164,15 @@ CI and PR builds remain **unsigned** (no secrets required).
 
 ### Enable GitHub Pages
 
-**Settings → Pages → Build and deployment → GitHub Actions**.
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+The Pages API (`GET /repos/.../pages`) returns **404** until this is done. Older workflows could show `deploy-pages` as green while the public site stayed 404.
+
+**Fast republish** after enabling Pages (no ~40 min SDK build):
+
+1. **Actions → Release → Run workflow**
+2. Enable **skip_build** and **publish_pages**
+3. Run — uses the latest [GitHub Release](https://github.com/T-REX-XP/openwrt-packages/releases) tarball
 
 ### Manual CI
 

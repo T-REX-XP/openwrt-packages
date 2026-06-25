@@ -40,7 +40,9 @@ Public key: `https://t-rex-xp.github.io/openwrt-packages/public-key.pem`
 
 Settings → Pages → Build and deployment → Source: **GitHub Actions**
 
-Without this, `deploy-pages` returns **404**. Re-run Release workflow after enabling.
+Without this, the entire `https://t-rex-xp.github.io/openwrt-packages/` site returns **404** (Pages API also 404). Re-run Release after enabling.
+
+**Fast republish** (no SDK rebuild): Actions → Release → Run workflow → **skip_build** + **publish_pages**.
 
 ### Router install (apk)
 
@@ -74,9 +76,11 @@ PR CI builds are **unsigned** — compile verification only.
 
 | Symptom | Fix |
 |---------|-----|
-| `deploy-pages` 404 | Enable Pages source: GitHub Actions |
+| Entire Pages site **404** | Enable Pages source: GitHub Actions; republish with **skip_build** |
+| `deploy-pages` OK but URL 404 | Same — Pages was not provisioned |
 | No packages found in CI | Set `FEED_DIR` to `feeds/` |
-| Release OK, Pages yellow | Expected until Pages enabled; Release tarballs still work |
+| CI never runs on PR | Ensure workflow is `.github/workflows/ci.yml` (not `ci.yml_`) |
+| Tag build OK, no GitHub Release | Check `github-release` job (split from Pages) |
 
 ## Docs
 

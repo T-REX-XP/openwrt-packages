@@ -119,10 +119,12 @@ GitHub Actions builds this feed **only for Orange Pi CM5 Base** (ImmortalWrt **2
 
 ### GitHub Pages (online feed)
 
-**One-time repo setup** (required before the first Pages deploy; otherwise the Release workflow logs a 404 on deploy):
+**One-time repo setup** (required before the first Pages deploy):
 
 1. **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”).
-2. Push a version tag (`v2026.06.16`) or re-run the **Release** workflow after step 1.
+2. Push a version tag (`v2026.06.16`) **or** run **Release** workflow with **skip_build** + **publish_pages** (republishes from the latest [GitHub Release](https://github.com/T-REX-XP/openwrt-packages/releases) without rebuilding).
+
+Until step 1 is done, `https://t-rex-xp.github.io/openwrt-packages/` returns **404** even if a Release workflow completed.
 
 Enable signing key from the site root (after the first tagged release with `PUBLIC_KEY` configured):
 
@@ -160,9 +162,13 @@ PR / push CI builds **unsigned** packages for compile verification only.
 
 | Symptom | Fix |
 |---------|-----|
-| `deploy-pages` **404** / “Ensure GitHub Pages has been enabled” | [Settings → Pages](https://github.com/T-REX-XP/openwrt-packages/settings/pages) → **Source: GitHub Actions**, then re-run the failed **Release** job |
-| Node 20 deprecation notice in logs | Informational — GitHub runners default to Node 24; not related to Pages failures |
-| GitHub Release succeeded, Pages job yellow/warning | Expected until Pages is enabled; `.apk` tarballs on [Releases](https://github.com/T-REX-XP/openwrt-packages/releases) still work |
+| Feed URL **404** (entire `*.github.io/openwrt-packages/` site) | [Settings → Pages](https://github.com/T-REX-XP/openwrt-packages/settings/pages) → **Source: GitHub Actions**, then **Actions → Release → Run workflow** with **skip_build** + **publish_pages** |
+| `deploy-pages` succeeded but site still 404 | Pages source was not GitHub Actions — enable per above, then republish |
+| Tag release missing (e.g. `v2026.06.22`) but build green | Fixed: `github-release` no longer shares the `github-pages` environment job |
+| `packages.adb` missing in tarball | Set `PRIVATE_KEY` secret; release builds require `INDEX=1` |
+| `PUBLIC_KEY` not on Pages | Add `PUBLIC_KEY` secret; republish with **skip_build** |
+| Node 20 deprecation notice in logs | Informational — not related to Pages failures |
+| GitHub Release OK, Pages job red | Enable Pages (above) or check **Verify feed URL** step logs |
 
 ## References
 
