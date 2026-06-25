@@ -719,31 +719,22 @@ const methods = {
 		}
 	},
 
-	oledDetect: {
+	scanI2c: {
 		args: { bus: 'bus' },
 		call: function(req) {
 			let bus = trim(`${req.args?.bus || ''}`);
 			if (!match(bus, /^[0-9]+$/))
-				return { error: 'invalid_bus' };
+				return { error: 'invalid_bus', message: 'Bus number must be numeric.' };
 			let dev = `/dev/i2c-${bus}`;
-			let devices = list_i2c_devices();
-			let found = false;
-
-			for (let i = 0; i < length(devices); i++) {
-				if (devices[i] == dev)
-					found = true;
-			}
-
-			if (!found && !file_test('-c', dev))
-				return { error: 'no_device', path: dev };
+			if (!file_test('-c', dev))
+				return { error: 'no_device', message: `Adapter ${dev} is not present.` };
 			let i2cdetect = find_i2cdetect();
 			if (!length(i2cdetect))
 				return { error: 'missing_i2cdetect', message: 'Install i2c-tools.' };
-			return {
-				ok: true,
-				path: dev,
-				output: run_cmd(`${i2cdetect} -y ${bus}`)
-			};
+			let output = run_cmd(`${i2cdetect} -y ${bus}`);
+			if (output == 'popen failed')
+				return { error: 'scan_failed', message: 'Could not run i2cdetect (permission or missing binary).' };
+			return { ok: true, path: dev, output };
 		}
 	}
 };

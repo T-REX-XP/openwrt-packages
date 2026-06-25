@@ -11,10 +11,15 @@
 					"debugReport",
 					"fanGet",
 					"oledGet",
-					"oledDetect"
+					"scanI2c"
 				]
 			},
-			"uci": [ "oled", "luci_peripherals" ]
+			"uci": [ "oled", "luci_peripherals" ],
+			"file": {
+				"/usr/sbin/i2cdetect": [ "exec" ],
+				"/usr/bin/i2cdetect": [ "exec" ],
+				"/dev/i2c-*": [ "read", "write" ]
+			}
 		},
 		"write": {
 			"ubus": {

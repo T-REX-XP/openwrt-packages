@@ -134,3 +134,33 @@ msgstr "Screensaver"
 
 msgid "180 degree rotation"
 msgstr "180 degree rotation"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Service control"
+msgstr "Service control"
+
+msgid "Display & I2C"
+msgstr "Display & I2C"
+
+msgid "Start, stop, or restart the display daemon without saving other settings."
+msgstr "Start, stop, or restart the display daemon without saving other settings."
+
+msgid "Refresh status"
+msgstr "Refresh status"
+
+msgid "Quick scan of the selected bus. For full diagnostics use Peripherals."
+msgstr "Quick scan of the selected bus. For full diagnostics use Peripherals."
+
+msgid "Release the display reset GPIO when available on this board. Use after wiring changes or if the display stays blank."
+msgstr "Release the display reset GPIO when available on this board. Use after wiring changes or if the display stays blank."
+
+msgid "Button mapping"
+msgstr "Button mapping"
+
+msgid "These options apply only when menu mode is disabled. Most installations use menu mode (oledd) and can ignore this section."
+msgstr "These options apply only when menu mode is disabled. Most installations use menu mode (oledd) and can ignore this section."
+
+msgid "Seconds between screen updates."
+msgstr "Seconds between screen updates."

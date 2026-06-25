@@ -19,6 +19,7 @@
 
 .luci-app-oled .oled-boot-grid {
 	margin-top: 0.75em;
+	margin-bottom: 0;
 }
 
 .luci-app-oled .oled-status-card {
@@ -91,34 +92,37 @@
 	margin-right: 0.5em;
 }
 
-.luci-app-oled .oled-legacy-panel {
+.luci-app-oled .oled-fieldset {
 	border: 1px solid var(--border-color-medium);
 	border-radius: 4px;
-	padding: 0.5em 0.75em 0.75em;
+	padding: 0.75em 1em 0.5em;
+	margin: 1em 0 0;
 	background: var(--background-color-low);
-	margin-top: 0.5em;
 }
 
-.luci-app-oled .oled-legacy-summary {
-	cursor: pointer;
+.luci-app-oled .oled-fieldset legend {
 	font-weight: 600;
 	color: var(--text-color-highest);
-	padding: 0.35em 0;
+	padding: 0 0.35em;
 }
 
-.luci-app-oled .oled-legacy-body {
-	margin-top: 0.5em;
+.luci-app-oled .oled-section-legacy {
+	background: var(--background-color-low);
+	border-color: var(--border-color-low);
+}
+
+.luci-app-oled .oled-section-legacy > h3 {
+	color: var(--text-color-medium);
+}
+
+.luci-app-oled .oled-section-legacy .cbi-section-descr {
+	color: var(--text-color-medium);
+	font-style: italic;
 }
 
 .luci-app-oled .oled-crosslink {
 	display: inline-block;
 	margin-top: 0.35em;
-}
-
-.luci-app-oled hr {
-	border: none;
-	border-top: 1px solid var(--border-color-medium);
-	margin: 1em 0;
 }
 
 @media (max-width: 768px) {

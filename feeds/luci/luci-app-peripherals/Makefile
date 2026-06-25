@@ -7,10 +7,10 @@ include $(TOPDIR)/rules.mk
 LUCI_TITLE:=Peripherals (IR, fan, diagnostics)
 # luci-base pulls rpcd-mod-ucode, ucode-mod-fs, ...; v4l-utils provides ir-keytable for IR Apply.
 # OLED configuration is in luci-app-oled; this app exposes read-only I2C diagnostics when present.
-LUCI_DEPENDS:=+luci-base +v4l-utils +kmod-ir-gpio-cir +kmod-hwmon-pwmfan
+LUCI_DEPENDS:=+luci-base +v4l-utils +i2c-tools +kmod-ir-gpio-cir +kmod-hwmon-pwmfan
 LUCI_PKGARCH:=all
 PKG_VERSION:=2026.04.26
-PKG_RELEASE:=17
+PKG_RELEASE:=18
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Immortal OPI CM5 overlay

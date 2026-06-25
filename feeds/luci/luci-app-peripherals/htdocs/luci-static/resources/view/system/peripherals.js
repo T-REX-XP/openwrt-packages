@@ -72,9 +72,9 @@ var callOledGet = rpc.declare({
 	expect: { '': {} }
 });
 
-var callOledDetect = rpc.declare({
+var callScanI2c = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'oledDetect',
+	method: 'scanI2c',
 	params: ['bus'],
 	expect: { '': {} }
 });
@@ -205,9 +205,9 @@ function counterDevicesBlock(irDev) {
 	]);
 }
 
-function oledBusNumber(path) {
+function i2cBusNumber(path) {
 	var m = String(path || '').match(/^\/dev\/i2c-([0-9]+)$/);
-	return m ? m[1] : '0';
+	return m ? m[1] : '';
 }
 
 function oledMetaBlock(oled) {
@@ -524,10 +524,10 @@ return view.extend({
 		}, this));
 	},
 
-	handleOledRefresh: function() {
+	handleI2cRefresh: function() {
 		return callOledGet().then(L.bind(function(o) {
 			o = rpcData(o, {});
-			var el = document.getElementById('periph-oled-meta');
+			var el = document.getElementById('periph-i2c-meta');
 			if (el) {
 				el.innerHTML = '';
 				el.appendChild(oledMetaBlock(o));
@@ -535,31 +535,38 @@ return view.extend({
 		}, this));
 	},
 
-	handleOledDetect: function() {
-		var sel = document.getElementById('periph-oled-path');
-		var out = document.getElementById('periph-oled-detect');
+	handleI2cScan: function() {
+		var sel = document.getElementById('periph-i2c-path');
+		var out = document.getElementById('periph-i2c-detect');
 		if (!sel || !out)
 			return Promise.resolve();
-		var bus = oledBusNumber(sel.value);
+		var bus = i2cBusNumber(sel.value);
+		if (!bus) {
+			out.textContent = _('Select an I2C adapter first.');
+			return Promise.resolve();
+		}
 		out.textContent = _('Scanning bus %s…').format(bus);
-		return callOledDetect(bus).then(function(r) {
+		return callScanI2c(bus).then(function(r) {
 			r = rpcData(r, {});
 			if (r.error) {
 				out.textContent = r.message || r.error;
+				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
 				return;
 			}
 			out.textContent = r.output || _('No output from i2cdetect.');
 		}).catch(function(e) {
 			out.textContent = String(e);
+			ui.addNotification(null, E('p', {}, [ _('I2C scan failed: %s').format(e) ]), 'error');
 		});
 	},
 
-	buildOledTab: function(oled) {
+	buildI2cTab: function(oled) {
 		oled = oled || {};
-		var i2cList = oled.i2c_devices || [];
-		var defaultPath = oled.path || (i2cList.length ? i2cList[0] : '');
-		if (!i2cList.length && defaultPath)
-			i2cList = [ defaultPath ];
+		var i2cList = (oled.i2c_devices || []).slice();
+		var configuredPath = oled.path || '';
+		var defaultPath = configuredPath || (i2cList.length ? i2cList[0] : '');
+		if (configuredPath && i2cList.indexOf(configuredPath) < 0)
+			i2cList.unshift(configuredPath);
 
 		var pathOptions = i2cList.map(function(dev) {
 			return E('option', {
@@ -575,42 +582,42 @@ return view.extend({
 			}, [ _('Configure display → Services → OLED') ])
 			: E('p', { 'class': 'alert-message notice' }, [ _('Install luci-app-oled for display configuration.') ]);
 
-		return E('div', { 'data-tab': 'oled', 'data-tab-title': _('OLED diagnostics') }, [
+		return E('div', { 'data-tab': 'i2c', 'data-tab-title': _('I2C') }, [
 			cbiSection(
 				_('OLED status'),
 				[
-					_('Read-only service and bus state. Display settings are in the OLED app.'),
+					_('Read-only service and bus state when luci-app-oled is installed. Display settings are in the OLED app.'),
 					oledAppLink
 				],
 				[
-					E('div', { 'id': 'periph-oled-meta' }, [ oledMetaBlock(oled) ])
+					E('div', { 'id': 'periph-i2c-meta' }, [ oledMetaBlock(oled) ])
 				]
 			),
 			cbiSection(
 				_('I2C bus scan'),
-				[ _('Probe the selected adapter with i2cdetect. This does not change OLED configuration.') ],
+				[ _('Probe the selected adapter with i2cdetect. Read-only; does not change device configuration.') ],
 				[
 					E('div', { 'class': 'cbi-value' }, [
 						E('label', { 'class': 'cbi-value-title' }, [ _('I2C adapter') ]),
 						E('div', { 'class': 'cbi-value-field' }, [
-							E('select', { 'id': 'periph-oled-path' }, pathOptions.length ? pathOptions : [
+							E('select', { 'id': 'periph-i2c-path' }, pathOptions.length ? pathOptions : [
 								E('option', { 'value': '' }, [ _('No I2C devices found') ])
 							]),
 							' ',
 							E('button', {
 								'class': 'btn cbi-button-action',
-								'click': ui.createHandlerFn(this, 'handleOledDetect'),
+								'click': ui.createHandlerFn(this, 'handleI2cScan'),
 								'disabled': !pathOptions.length
 							}, [ _('Scan bus') ]),
 							' ',
 							E('button', {
 								'class': 'btn cbi-button-action',
-								'click': ui.createHandlerFn(this, 'handleOledRefresh')
+								'click': ui.createHandlerFn(this, 'handleI2cRefresh')
 							}, [ _('Refresh') ])
 						])
 					]),
 					E('pre', {
-						'id': 'periph-oled-detect',
+						'id': 'periph-i2c-detect',
 						'class': 'peripherals-detect-pre'
 					}, [ _('Scan output appears here.') ])
 				]
@@ -794,7 +801,7 @@ return view.extend({
 			E('div', {}, [
 				tabIr,
 				this.buildFanTab(fan),
-				this.buildOledTab(oled),
+				this.buildI2cTab(oled),
 				E('div', { 'data-tab': 'diagnostics', 'data-tab-title': _('Diagnostics') }, [
 					this.buildDiagnosticsSection(diags)
 				])

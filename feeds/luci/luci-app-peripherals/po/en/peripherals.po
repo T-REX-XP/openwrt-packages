@@ -10,8 +10,8 @@ msgstr ""
 msgid "Peripherals"
 msgstr "Peripherals"
 
-msgid "OLED diagnostics"
-msgstr "OLED diagnostics"
+msgid "I2C"
+msgstr "I2C"
 
 msgid "Cooling fan"
 msgstr "Cooling fan"
