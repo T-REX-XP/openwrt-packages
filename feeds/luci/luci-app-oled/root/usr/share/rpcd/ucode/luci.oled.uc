@@ -108,6 +108,26 @@ function list_i2c_devices() {
 	return devices;
 }
 
+function ensure_i2c_path_list(path, devices) {
+	let list = [];
+	for (let i = 0; i < length(devices); i++)
+		push(list, devices[i]);
+	if (length(path)) {
+		let found = false;
+		for (let i = 0; i < length(list); i++) {
+			if (list[i] == path) {
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			push(list, path);
+	}
+	if (!length(list) && length(path))
+		push(list, path);
+	return list;
+}
+
 function find_i2cdetect() {
 	if (file_test('-x', '/usr/sbin/i2cdetect'))
 		return '/usr/sbin/i2cdetect';
@@ -172,10 +192,11 @@ function ubus_oledd_status() {
 }
 
 function get_config() {
+	let path = uci_get('path', '/dev/i2c-7');
 	let cfg = {
 		showmenu: uci_get('showmenu', '1'),
 		enable: uci_get('enable', '1'),
-		path: uci_get('path', '/dev/i2c-7'),
+		path,
 		rotate: uci_get('rotate', '0'),
 		menu_mode: uci_get('menu_mode', '1'),
 		menu_timeout: uci_get('menu_timeout', '5'),
@@ -209,7 +230,7 @@ function get_config() {
 		displaybitmap: uci_get('displaybitmap', '0'),
 		displayinvertnormal: uci_get('displayinvertnormal', '0'),
 		drawbitmapeg: uci_get('drawbitmapeg', '0'),
-		i2c_devices: list_i2c_devices()
+		i2c_devices: ensure_i2c_path_list(path, list_i2c_devices())
 	};
 	return cfg;
 }
@@ -241,7 +262,7 @@ function validate_option(key, value) {
 }
 
 function apply_service_state(restart) {
-	run_cmd('. /usr/lib/oled/cm5-apply-config.sh 2>/dev/null; oled_ucitrack_init 2>/dev/null');
+	run_cmd('. /usr/lib/oled/cm5-apply-config.sh 2>/dev/null; cm5_oled_sync_service 2>/dev/null');
 	let enable = uci_get('enable', '0');
 	let menu_mode = uci_get('menu_mode', '1');
 	if (enable == '1') {

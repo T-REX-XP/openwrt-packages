@@ -54,6 +54,7 @@ var isReadonlyView = !L.hasViewPermission() || null;
 
 var FORM_DEFAULTS = {
 	enable: '1',
+	path: '/dev/i2c-7',
 	rotate: '0',
 	menu_mode: '1',
 	menu_timeout: '5',
@@ -170,10 +171,28 @@ function i2cBusNumber(path) {
 	return m ? m[1] : '0';
 }
 
+function optionSelected(value, current) {
+	return String(value) === String(current) ? 'selected' : null;
+}
+
+function buildI2cPathList(cfg) {
+	cfg = cfg || {};
+	var i2cList = (cfg.i2c_devices || []).slice();
+	var configuredPath = cfg.path || FORM_DEFAULTS.path || '/dev/i2c-7';
+	if (configuredPath && i2cList.indexOf(configuredPath) < 0)
+		i2cList.unshift(configuredPath);
+	if (!i2cList.length)
+		i2cList.push(configuredPath || '/dev/i2c-7');
+	return {
+		list: i2cList,
+		selected: configuredPath
+	};
+}
+
 function readFormConfig() {
 	return {
 		enable: flag('oled-enable'),
-		path: val('oled-path'),
+		path: val('oled-path', FORM_DEFAULTS.path),
 		rotate: flag('oled-rotate'),
 		menu_mode: flag('oled-menu-mode'),
 		menu_timeout: val('oled-menu-timeout', FORM_DEFAULTS.menu_timeout),
@@ -440,14 +459,13 @@ return view.extend({
 			], [
 				fieldRow(_('Enable'), flagInput('oled-enable', _('Run on boot'), pick('enable') === '1')),
 				fieldRow(_('I2C bus'), E('div', {}, [
-					E('select', { 'id': 'oled-path', 'disabled': isReadonlyView || !pathOptions.length }, pathOptions.length ? pathOptions : [
-						E('option', { 'value': '' }, [ _('No I2C devices') ])
+					E('select', { 'id': 'oled-path', 'disabled': isReadonlyView || null }, pathOptions.length ? pathOptions : [
+						E('option', { 'value': FORM_DEFAULTS.path }, [ FORM_DEFAULTS.path ])
 					]),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'handleDetect'),
-						'disabled': !pathOptions.length || null
+						'click': ui.createHandlerFn(this, 'handleDetect')
 					}, [ _('Scan bus') ]),
 					E('pre', { 'id': 'oled-detect-out', 'class': 'oled-detect-pre' }, [ _('Scan output appears here.') ])
 				]), _('Quick scan of the selected bus. For full diagnostics use Peripherals.')),
@@ -504,14 +522,14 @@ return view.extend({
 				}), _('Blank the display after this many idle seconds in interactive menu mode (0 = off). Auto-rotate mode never blanks.')),
 				E('fieldset', { 'class': 'oled-fieldset' }, [
 					E('legend', {}, [ _('Physical buttons') ]),
-					fieldRow(_('Navigate screens'), E('select', { 'id': 'oled-nav-button', 'disabled': isReadonlyView }, [
-						E('option', { 'value': 'BTN_2', 'selected': pick('menu_nav_button') === 'BTN_2' }, [ _('GPIO button 2 (BTN_2)') ]),
-						E('option', { 'value': 'wps', 'selected': pick('menu_nav_button') === 'wps' }, [ _('WPS key') ])
+					fieldRow(_('Navigate screens'), E('select', { 'id': 'oled-nav-button', 'disabled': isReadonlyView || null }, [
+						E('option', { 'value': 'BTN_2', 'selected': optionSelected('BTN_2', pick('menu_nav_button')) }, [ _('GPIO button 2 (BTN_2)') ]),
+						E('option', { 'value': 'wps', 'selected': optionSelected('wps', pick('menu_nav_button')) }, [ _('WPS key') ])
 					])),
-					fieldRow(_('Select / OK'), E('select', { 'id': 'oled-select-button', 'disabled': isReadonlyView }, [
-						E('option', { 'value': 'wps', 'selected': pick('menu_select_button') === 'wps' }, [ _('WPS key') ]),
-						E('option', { 'value': 'BTN_2', 'selected': pick('menu_select_button') === 'BTN_2' }, [ _('GPIO button 2 (BTN_2)') ]),
-						E('option', { 'value': 'none', 'selected': pick('menu_select_button') === 'none' }, [ _('None') ])
+					fieldRow(_('Select / OK'), E('select', { 'id': 'oled-select-button', 'disabled': isReadonlyView || null }, [
+						E('option', { 'value': 'wps', 'selected': optionSelected('wps', pick('menu_select_button')) }, [ _('WPS key') ]),
+						E('option', { 'value': 'BTN_2', 'selected': optionSelected('BTN_2', pick('menu_select_button')) }, [ _('GPIO button 2 (BTN_2)') ]),
+						E('option', { 'value': 'none', 'selected': optionSelected('none', pick('menu_select_button')) }, [ _('None') ])
 					]))
 				])
 			])
@@ -623,19 +641,16 @@ return view.extend({
 	render: function(data) {
 		var cfg = data.config || {};
 		var st = data.status || {};
-		var i2cList = cfg.i2c_devices || [];
-		var defaultPath = cfg.path || (i2cList.length ? i2cList[0] : '');
-		if (!i2cList.length && defaultPath)
-			i2cList = [ defaultPath ];
+		var i2cPaths = buildI2cPathList(cfg);
 
 		function pick(key) {
 			return cfg[key] != null ? cfg[key] : FORM_DEFAULTS[key];
 		}
 
-		var pathOptions = i2cList.map(function(dev) {
+		var pathOptions = i2cPaths.list.map(function(dev) {
 			return E('option', {
 				'value': dev,
-				'selected': dev === (pick('path') || defaultPath)
+				'selected': optionSelected(dev, pick('path') || i2cPaths.selected)
 			}, [ dev ]);
 		});
 

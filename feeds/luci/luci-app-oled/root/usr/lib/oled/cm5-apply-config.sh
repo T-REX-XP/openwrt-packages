@@ -97,3 +97,8 @@ oled_ucitrack_init() {
 		commit ucitrack
 EOF
 }
+
+# LuCI save path: update ucitrack only — never rewrite user oled UCI options.
+cm5_oled_sync_service() {
+	oled_ucitrack_init
+}
