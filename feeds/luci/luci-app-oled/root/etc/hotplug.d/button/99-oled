@@ -1,0 +1,25 @@
+#!/bin/sh
+# CM5 onboard buttons → oledd FIFO events (Phase 3).
+# Appends to gpio-button-hotplug; does not replace cm5-button-scripts /etc/rc.button/*.
+#
+# UCI maps physical buttons to navigation / select:
+#   menu_nav_button    — screen-next (default MaskROM / BTN_2)
+#   menu_select_button — ok/select (default USERKEY / wps); set to none to disable
+#
+# Future HAT joystick: add GPIO hotplug entries sending up/down/back via oledd-event.sh.
+
+[ "$ACTION" = "pressed" ] || exit 0
+
+nav=$(uci -q get oled.@oled[0].menu_nav_button); [ -z "$nav" ] && nav=BTN_2
+sel=$(uci -q get oled.@oled[0].menu_select_button); [ -z "$sel" ] && sel=wps
+
+case "$BUTTON" in
+"$nav")
+	/usr/lib/oled/oledd-event.sh next
+	;;
+"$sel")
+	[ "$sel" != "none" ] && /usr/lib/oled/oledd-event.sh ok
+	;;
+esac
+
+exit 0

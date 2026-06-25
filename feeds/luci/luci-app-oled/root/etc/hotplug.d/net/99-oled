@@ -11,11 +11,11 @@ ifup|ifupdate)
 		/usr/lib/oled/oled-boot-state.sh ready "System ready" 2>/dev/null || true
 		;;
 	esac
-	touch /tmp/oled_net_changed 2>/dev/null || true
+	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
 	;;
 ifdown)
 	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
-	touch /tmp/oled_net_changed 2>/dev/null || true
+	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
 	;;
 esac
 

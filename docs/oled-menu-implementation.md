@@ -29,7 +29,7 @@ feeds/luci/luci-app-oled/
 │       ├── oledd_menu.c        # Menu state machine + views (Phase 3)
 │       ├── oledd_ubus.c        # libubus client (system, network, WiFi)
 │       ├── oledd_net.c         # Port list, sysfs bandwidth rates
-│       └── oledd_config.c      # UCI: menu_wifi, menu_interactive
+│       └── oledd_config.c      # UCI: menu_wifi, menu_interactive, menu_nav_button, menu_select_button
 └── root/
     ├── etc/
     │   ├── config/oled         # UCI: menu_mode, menu_timeout, path, …
@@ -115,7 +115,7 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
 
 - Default UCI `path='/dev/i2c-7'`
 - RST: `cm5-waveshare-rst.sh` / `gpioset -c gpiochip1 12=1`
-- **Button input** — CM5 onboard USERKEY (`wps`) and MaskROM (`BTN_2`) via `/etc/hotplug.d/button/99-oled`; HAT joystick GPIO deferred
+- **Button input** — CM5 onboard USERKEY (`wps`) and MaskROM (`BTN_2`) via `/etc/hotplug.d/button/99-oled`; UCI `menu_nav_button` / `menu_select_button`; HAT joystick GPIO deferred
 
 ## Phase 1 metrics (superseded by Phase 2)
 
@@ -167,7 +167,7 @@ Boot completes (`stage=ready`) when hotplug sees `eth0` or `br-lan` ifup.
 | USERKEY | `wps` | `ok` | Open selected item | — |
 | MaskROM | `BTN_2` | `down` | Next item (wrap) | Back to menu |
 
-Future HAT joystick: send `up` / `down` / `back` via GPIO or `oledd-event.sh`.
+Future HAT joystick: send `up` / `down` / `back` via GPIO hotplug or `oledd-event.sh`.
 
 Menu items: **System**, **Ports**, **WiFi** (if `menu_wifi`), **Boot log**.
 

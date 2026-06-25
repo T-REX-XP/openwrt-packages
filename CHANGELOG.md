@@ -2,6 +2,35 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r21] — 2026-06-25
+
+### Fixed
+
+- LuCI: add missing **Screen navigation button** and **Select / OK button** dropdowns (`menu_nav_button`, `menu_select_button`); UCI defaults in `/etc/config/oled`
+
+## [luci-app-oled r20] — 2026-06-25
+
+### Added
+
+- UCI **`menu_nav_button`** (default `BTN_2` / MaskROM) and **`menu_select_button`** (default `wps` / USERKEY; `none` to disable)
+- LuCI dropdowns **Screen navigation button** and **Select / OK button**
+- FIFO event **`next`** — advances screens (System→Ports→WiFi→System) or cycles menu items
+- `oledd_config.c` reads `menu_nav_button` / `menu_select_button` for startup logging
+
+### Changed
+
+- **Default screen navigation** — MaskROM (`BTN_2`) sends `next` (was `down` in r19)
+- Hotplug `99-oled` reads UCI at runtime instead of hardcoded button map
+- `cm5-oled-debug.sh` — reports `menu_nav_button`, `menu_select_button`, last FIFO events
+- `docs/oled-menu-implementation.md` — configurable nav button, default MaskROM
+
+### CM5 default button mapping (r20)
+
+| Button | Hotplug `BUTTON` | FIFO event | Action |
+|--------|------------------|------------|-------------|
+| MaskROM | `BTN_2` | `next` | Next menu item or next screen |
+| USERKEY | `wps` | `ok` | Select / open detail |
+
 ## [luci-app-oled r19] — 2026-06-25
 
 ### Added

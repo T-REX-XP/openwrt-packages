@@ -91,6 +91,28 @@ if [ -f /tmp/oled_state ]; then
 fi
 
 echo
+echo "=== oledd input (Phase 3) ==="
+menu_interactive="$(uci -q get oled.@oled[0].menu_interactive)"
+menu_nav_button="$(uci -q get oled.@oled[0].menu_nav_button)"
+menu_select_button="$(uci -q get oled.@oled[0].menu_select_button)"
+echo "  menu_interactive=${menu_interactive:-1}"
+echo "  menu_nav_button=${menu_nav_button:-BTN_2}"
+echo "  menu_select_button=${menu_select_button:-wps}"
+for fifo in /var/run/oledd.fifo /tmp/oledd.fifo; do
+	if [ -p "$fifo" ]; then
+		echo "  fifo: $fifo (exists)"
+	else
+		echo "  fifo: $fifo (missing — start oledd)"
+	fi
+done
+if [ -f /tmp/oledd_events.log ]; then
+	echo "--- last events (/tmp/oledd_events.log) ---"
+	tail -8 /tmp/oledd_events.log
+else
+	echo "  (no /tmp/oledd_events.log yet)"
+fi
+
+echo
 echo "=== menu mode (oledd) ==="
 if [ -x /usr/sbin/oledd ]; then
 	echo "  /usr/sbin/oledd installed"

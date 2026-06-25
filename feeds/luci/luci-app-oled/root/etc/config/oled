@@ -30,3 +30,6 @@ config oled
 	option menu_mode '0'
 	option menu_timeout '5'
 	option menu_wifi '1'
+	option menu_interactive '1'
+	option menu_nav_button 'BTN_2'
+	option menu_select_button 'wps'

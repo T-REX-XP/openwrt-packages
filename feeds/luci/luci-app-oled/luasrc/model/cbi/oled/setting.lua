@@ -27,6 +27,24 @@ o = s:taboption("info", Flag, "menu_wifi", translate("WiFi view (oledd)"),
 	translate("Include a WiFi status view in menu rotation (hostapd / wireless ubus)."))
 o.default=1
 o:depends("menu_mode", "1")
+o = s:taboption("info", Flag, "menu_interactive", translate("Interactive menu (oledd)"),
+	translate("Stop auto-rotation and show a button-driven menu (System / Ports / WiFi / Boot log). Requires CM5 USERKEY + MaskROM or HAT joystick (Phase 3+)."))
+o.default=1
+o:depends("menu_mode", "1")
+o = s:taboption("info", ListValue, "menu_nav_button", translate("Screen navigation button"),
+	translate("Physical button that advances to the next menu screen or item. Default: MaskROM key."))
+o:value("BTN_2", translate("MaskROM key (BTN_2)"))
+o:value("wps", translate("USERKEY (WPS)"))
+o.default="BTN_2"
+o:depends("menu_mode", "1")
+
+o = s:taboption("info", ListValue, "menu_select_button", translate("Select / OK button"),
+	translate("Optional button to open a menu item. Set to None to disable."))
+o:value("wps", translate("USERKEY (WPS)"))
+o:value("BTN_2", translate("MaskROM key (BTN_2)"))
+o:value("none", translate("None"))
+o.default="wps"
+o:depends("menu_mode", "1")
 o = s:taboption("info", Value, "path", translate("I2C PATH"))
 o.default='/dev/i2c-7'
 o = s:taboption("info", Flag, "rotate", translate("180 degree rotation"))
