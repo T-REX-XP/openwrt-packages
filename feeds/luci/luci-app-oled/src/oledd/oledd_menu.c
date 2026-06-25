@@ -1,5 +1,5 @@
 /*
- * oledd_menu — menu list/detail views and auto-rotate mode (Phase 3).
+ * oledd_menu — boot splash + config-driven page dashboard (router OLED spec).
  */
 
 #include "oledd_menu.h"
@@ -11,90 +11,32 @@
 
 #include "SSD1306_OLED.h"
 #include "oledd_alert.h"
-#include "oledd_net.h"
-#include "oledd_ubus.h"
+#include "oledd_config.h"
+#include "oledd_pages.h"
 
 #define STATE_FILE "/tmp/oled_state"
 #define BOOT_DONE_STAGE "ready"
 #define BOOT_TIMEOUT_SEC 45
 
-#define ROW_H 10
-#define ICON_X 2
-#define TEXT_X 12
 #define HEADER_Y 10
-#define CONTENT_Y 13
 #define ALERT_TOP 54
-
-enum oled_view {
-	VIEW_BOOT = 0,
-	VIEW_SYSTEM,
-	VIEW_PORTS,
-	VIEW_WIFI,
-	VIEW_COUNT
-};
-
-enum menu_item {
-	ITEM_SYSTEM = 0,
-	ITEM_PORTS,
-	ITEM_WIFI,
-	ITEM_BOOT,
-	ITEM_MAX
-};
 
 enum screen_mode {
 	SCREEN_BOOT = 0,
-	SCREEN_ROTATE,
-	SCREEN_MENU_LIST,
-	SCREEN_MENU_DETAIL,
+	SCREEN_PAGES,
 };
 
 static struct ubus_context *g_ubus;
 static int g_interactive = 1;
-static int g_menu_wifi = 1;
 static unsigned g_view_timeout = 5;
 static unsigned g_idle_dim_sec;
 
 static enum screen_mode g_screen = SCREEN_BOOT;
-static enum oled_view g_rotate_view = VIEW_SYSTEM;
-static enum menu_item g_menu_sel = ITEM_SYSTEM;
-static enum oled_view g_detail_view = VIEW_SYSTEM;
+static int g_page_idx;
 static time_t g_view_started;
 static time_t g_last_activity;
 static time_t g_boot_started;
 static int g_dimmed;
-static int g_item_count;
-static enum menu_item g_visible_items[ITEM_MAX];
-
-static const char *view_name(enum oled_view view)
-{
-	switch (view) {
-	case VIEW_BOOT:
-		return "boot";
-	case VIEW_SYSTEM:
-		return "system";
-	case VIEW_PORTS:
-		return "ports";
-	case VIEW_WIFI:
-		return "wifi";
-	default:
-		return "system";
-	}
-}
-
-static enum menu_item view_to_item(enum oled_view view)
-{
-	switch (view) {
-	case VIEW_PORTS:
-		return ITEM_PORTS;
-	case VIEW_WIFI:
-		return ITEM_WIFI;
-	case VIEW_BOOT:
-		return ITEM_BOOT;
-	case VIEW_SYSTEM:
-	default:
-		return ITEM_SYSTEM;
-	}
-}
 
 static int parse_state_kv(const char *key, char *val, size_t len)
 {
@@ -130,142 +72,18 @@ static int boot_active(void)
 	return strcmp(stage, BOOT_DONE_STAGE) != 0;
 }
 
-static void rebuild_item_count(void)
+static void page_next(int delta)
 {
-	int n = 0;
+	int count = oledd_pages_count();
 
-	g_visible_items[n++] = ITEM_SYSTEM;
-	g_visible_items[n++] = ITEM_PORTS;
-	if (g_menu_wifi)
-		g_visible_items[n++] = ITEM_WIFI;
-	g_visible_items[n++] = ITEM_BOOT;
-	g_item_count = n;
-}
-
-static enum menu_item nth_visible(int idx)
-{
-	if (idx < 0 || idx >= g_item_count)
-		return ITEM_SYSTEM;
-	return g_visible_items[idx];
-}
-
-static int visible_index(enum menu_item item)
-{
-	int i;
-
-	for (i = 0; i < g_item_count; i++) {
-		if (g_visible_items[i] == item)
-			return i;
-	}
-	return 0;
-}
-
-static enum oled_view item_to_view(enum menu_item item)
-{
-	switch (item) {
-	case ITEM_SYSTEM:
-		return VIEW_SYSTEM;
-	case ITEM_PORTS:
-		return VIEW_PORTS;
-	case ITEM_WIFI:
-		return VIEW_WIFI;
-	case ITEM_BOOT:
-	default:
-		return VIEW_BOOT;
-	}
-}
-
-static const char *item_label(enum menu_item item)
-{
-	switch (item) {
-	case ITEM_SYSTEM:
-		return "System";
-	case ITEM_PORTS:
-		return "Ports";
-	case ITEM_WIFI:
-		return "WiFi";
-	case ITEM_BOOT:
-	default:
-		return "Boot log";
-	}
-}
-
-static enum menu_item next_item(enum menu_item cur, int delta)
-{
-	int idx = visible_index(cur) + delta;
-
-	if (idx < 0)
-		idx = g_item_count - 1;
-	if (idx >= g_item_count)
-		idx = 0;
-	return nth_visible(idx);
-}
-
-static enum oled_view next_rotating_view(enum oled_view cur)
-{
-	enum oled_view v = cur;
-
-	do {
-		v = (enum oled_view)((v + 1) % VIEW_COUNT);
-	} while (v == VIEW_BOOT || (v == VIEW_WIFI && !g_menu_wifi));
-	return v;
-}
-
-static void format_time_hm(char *buf, size_t len)
-{
-	time_t now = time(NULL);
-	struct tm *tm = localtime(&now);
-
-	if (tm)
-		strftime(buf, len, "%H:%M", tm);
-	else
-		snprintf(buf, len, "--:--");
-}
-
-static void draw_header(const char *title)
-{
-	char clock[8];
-	int tw, cw;
-
-	format_time_hm(clock, sizeof(clock));
-	setTextSize(1);
-	setTextColor(WHITE);
-	setCursor(0, 0);
-	print_str((const unsigned char *)title);
-	tw = (int)strlen(title) * 6;
-	cw = (int)strlen(clock) * 6;
-	if (tw + cw + 8 < oled_lcd_width()) {
-		setCursor(oled_lcd_width() - cw, 0);
-		print_str((const unsigned char *)clock);
-	}
-	drawLine(0, HEADER_Y, oled_lcd_width() - 1, HEADER_Y, WHITE);
-}
-
-static int content_bottom_y(void)
-{
-	if (oledd_alert_active())
-		return ALERT_TOP - 2;
-	return oled_lcd_height() - 2;
-}
-
-static void draw_link_icon(int cy, int linked)
-{
-	if (linked)
-		fillCircle(ICON_X + 2, cy + 3, 2, WHITE);
-	else
-		drawCircle(ICON_X + 2, cy + 3, 2, WHITE);
-}
-
-static void format_uptime(unsigned long sec, char *out, size_t len)
-{
-	unsigned long d = sec / 86400;
-	unsigned long h = (sec % 86400) / 3600;
-	unsigned long m = (sec % 3600) / 60;
-
-	if (d > 0)
-		snprintf(out, len, "%lud %02luh", d, h);
-	else
-		snprintf(out, len, "%02lu:%02lu", h, m);
+	if (count <= 0)
+		return;
+	g_page_idx += delta;
+	if (g_page_idx < 0)
+		g_page_idx = count - 1;
+	if (g_page_idx >= count)
+		g_page_idx = 0;
+	g_view_started = time(NULL);
 }
 
 static void draw_boot_view(void)
@@ -274,7 +92,11 @@ static void draw_boot_view(void)
 	char message[64] = "BOOTING...";
 	int progress = 25;
 
-	draw_header("Boot");
+	setTextSize(1);
+	setTextColor(WHITE);
+	setCursor(0, 0);
+	print_str((const unsigned char *)"Boot");
+	drawLine(0, HEADER_Y, oled_lcd_width() - 1, HEADER_Y, WHITE);
 
 	if (parse_state_kv("stage", stage, sizeof(stage)) == 0) {
 		if (!strcmp(stage, "preinit"))
@@ -299,223 +121,26 @@ static void draw_boot_view(void)
 	print_str((const unsigned char *)stage);
 }
 
-static void draw_system_view(void)
-{
-	struct oledd_system_info info;
-	char upbuf[24];
-	char line[32];
-	unsigned long mem_used_mb;
-	int y = CONTENT_Y;
-
-	draw_header("System");
-
-	if (!g_ubus || oledd_ubus_system_info(g_ubus, &info) != 0) {
-		setCursor(TEXT_X, y);
-		print_str((const unsigned char *)"ubus unavailable");
-		return;
-	}
-
-	format_uptime(info.uptime, upbuf, sizeof(upbuf));
-	mem_used_mb = info.mem_total > info.mem_free ?
-	    (info.mem_total - info.mem_free) / 1024 : 0;
-
-	setCursor(TEXT_X, y);
-	print_str((const unsigned char *)"Up ");
-	print_str((const unsigned char *)upbuf);
-	y += ROW_H;
-
-	snprintf(line, sizeof(line), "LD %.2f", (double)info.load1);
-	setCursor(TEXT_X, y);
-	print_str((const unsigned char *)line);
-	y += ROW_H;
-
-	snprintf(line, sizeof(line), "RAM %luM", mem_used_mb);
-	setCursor(TEXT_X, y);
-	print_str((const unsigned char *)line);
-}
-
-static void draw_rate_bar(int x, int y, int w, int h, double mbps)
-{
-	int fill;
-
-	fillRect(x, y, w, h, BLACK);
-	if (mbps <= 0.0)
-		return;
-
-	fill = (int)((mbps / OLEDD_BAR_MAX_MBPS) * (double)w);
-	if (fill < 1 && mbps > 0.01)
-		fill = 1;
-	if (fill > w)
-		fill = w;
-	fillRect(x, y, fill, h, WHITE);
-}
-
-static void draw_port_row(int y, const struct oledd_port_status *p)
-{
-	char line[28];
-	const char *name;
-	int linked = p->carrier || p->up;
-	int is_wan;
-
-	draw_link_icon(y, linked);
-	name = p->label[0] ? p->label : p->device;
-	is_wan = !strcmp(name, "WAN");
-
-	if (linked && p->ipv4[0])
-		snprintf(line, sizeof(line), "%-3s %s", name, p->ipv4);
-	else if (linked)
-		snprintf(line, sizeof(line), "%-3s link", name);
-	else
-		snprintf(line, sizeof(line), "%-3s ---", name);
-
-	setTextSize(1);
-	setTextColor(WHITE);
-	setCursor(TEXT_X, y);
-	print_str((const unsigned char *)line);
-
-	if (is_wan) {
-		int bar_y = y + 7;
-		int bar_w = oled_lcd_width() - TEXT_X - 2;
-		double peak = p->rx_mbps > p->tx_mbps ? p->rx_mbps : p->tx_mbps;
-
-		if (bar_y + 2 <= content_bottom_y())
-			draw_rate_bar(TEXT_X, bar_y, bar_w, 2, peak);
-	}
-}
-
-static void draw_ports_view(double elapsed_sec)
-{
-	struct oledd_port_status ports[OLEDD_PORT_MAX];
-	char lan_ip[16] = "";
-	char footer[32];
-	struct oledd_wifi_info wifi;
-	int count, i, y = CONTENT_Y;
-	int bottom = content_bottom_y();
-
-	draw_header("Network");
-
-	count = oledd_net_poll_ports(g_ubus, ports, OLEDD_PORT_MAX, elapsed_sec);
-
-	for (i = 0; i < count && y + 7 <= bottom; i++) {
-		draw_port_row(y, &ports[i]);
-		y += ROW_H;
-	}
-
-	if (g_ubus)
-		oledd_ubus_interface_ipv4(g_ubus, "lan", lan_ip, sizeof(lan_ip));
-
-	if (y + 7 <= bottom && lan_ip[0]) {
-		draw_link_icon(y, 1);
-		snprintf(footer, sizeof(footer), "LAN %s", lan_ip);
-		setCursor(TEXT_X, y);
-		print_str((const unsigned char *)footer);
-		y += ROW_H;
-	}
-
-	if (g_menu_wifi && g_ubus &&
-	    oledd_ubus_wifi_status(g_ubus, &wifi) == 0 && wifi.valid &&
-	    y + 7 <= bottom) {
-		draw_link_icon(y, 1);
-		setCursor(TEXT_X, y);
-		if (wifi.num_sta >= 0)
-			snprintf(footer, sizeof(footer), "WiFi %.10s (%d)",
-				 wifi.ssid, wifi.num_sta);
-		else
-			snprintf(footer, sizeof(footer), "WiFi %.14s", wifi.ssid);
-		print_str((const unsigned char *)footer);
-	}
-}
-
-static void draw_wifi_view(void)
-{
-	struct oledd_wifi_info wifi;
-	char line[32];
-	int y = CONTENT_Y;
-
-	draw_header("WiFi");
-
-	if (!g_ubus || oledd_ubus_wifi_status(g_ubus, &wifi) != 0 ||
-	    !wifi.valid) {
-		draw_link_icon(y, 0);
-		setCursor(TEXT_X, y);
-		print_str((const unsigned char *)"no radio");
-		return;
-	}
-
-	draw_link_icon(y, 1);
-	setCursor(TEXT_X, y);
-	print_str((const unsigned char *)wifi.ssid);
-	y += ROW_H;
-
-	if (wifi.channel[0]) {
-		snprintf(line, sizeof(line), "Ch %s", wifi.channel);
-		setCursor(TEXT_X, y);
-		print_str((const unsigned char *)line);
-		y += ROW_H;
-	}
-
-	if (wifi.num_sta >= 0) {
-		snprintf(line, sizeof(line), "Clients %d", wifi.num_sta);
-		setCursor(TEXT_X, y);
-		print_str((const unsigned char *)line);
-	}
-}
-
-static void draw_menu_list(void)
-{
-	int y = 14;
-	int i;
-
-	draw_header("Menu");
-
-	for (i = 0; i < g_item_count; i++) {
-		enum menu_item item = nth_visible(i);
-		const char *prefix = (item == g_menu_sel) ? ">" : " ";
-
-		setCursor(0, y);
-		print_str((const unsigned char *)prefix);
-		print_str((const unsigned char *)item_label(item));
-		y += 12;
-	}
-}
-
-static void draw_detail_view(enum oled_view view, double elapsed_sec)
-{
-	switch (view) {
-	case VIEW_BOOT:
-		draw_boot_view();
-		break;
-	case VIEW_SYSTEM:
-		draw_system_view();
-		break;
-	case VIEW_PORTS:
-		draw_ports_view(elapsed_sec);
-		break;
-	case VIEW_WIFI:
-		draw_wifi_view();
-		break;
-	default:
-		break;
-	}
-}
-
 void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
 		     unsigned idle_dim_sec, struct ubus_context *ubus)
 {
+	char pages_path[128];
+
+	(void)menu_wifi;
 	g_interactive = interactive;
-	g_menu_wifi = menu_wifi;
 	g_view_timeout = view_timeout;
 	g_idle_dim_sec = idle_dim_sec;
 	g_ubus = ubus;
-	rebuild_item_count();
 	g_screen = SCREEN_BOOT;
-	g_rotate_view = VIEW_PORTS;
-	g_menu_sel = ITEM_SYSTEM;
-	g_detail_view = VIEW_SYSTEM;
+	g_page_idx = 0;
 	g_view_started = time(NULL);
 	g_last_activity = g_view_started;
 	g_boot_started = g_view_started;
 	g_dimmed = 0;
+
+	oledd_config_menu_pages_path(pages_path, sizeof(pages_path));
+	if (oledd_pages_load(pages_path) != 0)
+		syslog(LOG_WARNING, "OLED pages config failed — dashboard disabled");
 }
 
 void oledd_menu_set_ubus(struct ubus_context *ubus)
@@ -538,68 +163,36 @@ void oledd_menu_check_idle(void)
 {
 	time_t now = time(NULL);
 
-	/* Auto-rotate kiosk mode keeps cycling views; idle dim is interactive-only. */
 	if (!g_idle_dim_sec || !g_interactive)
 		return;
-
 	if (g_screen == SCREEN_BOOT)
 		return;
 
 	if ((unsigned)(now - g_last_activity) >= g_idle_dim_sec) {
 		if (!g_dimmed)
-			syslog(LOG_INFO, "idle dim after %us (view=%s)", g_idle_dim_sec,
-			       oledd_menu_view_name());
+			syslog(LOG_INFO, "idle dim after %us (view=%s)",
+			       g_idle_dim_sec, oledd_menu_view_name());
 		g_dimmed = 1;
 	}
 }
 
 const char *oledd_menu_view_name(void)
 {
-	switch (g_screen) {
-	case SCREEN_BOOT:
+	if (g_screen == SCREEN_BOOT)
 		return "boot";
-	case SCREEN_MENU_LIST:
-		return "menu";
-	case SCREEN_ROTATE:
-		return view_name(g_rotate_view);
-	case SCREEN_MENU_DETAIL:
-	default:
-		return view_name(g_detail_view);
-	}
+	if (oledd_pages_count() <= 0)
+		return "pages";
+	return oledd_pages_id(g_page_idx);
 }
 
 int oledd_menu_set_view(const char *view)
 {
-	enum oled_view v;
+	int idx;
 
 	if (!view || !view[0])
 		return 0;
 
-	if (!strcmp(view, "menu")) {
-		if (!g_interactive)
-			return 0;
-		g_screen = SCREEN_MENU_LIST;
-		g_menu_sel = ITEM_SYSTEM;
-		g_view_started = time(NULL);
-		oledd_menu_wake();
-		return 1;
-	}
-
-	if (!strcmp(view, "boot"))
-		v = VIEW_BOOT;
-	else if (!strcmp(view, "system"))
-		v = VIEW_SYSTEM;
-	else if (!strcmp(view, "ports"))
-		v = VIEW_PORTS;
-	else if (!strcmp(view, "wifi")) {
-		if (!g_menu_wifi)
-			return 0;
-		v = VIEW_WIFI;
-	} else {
-		return 0;
-	}
-
-	if (v == VIEW_BOOT) {
+	if (!strcmp(view, "boot")) {
 		g_screen = SCREEN_BOOT;
 		g_view_started = time(NULL);
 		g_boot_started = g_view_started;
@@ -607,111 +200,50 @@ int oledd_menu_set_view(const char *view)
 		return 1;
 	}
 
-	if (g_interactive) {
-		g_menu_sel = view_to_item(v);
-		g_detail_view = v;
-		g_screen = SCREEN_MENU_DETAIL;
-	} else {
-		g_rotate_view = v;
-		g_screen = SCREEN_ROTATE;
-	}
+	idx = oledd_pages_index_by_id(view);
+	if (idx < 0)
+		return 0;
+
+	g_screen = SCREEN_PAGES;
+	g_page_idx = idx;
 	g_view_started = time(NULL);
 	oledd_menu_wake();
 	return 1;
 }
 
-static const char *screen_mode_name(enum screen_mode mode)
-{
-	switch (mode) {
-	case SCREEN_BOOT:
-		return "boot";
-	case SCREEN_ROTATE:
-		return view_name(g_rotate_view);
-	case SCREEN_MENU_LIST:
-		return "menu";
-	case SCREEN_MENU_DETAIL:
-		return view_name(g_detail_view);
-	default:
-		return "?";
-	}
-}
-
 static void leave_boot(void)
 {
-	enum screen_mode prev = g_screen;
-
+	g_screen = SCREEN_PAGES;
+	g_page_idx = 0;
 	g_view_started = time(NULL);
 	oledd_menu_wake();
-	if (g_interactive) {
-		g_screen = SCREEN_MENU_LIST;
-		g_menu_sel = ITEM_SYSTEM;
-	} else {
-		g_screen = SCREEN_ROTATE;
-		g_rotate_view = VIEW_PORTS;
-	}
-	syslog(LOG_INFO, "view %s -> %s", screen_mode_name(prev),
-	       screen_mode_name(g_screen));
+	syslog(LOG_INFO, "boot complete — page dashboard");
 }
 
-static void open_detail_for_selection(void)
-{
-	g_detail_view = item_to_view(g_menu_sel);
-	g_screen = SCREEN_MENU_DETAIL;
-}
-
-static void handle_net_event(void)
-{
-	if (g_screen == SCREEN_BOOT)
-		return;
-
-	if (g_interactive) {
-		g_menu_sel = ITEM_PORTS;
-		g_detail_view = VIEW_PORTS;
-		g_screen = SCREEN_MENU_DETAIL;
-	} else {
-		g_rotate_view = VIEW_PORTS;
-		g_view_started = time(NULL);
-	}
-}
-
-static void advance_rotate_view(void)
-{
-	g_rotate_view = next_rotating_view(g_rotate_view);
-	g_view_started = time(NULL);
-	g_last_activity = g_view_started;
-}
-
-static void handle_interactive_event(oledd_event_t evt)
+static void handle_page_event(oledd_event_t evt)
 {
 	switch (evt) {
 	case OLEDD_EV_UP:
-		if (g_screen == SCREEN_MENU_LIST)
-			g_menu_sel = next_item(g_menu_sel, -1);
+	case OLEDD_EV_BACK:
+		page_next(-1);
 		break;
 	case OLEDD_EV_DOWN:
-		if (g_screen == SCREEN_MENU_LIST)
-			g_menu_sel = next_item(g_menu_sel, 1);
-		else if (g_screen == SCREEN_MENU_DETAIL)
-			g_screen = SCREEN_MENU_LIST;
-		break;
 	case OLEDD_EV_NEXT:
-		if (g_screen == SCREEN_MENU_LIST)
-			g_menu_sel = next_item(g_menu_sel, 1);
-		else if (g_screen == SCREEN_MENU_DETAIL) {
-			g_detail_view = next_rotating_view(g_detail_view);
-			g_view_started = time(NULL);
-		}
+		page_next(1);
 		break;
 	case OLEDD_EV_OK:
-		if (g_screen == SCREEN_MENU_LIST)
-			open_detail_for_selection();
-		break;
-	case OLEDD_EV_BACK:
-		if (g_screen == SCREEN_MENU_DETAIL)
-			g_screen = SCREEN_MENU_LIST;
+		page_next(1);
 		break;
 	case OLEDD_EV_NET:
-		handle_net_event();
+	{
+		int idx = oledd_pages_index_by_id("network");
+
+		if (idx >= 0) {
+			g_screen = SCREEN_PAGES;
+			g_page_idx = idx;
+			g_view_started = time(NULL);
+		}
+	}
 		break;
 	case OLEDD_EV_REFRESH:
 		break;
@@ -748,20 +280,14 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 
 	if (evt != OLEDD_EV_NONE) {
 		oledd_menu_wake();
-		if (g_interactive)
-			handle_interactive_event(evt);
-		else if (evt == OLEDD_EV_NET)
-			handle_net_event();
-		else if (evt == OLEDD_EV_NEXT)
-			advance_rotate_view();
+		handle_page_event(evt);
 		redraw = 1;
 	}
 
-	if (!g_interactive && g_screen == SCREEN_ROTATE &&
+	if (!g_interactive && g_screen == SCREEN_PAGES &&
+	    oledd_pages_count() > 1 &&
 	    (unsigned)(now - g_view_started) >= g_view_timeout) {
-		g_rotate_view = next_rotating_view(g_rotate_view);
-		g_view_started = now;
-		g_last_activity = now;
+		page_next(1);
 		redraw = 1;
 	}
 
@@ -778,23 +304,25 @@ void oledd_menu_render(double elapsed_sec)
 	if (g_dimmed) {
 		clearDisplay();
 		if (Display() != 0)
-			syslog(LOG_WARNING, "display flush failed (dim, view=%s)", view);
+			syslog(LOG_WARNING, "display flush failed (dim, view=%s)",
+			       view);
 		return;
 	}
+
 	clearDisplay();
 
 	switch (g_screen) {
 	case SCREEN_BOOT:
 		draw_boot_view();
 		break;
-	case SCREEN_ROTATE:
-		draw_detail_view(g_rotate_view, elapsed_sec);
-		break;
-	case SCREEN_MENU_LIST:
-		draw_menu_list();
-		break;
-	case SCREEN_MENU_DETAIL:
-		draw_detail_view(g_detail_view, elapsed_sec);
+	case SCREEN_PAGES:
+		if (oledd_pages_count() > 0)
+			oledd_pages_render(g_page_idx, g_ubus, elapsed_sec);
+		else {
+			setCursor(0, 20);
+			setTextSize(1);
+			print_str((const unsigned char *)"No pages config");
+		}
 		break;
 	}
 

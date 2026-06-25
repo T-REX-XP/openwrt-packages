@@ -118,3 +118,8 @@ void oledd_config_menu_select_button(char *out, size_t len)
 {
 	parse_option_string("menu_select_button", "wps", out, len);
 }
+
+void oledd_config_menu_pages_path(char *out, size_t len)
+{
+	parse_option_string("menu_pages", "/etc/oled/pages.json", out, len);
+}

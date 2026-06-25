@@ -1,0 +1,118 @@
+{
+	"width": 128,
+	"height": 64,
+	"pages": [
+		{
+			"id": "status",
+			"title": "SYSTEM",
+			"tabIcon": "chip",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "SYSTEM", "font": "xs", "invert": true },
+				{ "type": "text", "x": 126, "y": 1, "text": "{time}", "font": "xs", "align": "right", "invert": true },
+				{ "type": "icon", "x": 2, "y": 14, "name": "cpu", "size": 12 },
+				{ "type": "text", "x": 17, "y": 14, "text": "CPU", "font": "xs" },
+				{ "type": "text", "x": 17, "y": 22, "text": "{cpu_temp}", "font": "sm" },
+				{ "type": "bar", "x": 2, "y": 33, "w": 58, "h": 5, "value": "{cpu_load}" },
+				{ "type": "icon", "x": 68, "y": 14, "name": "ram", "size": 12 },
+				{ "type": "text", "x": 83, "y": 14, "text": "RAM", "font": "xs" },
+				{ "type": "text", "x": 83, "y": 22, "text": "{ram_used}", "font": "sm" },
+				{ "type": "bar", "x": 68, "y": 33, "w": 58, "h": 5, "value": "{ram_pct}" },
+				{ "type": "line", "x1": 0, "y1": 43, "x2": 128, "y2": 43 },
+				{ "type": "icon", "x": 2, "y": 46, "name": "thermo", "size": 8 },
+				{ "type": "text", "x": 12, "y": 47, "text": "{temp_short}", "font": "xs" },
+				{ "type": "icon", "x": 34, "y": 46, "name": "power", "size": 8 },
+				{ "type": "text", "x": 44, "y": 47, "text": "{load_short}", "font": "xs" },
+				{ "type": "icon", "x": 70, "y": 46, "name": "clock", "size": 8 },
+				{ "type": "text", "x": 80, "y": 47, "text": "{uptime_short}", "font": "xs" }
+			]
+		},
+		{
+			"id": "network",
+			"title": "NETWORK",
+			"tabIcon": "router",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "NETWORK", "font": "xs", "invert": true },
+				{ "type": "icon", "x": 118, "y": 1, "name": "wifi", "size": 8 },
+				{ "type": "icon", "x": 2, "y": 14, "name": "globe", "size": 16 },
+				{ "type": "text", "x": 22, "y": 13, "text": "WAN", "font": "xs" },
+				{ "type": "text", "x": 22, "y": 21, "text": "{wan_ip}", "font": "sm" },
+				{ "type": "line", "x1": 0, "y1": 33, "x2": 128, "y2": 33 },
+				{ "type": "icon", "x": 2, "y": 36, "name": "down", "size": 8 },
+				{ "type": "text", "x": 12, "y": 37, "text": "{rx_rate}", "font": "xs" },
+				{ "type": "icon", "x": 2, "y": 47, "name": "up", "size": 8 },
+				{ "type": "text", "x": 12, "y": 48, "text": "{tx_rate}", "font": "xs" },
+				{ "type": "text", "x": 70, "y": 37, "text": "PING", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 37, "text": "{ping_ms}", "font": "xs", "align": "right" },
+				{ "type": "sparkline", "x": 70, "y": 46, "w": 56, "h": 12, "data": "ping" }
+			]
+		},
+		{
+			"id": "clients",
+			"title": "CLIENTS",
+			"tabIcon": "signal",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "CLIENTS", "font": "xs", "invert": true },
+				{ "type": "text", "x": 126, "y": 1, "text": "{clients_total}", "font": "xs", "align": "right", "invert": true },
+				{ "type": "icon", "x": 2, "y": 14, "name": "wifi", "size": 12 },
+				{ "type": "text", "x": 17, "y": 14, "text": "2.4G", "font": "xs" },
+				{ "type": "text", "x": 17, "y": 22, "text": "{wifi_24}", "font": "lg" },
+				{ "type": "icon", "x": 50, "y": 14, "name": "wifi", "size": 12 },
+				{ "type": "text", "x": 65, "y": 14, "text": "5G", "font": "xs" },
+				{ "type": "text", "x": 65, "y": 22, "text": "{wifi_5}", "font": "lg" },
+				{ "type": "icon", "x": 96, "y": 14, "name": "router", "size": 12 },
+				{ "type": "text", "x": 111, "y": 14, "text": "LAN", "font": "xs" },
+				{ "type": "text", "x": 111, "y": 22, "text": "{lan_clients}", "font": "lg" },
+				{ "type": "line", "x1": 0, "y1": 43, "x2": 128, "y2": 43 },
+				{ "type": "text", "x": 2, "y": 46, "text": "DHCP LEASES", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 46, "text": "{dhcp_leases}", "font": "xs", "align": "right" },
+				{ "type": "bar", "x": 2, "y": 55, "w": 124, "h": 5, "value": "{dhcp_pct}" }
+			]
+		},
+		{
+			"id": "storage",
+			"title": "STORAGE",
+			"tabIcon": "sd",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "STORAGE", "font": "xs", "invert": true },
+				{ "type": "icon", "x": 2, "y": 14, "name": "sd", "size": 8 },
+				{ "type": "text", "x": 12, "y": 14, "text": "ROOT", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 14, "text": "{root_usage}", "font": "xs", "align": "right" },
+				{ "type": "bar", "x": 2, "y": 23, "w": 124, "h": 5, "value": "{root_pct}" },
+				{ "type": "icon", "x": 2, "y": 33, "name": "disk", "size": 8 },
+				{ "type": "text", "x": 12, "y": 33, "text": "DATA", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 33, "text": "{data_usage}", "font": "xs", "align": "right" },
+				{ "type": "bar", "x": 2, "y": 42, "w": 124, "h": 5, "value": "{data_pct}" },
+				{ "type": "icon", "x": 2, "y": 52, "name": "shield", "size": 8 },
+				{ "type": "text", "x": 12, "y": 52, "text": "SWAP", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 52, "text": "{swap_usage}", "font": "xs", "align": "right" }
+			]
+		},
+		{
+			"id": "security",
+			"title": "SECURITY",
+			"tabIcon": "shield",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "SECURITY", "font": "xs", "invert": true },
+				{ "type": "icon", "x": 118, "y": 1, "name": "lock", "size": 8 },
+				{ "type": "icon", "x": 6, "y": 16, "name": "shield", "size": 24 },
+				{ "type": "text", "x": 38, "y": 14, "text": "FIREWALL", "font": "xs" },
+				{ "type": "text", "x": 38, "y": 22, "text": "{firewall_state}", "font": "sm" },
+				{ "type": "line", "x1": 0, "y1": 43, "x2": 128, "y2": 43 },
+				{ "type": "text", "x": 2, "y": 46, "text": "BLOCKED 24H", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 46, "text": "{blocked_24h}", "font": "xs", "align": "right" },
+				{ "type": "text", "x": 2, "y": 55, "text": "VPN TUNNELS", "font": "xs" },
+				{ "type": "text", "x": 126, "y": 55, "text": "{vpn_tunnels}", "font": "xs", "align": "right" }
+			]
+		}
+	]
+}

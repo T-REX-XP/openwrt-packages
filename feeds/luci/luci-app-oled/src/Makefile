@@ -21,9 +21,13 @@ OLED_OBJS := $(OLED_SRCS:.c=.o)
 OLEDD_SRCS := \
 	oledd/oledd.c \
 	oledd/oledd_config.c \
+	oledd/oledd_data.c \
+	oledd/oledd_fonts.c \
+	oledd/oledd_icons.c \
 	oledd/oledd_input.c \
 	oledd/oledd_menu.c \
 	oledd/oledd_net.c \
+	oledd/oledd_pages.c \
 	oledd/oledd_ubus.c \
 	oledd/oledd_ubus_srv.c \
 	oledd/oledd_alert.c

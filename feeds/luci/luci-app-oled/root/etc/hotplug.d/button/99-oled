@@ -1,9 +1,9 @@
 #!/bin/sh
 # Invoked from cm5-button-scripts /etc/rc.button/* via hotplug-call (procd does not run this file directly).
 #
-# UCI maps physical buttons to navigation / select:
-#   menu_nav_button    — screen-next (default MaskROM / BTN_2)
-#   menu_select_button — ok/select (default USERKEY / wps); set to none to disable
+# UCI maps physical buttons to page navigation:
+#   menu_select_button — next page (default USERKEY / wps)
+#   menu_nav_button    — previous page (default MaskROM / BTN_2)
 #
 # Future HAT joystick: add GPIO hotplug entries sending up/down/back via oledd-event.sh.
 
@@ -13,11 +13,11 @@ nav=$(uci -q get oled.@oled[0].menu_nav_button); [ -z "$nav" ] && nav=BTN_2
 sel=$(uci -q get oled.@oled[0].menu_select_button); [ -z "$sel" ] && sel=wps
 
 case "$BUTTON" in
-"$nav")
-	/usr/lib/oled/oledd-event.sh next
-	;;
 "$sel")
-	[ "$sel" != "none" ] && /usr/lib/oled/oledd-event.sh ok
+	[ "$sel" != "none" ] && /usr/lib/oled/oledd-event.sh next
+	;;
+"$nav")
+	/usr/lib/oled/oledd-event.sh prev
 	;;
 esac
 

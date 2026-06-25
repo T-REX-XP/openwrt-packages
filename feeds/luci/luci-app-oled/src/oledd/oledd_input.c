@@ -44,6 +44,8 @@ static oledd_event_t parse_line(const char *line)
 		return OLEDD_EV_NEXT;
 	if (!strcmp(line, "refresh"))
 		return OLEDD_EV_REFRESH;
+	if (!strcmp(line, "prev"))
+		return OLEDD_EV_UP;
 	return OLEDD_EV_NONE;
 }
 

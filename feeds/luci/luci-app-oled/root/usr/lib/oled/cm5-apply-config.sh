@@ -31,6 +31,7 @@ cm5_apply_oled_config() {
 		set oled.@oled[0].menu_nav_button="BTN_2"
 		set oled.@oled[0].menu_select_button="wps"
 		set oled.@oled[0].menu_alerts="1"
+		set oled.@oled[0].menu_pages="/etc/oled/pages.json"
 		set oled.@oled[0].cm5_menu_migrated="1"
 		set oled.@oled[0].rotate="0"
 		set oled.@oled[0].netspeed="0"
