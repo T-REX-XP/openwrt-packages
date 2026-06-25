@@ -181,7 +181,7 @@ Optionally expose a lightweight control API (ubus object oledd) so other service
 |-------|-------------|--------|
 | 1 | Driver, `oledd`, procd, boot state, hotplug stub | **Done** — `luci-app-oled` **r17** (2026-06-25) |
 | 2 | libubus metrics, network views, bandwidth, WiFi stub | **Done** — `luci-app-oled` **r18** (2026-06-25) |
-| 3 | Joystick / menu navigation | Planned |
+| 3 | FIFO input, CM5 buttons, interactive menu | **Done** — `luci-app-oled` **r19** (2026-06-25) |
 | 4 | Preinit splash, ubus API, error states | Planned |
 
 **Docs:** [oled-menu-implementation.md](oled-menu-implementation.md)
@@ -191,7 +191,8 @@ Optionally expose a lightweight control API (ubus object oledd) so other service
 - Daemon: `feeds/luci/luci-app-oled/src/oledd/oledd.c` → `/usr/sbin/oledd`
 - Legacy screensaver: `feeds/luci/luci-app-oled/src/Example_Code/` → `/usr/bin/oled`
 - Init: `root/etc/init.d/oledd`, `root/etc/init.d/oled`
-- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`, `menu_wifi`)
+- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`, `menu_wifi`, `menu_interactive`)
+- Input: `root/usr/lib/oled/oledd-event.sh`, `/var/run/oledd.fifo`, `/etc/hotplug.d/button/99-oled`
 - Boot state: `root/usr/lib/oled/oled-boot-state.sh`, `/tmp/oled_state`
 
-**Not yet implemented (Phase 3+):** interactive menu, HAT buttons, `ubus` `oledd` control object, screen dimming.
+**Not yet implemented (Phase 4):** `ubus` `oledd` control object, screen dimming, error overlays, HAT joystick GPIO.

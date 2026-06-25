@@ -10,7 +10,7 @@ Maps [oled-menu.md](oled-menu.md) phases 1–4 to package layout, APIs, and CM5 
 |-------|--------|--------|
 | **1** | SH1106 driver reuse, `oledd` daemon, procd, boot state file, hotplug stub, LuCI toggle | **Done (r17)** |
 | **2** | libubus metrics, `network.device` / `network.interface`, bandwidth from `/sys` | **Done (r18)** |
-| **3** | HAT joystick/GPIO input, menu navigation, icons | Planned |
+| **3** | FIFO input, CM5 buttons, interactive menu | **Done (r19)** |
 | **4** | Preinit splash polish, error states, `ubus` `oledd` control API | Planned |
 
 ## File layout (luci-app-oled)
@@ -24,22 +24,26 @@ feeds/luci/luci-app-oled/
 │   ├── SSD1306_OLED_Library/   # SH1106 framebuffer + draw API
 │   ├── Example_Code/           # legacy /usr/bin/oled screensaver
 │   └── oledd/
-│       ├── oledd.c             # Menu daemon main loop + views
+│       ├── oledd.c             # Main loop + I2C init
+│       ├── oledd_input.c       # FIFO event reader (Phase 3)
+│       ├── oledd_menu.c        # Menu state machine + views (Phase 3)
 │       ├── oledd_ubus.c        # libubus client (system, network, WiFi)
 │       ├── oledd_net.c         # Port list, sysfs bandwidth rates
-│       └── oledd_config.c      # Minimal UCI read (menu_wifi)
+│       └── oledd_config.c      # UCI: menu_wifi, menu_interactive
 └── root/
     ├── etc/
     │   ├── config/oled         # UCI: menu_mode, menu_timeout, path, …
     │   ├── init.d/oled         # legacy screensaver (START=88)
     │   ├── init.d/oledd        # menu daemon (START=09)
-    │   └── hotplug.d/net/99-oled
+    │   ├── hotplug.d/net/99-oled
+    │   └── hotplug.d/button/99-oled
     ├── lib/preinit/80-oled-preinit
     └── usr/
         ├── bin/oled            # installed by Makefile
         ├── sbin/oledd
         └── lib/oled/
             ├── oled-boot-state.sh
+            ├── oledd-event.sh
             ├── cm5-waveshare-rst.sh
             └── cm5-oled-debug.sh
 ```
@@ -95,7 +99,7 @@ Future `oledd` ubus object for hotplug and LuCI:
 // ubus call oledd set_view '{"view":"system"}'
 ```
 
-Phase 1 uses `/tmp/oled_state` and `/tmp/oled_net_changed` instead.
+Phase 1 uses `/tmp/oled_state`. Phase 3 uses `/var/run/oledd.fifo` for typed input events.
 
 ## CM5 hardware constraints
 
@@ -111,7 +115,7 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
 
 - Default UCI `path='/dev/i2c-7'`
 - RST: `cm5-waveshare-rst.sh` / `gpioset -c gpiochip1 12=1`
-- **Button input deferred** — use CM5 **USERKEY** (`cm5-button-scripts`) or Phase 3 HAT joystick GPIO
+- **Button input** — CM5 onboard USERKEY (`wps`) and MaskROM (`BTN_2`) via `/etc/hotplug.d/button/99-oled`; HAT joystick GPIO deferred
 
 ## Phase 1 metrics (superseded by Phase 2)
 
@@ -143,18 +147,29 @@ Boot completes (`stage=ready`) when hotplug sees `eth0` or `br-lan` ifup.
 
 - **Feed CI:** `.github/workflows/build-packages.yml` includes `luci-app-oled`; ImmortalWrt SDK `aarch64_generic` compile installs both binaries.
 
-- **Shell check:** `sh -n root/etc/init.d/oledd root/usr/lib/oled/*.sh root/etc/hotplug.d/net/99-oled`
+- **Shell check:** `sh -n root/etc/init.d/oledd root/usr/lib/oled/*.sh root/etc/hotplug.d/net/99-oled root/etc/hotplug.d/button/99-oled`
 
 ## Phase 2 next steps
 
 *Completed in r18 — see Phase 2 metrics above.*
 
-## Phase 3 next steps
+## Phase 3 (done, r19)
 
-1. Map HAT joystick to GPIO or `gpio-keys` / `button-hotplug`
-2. Event queue in `oledd` (UP/DOWN/OK/BACK)
-3. Menu list view and per-screen drill-down
-4. `ubus call oledd event` or FIFO watcher (replace `/tmp/oled_net_changed` touch)
+1. **FIFO input** — `/var/run/oledd.fifo` (fallback `/tmp/oledd.fifo`); events: `net`, `up`, `down`, `ok`, `back`, `refresh`
+2. **`oledd_input.c`** — create FIFO on daemon start, non-blocking poll in main loop
+3. **`oledd_menu.c`** — interactive menu when UCI `menu_interactive=1` (default); auto-rotate when `0`
+4. **CM5 buttons** — hotplug appends to gpio-button-hotplug (does not replace `cm5-button-scripts`)
+
+### CM5 button mapping (two buttons, no HAT joystick)
+
+| Physical | `BUTTON` | FIFO | List view | Detail view |
+|----------|----------|------|-----------|-------------|
+| USERKEY | `wps` | `ok` | Open selected item | — |
+| MaskROM | `BTN_2` | `down` | Next item (wrap) | Back to menu |
+
+Future HAT joystick: send `up` / `down` / `back` via GPIO or `oledd-event.sh`.
+
+Menu items: **System**, **Ports**, **WiFi** (if `menu_wifi`), **Boot log**.
 
 ## Phase 4 next steps
 
