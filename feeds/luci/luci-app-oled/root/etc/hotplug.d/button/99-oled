@@ -1,6 +1,5 @@
 #!/bin/sh
-# CM5 onboard buttons → oledd FIFO events (Phase 3).
-# Appends to gpio-button-hotplug; does not replace cm5-button-scripts /etc/rc.button/*.
+# Invoked from cm5-button-scripts /etc/rc.button/* via hotplug-call (procd does not run this file directly).
 #
 # UCI maps physical buttons to navigation / select:
 #   menu_nav_button    — screen-next (default MaskROM / BTN_2)

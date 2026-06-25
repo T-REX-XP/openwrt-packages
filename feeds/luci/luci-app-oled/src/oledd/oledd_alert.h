@@ -10,5 +10,6 @@ struct ubus_context;
 void oledd_alert_init(int enabled);
 void oledd_alert_poll(struct ubus_context *ctx);
 void oledd_alert_draw(void);
+int oledd_alert_active(void);
 
 #endif /* OLEDD_ALERT_H */

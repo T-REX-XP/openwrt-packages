@@ -82,6 +82,8 @@ int oledd_net_poll_ports(struct ubus_context *ctx,
 
 		memset(ps, 0, sizeof(*ps));
 		strncpy(ps->device, g_ports[i].device, sizeof(ps->device) - 1);
+		if (g_ports[i].label)
+			strncpy(ps->label, g_ports[i].label, sizeof(ps->label) - 1);
 
 		if (ctx &&
 		    oledd_ubus_device_status(ctx, g_ports[i].device, &dev) == 0) {

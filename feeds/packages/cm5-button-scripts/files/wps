@@ -22,4 +22,5 @@ released)
 esac
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') $BUTTON $ACTION seen=${SEEN:-0}" >> "$log"
+[ -x /usr/share/cm5-button-scripts/oled-forward ] && /usr/share/cm5-button-scripts/oled-forward
 return 0

@@ -17,6 +17,13 @@
 #define BOOT_DONE_STAGE "ready"
 #define BOOT_TIMEOUT_SEC 45
 
+#define ROW_H 10
+#define ICON_X 2
+#define TEXT_X 12
+#define HEADER_Y 10
+#define CONTENT_Y 13
+#define ALERT_TOP 54
+
 enum oled_view {
 	VIEW_BOOT = 0,
 	VIEW_SYSTEM,
@@ -202,13 +209,49 @@ static enum oled_view next_rotating_view(enum oled_view cur)
 	return v;
 }
 
+static void format_time_hm(char *buf, size_t len)
+{
+	time_t now = time(NULL);
+	struct tm *tm = localtime(&now);
+
+	if (tm)
+		strftime(buf, len, "%H:%M", tm);
+	else
+		snprintf(buf, len, "--:--");
+}
+
 static void draw_header(const char *title)
 {
+	char clock[8];
+	int tw, cw;
+
+	format_time_hm(clock, sizeof(clock));
 	setTextSize(1);
 	setTextColor(WHITE);
 	setCursor(0, 0);
 	print_str((const unsigned char *)title);
-	drawLine(0, 10, oled_lcd_width() - 1, 10, WHITE);
+	tw = (int)strlen(title) * 6;
+	cw = (int)strlen(clock) * 6;
+	if (tw + cw + 8 < oled_lcd_width()) {
+		setCursor(oled_lcd_width() - cw, 0);
+		print_str((const unsigned char *)clock);
+	}
+	drawLine(0, HEADER_Y, oled_lcd_width() - 1, HEADER_Y, WHITE);
+}
+
+static int content_bottom_y(void)
+{
+	if (oledd_alert_active())
+		return ALERT_TOP - 2;
+	return oled_lcd_height() - 2;
+}
+
+static void draw_link_icon(int cy, int linked)
+{
+	if (linked)
+		fillCircle(ICON_X + 2, cy + 3, 2, WHITE);
+	else
+		drawCircle(ICON_X + 2, cy + 3, 2, WHITE);
 }
 
 static void format_uptime(unsigned long sec, char *out, size_t len)
@@ -258,12 +301,14 @@ static void draw_system_view(void)
 {
 	struct oledd_system_info info;
 	char upbuf[24];
+	char line[32];
 	unsigned long mem_used_mb;
+	int y = CONTENT_Y;
 
 	draw_header("System");
 
 	if (!g_ubus || oledd_ubus_system_info(g_ubus, &info) != 0) {
-		setCursor(0, 16);
+		setCursor(TEXT_X, y);
 		print_str((const unsigned char *)"ubus unavailable");
 		return;
 	}
@@ -272,18 +317,19 @@ static void draw_system_view(void)
 	mem_used_mb = info.mem_total > info.mem_free ?
 	    (info.mem_total - info.mem_free) / 1024 : 0;
 
-	setCursor(0, 14);
-	print_str((const unsigned char *)"Up: ");
+	setCursor(TEXT_X, y);
+	print_str((const unsigned char *)"Up ");
 	print_str((const unsigned char *)upbuf);
+	y += ROW_H;
 
-	setCursor(0, 26);
-	print_str((const unsigned char *)"Load: ");
-	printFloat((double)info.load1, 2);
+	snprintf(line, sizeof(line), "LD %.2f", (double)info.load1);
+	setCursor(TEXT_X, y);
+	print_str((const unsigned char *)line);
+	y += ROW_H;
 
-	setCursor(0, 38);
-	print_str((const unsigned char *)"RAM: ");
-	printNumber_UI((unsigned int)mem_used_mb, DEC);
-	print_str((const unsigned char *)"M used");
+	snprintf(line, sizeof(line), "RAM %luM", mem_used_mb);
+	setCursor(TEXT_X, y);
+	print_str((const unsigned char *)line);
 }
 
 static void draw_rate_bar(int x, int y, int w, int h, double mbps)
@@ -302,64 +348,114 @@ static void draw_rate_bar(int x, int y, int w, int h, double mbps)
 	fillRect(x, y, fill, h, WHITE);
 }
 
+static void draw_port_row(int y, const struct oledd_port_status *p)
+{
+	char line[28];
+	const char *name;
+	int linked = p->carrier || p->up;
+	int is_wan;
+
+	draw_link_icon(y, linked);
+	name = p->label[0] ? p->label : p->device;
+	is_wan = !strcmp(name, "WAN");
+
+	if (linked && p->ipv4[0])
+		snprintf(line, sizeof(line), "%-3s %s", name, p->ipv4);
+	else if (linked)
+		snprintf(line, sizeof(line), "%-3s link", name);
+	else
+		snprintf(line, sizeof(line), "%-3s ---", name);
+
+	setTextSize(1);
+	setTextColor(WHITE);
+	setCursor(TEXT_X, y);
+	print_str((const unsigned char *)line);
+
+	if (is_wan) {
+		int bar_y = y + 7;
+		int bar_w = oled_lcd_width() - TEXT_X - 2;
+		double peak = p->rx_mbps > p->tx_mbps ? p->rx_mbps : p->tx_mbps;
+
+		if (bar_y + 2 <= content_bottom_y())
+			draw_rate_bar(TEXT_X, bar_y, bar_w, 2, peak);
+	}
+}
+
 static void draw_ports_view(double elapsed_sec)
 {
 	struct oledd_port_status ports[OLEDD_PORT_MAX];
-	char line[24];
-	int count, i, y = 14;
-	int bar_w = oled_lcd_width() - 4;
-	const int row_h = 16;
+	char lan_ip[16] = "";
+	char footer[32];
+	struct oledd_wifi_info wifi;
+	int count, i, y = CONTENT_Y;
+	int bottom = content_bottom_y();
 
-	draw_header("Ports");
+	draw_header("Network");
 
 	count = oledd_net_poll_ports(g_ubus, ports, OLEDD_PORT_MAX, elapsed_sec);
 
-	for (i = 0; i < count; i++) {
-		const struct oledd_port_status *p = &ports[i];
-		const char *link = p->carrier ? "UP" : (p->up ? "up" : "dn");
+	for (i = 0; i < count && y + 7 <= bottom; i++) {
+		draw_port_row(y, &ports[i]);
+		y += ROW_H;
+	}
 
-		if (p->ipv4[0])
-			snprintf(line, sizeof(line), "%.5s %-2s %.10s", p->device,
-				 link, p->ipv4);
+	if (g_ubus)
+		oledd_ubus_interface_ipv4(g_ubus, "lan", lan_ip, sizeof(lan_ip));
+
+	if (y + 7 <= bottom && lan_ip[0]) {
+		draw_link_icon(y, 1);
+		snprintf(footer, sizeof(footer), "LAN %s", lan_ip);
+		setCursor(TEXT_X, y);
+		print_str((const unsigned char *)footer);
+		y += ROW_H;
+	}
+
+	if (g_menu_wifi && g_ubus &&
+	    oledd_ubus_wifi_status(g_ubus, &wifi) == 0 && wifi.valid &&
+	    y + 7 <= bottom) {
+		draw_link_icon(y, 1);
+		setCursor(TEXT_X, y);
+		if (wifi.num_sta >= 0)
+			snprintf(footer, sizeof(footer), "WiFi %.10s (%d)",
+				 wifi.ssid, wifi.num_sta);
 		else
-			snprintf(line, sizeof(line), "%.8s %-3s", p->device, link);
-
-		setCursor(0, y);
-		print_str((const unsigned char *)line);
-
-		draw_rate_bar(2, y + 9, bar_w, 3,
-			      p->rx_mbps > p->tx_mbps ? p->rx_mbps : p->tx_mbps);
-
-		y += row_h;
+			snprintf(footer, sizeof(footer), "WiFi %.14s", wifi.ssid);
+		print_str((const unsigned char *)footer);
 	}
 }
 
 static void draw_wifi_view(void)
 {
 	struct oledd_wifi_info wifi;
+	char line[32];
+	int y = CONTENT_Y;
 
 	draw_header("WiFi");
 
 	if (!g_ubus || oledd_ubus_wifi_status(g_ubus, &wifi) != 0 ||
 	    !wifi.valid) {
-		setCursor(0, 18);
-		print_str((const unsigned char *)"WiFi N/A");
+		draw_link_icon(y, 0);
+		setCursor(TEXT_X, y);
+		print_str((const unsigned char *)"no radio");
 		return;
 	}
 
-	setCursor(0, 14);
+	draw_link_icon(y, 1);
+	setCursor(TEXT_X, y);
 	print_str((const unsigned char *)wifi.ssid);
-
-	if (wifi.num_sta >= 0) {
-		setCursor(0, 28);
-		print_str((const unsigned char *)"Clients: ");
-		printNumber_UI((unsigned int)wifi.num_sta, DEC);
-	}
+	y += ROW_H;
 
 	if (wifi.channel[0]) {
-		setCursor(0, 40);
-		print_str((const unsigned char *)"Ch: ");
-		print_str((const unsigned char *)wifi.channel);
+		snprintf(line, sizeof(line), "Ch %s", wifi.channel);
+		setCursor(TEXT_X, y);
+		print_str((const unsigned char *)line);
+		y += ROW_H;
+	}
+
+	if (wifi.num_sta >= 0) {
+		snprintf(line, sizeof(line), "Clients %d", wifi.num_sta);
+		setCursor(TEXT_X, y);
+		print_str((const unsigned char *)line);
 	}
 }
 
@@ -410,7 +506,7 @@ void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
 	g_ubus = ubus;
 	rebuild_item_count();
 	g_screen = SCREEN_BOOT;
-	g_rotate_view = VIEW_SYSTEM;
+	g_rotate_view = VIEW_PORTS;
 	g_menu_sel = ITEM_SYSTEM;
 	g_detail_view = VIEW_SYSTEM;
 	g_view_started = time(NULL);
@@ -520,7 +616,7 @@ static void leave_boot(void)
 		g_menu_sel = ITEM_SYSTEM;
 	} else {
 		g_screen = SCREEN_ROTATE;
-		g_rotate_view = VIEW_SYSTEM;
+		g_rotate_view = VIEW_PORTS;
 	}
 }
 

@@ -29,9 +29,9 @@
 #define I2C_INIT_DELAY_US 500000
 
 static const struct oledd_port_entry cm5_ports[] = {
-	{ "eth0", "wan" },
-	{ "eth1", NULL },
-	{ "br-lan", "lan" },
+	{ "eth0", "wan", "WAN" },
+	{ "eth1", NULL, "L1" },
+	{ "eth2", NULL, "L2" },
 };
 
 static volatile sig_atomic_t g_stop;

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Procd only runs /etc/rc.button/* — not hotplug.d/button. Chain to oledd when installed.
+[ -x /sbin/hotplug-call ] && exec /sbin/hotplug-call button
+exit 0

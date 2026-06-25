@@ -2,6 +2,18 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r34] — 2026-06-25
+
+### Changed
+
+- **oledd dashboard** — Network/System/WiFi views with link icons, clock header, WAN/LAN IPs, WiFi summary; auto-rotate starts on Network after boot.
+
+## [cm5-button-scripts r3] — 2026-06-25
+
+### Fixed
+
+- Chain `hotplug-call button` from `rc.button` handlers so OLED interactive menu receives MaskROM/USERKEY presses.
+
 ## [luci-app-oled r33] — 2026-06-25
 
 ### Changed

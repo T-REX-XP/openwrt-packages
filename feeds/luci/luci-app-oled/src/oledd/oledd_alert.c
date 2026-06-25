@@ -63,6 +63,13 @@ void oledd_alert_poll(struct ubus_context *ctx)
 		g_high_load = info.load1 > LOAD_ALERT_THRESHOLD;
 }
 
+int oledd_alert_active(void)
+{
+	if (!g_enabled)
+		return 0;
+	return g_wan_down || g_high_load;
+}
+
 void oledd_alert_draw(void)
 {
 	const char *msg = NULL;

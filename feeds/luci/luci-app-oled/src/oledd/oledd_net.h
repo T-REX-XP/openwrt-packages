@@ -15,10 +15,12 @@ struct ubus_context;
 struct oledd_port_entry {
 	const char *device;
 	const char *iface; /* network.interface name for IPv4, or NULL */
+	const char *label; /* short display label, e.g. "WAN" */
 };
 
 struct oledd_port_status {
 	char device[16];
+	char label[8];
 	int up;
 	int carrier;
 	char ipv4[16];

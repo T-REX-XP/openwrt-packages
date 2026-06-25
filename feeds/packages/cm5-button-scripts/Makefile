@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cm5-button-scripts
 PKG_VERSION:=1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=Immortal OPI CM5 overlay
 PKG_LICENSE:=GPL-2.0-only
@@ -40,6 +40,7 @@ endef
 define Package/cm5-button-scripts/install
 	$(INSTALL_DIR) $(1)/usr/share/cm5-button-scripts
 	$(INSTALL_DIR) $(1)/etc/rc.button
+	$(INSTALL_BIN) ./files/oled-forward $(1)/usr/share/cm5-button-scripts/oled-forward
 	$(INSTALL_BIN) ./files/wps $(1)/usr/share/cm5-button-scripts/wps
 	$(INSTALL_BIN) ./files/BTN_2 $(1)/etc/rc.button/BTN_2
 endef
