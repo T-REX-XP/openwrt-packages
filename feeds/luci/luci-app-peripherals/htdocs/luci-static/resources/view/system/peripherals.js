@@ -5,66 +5,78 @@
 
 var callIrMapsGet = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'irMapsGet'
+	method: 'irMapsGet',
+	expect: { '': {} }
 });
 
 var callIrMapsSet = rpc.declare({
 	object: 'luci.peripherals',
 	method: 'irMapsSet',
-	params: ['content']
+	params: ['content'],
+	expect: { '': {} }
 });
 
 var callIrKeymapsList = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'irKeymapsList'
+	method: 'irKeymapsList',
+	expect: { '': {} }
 });
 
 var callIrDevices = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'irDevices'
+	method: 'irDevices',
+	expect: { '': {} }
 });
 
 var callIrApply = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'irApply'
+	method: 'irApply',
+	expect: { '': {} }
 });
 
 var callModuleDiagnostics = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'moduleDiagnostics'
+	method: 'moduleDiagnostics',
+	expect: { '': {} }
 });
 
 var callDebugReport = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'debugReport'
+	method: 'debugReport',
+	expect: { '': {} }
 });
 
 var callFanGet = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'fanGet'
+	method: 'fanGet',
+	expect: { '': {} }
 });
 
 var callFanSet = rpc.declare({
 	object: 'luci.peripherals',
 	method: 'fanSet',
-	params: ['mode', 'pwm']
+	params: ['mode', 'pwm'],
+	expect: { '': {} }
 });
 
 var callFanTest = rpc.declare({
 	object: 'luci.peripherals',
 	method: 'fanTest',
-	params: ['pwm', 'mode']
+	params: ['pwm', 'mode'],
+	expect: { '': {} }
 });
 
 var callOledGet = rpc.declare({
 	object: 'luci.peripherals',
-	method: 'oledGet'
+	method: 'oledGet',
+	expect: { '': {} }
 });
 
 var callOledDetect = rpc.declare({
 	object: 'luci.peripherals',
 	method: 'oledDetect',
-	params: ['bus']
+	params: ['bus'],
+	expect: { '': {} }
 });
 
 var isReadonlyView = !L.hasViewPermission() || null;
@@ -253,7 +265,7 @@ function oledBoardInfoBlock(oled) {
 	var rows = [
 		[ _('Manual reference'), info.manual || 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3' ],
 		[ _('Panel type'), info.panel || _('SSD1306 I2C OLED') ],
-		[ _('Default I2C bus (CM5)'), info.default_bus || '/dev/i2c-1' ],
+		[ _('Default I2C bus (CM5)'), info.default_bus || '/dev/i2c-7' ],
 		[ _('Typical address'), info.default_address || '0x3c' ],
 		[ _('Bus note'), info.shared_bus || _('Confirm wiring on carrier schematic') ],
 		[ _('LAN interface'), info.lan_interface || 'br-lan' ],

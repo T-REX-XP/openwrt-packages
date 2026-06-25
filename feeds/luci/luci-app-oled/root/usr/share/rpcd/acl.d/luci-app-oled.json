@@ -27,6 +27,7 @@
 			"file": {
 				"/etc/init.d/oled": [ "exec" ],
 				"/etc/init.d/oledd": [ "exec" ],
+				"/usr/lib/oled/cm5-apply-config.sh": [ "read", "exec" ],
 				"/usr/lib/oled/cm5-waveshare-rst.sh": [ "exec" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ]

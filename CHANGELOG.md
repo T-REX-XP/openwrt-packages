@@ -2,6 +2,20 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r28] — 2026-06-25
+
+### Fixed
+
+- **rpcd ACL** — allow `cm5-apply-config.sh` read/exec for `setConfig` service apply/restart
+
+## [luci-app-peripherals r16] — 2026-06-25
+
+### Fixed
+
+- **RPC `expect`** — all `luci.peripherals` calls use `{ '': {} }` (rpcd/ucode unwrap)
+- **ACL** — `luci_peripherals` UCI write, `/etc/rc_maps.cfg` write, hwmon sysfs for fan control
+- **OLED diagnostics** — board info fallback bus corrected to `/dev/i2c-7`
+
 ## [luci-app-oled r27] — 2026-06-25
 
 ### Changed

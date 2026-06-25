@@ -14,7 +14,7 @@
 					"oledDetect"
 				]
 			},
-			"uci": [ "oled" ]
+			"uci": [ "oled", "luci_peripherals" ]
 		},
 		"write": {
 			"ubus": {
@@ -25,10 +25,13 @@
 					"fanTest"
 				]
 			},
+			"uci": [ "luci_peripherals" ],
 			"file": {
+				"/etc/rc_maps.cfg": [ "write" ],
 				"/usr/bin/ir-keytable": [ "exec" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
-				"/usr/bin/i2cdetect": [ "exec" ]
+				"/usr/bin/i2cdetect": [ "exec" ],
+				"/sys/class/hwmon": [ "read", "write" ]
 			}
 		}
 	}
