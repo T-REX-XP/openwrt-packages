@@ -29,6 +29,7 @@ config oled
 	option path '/dev/i2c-7'
 	option menu_mode '1'
 	option menu_timeout '5'
+	option menu_idle_dim '0'
 	option menu_wifi '1'
 	option menu_interactive '0'
 	option menu_nav_button 'BTN_2'

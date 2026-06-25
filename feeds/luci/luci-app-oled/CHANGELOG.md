@@ -1,5 +1,10 @@
 # luci-app-oled CHANGELOG
 
+## 41 (2026-06-25)
+
+### Fixed
+- **Black screen after boot splash**: `menu_timeout` was reused for idle dimming, so leaving the 45s boot splash immediately tripped the 5s idle timer (`g_last_activity` stale since daemon start). Auto-rotate mode (`menu_interactive=0`) no longer idle-dims; interactive blanking uses new `menu_idle_dim` (default 0). `leave_boot()` still resets activity; idle check runs after `tick`.
+
 ## 25 (2026-06-25)
 
 ### Fixed

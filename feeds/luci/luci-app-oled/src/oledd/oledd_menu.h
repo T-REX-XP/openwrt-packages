@@ -10,7 +10,7 @@ struct ubus_context;
 #include "oledd_input.h"
 
 void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
-		     struct ubus_context *ubus);
+		     unsigned idle_dim_sec, struct ubus_context *ubus);
 void oledd_menu_set_ubus(struct ubus_context *ubus);
 int oledd_menu_tick(double elapsed_sec, oledd_event_t evt);
 void oledd_menu_render(double elapsed_sec);
@@ -18,6 +18,6 @@ const char *oledd_menu_view_name(void);
 int oledd_menu_set_view(const char *view);
 void oledd_menu_wake(void);
 int oledd_menu_is_dimmed(void);
-void oledd_menu_check_idle(unsigned idle_sec);
+void oledd_menu_check_idle(void);
 
 #endif /* OLEDD_MENU_H */

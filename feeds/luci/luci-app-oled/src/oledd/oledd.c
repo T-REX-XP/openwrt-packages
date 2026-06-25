@@ -25,6 +25,7 @@
 
 #define POLL_MS_DEFAULT 800
 #define VIEW_TIMEOUT_DEFAULT 5
+#define IDLE_DIM_DEFAULT 0
 #define I2C_INIT_RETRIES 15
 #define I2C_INIT_DELAY_US 500000
 
@@ -42,6 +43,7 @@ static int g_menu_interactive = 0;
 static int g_menu_alerts = 1;
 static unsigned g_poll_ms = POLL_MS_DEFAULT;
 static unsigned g_view_timeout = VIEW_TIMEOUT_DEFAULT;
+static unsigned g_idle_dim_sec = IDLE_DIM_DEFAULT;
 static struct timespec g_last_poll;
 static struct ubus_context *g_ubus;
 static int g_ubus_registered;
@@ -133,8 +135,9 @@ static void usage(const char *prog)
 		"  -H, --rotate            180° rotation\n"
 		"  -l, --poll-ms=MS        refresh interval (default %u)\n"
 		"  -t, --view-timeout=SEC  seconds per view in auto-rotate mode (default %u)\n"
+		"  -i, --idle-dim-sec=SEC  blank display after idle in interactive menu (0=off, default %u)\n"
 		"  -h, --help              show help\n",
-		prog, g_i2c_path, g_poll_ms, g_view_timeout);
+		prog, g_i2c_path, g_poll_ms, g_view_timeout, g_idle_dim_sec);
 }
 
 int main(int argc, char *argv[])
@@ -148,6 +151,7 @@ int main(int argc, char *argv[])
 		{ "rotate", no_argument, 0, 'H' },
 		{ "poll-ms", required_argument, 0, 'l' },
 		{ "view-timeout", required_argument, 0, 't' },
+		{ "idle-dim-sec", required_argument, 0, 'i' },
 		{ "help", no_argument, 0, 'h' },
 		{ 0, 0, 0, 0 },
 	};
@@ -157,7 +161,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, on_signal);
 
 	while (1) {
-		int c = getopt_long(argc, argv, "d:Hl:t:h", long_opts, NULL);
+		int c = getopt_long(argc, argv, "d:Hl:t:i:h", long_opts, NULL);
 
 		if (c == -1)
 			break;
@@ -174,6 +178,9 @@ int main(int argc, char *argv[])
 		case 't':
 			g_view_timeout = (unsigned)atoi(optarg);
 			break;
+		case 'i':
+			g_idle_dim_sec = (unsigned)atoi(optarg);
+			break;
 		case 'h':
 			usage(argv[0]);
 			return EXIT_SUCCESS;
@@ -186,10 +193,14 @@ int main(int argc, char *argv[])
 	g_menu_wifi = oledd_config_menu_wifi();
 	g_menu_interactive = oledd_config_menu_interactive();
 	g_menu_alerts = oledd_config_menu_alerts();
+	if (!g_idle_dim_sec)
+		g_idle_dim_sec = oledd_config_menu_idle_dim();
 	oledd_config_menu_nav_button(nav_btn, sizeof(nav_btn));
 	oledd_config_menu_select_button(sel_btn, sizeof(sel_btn));
-	oledd_log(LOG_INFO, "starting nav=%s select=%s interactive=%d i2c=%s",
-		  nav_btn, sel_btn, g_menu_interactive, g_i2c_path);
+	oledd_log(LOG_INFO,
+		  "starting nav=%s select=%s interactive=%d rotate=%us idle_dim=%us i2c=%s",
+		  nav_btn, sel_btn, g_menu_interactive, g_view_timeout,
+		  g_idle_dim_sec, g_i2c_path);
 
 	oledd_net_ports_init(cm5_ports,
 			     (int)(sizeof(cm5_ports) / sizeof(cm5_ports[0])));
@@ -200,7 +211,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	oledd_menu_init(g_menu_interactive, g_menu_wifi, g_view_timeout, NULL);
+	oledd_menu_init(g_menu_interactive, g_menu_wifi, g_view_timeout,
+			g_idle_dim_sec, NULL);
 	memset(&g_last_poll, 0, sizeof(g_last_poll));
 	oledd_menu_render(0.0);
 
@@ -228,8 +240,8 @@ int main(int argc, char *argv[])
 		oledd_menu_set_ubus(g_ubus);
 		oledd_alert_poll(g_ubus);
 
-		oledd_menu_check_idle(g_view_timeout);
 		oledd_menu_tick(elapsed, evt);
+		oledd_menu_check_idle();
 		oledd_menu_render(elapsed);
 
 		usleep(g_poll_ms * 1000);

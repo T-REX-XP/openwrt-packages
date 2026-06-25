@@ -57,6 +57,7 @@ var FORM_DEFAULTS = {
 	rotate: '0',
 	menu_mode: '1',
 	menu_timeout: '5',
+	menu_idle_dim: '0',
 	menu_wifi: '1',
 	menu_interactive: '0',
 	menu_nav_button: 'BTN_2',
@@ -176,6 +177,7 @@ function readFormConfig() {
 		rotate: flag('oled-rotate'),
 		menu_mode: flag('oled-menu-mode'),
 		menu_timeout: val('oled-menu-timeout', FORM_DEFAULTS.menu_timeout),
+		menu_idle_dim: val('oled-menu-idle-dim', FORM_DEFAULTS.menu_idle_dim),
 		menu_wifi: flag('oled-menu-wifi'),
 		menu_interactive: flag('oled-menu-interactive'),
 		menu_nav_button: val('oled-nav-button', FORM_DEFAULTS.menu_nav_button),
@@ -478,7 +480,7 @@ return view.extend({
 					'max': 120,
 					'value': pick('menu_timeout'),
 					'disabled': isReadonlyView
-				}), _('Seconds per view when auto-rotating. Set 0 to disable idle dimming timeout side-effects.')),
+				}), _('Seconds per view when auto-rotating (0 = stay on current view).')),
 				fieldRow(_('WiFi view'), flagInput('oled-menu-wifi', _('Show WiFi status'), pick('menu_wifi') === '1')),
 				fieldRow(_('Status alerts'), flagInput('oled-menu-alerts', _('WAN-down and load banners'), pick('menu_alerts') === '1'))
 			])
@@ -491,6 +493,15 @@ return view.extend({
 				_('USERKEY and MaskROM handlers live in %s (cm5-button-scripts). Map which button advances the menu or selects here.').format('/etc/rc.button/')
 			], [
 				fieldRow(_('Interactive menu'), flagInput('oled-menu-interactive', _('Button-driven menu'), pick('menu_interactive') === '1')),
+				fieldRow(_('Idle blank'), E('input', {
+					'type': 'number',
+					'id': 'oled-menu-idle-dim',
+					'class': 'cbi-input-text',
+					'min': 0,
+					'max': 3600,
+					'value': pick('menu_idle_dim'),
+					'disabled': isReadonlyView
+				}), _('Blank the display after this many idle seconds in interactive menu mode (0 = off). Auto-rotate mode never blanks.')),
 				E('fieldset', { 'class': 'oled-fieldset' }, [
 					E('legend', {}, [ _('Physical buttons') ]),
 					fieldRow(_('Navigate screens'), E('select', { 'id': 'oled-nav-button', 'disabled': isReadonlyView }, [

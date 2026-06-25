@@ -25,6 +25,7 @@ cm5_apply_oled_config() {
 		set oled.@oled[0].ipifname="br-lan"
 		set oled.@oled[0].netsource="br-lan"
 		set oled.@oled[0].menu_timeout="5"
+		set oled.@oled[0].menu_idle_dim="0"
 		set oled.@oled[0].menu_wifi="1"
 		set oled.@oled[0].menu_interactive="0"
 		set oled.@oled[0].menu_nav_button="BTN_2"

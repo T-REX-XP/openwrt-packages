@@ -19,6 +19,10 @@ cm5_oled_probe_panel() {
 
 uci -q delete oled.@oled[0].chip 2>/dev/null
 
+# menu_idle_dim split from menu_timeout (r41): auto-rotate no longer blanks via view timeout.
+[ -n "$(uci -q get oled.@oled[0].menu_idle_dim)" ] || \
+	uci -q set oled.@oled[0].menu_idle_dim=0
+
 case "$(board_name)" in
 xunlong,orangepi-cm5-base)
 	if [ -c /dev/i2c-7 ]; then

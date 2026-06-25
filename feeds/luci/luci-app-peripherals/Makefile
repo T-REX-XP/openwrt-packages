@@ -10,7 +10,7 @@ LUCI_TITLE:=Peripherals (IR, fan, diagnostics)
 LUCI_DEPENDS:=+luci-base +v4l-utils +i2c-tools +kmod-ir-gpio-cir +kmod-hwmon-pwmfan
 LUCI_PKGARCH:=all
 PKG_VERSION:=2026.04.26
-PKG_RELEASE:=20
+PKG_RELEASE:=21
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Immortal OPI CM5 overlay

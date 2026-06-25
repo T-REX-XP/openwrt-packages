@@ -52,6 +52,7 @@ static struct ubus_context *g_ubus;
 static int g_interactive = 1;
 static int g_menu_wifi = 1;
 static unsigned g_view_timeout = 5;
+static unsigned g_idle_dim_sec;
 
 static enum screen_mode g_screen = SCREEN_BOOT;
 static enum oled_view g_rotate_view = VIEW_SYSTEM;
@@ -499,11 +500,12 @@ static void draw_detail_view(enum oled_view view, double elapsed_sec)
 }
 
 void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
-		     struct ubus_context *ubus)
+		     unsigned idle_dim_sec, struct ubus_context *ubus)
 {
 	g_interactive = interactive;
 	g_menu_wifi = menu_wifi;
 	g_view_timeout = view_timeout;
+	g_idle_dim_sec = idle_dim_sec;
 	g_ubus = ubus;
 	rebuild_item_count();
 	g_screen = SCREEN_BOOT;
@@ -532,19 +534,20 @@ int oledd_menu_is_dimmed(void)
 	return g_dimmed;
 }
 
-void oledd_menu_check_idle(unsigned idle_sec)
+void oledd_menu_check_idle(void)
 {
 	time_t now = time(NULL);
 
-	if (!idle_sec)
+	/* Auto-rotate kiosk mode keeps cycling views; idle dim is interactive-only. */
+	if (!g_idle_dim_sec || !g_interactive)
 		return;
 
 	if (g_screen == SCREEN_BOOT)
 		return;
 
-	if ((unsigned)(now - g_last_activity) >= idle_sec) {
+	if ((unsigned)(now - g_last_activity) >= g_idle_dim_sec) {
 		if (!g_dimmed)
-			syslog(LOG_INFO, "idle dim after %us (view=%s)", idle_sec,
+			syslog(LOG_INFO, "idle dim after %us (view=%s)", g_idle_dim_sec,
 			       oledd_menu_view_name());
 		g_dimmed = 1;
 	}
@@ -578,6 +581,7 @@ int oledd_menu_set_view(const char *view)
 		g_screen = SCREEN_MENU_LIST;
 		g_menu_sel = ITEM_SYSTEM;
 		g_view_started = time(NULL);
+		oledd_menu_wake();
 		return 1;
 	}
 
@@ -598,6 +602,8 @@ int oledd_menu_set_view(const char *view)
 	if (v == VIEW_BOOT) {
 		g_screen = SCREEN_BOOT;
 		g_view_started = time(NULL);
+		g_boot_started = g_view_started;
+		oledd_menu_wake();
 		return 1;
 	}
 
@@ -610,6 +616,7 @@ int oledd_menu_set_view(const char *view)
 		g_screen = SCREEN_ROTATE;
 	}
 	g_view_started = time(NULL);
+	oledd_menu_wake();
 	return 1;
 }
 
@@ -671,6 +678,7 @@ static void advance_rotate_view(void)
 {
 	g_rotate_view = next_rotating_view(g_rotate_view);
 	g_view_started = time(NULL);
+	g_last_activity = g_view_started;
 }
 
 static void handle_interactive_event(oledd_event_t evt)
@@ -753,6 +761,7 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 	    (unsigned)(now - g_view_started) >= g_view_timeout) {
 		g_rotate_view = next_rotating_view(g_rotate_view);
 		g_view_started = now;
+		g_last_activity = now;
 		redraw = 1;
 	}
 
@@ -772,7 +781,6 @@ void oledd_menu_render(double elapsed_sec)
 			syslog(LOG_WARNING, "display flush failed (dim, view=%s)", view);
 		return;
 	}
-
 	clearDisplay();
 
 	switch (g_screen) {

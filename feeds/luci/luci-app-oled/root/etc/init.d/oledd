@@ -54,6 +54,9 @@ start_service() {
 	config_get param "$section" menu_timeout
 	[ -n "$param" ] && procd_append_param command --view-timeout="$param"
 
+	config_get param "$section" menu_idle_dim
+	[ -n "$param" ] && procd_append_param command --idle-dim-sec="$param"
+
 	procd_set_param respawn 3600 5 0
 	procd_close_instance
 }

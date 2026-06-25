@@ -132,6 +132,25 @@ function statusPill(ok, label) {
 	}, [ label ]);
 }
 
+function fanModePwmDisabled(mode) {
+	return mode === 'auto' || mode === 'off';
+}
+
+function syncFanModeUi(mode) {
+	var rng = document.getElementById('periph-fan-pwm');
+	var lbl = document.getElementById('periph-fan-pwm-hint');
+	var disabled = fanModePwmDisabled(mode);
+	if (rng)
+		rng.disabled = isReadonlyView || disabled;
+	if (lbl) {
+		lbl.textContent = mode === 'auto'
+			? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 55 °C on CM5).')
+			: mode === 'off'
+				? _('PWM duty applies only in manual mode.')
+				: _('PWM duty is applied immediately when you save in manual mode.');
+	}
+}
+
 function fanEnableModeLabel(mode) {
 	var labels = {
 		'0': _('0 - hard off'),
@@ -486,8 +505,10 @@ return view.extend({
 			r = rpcData(r, {});
 			if (r.error)
 				ui.addNotification(null, E('p', {}, [ '%s: %s'.format(r.error, r.message || '') ]), 'error');
-			else
+			else {
+				syncFanModeUi(mode);
 				ui.addNotification(null, E('p', {}, [ _('Fan settings have been saved.') ]), 'info');
+			}
 		});
 	},
 
@@ -628,6 +649,7 @@ return view.extend({
 	buildFanTab: function(fan) {
 		fan = fan || {};
 		var pwmVal = fan.pwm_uci != null ? fan.pwm_uci : 128;
+		var initialMode = fan.mode || 'auto';
 		var fanSectionBody = [
 			E('div', { 'class': 'cbi-value' }, [
 				E('label', { 'class': 'cbi-value-title' }, [ _('Current readings') ]),
@@ -638,7 +660,10 @@ return view.extend({
 				E('div', { 'class': 'cbi-value-field' }, [
 					E('select', {
 						'id': 'periph-fan-mode',
-						'disabled': isReadonlyView
+						'disabled': isReadonlyView,
+						'change': function(ev) {
+							syncFanModeUi(ev.target.value || 'auto');
+						}
 					}, [
 						E('option', { 'value': 'auto', 'selected': fan.mode === 'auto' }, [ _('Automatic (thermal)') ]),
 						E('option', { 'value': 'manual', 'selected': fan.mode === 'manual' }, [ _('Manual PWM') ]),
@@ -656,7 +681,7 @@ return view.extend({
 						'min': 0,
 						'max': 255,
 						'value': pwmVal,
-						'disabled': isReadonlyView,
+						'disabled': isReadonlyView || fanModePwmDisabled(initialMode),
 						'input': function(ev) {
 							var lbl = document.getElementById('periph-fan-pwm-lbl');
 							if (lbl)
@@ -664,7 +689,16 @@ return view.extend({
 						}
 					}),
 					' ',
-					E('span', { 'id': 'periph-fan-pwm-lbl', 'class': 'periph-fan-pwm-lbl' }, [ String(pwmVal) ])
+					E('span', { 'id': 'periph-fan-pwm-lbl', 'class': 'periph-fan-pwm-lbl' }, [ String(pwmVal) ]),
+					E('p', {
+						'id': 'periph-fan-pwm-hint',
+						'class': 'cbi-section-descr periph-fan-pwm-hint'
+					}, [ initialMode === 'auto'
+						? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 55 °C on CM5).')
+						: initialMode === 'off'
+							? _('PWM duty applies only in manual mode.')
+							: _('PWM duty is applied immediately when you save in manual mode.')
+					])
 				])
 			])
 		];
@@ -672,7 +706,7 @@ return view.extend({
 		return E('div', { 'data-tab': 'fan', 'data-tab-title': _('Cooling fan') }, [
 			cbiSection(
 				_('PWM fan control'),
-				[ _('Adjust cooling fan mode and PWM duty via the hwmon interface.') ],
+				[ _('Adjust cooling fan mode and PWM duty via the hwmon interface. Use Full-speed test to verify wiring without heating the SoC.') ],
 				fanSectionBody
 			),
 			E('div', { 'class': 'cbi-page-actions' }, [

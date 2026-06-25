@@ -102,6 +102,13 @@ int oledd_config_menu_alerts(void)
 	return parse_option_int("menu_alerts", 1);
 }
 
+unsigned oledd_config_menu_idle_dim(void)
+{
+	int v = parse_option_int("menu_idle_dim", 0);
+
+	return v > 0 ? (unsigned)v : 0;
+}
+
 void oledd_config_menu_nav_button(char *out, size_t len)
 {
 	parse_option_string("menu_nav_button", "BTN_2", out, len);

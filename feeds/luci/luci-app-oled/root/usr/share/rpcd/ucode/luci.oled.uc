@@ -24,14 +24,14 @@ const STRING_OPTS = {
 	text: /^[ -~]{0,64}$/
 };
 
-const UINT_OPTS = [ 'menu_timeout', 'time', 'from', 'to' ];
+const UINT_OPTS = [ 'menu_timeout', 'menu_idle_dim', 'time', 'from', 'to' ];
 
 const ALL_SET_OPTS = [
 	'enable', 'rotate', 'menu_mode', 'menu_wifi', 'menu_interactive', 'menu_alerts',
 	'autoswitch', 'date', 'lanip', 'cputemp', 'cpufreq', 'netspeed', 'scroll',
 	'drawline', 'drawrect', 'fillrect', 'drawcircle', 'drawroundrect', 'fillroundrect',
 	'drawtriangle', 'filltriangle', 'displaybitmap', 'displayinvertnormal', 'drawbitmapeg',
-	'menu_timeout', 'time', 'from', 'to',
+	'menu_timeout', 'menu_idle_dim', 'time', 'from', 'to',
 	'path', 'ipifname', 'netsource', 'menu_nav_button', 'menu_select_button', 'text'
 ];
 
@@ -179,6 +179,7 @@ function get_config() {
 		rotate: uci_get('rotate', '0'),
 		menu_mode: uci_get('menu_mode', '1'),
 		menu_timeout: uci_get('menu_timeout', '5'),
+		menu_idle_dim: uci_get('menu_idle_dim', '0'),
 		menu_wifi: uci_get('menu_wifi', '1'),
 		menu_interactive: uci_get('menu_interactive', '0'),
 		menu_nav_button: uci_get('menu_nav_button', 'BTN_2'),

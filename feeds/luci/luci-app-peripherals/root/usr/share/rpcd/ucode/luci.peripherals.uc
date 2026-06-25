@@ -204,14 +204,19 @@ function list_hwmon() {
 }
 
 function dt_has_pwm_fan() {
-	try {
-		let compat = readfile('/proc/device-tree/fan/compatible');
-		return !!match(compat, /pwm-fan/);
-	} catch (e) {}
-	try {
-		let compat = readfile('/proc/device-tree/pwm-fan/compatible');
-		return !!match(compat, /pwm-fan/);
-	} catch (e) {}
+	const paths = [
+		'/proc/device-tree/case_fan/compatible',
+		'/proc/device-tree/pwm-fan/compatible',
+		'/proc/device-tree/fan/compatible'
+	];
+
+	for (let i = 0; i < length(paths); i++) {
+		try {
+			let compat = readfile(paths[i]);
+			if (match(compat, /pwm-fan/))
+				return true;
+		} catch (e) {}
+	}
 	return false;
 }
 
@@ -378,9 +383,10 @@ function fan_apply_hw(base, mode, pwmval) {
 	}
 	if (mode == 'manual') {
 		try {
-			writefile(`${base}/pwm1`, `${pwmval}\n`);
+			/* pwm-fan: enable manual (2) before writing pwm1 (matches init.d order). */
 			if (path_exists(`${base}/pwm1_enable`))
 				writefile(`${base}/pwm1_enable`, '2\n');
+			writefile(`${base}/pwm1`, `${pwmval}\n`);
 		} catch (e) {
 			return { error: 'fan_manual', message: `${e}` };
 		}
@@ -485,16 +491,19 @@ function debug_report() {
 		module_state('gpio_keys', pm.set),
 		pm.count
 	));
-	append_block(lines, 'GPIO key device tree hints', run_cmd("for d in /proc/device-tree/gpio-keys* /proc/device-tree/*/gpio-keys*; do [ -e \"$d\" ] || continue; echo \"--- $d\"; find \"$d\" -maxdepth 2 -type f -print 2>/dev/null | while read f; do printf '%s: ' \"$f\"; if command -v hexdump >/dev/null 2>&1; then hexdump -v -e '1/1 \"%02x\"' \"$f\" 2>/dev/null; else od -An -tx1 -v \"$f\" 2>/dev/null | tr -d ' \\n'; fi; echo; done; done"));
+	append_block(lines, 'GPIO key device tree hints', run_cmd("for d in /proc/device-tree/gpio-keys* /proc/device-tree/*/gpio-keys* /proc/device-tree/key-adc-mask /proc/device-tree/*/adc-keys*; do [ -e \"$d\" ] || continue; echo \"--- $d\"; find \"$d\" -maxdepth 2 -type f -print 2>/dev/null | while read f; do printf '%s: ' \"$f\"; if command -v hexdump >/dev/null 2>&1; then hexdump -v -e '1/1 \"%02x\"' \"$f\" 2>/dev/null; else od -An -tx1 -v \"$f\" 2>/dev/null | tr -d ' \\n'; fi; echo; done; done"));
 
 	append_block(lines, 'Fan hwmon state', sprintf(
-		'present=%s\npath=%s\npwm1=%s\npwm1_enable=%s\nfan1_input=%s\ndt_pwm_fan=%s\nmodule_state=%s\nautoload=%s',
+		'present=%s\npath=%s\npwm1=%s\npwm1_enable=%s\nfan1_input=%s\ndt_pwm_fan=%s\ndt_case_fan=%s\nfan_mode_uci=%s\nfan_pwm_uci=%s\nmodule_state=%s\nautoload=%s',
 		base ? 'yes' : 'no',
 		base || '',
 		base ? read_optional(`${base}/pwm1`) : '',
 		base ? read_optional(`${base}/pwm1_enable`) : '',
 		base ? read_optional(`${base}/fan1_input`) : '',
 		dt_has_pwm_fan() ? 'yes' : 'no',
+		path_exists('/proc/device-tree/case_fan/compatible') ? 'yes' : 'no',
+		uci_get_opt('fan_mode', 'auto'),
+		uci_get_opt('fan_pwm', '192'),
 		module_state('pwm_fan', pm.set),
 		path_exists('/etc/modules.d/60-hwmon-pwmfan') ? 'yes' : 'no'
 	));
