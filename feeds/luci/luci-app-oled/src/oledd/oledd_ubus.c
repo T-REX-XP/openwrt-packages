@@ -5,12 +5,17 @@
 #include "oledd_ubus.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <libubus.h>
 #include <libubox/blobmsg.h>
+#include <libubox/utils.h>
 
 #define UBUS_TIMEOUT_MS 3000
+#define UBUS_CONNECT_RETRIES 30
+#define UBUS_CONNECT_DELAY_US 200000
 
 struct ubus_call_ctx {
 	struct blob_attr *reply;
@@ -21,8 +26,11 @@ static void ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *m
 	struct ubus_call_ctx *ctx = req->priv;
 
 	(void)type;
-	if (ctx)
-		ctx->reply = msg;
+	free(ctx->reply);
+	ctx->reply = NULL;
+	if (!msg || !ctx)
+		return;
+	ctx->reply = blob_memdup(msg);
 }
 
 static int ubus_invoke_simple(struct ubus_context *ctx, const char *path,
@@ -42,17 +50,38 @@ static int ubus_invoke_simple(struct ubus_context *ctx, const char *path,
 
 	ret = ubus_invoke(ctx, id, method, msg, ubus_data_cb, &call,
 			  UBUS_TIMEOUT_MS);
-	if (ret)
+	if (ret) {
+		free(call.reply);
 		return ret;
+	}
 
-	if (out)
+	if (!call.reply)
+		return -1;
+
+	if (out) {
 		*out = call.reply;
-	return call.reply ? 0 : -1;
+		return 0;
+	}
+
+	free(call.reply);
+	return 0;
 }
 
 struct ubus_context *oledd_ubus_open(void)
 {
-	return ubus_connect(NULL);
+	struct ubus_context *ctx = NULL;
+	int i;
+
+	for (i = 0; i < UBUS_CONNECT_RETRIES; i++) {
+		ctx = ubus_connect(NULL);
+		if (ctx)
+			return ctx;
+		usleep(UBUS_CONNECT_DELAY_US);
+	}
+
+	fprintf(stderr, "oledd: ubus_connect failed after %d retries\n",
+		UBUS_CONNECT_RETRIES);
+	return NULL;
 }
 
 void oledd_ubus_close(struct ubus_context *ctx)
@@ -132,6 +161,7 @@ int oledd_ubus_system_info(struct ubus_context *ctx,
 			    (unsigned long)blobmsg_get_u32(mem_tb[MEM_FREE]);
 	}
 
+	free(reply);
 	return 0;
 }
 
@@ -154,6 +184,7 @@ int oledd_ubus_device_status(struct ubus_context *ctx, const char *device,
 	struct blob_attr *reply = NULL;
 	struct blob_attr *tb[__DEV_MAX];
 	struct blob_buf b = {};
+	int ret;
 
 	if (!ctx || !device || !st)
 		return -1;
@@ -162,12 +193,11 @@ int oledd_ubus_device_status(struct ubus_context *ctx, const char *device,
 
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "name", device);
-	if (ubus_invoke_simple(ctx, "network.device", "status", b.head,
-			       &reply) != 0) {
-		blob_buf_free(&b);
-		return -1;
-	}
+	ret = ubus_invoke_simple(ctx, "network.device", "status", b.head,
+				   &reply);
 	blob_buf_free(&b);
+	if (ret != 0)
+		return -1;
 
 	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(reply),
 		      blob_len(reply));
@@ -179,6 +209,7 @@ int oledd_ubus_device_status(struct ubus_context *ctx, const char *device,
 	else if (tb[DEV_LINK])
 		st->carrier = blobmsg_get_bool(tb[DEV_LINK]);
 
+	free(reply);
 	return 0;
 }
 
@@ -224,6 +255,7 @@ int oledd_ubus_interface_up(struct ubus_context *ctx, const char *iface,
 	if (tb[IF_UP])
 		st->up = blobmsg_get_bool(tb[IF_UP]);
 
+	free(reply);
 	return 0;
 }
 
@@ -248,8 +280,10 @@ int oledd_ubus_interface_ipv4(struct ubus_context *ctx, const char *iface,
 	blobmsg_parse(if_policy, __IF_MAX, tb, blob_data(reply),
 		      blob_len(reply));
 
-	if (!tb[IF_IPV4])
+	if (!tb[IF_IPV4]) {
+		free(reply);
 		return -1;
+	}
 
 	rem = blobmsg_data_len(tb[IF_IPV4]);
 	blobmsg_for_each_attr(cur, tb[IF_IPV4], rem) {
@@ -261,10 +295,12 @@ int oledd_ubus_interface_ipv4(struct ubus_context *ctx, const char *iface,
 			strncpy(addr, blobmsg_get_string(addr_tb[ADDR_ADDRESS]),
 				len - 1);
 			addr[len - 1] = '\0';
+			free(reply);
 			return 0;
 		}
 	}
 
+	free(reply);
 	return -1;
 }
 
@@ -290,6 +326,8 @@ static int wifi_from_hostapd(struct ubus_context *ctx,
 	unsigned int i;
 
 	for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+		free(reply);
+		reply = NULL;
 		if (ubus_invoke_simple(ctx, paths[i], "get_status", NULL,
 				       &reply) != 0)
 			continue;
@@ -308,9 +346,11 @@ static int wifi_from_hostapd(struct ubus_context *ctx,
 			snprintf(wifi->channel, sizeof(wifi->channel), "%u",
 				 blobmsg_get_u32(tb[AP_CHANNEL]));
 		wifi->valid = 1;
+		free(reply);
 		return 0;
 	}
 
+	free(reply);
 	return -1;
 }
 
@@ -348,8 +388,10 @@ static int wifi_from_wireless(struct ubus_context *ctx,
 
 	blobmsg_parse(wl_policy, __WL_MAX, tb, blob_data(reply),
 		      blob_len(reply));
-	if (!tb[WL_IFACES])
+	if (!tb[WL_IFACES]) {
+		free(reply);
 		return -1;
+	}
 
 	rem = blobmsg_data_len(tb[WL_IFACES]);
 	blobmsg_for_each_attr(cur, tb[WL_IFACES], rem) {
@@ -362,10 +404,12 @@ static int wifi_from_wireless(struct ubus_context *ctx,
 				sizeof(wifi->ssid) - 1);
 			wifi->ssid[sizeof(wifi->ssid) - 1] = '\0';
 			wifi->valid = 1;
+			free(reply);
 			return 0;
 		}
 	}
 
+	free(reply);
 	return -1;
 }
 

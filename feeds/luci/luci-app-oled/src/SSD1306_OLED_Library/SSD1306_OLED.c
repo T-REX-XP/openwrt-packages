@@ -235,9 +235,9 @@ void clearDisplay() { memset(screen, 0x00, _display_buf_size); }
  * Function Name : display_Init_seq
  * Description   : SH1106 initialization
  ****************************************************************/
-void display_Init_seq(void)
+int display_Init_seq(void)
 {
-	sh1106_init();
+	return sh1106_init();
 }
 
 
@@ -266,9 +266,9 @@ void display_rotate(void)
  * Function Name : Display
  * Description   : Upload framebuffer to SH1106
  ****************************************************************/
-void Display(void)
+int Display(void)
 {
-	sh1106_upload(screen, _display_buf_size);
+	return sh1106_upload(screen, _display_buf_size);
 }
 
 

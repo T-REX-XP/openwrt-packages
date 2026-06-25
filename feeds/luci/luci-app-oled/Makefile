@@ -10,7 +10,7 @@ LUCI_PKGARCH:=$(if $(realpath src/Makefile),$(ARCH_PACKAGES),all)
 
 PKG_NAME:=luci-app-oled
 PKG_VERSION:=20230823
-PKG_RELEASE:=24
+PKG_RELEASE:=26
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE src/LICENSE
@@ -37,9 +37,12 @@ endef
 
 define Package/luci-app-oled/install
 	$(call Package/luci/install/template,$(1))
-	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/sbin $(1)/etc/init.d $(1)/usr/lib/oled
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/oled $(1)/usr/bin/oled
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/oledd-bin $(1)/usr/sbin/oledd
+	$(INSTALL_BIN) ./root/etc/init.d/oledd $(1)/etc/init.d/oledd
+	$(INSTALL_BIN) ./root/etc/init.d/oled $(1)/etc/init.d/oled
+	$(INSTALL_BIN) ./root/usr/lib/oled/cm5-apply-config.sh $(1)/usr/lib/oled/cm5-apply-config.sh
 endef
 
 # include/scan.mk only indexes dirs whose Makefile matches "call BuildPackage"; the real call is in luci.mk.

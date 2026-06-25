@@ -1,0 +1,26 @@
+#!/bin/sh
+# Sysupgrade / package-upgrade migration: legacy screensaver UCI → CM5 menu mode (oledd).
+
+. /lib/functions/system.sh
+. /usr/lib/oled/cm5-apply-config.sh
+
+[ "$(board_name)" = "xunlong,orangepi-cm5-base" ] || exit 0
+[ -c /dev/i2c-7 ] || exit 0
+[ "$(uci -q get oled.@oled[0].cm5_menu_migrated)" = "1" ] && exit 0
+cm5_oled_needs_menu_migration || exit 0
+
+logger -t oled-cm5-migrate "migrating legacy OLED config to menu mode (oledd)"
+cm5_apply_oled_config /dev/i2c-7
+
+[ -f /usr/lib/oled/cm5-waveshare-rst.sh ] && sh /usr/lib/oled/cm5-waveshare-rst.sh
+
+/etc/init.d/oled stop 2>/dev/null
+/etc/init.d/oled disable 2>/dev/null
+oled_ucitrack_init
+
+if [ "$(uci -q get oled.@oled[0].enable)" = "1" ]; then
+	/etc/init.d/oledd enable
+	/etc/init.d/oledd start
+fi
+
+exit 0

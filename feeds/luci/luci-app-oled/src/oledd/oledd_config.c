@@ -94,7 +94,7 @@ int oledd_config_menu_wifi(void)
 
 int oledd_config_menu_interactive(void)
 {
-	return parse_option_int("menu_interactive", 1);
+	return parse_option_int("menu_interactive", 0);
 }
 
 int oledd_config_menu_alerts(void)

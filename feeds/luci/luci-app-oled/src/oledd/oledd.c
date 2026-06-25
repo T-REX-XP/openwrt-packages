@@ -5,9 +5,11 @@
 
 #include <getopt.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -23,6 +25,8 @@
 
 #define POLL_MS_DEFAULT 800
 #define VIEW_TIMEOUT_DEFAULT 5
+#define I2C_INIT_RETRIES 15
+#define I2C_INIT_DELAY_US 500000
 
 static const struct oledd_port_entry cm5_ports[] = {
 	{ "eth0", "wan" },
@@ -34,12 +38,33 @@ static volatile sig_atomic_t g_stop;
 static char g_i2c_path[32] = I2C_DEV0_PATH;
 static int g_rotate;
 static int g_menu_wifi = 1;
-static int g_menu_interactive = 1;
+static int g_menu_interactive = 0;
 static int g_menu_alerts = 1;
 static unsigned g_poll_ms = POLL_MS_DEFAULT;
 static unsigned g_view_timeout = VIEW_TIMEOUT_DEFAULT;
 static struct timespec g_last_poll;
 static struct ubus_context *g_ubus;
+static int g_ubus_registered;
+
+static void oledd_log(int pri, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsyslog(pri, fmt, ap);
+	va_end(ap);
+}
+
+static void oledd_ubus_try_register(void)
+{
+	if (!g_ubus || g_ubus_registered)
+		return;
+
+	if (oledd_ubus_srv_register(g_ubus, g_i2c_path, g_menu_interactive) == 0)
+		g_ubus_registered = 1;
+	else
+		oledd_log(LOG_WARNING, "ubus object registration failed");
+}
 
 static void on_signal(int sig)
 {
@@ -47,15 +72,43 @@ static void on_signal(int sig)
 	g_stop = 1;
 }
 
-static void show_splash(void)
+static int init_display(void)
 {
+	int i, ret;
+
+	for (i = 0; i < I2C_INIT_RETRIES; i++) {
+		if (init_i2c_dev(g_i2c_path, SSD1306_OLED_ADDR) == 0)
+			break;
+		oledd_log(LOG_WARNING, "I2C init failed on %s (retry %d/%d)",
+			  g_i2c_path, i + 1, I2C_INIT_RETRIES);
+		usleep(I2C_INIT_DELAY_US);
+	}
+	if (i >= I2C_INIT_RETRIES) {
+		oledd_log(LOG_ERR, "I2C init failed on %s — giving up", g_i2c_path);
+		return -1;
+	}
+
+	if (display_Init_seq() != 0) {
+		oledd_log(LOG_ERR, "SH1106 init sequence failed on %s", g_i2c_path);
+		return -1;
+	}
+
+	if (g_rotate)
+		display_rotate();
+	else
+		display_normal();
+
+	ret = 0;
 	clearDisplay();
 	setTextSize(2);
 	setTextColor(WHITE);
 	setCursor(4, 20);
 	print_str((const unsigned char *)"BOOTING...");
-	Display();
-	usleep(400000);
+	if (Display() != 0) {
+		oledd_log(LOG_WARNING, "initial BOOTING splash flush failed");
+		ret = -1;
+	}
+	return ret;
 }
 
 static double poll_elapsed(void)
@@ -99,6 +152,7 @@ int main(int argc, char *argv[])
 		{ 0, 0, 0, 0 },
 	};
 
+	openlog("oledd", LOG_PID | LOG_CONS, LOG_DAEMON);
 	signal(SIGINT, on_signal);
 	signal(SIGTERM, on_signal);
 
@@ -134,33 +188,31 @@ int main(int argc, char *argv[])
 	g_menu_alerts = oledd_config_menu_alerts();
 	oledd_config_menu_nav_button(nav_btn, sizeof(nav_btn));
 	oledd_config_menu_select_button(sel_btn, sizeof(sel_btn));
-	fprintf(stderr, "oledd: nav_button=%s select_button=%s interactive=%d\n",
-		nav_btn, sel_btn, g_menu_interactive);
+	oledd_log(LOG_INFO, "starting nav=%s select=%s interactive=%d i2c=%s",
+		  nav_btn, sel_btn, g_menu_interactive, g_i2c_path);
 
 	oledd_net_ports_init(cm5_ports,
 			     (int)(sizeof(cm5_ports) / sizeof(cm5_ports[0])));
 
-	if (init_i2c_dev(g_i2c_path, SSD1306_OLED_ADDR) != 0) {
-		fprintf(stderr, "oledd: I2C init failed on %s\n", g_i2c_path);
+	if (init_display() != 0) {
+		oledd_log(LOG_ERR, "oledd startup failed — exiting");
+		closelog();
 		return EXIT_FAILURE;
 	}
 
-	display_Init_seq();
-	if (g_rotate)
-		display_rotate();
-	else
-		display_normal();
-
-	g_ubus = oledd_ubus_open();
-	if (g_ubus)
-		oledd_ubus_srv_register(g_ubus, g_i2c_path, g_menu_interactive);
-	oledd_input_init();
-	oledd_alert_init(g_menu_alerts);
-	oledd_menu_init(g_menu_interactive, g_menu_wifi, g_view_timeout, g_ubus);
-
-	show_splash();
+	oledd_menu_init(g_menu_interactive, g_menu_wifi, g_view_timeout, NULL);
 	memset(&g_last_poll, 0, sizeof(g_last_poll));
 	oledd_menu_render(0.0);
+
+	g_ubus = oledd_ubus_open();
+	if (!g_ubus)
+		oledd_log(LOG_WARNING, "ubus unavailable — views will retry in loop");
+	else
+		oledd_ubus_try_register();
+
+	oledd_input_init();
+	oledd_alert_init(g_menu_alerts);
+	oledd_menu_set_ubus(g_ubus);
 
 	while (!g_stop) {
 		double elapsed = poll_elapsed();
@@ -172,6 +224,7 @@ int main(int argc, char *argv[])
 
 		if (!g_ubus)
 			g_ubus = oledd_ubus_open();
+		oledd_ubus_try_register();
 		oledd_menu_set_ubus(g_ubus);
 		oledd_alert_poll(g_ubus);
 
@@ -186,7 +239,9 @@ int main(int argc, char *argv[])
 	oledd_input_close();
 	oledd_ubus_close(g_ubus);
 	g_ubus = NULL;
+	g_ubus_registered = 0;
 	clearDisplay();
 	Display();
+	closelog();
 	return EXIT_SUCCESS;
 }

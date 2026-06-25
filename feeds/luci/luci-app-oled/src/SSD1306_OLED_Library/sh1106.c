@@ -27,7 +27,7 @@ static int sh1106_cmd(unsigned char cmd)
 {
 	if (i2c_write_register(I2C_DEV_2.fd_i2c, OLED_CNTRL_CMD, cmd) !=
 	    I2C_TWO_BYTES) {
-		fprintf(stderr, "oled: sh1106 cmd 0x%02x failed\n", cmd);
+		fprintf(stderr, "oledd: sh1106 cmd 0x%02x failed\n", cmd);
 		return -1;
 	}
 	return 0;
@@ -60,19 +60,20 @@ static const sh1106_init_step_t sh1106_init_seq[] = {
     {0xAF, 0x00, 0}, /* display on */
 };
 
-void sh1106_init(void)
+int sh1106_init(void)
 {
 	for (size_t i = 0; i < sizeof(sh1106_init_seq) / sizeof(sh1106_init_seq[0]);
 	     i++) {
 		if (sh1106_cmd(sh1106_init_seq[i].cmd) != 0)
-			exit(1);
+			return -1;
 		if (sh1106_init_seq[i].has_arg &&
 		    sh1106_cmd(sh1106_init_seq[i].arg) != 0)
-			exit(1);
+			return -1;
 	}
+	return 0;
 }
 
-void sh1106_upload(const uint8_t *screen, size_t buf_len)
+int sh1106_upload(const uint8_t *screen, size_t buf_len)
 {
 	unsigned char page;
 	size_t index = 0;
@@ -80,15 +81,15 @@ void sh1106_upload(const uint8_t *screen, size_t buf_len)
 	const unsigned char col_hi = 0x10 | ((SH1106_COL_OFFSET >> 4) & 0x0F);
 
 	if (!screen || buf_len < (size_t)SH1106_WIDTH * SH1106_PAGES)
-		return;
+		return -1;
 
 	for (page = 0; page < SH1106_PAGES; page++) {
 		if (sh1106_cmd(0xB0 | (page & 0x0F)) != 0)
-			exit(1);
+			return -1;
 		if (sh1106_cmd(col_lo) != 0)
-			exit(1);
+			return -1;
 		if (sh1106_cmd(col_hi) != 0)
-			exit(1);
+			return -1;
 
 		size_t remaining = SH1106_WIDTH;
 		while (remaining > 0) {
@@ -100,20 +101,26 @@ void sh1106_upload(const uint8_t *screen, size_t buf_len)
 			if (i2c_multiple_writes(I2C_DEV_2.fd_i2c,
 						(int)(chunk_data + 1),
 						chunk) != (int)(chunk_data + 1))
-				exit(1);
+				return -1;
 			remaining -= chunk_data;
 			memset(chunk, 0x00, sizeof(chunk));
 		}
 	}
+	return 0;
 }
 
-void sh1106_set_rotation(int normal)
+int sh1106_set_rotation(int normal)
 {
 	if (normal) {
-		sh1106_cmd(0xA1);
-		sh1106_cmd(0xC8);
+		if (sh1106_cmd(0xA1) != 0)
+			return -1;
+		if (sh1106_cmd(0xC8) != 0)
+			return -1;
 	} else {
-		sh1106_cmd(0xA0);
-		sh1106_cmd(0xC0);
+		if (sh1106_cmd(0xA0) != 0)
+			return -1;
+		if (sh1106_cmd(0xC0) != 0)
+			return -1;
 	}
+	return 0;
 }

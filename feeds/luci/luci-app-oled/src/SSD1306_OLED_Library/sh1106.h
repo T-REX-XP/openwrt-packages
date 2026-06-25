@@ -18,8 +18,8 @@
 #define OLED_CNTRL_CMD 0x00
 #define OLED_CNTRL_DATA 0x40
 
-void sh1106_init(void);
-void sh1106_upload(const uint8_t *screen, size_t buf_len);
-void sh1106_set_rotation(int normal);
+int sh1106_init(void);
+int sh1106_upload(const uint8_t *screen, size_t buf_len);
+int sh1106_set_rotation(int normal);
 
 #endif /* SH1106_H_ */

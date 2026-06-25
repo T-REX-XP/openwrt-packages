@@ -115,7 +115,7 @@ static int boot_active(void)
 	char stage[32];
 
 	if (parse_state_kv("stage", stage, sizeof(stage)) != 0)
-		return 0;
+		return 1;
 	return strcmp(stage, BOOT_DONE_STAGE) != 0;
 }
 
@@ -632,7 +632,8 @@ void oledd_menu_render(double elapsed_sec)
 {
 	if (g_dimmed) {
 		clearDisplay();
-		Display();
+		if (Display() != 0)
+			fprintf(stderr, "oledd: display flush failed (dim)\n");
 		return;
 	}
 
@@ -654,5 +655,6 @@ void oledd_menu_render(double elapsed_sec)
 	}
 
 	oledd_alert_draw();
-	Display();
+	if (Display() != 0)
+		fprintf(stderr, "oledd: display flush failed\n");
 }

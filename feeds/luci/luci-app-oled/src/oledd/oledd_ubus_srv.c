@@ -9,6 +9,7 @@
 
 #include <libubus.h>
 #include <libubox/blobmsg.h>
+#include <libubox/uloop.h>
 #include <libubox/utils.h>
 
 #include "oledd_input.h"
@@ -180,7 +181,7 @@ int oledd_ubus_srv_register(struct ubus_context *ctx, const char *i2c_path,
 void oledd_ubus_srv_poll(struct ubus_context *ctx)
 {
 	if (ctx)
-		ubus_handle_event(ctx);
+		uloop_run_timeout(10);
 }
 
 void oledd_ubus_srv_unregister(struct ubus_context *ctx)

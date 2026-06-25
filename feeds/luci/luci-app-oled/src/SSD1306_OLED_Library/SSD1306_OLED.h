@@ -35,8 +35,8 @@ size_t oled_display_buf_size(void);
 #define SSD1306_NORMAL_DISPLAY 0xA6
 
 extern void clearDisplay();
-extern void display_Init_seq();
-extern void Display();
+extern int display_Init_seq();
+extern int Display();
 extern void setRotation(unsigned char x);
 extern void startscrollright(unsigned char start, unsigned char stop);
 extern void startscrollleft(unsigned char start, unsigned char stop);

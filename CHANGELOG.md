@@ -2,6 +2,19 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r26] — 2026-06-25
+
+### Fixed
+
+- **`/etc/init.d/oledd` not executable** — repo `chmod +x` and `$(INSTALL_BIN)` in package Makefile (fixes "Permission denied", oledd never starting via procd)
+- **Sysupgrade migration** — `uci-defaults/99-oled-cm5-migrate` applies CM5 menu defaults when preserved UCI has `menu_mode=0` or legacy screensaver flags; sets `cm5_menu_migrated=1`, stops `oled`, enables `oledd`
+- Shared **`cm5-apply-config.sh`** — CM5 defaults, legacy-flag detection, and ucitrack helpers for first-boot and migration
+
+### Changed
+
+- **`oledd`** — default `menu_interactive=0` in daemon; explicit syslog on startup failure; BOOTING splash after I2C init (before ubus connect)
+- **`init.d/oledd`** — `procd_set_param stderr 1` (procd captures daemon errors in logread)
+
 ## [luci-app-oled r24] — 2026-06-25
 
 ### Changed
