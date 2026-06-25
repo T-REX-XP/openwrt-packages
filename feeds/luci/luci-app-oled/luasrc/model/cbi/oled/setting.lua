@@ -18,11 +18,15 @@ o = s:taboption("info", Flag, "menu_mode", translate("Menu mode (oledd)"),
 	translate("Use /usr/sbin/oledd for boot splash and rotating status views instead of the legacy screensaver daemon."))
 o.default=0
 o = s:taboption("info", Value, "menu_timeout", translate("Menu view timeout (s)"),
-	translate("Seconds per auto-rotated view in menu mode (Boot / System / Ports)."))
+	translate("Seconds per auto-rotated view in menu mode (Boot / System / Ports / WiFi)."))
 o.default=5
 o:depends("menu_mode", "1")
 o.datatype="uinteger"
 o.rmempty=false
+o = s:taboption("info", Flag, "menu_wifi", translate("WiFi view (oledd)"),
+	translate("Include a WiFi status view in menu rotation (hostapd / wireless ubus)."))
+o.default=1
+o:depends("menu_mode", "1")
 o = s:taboption("info", Value, "path", translate("I2C PATH"))
 o.default='/dev/i2c-7'
 o = s:taboption("info", Flag, "rotate", translate("180 degree rotation"))

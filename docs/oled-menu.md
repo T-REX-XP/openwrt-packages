@@ -180,7 +180,7 @@ Optionally expose a lightweight control API (ubus object oledd) so other service
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Driver, `oledd`, procd, boot state, hotplug stub | **Done** — `luci-app-oled` **r17** (2026-06-25) |
-| 2 | libubus metrics, network views, bandwidth | Planned |
+| 2 | libubus metrics, network views, bandwidth, WiFi stub | **Done** — `luci-app-oled` **r18** (2026-06-25) |
 | 3 | Joystick / menu navigation | Planned |
 | 4 | Preinit splash, ubus API, error states | Planned |
 
@@ -191,9 +191,7 @@ Optionally expose a lightweight control API (ubus object oledd) so other service
 - Daemon: `feeds/luci/luci-app-oled/src/oledd/oledd.c` → `/usr/sbin/oledd`
 - Legacy screensaver: `feeds/luci/luci-app-oled/src/Example_Code/` → `/usr/bin/oled`
 - Init: `root/etc/init.d/oledd`, `root/etc/init.d/oled`
-- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`)
+- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`, `menu_wifi`)
 - Boot state: `root/usr/lib/oled/oled-boot-state.sh`, `/tmp/oled_state`
 
-**Not in Phase 1:** interactive menu, HAT buttons, `ubus` `oledd` object, WiFi view, screen dimming.
-
-If you tell me your exact OpenWrt version and whether you prefer C only or C + Lua/sh helpers, I can draft a skeleton of the oledd ubus API and an example /etc/init.d/oledd script tailored to your CM5 build.
+**Not yet implemented (Phase 3+):** interactive menu, HAT buttons, `ubus` `oledd` control object, screen dimming.

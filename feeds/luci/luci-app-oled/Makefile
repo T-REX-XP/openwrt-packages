@@ -5,12 +5,12 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for SH1106 128×64 OLED display
-LUCI_DEPENDS:=+libconfig +i2c-tools +coreutils-nohup
+LUCI_DEPENDS:=+libconfig +libubus +libubox +libblobmsg-json +i2c-tools +coreutils-nohup
 LUCI_PKGARCH:=$(if $(realpath src/Makefile),$(ARCH_PACKAGES),all)
 
 PKG_NAME:=luci-app-oled
 PKG_VERSION:=20230823
-PKG_RELEASE:=17
+PKG_RELEASE:=18
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE src/LICENSE
@@ -31,7 +31,8 @@ define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR)/src \
 		CC="$(TARGET_CC)" \
 		CFLAGS="$(TARGET_CFLAGS) -Wall" \
-		LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lconfig"
+		LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lconfig" \
+		OLEDD_LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lubus -lubox -lblobmsg_json"
 endef
 
 define Package/luci-app-oled/install

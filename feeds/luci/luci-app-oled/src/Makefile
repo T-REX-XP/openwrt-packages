@@ -7,6 +7,7 @@ ifndef CFLAGS
 CFLAGS := -O2 -Wall
 endif
 LDFLAGS := -lpthread -lconfig
+OLEDD_LDFLAGS ?= -lpthread -lubus -lubox -lblobmsg_json
 
 DRIVER_SRCS := SSD1306_OLED_Library/SSD1306_OLED.c SSD1306_OLED_Library/sh1106.c I2C_Library/I2C.c
 DRIVER_OBJS := $(DRIVER_SRCS:.c=.o)
@@ -14,7 +15,8 @@ DRIVER_OBJS := $(DRIVER_SRCS:.c=.o)
 OLED_SRCS := Example_Code/main.c Example_Code/example_app.c
 OLED_OBJS := $(OLED_SRCS:.c=.o)
 
-OLEDD_OBJS := oledd/oledd.o
+OLEDD_SRCS := oledd/oledd.c oledd/oledd_ubus.c oledd/oledd_net.c oledd/oledd_config.c
+OLEDD_OBJS := $(OLEDD_SRCS:.c=.o)
 
 .PHONY: all clean oled oledd compile install
 
@@ -24,7 +26,7 @@ oled: $(DRIVER_OBJS) $(OLED_OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 oledd: $(DRIVER_OBJS) $(OLEDD_OBJS)
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ -o $@ $(OLEDD_LDFLAGS)
 
 compile: all
 

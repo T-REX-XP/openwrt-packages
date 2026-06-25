@@ -1,7 +1,6 @@
 /*
- * oledd — Phase 1 OLED menu daemon (SH1106 128×64).
- * Boot splash, auto-rotating Boot / System / Ports views.
- * Metrics via popen("ubus call system info") and /sys/class/net.
+ * oledd — OLED menu daemon (SH1106 128×64).
+ * Phase 2: libubus metrics, network.device/interface, bandwidth bars, WiFi stub.
  */
 
 #include <getopt.h>
@@ -15,6 +14,9 @@
 
 #include "I2C.h"
 #include "SSD1306_OLED.h"
+#include "oledd_config.h"
+#include "oledd_net.h"
+#include "oledd_ubus.h"
 
 #define STATE_FILE "/tmp/oled_state"
 #define NET_TICK_FILE "/tmp/oled_net_changed"
@@ -26,17 +28,24 @@ enum oled_view {
 	VIEW_BOOT = 0,
 	VIEW_SYSTEM,
 	VIEW_PORTS,
+	VIEW_WIFI,
 	VIEW_COUNT
 };
 
-static const char *port_ifaces[] = { "eth0", "eth1", "br-lan" };
-#define PORT_COUNT 3
+static const struct oledd_port_entry cm5_ports[] = {
+	{ "eth0", "wan" },
+	{ "eth1", NULL },
+	{ "br-lan", "lan" },
+};
 
 static volatile sig_atomic_t g_stop;
 static char g_i2c_path[32] = I2C_DEV0_PATH;
 static int g_rotate;
+static int g_menu_wifi = 1;
 static unsigned g_poll_ms = POLL_MS_DEFAULT;
 static unsigned g_view_timeout = VIEW_TIMEOUT_DEFAULT;
+static struct timespec g_last_poll;
+static struct ubus_context *g_ubus;
 
 static void on_signal(int sig)
 {
@@ -69,81 +78,6 @@ static int parse_state_kv(const char *key, char *val, size_t len)
 	return -1;
 }
 
-static int iface_up(const char *ifname)
-{
-	char path[96];
-	char state[16];
-	FILE *f;
-
-	snprintf(path, sizeof(path), "/sys/class/net/%s/operstate", ifname);
-	f = fopen(path, "r");
-	if (!f)
-		return 0;
-	if (fscanf(f, "%15s", state) != 1) {
-		fclose(f);
-		return 0;
-	}
-	fclose(f);
-	return strcmp(state, "up") == 0;
-}
-
-static unsigned long json_ulong(const char *json, const char *key,
-				unsigned long def)
-{
-	char pat[48];
-	const char *p;
-	char *end;
-
-	snprintf(pat, sizeof(pat), "\"%s\":", key);
-	p = strstr(json, pat);
-	if (!p)
-		return def;
-	p += strlen(pat);
-	while (*p == ' ' || *p == '\t')
-		p++;
-	return strtoul(p, &end, 10);
-}
-
-static int ubus_system_info(unsigned long *uptime, float *load1,
-			    unsigned long *mem_total, unsigned long *mem_free)
-{
-	char buf[2048];
-	const char *loadp;
-	unsigned long l0 = 0;
-	FILE *fp = popen("ubus call system info 2>/dev/null", "r");
-
-	if (!fp)
-		return -1;
-	if (!fread(buf, 1, sizeof(buf) - 1, fp)) {
-		pclose(fp);
-		return -1;
-	}
-	buf[sizeof(buf) - 1] = '\0';
-	pclose(fp);
-
-	*uptime = json_ulong(buf, "uptime", 0);
-	loadp = strstr(buf, "\"load\":");
-	if (loadp) {
-		loadp = strchr(loadp, '[');
-		if (loadp)
-			l0 = strtoul(loadp + 1, NULL, 10);
-	}
-	*load1 = (float)l0 / 65536.0f;
-
-	{
-		const char *mp = strstr(buf, "\"memory\"");
-
-		if (mp) {
-			*mem_total = json_ulong(mp, "total", 0);
-			*mem_free = json_ulong(mp, "free", 0);
-		} else {
-			*mem_total = 0;
-			*mem_free = 0;
-		}
-	}
-	return 0;
-}
-
 static void format_uptime(unsigned long sec, char *out, size_t len)
 {
 	unsigned long d = sec / 86400;
@@ -163,6 +97,16 @@ static int boot_active(void)
 	if (parse_state_kv("stage", stage, sizeof(stage)) != 0)
 		return 0;
 	return strcmp(stage, BOOT_DONE_STAGE) != 0;
+}
+
+static enum oled_view next_rotating_view(enum oled_view cur)
+{
+	enum oled_view v = cur;
+
+	do {
+		v = (enum oled_view)((v + 1) % VIEW_COUNT);
+	} while (v == VIEW_BOOT || (v == VIEW_WIFI && !g_menu_wifi));
+	return v;
 }
 
 static void draw_header(const char *title)
@@ -207,21 +151,22 @@ static void draw_boot_view(void)
 
 static void draw_system_view(void)
 {
-	unsigned long uptime = 0, mem_total = 0, mem_free = 0;
-	float load1 = 0.0f;
+	struct oledd_system_info info;
 	char upbuf[24];
 	unsigned long mem_used_mb;
 
 	draw_header("System");
 
-	if (ubus_system_info(&uptime, &load1, &mem_total, &mem_free) != 0) {
+	if (!g_ubus ||
+	    oledd_ubus_system_info(g_ubus, &info) != 0) {
 		setCursor(0, 16);
 		print_str((const unsigned char *)"ubus unavailable");
 		return;
 	}
 
-	format_uptime(uptime, upbuf, sizeof(upbuf));
-	mem_used_mb = mem_total > mem_free ? (mem_total - mem_free) / 1024 : 0;
+	format_uptime(info.uptime, upbuf, sizeof(upbuf));
+	mem_used_mb = info.mem_total > info.mem_free ?
+	    (info.mem_total - info.mem_free) / 1024 : 0;
 
 	setCursor(0, 14);
 	print_str((const unsigned char *)"Up: ");
@@ -229,33 +174,92 @@ static void draw_system_view(void)
 
 	setCursor(0, 26);
 	print_str((const unsigned char *)"Load: ");
-	printFloat((double)load1, 2);
+	printFloat((double)info.load1, 2);
 
 	setCursor(0, 38);
 	print_str((const unsigned char *)"RAM: ");
 	printNumber_UI((unsigned int)mem_used_mb, DEC);
-	print_str((const unsigned char *)"K used");
+	print_str((const unsigned char *)"M used");
 }
 
-static void draw_ports_view(void)
+static void draw_rate_bar(int x, int y, int w, int h, double mbps)
 {
-	int i, y = 14;
+	int fill;
+
+	fillRect(x, y, w, h, BLACK);
+	if (mbps <= 0.0)
+		return;
+
+	fill = (int)((mbps / OLEDD_BAR_MAX_MBPS) * (double)w);
+	if (fill < 1 && mbps > 0.01)
+		fill = 1;
+	if (fill > w)
+		fill = w;
+	fillRect(x, y, fill, h, WHITE);
+}
+
+static void draw_ports_view(double elapsed_sec)
+{
+	struct oledd_port_status ports[OLEDD_PORT_MAX];
+	char line[24];
+	int count, i, y = 14;
+	int bar_w = oled_lcd_width() - 4;
+	const int row_h = 16;
 
 	draw_header("Ports");
 
-	for (i = 0; i < PORT_COUNT; i++) {
-		const char *name = port_ifaces[i];
-		int up = iface_up(name);
+	count = oledd_net_poll_ports(g_ubus, ports, OLEDD_PORT_MAX, elapsed_sec);
+
+	for (i = 0; i < count; i++) {
+		const struct oledd_port_status *p = &ports[i];
+		const char *link = p->carrier ? "UP" : (p->up ? "up" : "dn");
+
+		if (p->ipv4[0])
+			snprintf(line, sizeof(line), "%.5s %-2s %.10s", p->device,
+				 link, p->ipv4);
+		else
+			snprintf(line, sizeof(line), "%.8s %-3s", p->device, link);
 
 		setCursor(0, y);
-		print_str((const unsigned char *)name);
-		setCursor(90, y);
-		print_str((const unsigned char *)(up ? "UP" : "down"));
-		y += 12;
+		print_str((const unsigned char *)line);
+
+		draw_rate_bar(2, y + 9, bar_w, 3,
+			      p->rx_mbps > p->tx_mbps ? p->rx_mbps : p->tx_mbps);
+
+		y += row_h;
 	}
 }
 
-static void render_view(enum oled_view view)
+static void draw_wifi_view(void)
+{
+	struct oledd_wifi_info wifi;
+
+	draw_header("WiFi");
+
+	if (!g_ubus || oledd_ubus_wifi_status(g_ubus, &wifi) != 0 ||
+	    !wifi.valid) {
+		setCursor(0, 18);
+		print_str((const unsigned char *)"WiFi N/A");
+		return;
+	}
+
+	setCursor(0, 14);
+	print_str((const unsigned char *)wifi.ssid);
+
+	if (wifi.num_sta >= 0) {
+		setCursor(0, 28);
+		print_str((const unsigned char *)"Clients: ");
+		printNumber_UI((unsigned int)wifi.num_sta, DEC);
+	}
+
+	if (wifi.channel[0]) {
+		setCursor(0, 40);
+		print_str((const unsigned char *)"Ch: ");
+		print_str((const unsigned char *)wifi.channel);
+	}
+}
+
+static void render_view(enum oled_view view, double elapsed_sec)
 {
 	clearDisplay();
 	switch (view) {
@@ -266,7 +270,10 @@ static void render_view(enum oled_view view)
 		draw_system_view();
 		break;
 	case VIEW_PORTS:
-		draw_ports_view();
+		draw_ports_view(elapsed_sec);
+		break;
+	case VIEW_WIFI:
+		draw_wifi_view();
 		break;
 	default:
 		break;
@@ -283,6 +290,20 @@ static void show_splash(void)
 	print_str((const unsigned char *)"BOOTING...");
 	Display();
 	usleep(400000);
+}
+
+static double poll_elapsed(void)
+{
+	struct timespec now;
+	double elapsed = 0.0;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if (g_last_poll.tv_sec || g_last_poll.tv_nsec) {
+		elapsed = (double)(now.tv_sec - g_last_poll.tv_sec) +
+		    (double)(now.tv_nsec - g_last_poll.tv_nsec) / 1e9;
+	}
+	g_last_poll = now;
+	return elapsed;
 }
 
 static void usage(const char *prog)
@@ -343,6 +364,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	g_menu_wifi = oledd_config_menu_wifi();
+	oledd_net_ports_init(cm5_ports,
+			     (int)(sizeof(cm5_ports) / sizeof(cm5_ports[0])));
+
 	if (init_i2c_dev(g_i2c_path, SSD1306_OLED_ADDR) != 0) {
 		fprintf(stderr, "oledd: I2C init failed on %s\n", g_i2c_path);
 		return EXIT_FAILURE;
@@ -354,14 +379,18 @@ int main(int argc, char *argv[])
 	else
 		display_normal();
 
+	g_ubus = oledd_ubus_open();
+
 	show_splash();
 
 	view_started = time(NULL);
-	render_view(VIEW_BOOT);
+	memset(&g_last_poll, 0, sizeof(g_last_poll));
+	render_view(VIEW_BOOT, 0.0);
 
 	while (!g_stop) {
 		int force_redraw = 0;
 		struct stat st;
+		double elapsed = poll_elapsed();
 
 		if (stat(NET_TICK_FILE, &st) == 0) {
 			unlink(NET_TICK_FILE);
@@ -369,6 +398,9 @@ int main(int argc, char *argv[])
 			if (!in_boot)
 				view = VIEW_PORTS;
 		}
+
+		if (!g_ubus)
+			g_ubus = oledd_ubus_open();
 
 		now = time(NULL);
 		if (in_boot) {
@@ -378,19 +410,19 @@ int main(int argc, char *argv[])
 				view_started = now;
 			}
 		} else if ((unsigned)(now - view_started) >= g_view_timeout) {
-			do {
-				view = (enum oled_view)((view + 1) % VIEW_COUNT);
-			} while (view == VIEW_BOOT);
+			view = next_rotating_view(view);
 			view_started = now;
 			force_redraw = 1;
 		}
 
 		if (force_redraw || in_boot)
-			render_view(in_boot ? VIEW_BOOT : view);
+			render_view(in_boot ? VIEW_BOOT : view, elapsed);
 
 		usleep(g_poll_ms * 1000);
 	}
 
+	oledd_ubus_close(g_ubus);
+	g_ubus = NULL;
 	clearDisplay();
 	Display();
 	return EXIT_SUCCESS;

@@ -1,10 +1,19 @@
 #!/bin/sh
-# Notify oledd that a network interface changed (Phase 1 hotplug stub).
+# Notify oledd of network changes; mark boot ready when WAN or LAN is up.
 
 [ -n "$DEVICE" ] || exit 0
 
 case "$ACTION" in
-ifup|ifdown|ifupdate)
+ifup|ifupdate)
+	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
+	case "$DEVICE" in
+	eth0|br-lan)
+		/usr/lib/oled/oled-boot-state.sh ready "System ready" 2>/dev/null || true
+		;;
+	esac
+	touch /tmp/oled_net_changed 2>/dev/null || true
+	;;
+ifdown)
 	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
 	touch /tmp/oled_net_changed 2>/dev/null || true
 	;;

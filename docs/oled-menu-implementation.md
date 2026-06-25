@@ -9,7 +9,7 @@ Maps [oled-menu.md](oled-menu.md) phases 1–4 to package layout, APIs, and CM5 
 | Phase | Scope | Status |
 |-------|--------|--------|
 | **1** | SH1106 driver reuse, `oledd` daemon, procd, boot state file, hotplug stub, LuCI toggle | **Done (r17)** |
-| **2** | libubus metrics, `network.device` / `network.interface`, bandwidth from `/sys` | Planned |
+| **2** | libubus metrics, `network.device` / `network.interface`, bandwidth from `/sys` | **Done (r18)** |
 | **3** | HAT joystick/GPIO input, menu navigation, icons | Planned |
 | **4** | Preinit splash polish, error states, `ubus` `oledd` control API | Planned |
 
@@ -24,7 +24,10 @@ feeds/luci/luci-app-oled/
 │   ├── SSD1306_OLED_Library/   # SH1106 framebuffer + draw API
 │   ├── Example_Code/           # legacy /usr/bin/oled screensaver
 │   └── oledd/
-│       └── oledd.c             # Phase 1 menu daemon
+│       ├── oledd.c             # Menu daemon main loop + views
+│       ├── oledd_ubus.c        # libubus client (system, network, WiFi)
+│       ├── oledd_net.c         # Port list, sysfs bandwidth rates
+│       └── oledd_config.c      # Minimal UCI read (menu_wifi)
 └── root/
     ├── etc/
     │   ├── config/oled         # UCI: menu_mode, menu_timeout, path, …
@@ -65,7 +68,7 @@ Writers:
 
 - `/lib/preinit/80-oled-preinit` — `preinit`
 - `/etc/init.d/oledd` start — `boot`
-- `/etc/hotplug.d/net/99-oled` — `network` on link events
+- `/etc/hotplug.d/net/99-oled` — `network` on link events; `ready` when `eth0` or `br-lan` ifup
 - Manual: `/usr/lib/oled/oled-boot-state.sh ready "System ready"`
 
 Optional hook from network init:
@@ -110,13 +113,20 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
 - RST: `cm5-waveshare-rst.sh` / `gpioset -c gpiochip1 12=1`
 - **Button input deferred** — use CM5 **USERKEY** (`cm5-button-scripts`) or Phase 3 HAT joystick GPIO
 
-## Phase 1 metrics (current)
+## Phase 1 metrics (superseded by Phase 2)
+
+Phase 1 used `popen("ubus call system info")` and `/sys/class/net/*/operstate`. Phase 2 replaces these with libubus and richer port data.
+
+## Phase 2 metrics (current, r18)
 
 | View | Data source |
 |------|-------------|
 | Boot | `/tmp/oled_state` |
-| System | `popen("ubus call system info")` — uptime, load÷65536, memory |
-| Ports | `/sys/class/net/{eth0,eth1,br-lan}/operstate` |
+| System | `ubus` `system` → `info` (libubus + blobmsg) — uptime, load÷65536, memory |
+| Ports | `network.device` `status` for `eth0`, `eth1`, `br-lan` (up/carrier); `network.interface.{wan,lan}` `status` for IPv4; RX/TX Mbps bars from `/sys/class/net/*/statistics/{rx,tx}_bytes` |
+| WiFi | `hostapd.wlan0` / `hostapd.wlan1` `get_status`, fallback `network.wireless` `status`; UCI `menu_wifi` (default `1`) |
+
+Boot completes (`stage=ready`) when hotplug sees `eth0` or `br-lan` ifup.
 
 ## Build / CI
 
@@ -127,7 +137,9 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
   make clean && make CFLAGS="-O2 -Wall"
   ```
 
-  Produces `./oled` and `./oledd` linked against host `libconfig` (router image uses target SDK).
+  Produces `./oled` (libconfig) and `./oledd` (libubus). Host smoke test may lack target I2C/ubus headers.
+
+- **Dependencies (oledd):** `libubus`, `libubox`, `libblobmsg-json`
 
 - **Feed CI:** `.github/workflows/build-packages.yml` includes `luci-app-oled`; ImmortalWrt SDK `aarch64_generic` compile installs both binaries.
 
@@ -135,11 +147,7 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
 
 ## Phase 2 next steps
 
-1. Replace `popen` JSON parsing with **libubus** + **libblobmsg-json**
-2. Add `network.device status` and `network.interface status` for IPs and carrier
-3. RX/TX rate bars from `/sys/class/net/*/statistics/{rx,tx}_bytes`
-4. Call `oled-boot-state.sh ready` from `network` `service_started` or `S95done` equivalent
-5. WiFi view stub (`hostapd.*` / `wireless.radio0`) behind feature flag
+*Completed in r18 — see Phase 2 metrics above.*
 
 ## Phase 3 next steps
 

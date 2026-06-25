@@ -29,3 +29,4 @@ config oled
 	option path '/dev/i2c-7'
 	option menu_mode '0'
 	option menu_timeout '5'
+	option menu_wifi '1'
