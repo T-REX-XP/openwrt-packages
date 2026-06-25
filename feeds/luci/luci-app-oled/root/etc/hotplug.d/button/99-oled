@@ -6,6 +6,7 @@
 #   menu_nav_button    — previous page (default MaskROM / BTN_2)
 #
 # Future HAT joystick: add GPIO hotplug entries sending up/down/back via oledd-event.sh.
+# Waveshare HAT KEY1/KEY2/KEY3 are NOT connected on the CM5 5-wire harness — use base USERKEY + MaskROM.
 
 [ "$ACTION" = "pressed" ] || exit 0
 

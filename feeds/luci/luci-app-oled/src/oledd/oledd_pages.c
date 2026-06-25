@@ -445,6 +445,7 @@ int oledd_pages_load(const char *path)
 
 	blobmsg_parse(root_pol, __ROOT_MAX, tb, blob_data(b.head), blob_len(b.head));
 	if (!tb[ROOT_PAGES]) {
+		syslog(LOG_ERR, "pages JSON missing \"pages\" array: %s", path);
 		blob_buf_free(&b);
 		return -1;
 	}

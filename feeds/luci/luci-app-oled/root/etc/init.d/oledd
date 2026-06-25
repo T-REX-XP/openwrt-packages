@@ -37,6 +37,15 @@ start_service() {
 			/usr/lib/oled/oled-boot-state.sh boot "Starting oledd..."
 			;;
 		esac
+		# LAN may already be up before hotplug runs (oledd respawn, late start).
+		if [ -d /sys/class/net/br-lan ]; then
+			br_state=$(cat /sys/class/net/br-lan/operstate 2>/dev/null)
+			case "$br_state" in
+			up|unknown)
+				/usr/lib/oled/oled-boot-state.sh ready "LAN up" 2>/dev/null || true
+				;;
+			esac
+		fi
 	fi
 
 	procd_open_instance

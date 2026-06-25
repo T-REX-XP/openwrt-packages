@@ -1,5 +1,15 @@
 # luci-app-oled CHANGELOG
 
+## 47 (2026-06-25)
+
+### Fixed
+- **Boot splash stuck with WAN down**: `boot_active()` now treats `stage=network` as boot-complete; WAN `ifdown` no longer regresses `/tmp/oled_state` from `ready`; monotonic stage writes in `oled-boot-state.sh`; `oledd` init marks ready when `br-lan` is already up.
+- **Boot splash after oledd respawn**: 20s timeout (was 45s); base-board button press skips splash immediately.
+- **pages.json parse failure**: syslog on missing `pages` array; fallback to legacy System/Ports/WiFi rotate views.
+
+### Changed
+- LuCI Buttons tab notes Waveshare HAT keys are not wired on CM5 FPC harness — use USERKEY + MaskROM on the base board.
+
 ## 41 (2026-06-25)
 
 ### Fixed

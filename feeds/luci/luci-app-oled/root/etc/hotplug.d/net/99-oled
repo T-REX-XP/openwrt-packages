@@ -32,7 +32,7 @@ ifup|ifupdate)
 	oledd_notify_net
 	;;
 ifdown)
-	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
+	# Do not touch /tmp/oled_state — WAN/LAN flap must not rewind boot progress.
 	oledd_notify_net
 	;;
 esac

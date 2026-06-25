@@ -508,7 +508,7 @@ return view.extend({
 	buildButtonsTab: function(pick) {
 		return E('div', { 'data-tab': 'buttons', 'data-tab-title': _('Buttons') }, [
 			cbiSection(_('Button mapping'), [
-				_('USERKEY and MaskROM handlers live in %s (cm5-button-scripts). Map which button advances the menu or selects here.').format('/etc/rc.button/')
+				_('On Orange Pi CM5 Base use the onboard USERKEY (WPS) and MaskROM buttons — not the Waveshare HAT KEY/joystick (those GPIOs are not wired on the 5-line FPC harness). Handlers live in %s (cm5-button-scripts).').format('/etc/rc.button/')
 			], [
 				fieldRow(_('Interactive menu'), flagInput('oled-menu-interactive', _('Button-driven menu'), pick('menu_interactive') === '1')),
 				fieldRow(_('Idle blank'), E('input', {
