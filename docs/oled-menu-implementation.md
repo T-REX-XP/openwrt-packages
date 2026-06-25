@@ -54,8 +54,10 @@ feeds/luci/luci-app-oled/
 
 | `menu_mode` | Service | Binary | START |
 |-------------|---------|--------|-------|
-| `0` (default) | `/etc/init.d/oled` | `/usr/bin/oled` | 88 |
-| `1` | `/etc/init.d/oledd` | `/usr/sbin/oledd` | 09 |
+| `0` | `/etc/init.d/oled` | `/usr/bin/oled` | 88 |
+| `1` (CM5 default) | `/etc/init.d/oledd` | `/usr/sbin/oledd` | 09 |
+
+**CM5 first boot (r24):** `xunlong,orangepi-cm5-base` images ship with `enable=1`, `menu_mode=1`, `path=/dev/i2c-7`. `uci-defaults/oled` runs `cm5-waveshare-rst.sh` and enables `oledd` when `/dev/i2c-7` exists — no manual UCI required.
 
 Both respect `oled.@oled[0].enable` and UCI `path` (`/dev/i2c-7` on CM5).
 

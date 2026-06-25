@@ -13,10 +13,10 @@ s:tab("info", translate("Info Display"))
 s:tab("screensaver", translate("screensaver"))
 
 o = s:taboption("info", Flag, "enable", translate("Enable"))
-o.default=0
+o.default=1
 o = s:taboption("info", Flag, "menu_mode", translate("Menu mode (oledd)"),
 	translate("Use /usr/sbin/oledd for boot splash and rotating status views instead of the legacy screensaver daemon."))
-o.default=0
+o.default=1
 o = s:taboption("info", Value, "menu_timeout", translate("Menu view timeout (s)"),
 	translate("Seconds per auto-rotated view in menu mode (Boot / System / Ports / WiFi)."))
 o.default=5
@@ -92,7 +92,7 @@ o.default=0
 
 --screensaver options--
 o = s:taboption("screensaver", Flag, "scroll", translate("Scroll Text"))
-o.default=1
+o.default=0
 o = s:taboption("screensaver", Value, "text", translate("Text you want to scroll"))
 o:depends("scroll",'1')
 o.default='OPENWRT'

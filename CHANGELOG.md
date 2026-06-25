@@ -2,6 +2,15 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r24] — 2026-06-25
+
+### Changed
+
+- **CM5 first-boot defaults** — shipped `/etc/config/oled` enables menu mode (`oledd`) on `/dev/i2c-7` with interactive MaskROM/USERKEY navigation; legacy screensaver flags off by default
+- **`uci-defaults/oled`** — on `xunlong,orangepi-cm5-base`, applies CM5 menu settings, runs `cm5-waveshare-rst.sh`, starts `oledd` when `/dev/i2c-7` exists (keeps enabled even if early `i2cget` probe fails; disables only when the bus node is missing)
+- **`cm5-waveshare-rst.sh`** — drive RST on **GPIO1_B4** (`gpiochip1` line 12, FPC pad 9) instead of GPIO4_B4
+- LuCI form defaults aligned with shipped UCI
+
 ## [luci-app-oled r22] — 2026-06-25
 
 ### Added
