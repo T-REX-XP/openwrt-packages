@@ -212,3 +212,12 @@ Dependabot will propose updates to `actions/checkout`, `upload-artifact`, etc.; 
 - [GitHub Actions concurrency](https://docs.github.com/en/actions/using-jobs/using-concurrency)
 - [GitHub Actions cache](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows)
 - [Reusable workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
+
+### Pages release troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|--------|-----|
+| `release-dist/...tar.gz: No such file` on **skip_build** republish | `actions/checkout` ran after `gh release download` and wiped `release-dist/` | Fixed in workflow: checkout the feed generator script **before** downloading the tarball |
+| **GitHub Pages** job fails in ~2s with **no steps** on **tag** releases (`v*`) | `github-pages` environment **deployment branch policy** allowed only `main`; tag refs are rejected before the job starts | **Settings → Environments → github-pages** → remove “Selected branches” restriction (allow all branches and tags), or rely on **skip_build** republish from `main` |
+| Release workflow red but **SDK build** and **GitHub Release** succeeded | Usually the Pages job only — feed may still be stale on Pages until republish succeeds |
+
