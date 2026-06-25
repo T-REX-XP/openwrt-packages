@@ -74,7 +74,7 @@ var FORM_DEFAULTS = {
 	netsource: 'br-lan',
 	time: '60',
 	scroll: '0',
-	text: 'OpenWrt'
+	text: 'CM5'
 };
 
 function rpcData(data, fallback) {
@@ -296,6 +296,11 @@ return view.extend({
 				config: rpcData(parts[0], {}).config || {},
 				status: rpcData(parts[1], {})
 			};
+		}).catch(function(e) {
+			ui.addNotification(null, E('p', {}, [
+				_('Failed to load OLED settings: %s').format(e)
+			]), 'error');
+			throw e;
 		});
 	},
 
@@ -312,14 +317,20 @@ return view.extend({
 				restart ? _('Settings saved and service restarted.') : _('Settings saved.')
 			]), 'info');
 			return this.refreshStatus();
-		}, this));
+		}, this)).catch(function(e) {
+			ui.addNotification(null, E('p', {}, [
+				_('Could not save settings: %s').format(e)
+			]), 'error');
+		});
 	},
 
 	handleService: function(action) {
 		return callServiceControl(action).then(L.bind(function(r) {
 			r = rpcData(r, {});
-			if (r.error)
-				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
+			if (r.error || r.ok === false)
+				ui.addNotification(null, E('p', {}, [
+					r.message || r.error || r.output || _('Service action failed.')
+				]), 'error');
 			else
 				ui.addNotification(null, E('p', {}, [
 					_('Service %s: %s').format(action, r.running ? _('running') : _('stopped'))
@@ -350,8 +361,10 @@ return view.extend({
 	handleRst: function() {
 		return callReleaseRst().then(function(r) {
 			r = rpcData(r, {});
-			if (r.error)
-				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
+			if (r.error || r.ok === false)
+				ui.addNotification(null, E('p', {}, [
+					r.message || r.error || r.output || _('Display reset failed.')
+				]), 'error');
 			else
 				ui.addNotification(null, E('p', {}, [ _('Display reset signal sent.') ]), 'info');
 		}).catch(function(e) {
@@ -359,7 +372,7 @@ return view.extend({
 		});
 	},
 
-	refreshStatus: function() {
+	refreshStatus: function(notify) {
 		return callGetStatus().then(L.bind(function(st) {
 			st = rpcData(st, {});
 			var panel = document.getElementById('oled-status-panel');
@@ -367,7 +380,12 @@ return view.extend({
 				var next = renderStatusBlock(st);
 				panel.parentNode.replaceChild(next, panel);
 			}
-		}, this));
+		}, this)).catch(function(e) {
+			if (notify)
+				ui.addNotification(null, E('p', {}, [
+					_('Could not refresh status: %s').format(e)
+				]), 'error');
+		});
 	},
 
 	buildServiceButtons: function() {
@@ -392,7 +410,7 @@ return view.extend({
 			' ',
 			E('button', {
 				'class': 'btn cbi-button-action',
-				'click': ui.createHandlerFn(this, 'refreshStatus')
+				'click': ui.createHandlerFn(this, 'refreshStatus', true)
 			}, [ _('Refresh status') ])
 		]);
 	},
@@ -647,8 +665,10 @@ return view.extend({
 		]);
 
 		ui.tabs.initTabGroup(tabHost.childNodes);
-		poll.add(L.bind(this.refreshStatus, this), 5);
-		L.defer(L.bind(this.refreshLogs, this));
+		poll.add(L.bind(function() {
+			return this.refreshStatus(false);
+		}, this), 5);
+		setTimeout(L.bind(this.refreshLogs, this), 0);
 
 		return root;
 	},

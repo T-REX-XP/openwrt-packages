@@ -82,13 +82,13 @@
 }
 
 .luci-app-oled .oled-pill--ok {
-	background: var(--success-color-low);
-	color: var(--success-color-high);
+	background: var(--success-color-low, rgba(46, 125, 50, 0.15));
+	color: var(--success-color-high, #2e7d32);
 }
 
 .luci-app-oled .oled-pill--err {
-	background: var(--error-color-low);
-	color: var(--error-color-high);
+	background: var(--error-color-low, rgba(198, 40, 40, 0.15));
+	color: var(--error-color-high, #c62828);
 }
 
 .luci-app-oled .oled-inline-actions {

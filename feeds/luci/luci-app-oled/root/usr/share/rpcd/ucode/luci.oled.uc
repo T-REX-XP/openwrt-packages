@@ -348,7 +348,12 @@ const methods = {
 			if (!file_test('-f', CM5_RST_LED))
 				return { error: 'no_rst_led', message: 'Kernel waveshare-oled-rst LED missing (CM5 DTS patch 999).' };
 			let res = run_cmd(`echo 1 > ${shell_quote(CM5_RST_LED)}`);
-			return { ok: res.code == 0, output: res.output };
+			if (res.code != 0)
+				return {
+					error: 'rst_failed',
+					message: res.output || 'Failed to write waveshare-oled-rst brightness'
+				};
+			return { ok: true, output: res.output };
 		}
 	},
 
