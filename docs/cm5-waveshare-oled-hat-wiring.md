@@ -30,7 +30,7 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 | **Minimum wires** | 5: 3V3, GND, SDA, SCL, **RST** (pad 9 → HAT pin 22) |
 | **RST (required)** | FPC pad **9** (**GPIO1_B4**) → HAT pin **22** — must be **driven high**; `luci-app-oled` runs `cm5-waveshare-rst.sh` at `oledd` start (`gpiochip1` line 12) |
 | **Verified harness** | User-tested dupont wiring on CM5 Base J4 — see [§4](#4-verified-wire-by-wire-table-i2c) |
-| **Firmware gap** | ImmortalWrt patch **`998-*-fpc-i2c7`** enables **`i2c7`** + `i2c7m3_xfer` on the FPC; patch **`999-*-oled-rst`** currently drives **GPIO4_B4** (wrong net for pad 9) — use manual RST until DTS is corrected to **GPIO1_B4** |
+| **Firmware gap** | ImmortalWrt patch **`998-*-fpc-i2c7`** enables **`i2c7`** + `i2c7m3_xfer` on the FPC; patch **`999-*-oled-rst`** drives **GPIO1_B4** (FPC pad 9) high at boot |
 | **Software** | CM5 ImmortalWrt images ship with **`luci-app-oled` enabled** — menu mode (`oledd`) on `/dev/i2c-7`, interactive nav via MaskROM + USERKEY; no manual UCI on first boot |
 
 Wiring alone does not light the display — enable **`i2c7`** in firmware, drive **RST** high on the correct GPIO, set the correct **`path`**, and **`chip`** for SH1106. See [Firmware and software requirements](#firmware-and-software-requirements).
