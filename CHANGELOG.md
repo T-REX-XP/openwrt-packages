@@ -2,6 +2,30 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r33] — 2026-06-25
+
+### Changed
+
+- **Menu & buttons** section documents handler vs mapping split; no dependency on `luci-app-buttons`.
+
+## [luci-app-peripherals r19] — 2026-06-25
+
+### Changed
+
+- Cross-links point to **Services → OLED** for button mapping; notes `cm5-button-scripts` for handlers.
+
+## [luci-app-oled r32] — 2026-06-25
+
+### Changed
+
+- **LuCI layout** — single scrollable page with visible `cbi-section` blocks (Status, Service, Display & I2C, Menu & buttons, Legacy screensaver); removed tabs and collapsed accordion.
+
+## [luci-app-peripherals r18] — 2026-06-25
+
+### Fixed
+
+- **I2C tab** — renamed from OLED diagnostics; **Scan bus** fixed (read ACL for `i2cdetect`); RPC `scanI2c`; `+i2c-tools` dependency.
+
 ## [luci-app-oled r31] — 2026-06-25
 
 ### Fixed

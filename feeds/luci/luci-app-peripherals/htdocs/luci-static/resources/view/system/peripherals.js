@@ -789,14 +789,11 @@ return view.extend({
 			E('p', { 'class': 'cbi-map-descr' }, [
 				_('Low-level tuning for infrared, cooling fan, I2C diagnostics, and kernel modules.'),
 				' ',
-				_('Display settings:'),
+				_('Display and OLED menu button mapping:'),
 				' ',
 				E('a', { 'href': L.url('admin/services/oled') }, [ _('Services → OLED') ]),
 				'. ',
-				_('Button scripts:'),
-				' ',
-				E('a', { 'href': L.url('admin/system/buttons') }, [ _('System → Buttons') ]),
-				'.'
+				_('Physical button handlers (WPS, logging) ship in cm5-button-scripts under %s.').format('/etc/rc.button/')
 			]),
 			E('div', {}, [
 				tabIr,

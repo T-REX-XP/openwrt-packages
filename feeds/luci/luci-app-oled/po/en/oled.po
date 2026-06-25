@@ -159,6 +159,9 @@ msgstr "Release the display reset GPIO when available on this board. Use after w
 msgid "Button mapping"
 msgstr "Button mapping"
 
+msgid "USERKEY and MaskROM handlers live in %s (cm5-button-scripts). Map which button advances the menu or selects here."
+msgstr "USERKEY and MaskROM handlers live in %s (cm5-button-scripts). Map which button advances the menu or selects here."
+
 msgid "These options apply only when menu mode is disabled. Most installations use menu mode (oledd) and can ignore this section."
 msgstr "These options apply only when menu mode is disabled. Most installations use menu mode (oledd) and can ignore this section."
 

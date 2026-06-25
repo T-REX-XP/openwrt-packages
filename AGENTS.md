@@ -33,7 +33,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-speedtest` | luci-app-speedtest | speedtest-go UI |
 | `feeds/luci/luci-app-security-guide` | luci-app-security-guide | Security & privacy guide |
 | `feeds/luci/luci-app-peripherals` | luci-app-peripherals | IR, PWM fan, I2C diagnostics (read-only); **not** OLED configuration |
-| `feeds/luci/luci-app-buttons` | luci-app-buttons | GPIO keys UI |
+| `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-oled** + **cm5-button-scripts**) |
 | `feeds/luci/luci-app-oled` | luci-app-oled | SH1106/oledd menu (`/dev/i2c-7` on CM5 HAT), boot splash, button nav |
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
 
@@ -45,7 +45,7 @@ Upstream **speedtest-go** stays on the standard packages feed; this feed only sh
 2. **Bump `PKG_RELEASE`** on every recipe change (packages and LuCI apps). Do not bump `PKG_VERSION` unless upgrading upstream.
 3. **LuCI theming** — each app ships its own `*-theme.css`. Use **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, `--border-color-*`, `--error-color-high`, …). Support **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight**. No shared theme library.
 4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-oled`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`.
-5. **OLED vs peripherals** — display/menu/buttons/splash → **luci-app-oled** (`Services → OLED`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Cross-link in UI; do not duplicate UCI forms.
+5. **OLED vs peripherals** — display/menu/button mapping/splash → **luci-app-oled** (`Services → OLED`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms.
 6. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
 7. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
 8. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.

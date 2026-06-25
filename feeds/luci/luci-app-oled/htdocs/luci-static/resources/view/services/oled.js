@@ -452,7 +452,9 @@ return view.extend({
 			]),
 
 			cbiSection(_('Menu & buttons'), [
-				_('Menu mode uses oledd for boot splash, rotating views, and button navigation.')
+				_('Menu mode uses oledd for boot splash, rotating views, and button navigation.'),
+				' ',
+				_('USERKEY and MaskROM handlers live in %s (cm5-button-scripts). Map which button advances the menu or selects here.').format('/etc/rc.button/')
 			], [
 				fieldRow(_('Menu mode'), flagInput('oled-menu-mode', _('Use oledd menu daemon'), pick('menu_mode') === '1')),
 				fieldRow(_('View timeout'), E('input', {

@@ -13,9 +13,11 @@ description: >-
 
 | Concern | Package | LuCI path |
 |---------|---------|-----------|
-| Display enable, menu, buttons, boot splash, service control | **luci-app-oled** | **Services → OLED** |
+| Display enable, menu, button mapping, boot splash, service control | **luci-app-oled** | **Services → OLED** |
 | Fan PWM, IR keymaps, I2C bus scan, kernel module diagnostics | **luci-app-peripherals** | **System → Peripherals** |
-| GPIO button script editing | **luci-app-buttons** | **System → Buttons** |
+| Physical button hotplug scripts (WPS, MaskROM logging) | **cm5-button-scripts** | (no LuCI on CM5 image; `/etc/rc.button/`) |
+
+**Optional (feed only, not CM5 image):** **luci-app-buttons** — script editor + polled live status; overlaps OLED mapping and SSH editing.
 
 **LuCI rule:** no hardcoded board/wiring tables in views. Hardware harness notes live in `docs/cm5-waveshare-oled-hat-wiring.md` only. UI shows **runtime** state (I2C devices, hwmon, daemon status).
 

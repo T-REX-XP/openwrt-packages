@@ -9,12 +9,12 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | Path | Package |
 |------|---------|
 | `feeds/packages/blocky` | **blocky** — DNS proxy / ad-block (Go) |
-| `feeds/packages/cm5-button-scripts` | **cm5-button-scripts** — GPIO key handlers (used by **luci-app-buttons** on CM5) |
+| `feeds/packages/cm5-button-scripts` | **cm5-button-scripts** — CM5 USERKEY/MaskROM hotplug (`/etc/rc.button/`; shipped on CM5 image) |
 | `feeds/luci/luci-app-blocky` | **luci-app-blocky** — LuCI for Blocky |
 | `feeds/luci/luci-app-speedtest` | **luci-app-speedtest** — LuCI for speedtest-go |
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, diagnostics |
-| `feeds/luci/luci-app-buttons` | **luci-app-buttons** — GPIO keys UI |
+| `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
 | `feeds/luci/luci-app-oled` | **luci-app-oled** — SSD1306 I2C OLED status (CM5: `/dev/i2c-1`, `br-lan`) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
 

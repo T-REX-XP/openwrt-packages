@@ -28,5 +28,8 @@ msgstr "Configure display → Services → OLED"
 msgid "Services → OLED"
 msgstr "Services → OLED"
 
-msgid "System → Buttons"
-msgstr "System → Buttons"
+msgid "Display and OLED menu button mapping:"
+msgstr "Display and OLED menu button mapping:"
+
+msgid "Physical button handlers (WPS, logging) ship in cm5-button-scripts under %s."
+msgstr "Physical button handlers (WPS, logging) ship in cm5-button-scripts under %s."
