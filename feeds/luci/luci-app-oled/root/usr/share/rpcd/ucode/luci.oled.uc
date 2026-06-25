@@ -116,6 +116,16 @@ function find_i2cdetect() {
 	return '';
 }
 
+function find_logread() {
+	if (file_test('-x', '/sbin/logread'))
+		return '/sbin/logread';
+	if (file_test('-x', '/bin/logread'))
+		return '/bin/logread';
+	return '';
+}
+
+const OLED_LOG_PATTERN = 'oledd|oled-cm5|oledd-boot|cm5-oled|oled-cm5-migrate';
+
 function proc_running(pattern) {
 	let p = popen(`pgrep -f ${shell_quote(pattern)} >/dev/null 2>&1; echo $?`, 'r');
 	let code = trim(p ? (p.read('all') || '1') : '1');
@@ -359,6 +369,26 @@ const methods = {
 				init,
 				output: res.output,
 				running: menu_mode == '1' ? proc_running('/usr/sbin/oledd') : proc_running('/usr/bin/oled')
+			};
+		}
+	},
+
+	getLogs: {
+		args: { limit: 'limit' },
+		call: function(req) {
+			let logread = find_logread();
+			if (!length(logread))
+				return { error: 'missing_logread', message: 'logread not found' };
+			let limit = int(req.args?.limit);
+			if (!limit || limit < 1)
+				limit = 200;
+			if (limit > 2000)
+				limit = 2000;
+			let res = run_cmd(`${logread} -l ${limit} -e ${shell_quote(OLED_LOG_PATTERN)}`);
+			return {
+				ok: true,
+				limit,
+				output: res.output || ''
 			};
 		}
 	}

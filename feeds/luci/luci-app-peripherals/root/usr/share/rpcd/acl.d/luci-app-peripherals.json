@@ -18,7 +18,8 @@
 			"file": {
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ],
-				"/dev/i2c-*": [ "read", "write" ]
+				"/dev/i2c-*": [ "read", "write" ],
+				"/sys/class/hwmon/*": [ "read" ]
 			}
 		},
 		"write": {
@@ -36,7 +37,7 @@
 				"/usr/bin/ir-keytable": [ "exec" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ],
-				"/sys/class/hwmon": [ "read", "write" ]
+				"/sys/class/hwmon/*": [ "read", "write" ]
 			}
 		}
 	}

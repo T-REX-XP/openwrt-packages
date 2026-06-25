@@ -6,13 +6,19 @@
 				"luci.oled": [
 					"getConfig",
 					"getStatus",
-					"detectI2c"
+					"detectI2c",
+					"getLogs"
 				],
 				"oledd": [ "status" ]
 			},
 			"uci": [ "oled" ],
 			"file": {
-				"/tmp/oled_state": [ "read" ]
+				"/tmp/oled_state": [ "read" ],
+				"/dev/i2c-*": [ "read" ],
+				"/sbin/logread": [ "exec" ],
+				"/bin/logread": [ "exec" ],
+				"/usr/sbin/i2cdetect": [ "exec" ],
+				"/usr/bin/i2cdetect": [ "exec" ]
 			}
 		},
 		"write": {

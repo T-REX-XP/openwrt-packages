@@ -133,3 +133,66 @@ msgstr "設置"
 #: ../../package/new/luci-app-oled/luasrc/model/cbi/oled/setting.lua:13
 msgid "screensaver"
 msgstr "屏保"
+
+msgid "Dashboard"
+msgstr "概覽"
+
+msgid "Display"
+msgstr "顯示"
+
+msgid "Menu"
+msgstr "選單"
+
+msgid "Buttons"
+msgstr "按鈕"
+
+msgid "Screensaver"
+msgstr "螢幕保護"
+
+msgid "Menu behavior"
+msgstr "選單行為"
+
+msgid "Physical buttons"
+msgstr "實體按鈕"
+
+msgid "Debug"
+msgstr "偵錯"
+
+msgid "Debug logs"
+msgstr "偵錯日誌"
+
+msgid "Recent syslog lines tagged oledd, oled-cm5, oledd-boot, or cm5-oled."
+msgstr "最近帶有 oledd、oled-cm5、oledd-boot 或 cm5-oled 標籤的 syslog 行。"
+
+msgid "Line limit"
+msgstr "行數限制"
+
+msgid "Copy to clipboard"
+msgstr "複製到剪貼簿"
+
+msgid "Click Refresh to load log lines."
+msgstr "點擊重新整理以載入日誌。"
+
+msgid "Loading logs…"
+msgstr "正在載入日誌…"
+
+msgid "No matching log entries."
+msgstr "沒有符合的日誌項目。"
+
+msgid "Could not load logs: %s"
+msgstr "無法載入日誌：%s"
+
+msgid "Log copied to clipboard."
+msgstr "日誌已複製到剪貼簿。"
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "複製失敗——請選取文字區域後手動複製。"
+
+msgid "I2C scan failed: %s"
+msgstr "I2C 掃描失敗：%s"
+
+msgid "Reset failed: %s"
+msgstr "重設失敗：%s"
+
+msgid "Service control failed: %s"
+msgstr "服務控制失敗：%s"

@@ -136,3 +136,66 @@ msgstr "Заставка"
 
 msgid "180 degree rotation"
 msgstr "Поворот на 180°"
+
+msgid "Dashboard"
+msgstr "Панель"
+
+msgid "Display"
+msgstr "Дисплей"
+
+msgid "Menu"
+msgstr "Меню"
+
+msgid "Buttons"
+msgstr "Кнопки"
+
+msgid "Screensaver"
+msgstr "Заставка"
+
+msgid "Menu behavior"
+msgstr "Поведінка меню"
+
+msgid "Physical buttons"
+msgstr "Фізичні кнопки"
+
+msgid "Debug"
+msgstr "Налагодження"
+
+msgid "Debug logs"
+msgstr "Журнал налагодження"
+
+msgid "Recent syslog lines tagged oledd, oled-cm5, oledd-boot, or cm5-oled."
+msgstr "Останні рядки syslog з тегами oledd, oled-cm5, oledd-boot або cm5-oled."
+
+msgid "Line limit"
+msgstr "Ліміт рядків"
+
+msgid "Copy to clipboard"
+msgstr "Копіювати в буфер"
+
+msgid "Click Refresh to load log lines."
+msgstr "Натисніть «Оновити», щоб завантажити журнал."
+
+msgid "Loading logs…"
+msgstr "Завантаження журналу…"
+
+msgid "No matching log entries."
+msgstr "Немає відповідних записів у журналі."
+
+msgid "Could not load logs: %s"
+msgstr "Не вдалося завантажити журнал: %s"
+
+msgid "Log copied to clipboard."
+msgstr "Журнал скопійовано в буфер."
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "Не вдалося скопіювати — виділіть текст і скопіюйте вручну."
+
+msgid "I2C scan failed: %s"
+msgstr "Помилка сканування I2C: %s"
+
+msgid "Reset failed: %s"
+msgstr "Помилка скидання: %s"
+
+msgid "Service control failed: %s"
+msgstr "Помилка керування службою: %s"

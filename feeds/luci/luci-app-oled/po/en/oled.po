@@ -167,3 +167,66 @@ msgstr "These options apply only when menu mode is disabled. Most installations 
 
 msgid "Seconds between screen updates."
 msgstr "Seconds between screen updates."
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Display"
+msgstr "Display"
+
+msgid "Menu"
+msgstr "Menu"
+
+msgid "Buttons"
+msgstr "Buttons"
+
+msgid "Screensaver"
+msgstr "Screensaver"
+
+msgid "Menu behavior"
+msgstr "Menu behavior"
+
+msgid "Physical buttons"
+msgstr "Physical buttons"
+
+msgid "Debug"
+msgstr "Debug"
+
+msgid "Debug logs"
+msgstr "Debug logs"
+
+msgid "Recent syslog lines tagged oledd, oled-cm5, oledd-boot, or cm5-oled."
+msgstr "Recent syslog lines tagged oledd, oled-cm5, oledd-boot, or cm5-oled."
+
+msgid "Line limit"
+msgstr "Line limit"
+
+msgid "Copy to clipboard"
+msgstr "Copy to clipboard"
+
+msgid "Click Refresh to load log lines."
+msgstr "Click Refresh to load log lines."
+
+msgid "Loading logs…"
+msgstr "Loading logs…"
+
+msgid "No matching log entries."
+msgstr "No matching log entries."
+
+msgid "Could not load logs: %s"
+msgstr "Could not load logs: %s"
+
+msgid "Log copied to clipboard."
+msgstr "Log copied to clipboard."
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "Copy failed — select the text area and copy manually."
+
+msgid "I2C scan failed: %s"
+msgstr "I2C scan failed: %s"
+
+msgid "Reset failed: %s"
+msgstr "Reset failed: %s"
+
+msgid "Service control failed: %s"
+msgstr "Service control failed: %s"

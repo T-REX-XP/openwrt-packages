@@ -152,3 +152,66 @@ msgstr "屏保"
 #: ../../package/new/luci-app-oled/luasrc/model/cbi/oled/setting.lua:19
 msgid "180 degree rotation"
 msgstr "180 度旋转"
+
+msgid "Dashboard"
+msgstr "概览"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "Menu"
+msgstr "菜单"
+
+msgid "Buttons"
+msgstr "按钮"
+
+msgid "Screensaver"
+msgstr "屏保"
+
+msgid "Menu behavior"
+msgstr "菜单行为"
+
+msgid "Physical buttons"
+msgstr "物理按钮"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Debug logs"
+msgstr "调试日志"
+
+msgid "Recent syslog lines tagged oledd, oled-cm5, oledd-boot, or cm5-oled."
+msgstr "最近带有 oledd、oled-cm5、oledd-boot 或 cm5-oled 标签的 syslog 行。"
+
+msgid "Line limit"
+msgstr "行数限制"
+
+msgid "Copy to clipboard"
+msgstr "复制到剪贴板"
+
+msgid "Click Refresh to load log lines."
+msgstr "点击刷新以加载日志。"
+
+msgid "Loading logs…"
+msgstr "正在加载日志…"
+
+msgid "No matching log entries."
+msgstr "没有匹配的日志条目。"
+
+msgid "Could not load logs: %s"
+msgstr "无法加载日志：%s"
+
+msgid "Log copied to clipboard."
+msgstr "日志已复制到剪贴板。"
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "复制失败——请选中文本区域后手动复制。"
+
+msgid "I2C scan failed: %s"
+msgstr "I2C 扫描失败：%s"
+
+msgid "Reset failed: %s"
+msgstr "复位失败：%s"
+
+msgid "Service control failed: %s"
+msgstr "服务控制失败：%s"

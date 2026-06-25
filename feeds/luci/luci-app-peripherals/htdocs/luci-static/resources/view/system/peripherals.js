@@ -637,7 +637,8 @@ return view.extend({
 				E('label', { 'class': 'cbi-value-title' }, [ _('Mode') ]),
 				E('div', { 'class': 'cbi-value-field' }, [
 					E('select', {
-						'id': 'periph-fan-mode'
+						'id': 'periph-fan-mode',
+						'disabled': isReadonlyView
 					}, [
 						E('option', { 'value': 'auto', 'selected': fan.mode === 'auto' }, [ _('Automatic (thermal)') ]),
 						E('option', { 'value': 'manual', 'selected': fan.mode === 'manual' }, [ _('Manual PWM') ]),
@@ -655,6 +656,7 @@ return view.extend({
 						'min': 0,
 						'max': 255,
 						'value': pwmVal,
+						'disabled': isReadonlyView,
 						'input': function(ev) {
 							var lbl = document.getElementById('periph-fan-pwm-lbl');
 							if (lbl)
@@ -676,7 +678,8 @@ return view.extend({
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', {
 					'class': 'btn cbi-button-save',
-					'click': ui.createHandlerFn(this, 'handleFanApply')
+					'click': ui.createHandlerFn(this, 'handleFanApply'),
+					'disabled': isReadonlyView
 				}, _('Save')),
 				' ',
 				E('button', {
@@ -686,17 +689,20 @@ return view.extend({
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-apply',
-					'click': ui.createHandlerFn(this, 'handleFanTest', 255, 'manual')
+					'click': ui.createHandlerFn(this, 'handleFanTest', 255, 'manual'),
+					'disabled': isReadonlyView
 				}, _('Full-speed test')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-apply',
-					'click': ui.createHandlerFn(this, 'handleFanTest', 0, 'manual')
+					'click': ui.createHandlerFn(this, 'handleFanTest', 0, 'manual'),
+					'disabled': isReadonlyView
 				}, _('Inverted full-speed test')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-reset',
-					'click': ui.createHandlerFn(this, 'handleFanTest', 0, 'off')
+					'click': ui.createHandlerFn(this, 'handleFanTest', 0, 'off'),
+					'disabled': isReadonlyView
 				}, _('Stop fan'))
 			])
 		]);
