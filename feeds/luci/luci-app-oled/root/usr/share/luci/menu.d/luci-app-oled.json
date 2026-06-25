@@ -1,0 +1,16 @@
+{
+	"admin/services/oled": {
+		"title": "OLED",
+		"order": 90,
+		"action": {
+			"type": "view",
+			"path": "services/oled"
+		},
+		"depends": {
+			"acl": [ "luci-app-oled" ],
+			"fs": {
+				"/etc/config/oled": "file"
+			}
+		}
+	}
+}

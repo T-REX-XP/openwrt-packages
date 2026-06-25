@@ -1,6 +1,6 @@
 {
 	"luci-app-peripherals": {
-		"description": "Peripherals (IR, fan, OLED, diagnostics)",
+		"description": "Peripherals (IR, fan, diagnostics)",
 		"read": {
 			"ubus": {
 				"luci.peripherals": [
@@ -22,15 +22,11 @@
 					"irMapsSet",
 					"irApply",
 					"fanSet",
-					"fanTest",
-					"oledSet",
-					"oledService"
+					"fanTest"
 				]
 			},
-			"uci": [ "oled" ],
 			"file": {
 				"/usr/bin/ir-keytable": [ "exec" ],
-				"/etc/init.d/oled": [ "exec" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ]
 			}

@@ -1,5 +1,5 @@
 config oled
-	option showmenu '0'
+	option showmenu '1'
 	option enable '1'
 	option drawline '0'
 	option drawrect '0'

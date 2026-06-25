@@ -61,22 +61,10 @@ var callOledGet = rpc.declare({
 	method: 'oledGet'
 });
 
-var callOledSet = rpc.declare({
-	object: 'luci.peripherals',
-	method: 'oledSet',
-	params: ['config']
-});
-
 var callOledDetect = rpc.declare({
 	object: 'luci.peripherals',
 	method: 'oledDetect',
 	params: ['bus']
-});
-
-var callOledService = rpc.declare({
-	object: 'luci.peripherals',
-	method: 'oledService',
-	params: ['action']
 });
 
 var isReadonlyView = !L.hasViewPermission() || null;
@@ -293,16 +281,18 @@ function oledMetaBlock(oled) {
 	oled = oled || {};
 	if (!oled.config_present) {
 		return E('p', { 'class': 'alert-message warning' }, [
-			_('luci-app-oled is not installed. Install the luci-app-oled package to use the SH1106 status daemon.')
+			_('luci-app-oled is not installed. Install luci-app-oled for SH1106 display support.')
 		]);
 	}
 	if (!oled.installed) {
 		return E('p', { 'class': 'alert-message warning' }, [
-			_('/etc/config/oled exists but /usr/bin/oled is missing. Reinstall luci-app-oled.')
+			_('/etc/config/oled exists but neither oledd nor the legacy oled binary is present. Reinstall luci-app-oled.')
 		]);
 	}
+	var daemon = oled.menu_mode === '1' ? 'oledd' : 'oled';
 	return E('p', {}, [
-		_('Service: %s, enabled in UCI: %s, I2C path: %s').format(
+		_('Daemon (%s): %s, UCI enable: %s, configured bus: %s').format(
+			daemon,
 			oled.running ? _('running') : _('stopped'),
 			oled.enable === '1' ? _('yes') : _('no'),
 			oled.path || '—'
@@ -600,60 +590,6 @@ return view.extend({
 		}, this));
 	},
 
-	readOledFormConfig: function() {
-		function flag(id) {
-			var el = document.getElementById(id);
-			return el && el.checked ? '1' : '0';
-		}
-
-		function val(id, fallback) {
-			var el = document.getElementById(id);
-			return el ? String(el.value || fallback || '') : String(fallback || '');
-		}
-
-		return {
-			enable: flag('periph-oled-enable'),
-			path: val('periph-oled-path', '/dev/i2c-7'),
-			rotate: flag('periph-oled-rotate'),
-			date: flag('periph-oled-date'),
-			lanip: flag('periph-oled-lanip'),
-			ipifname: val('periph-oled-ipifname', 'br-lan'),
-			cputemp: flag('periph-oled-cputemp'),
-			cpufreq: flag('periph-oled-cpufreq'),
-			netspeed: flag('periph-oled-netspeed'),
-			netsource: val('periph-oled-netsource', 'br-lan'),
-			time: val('periph-oled-time', '60'),
-			scroll: flag('periph-oled-scroll'),
-			text: val('periph-oled-text', 'CM5'),
-			showmenu: '1'
-		};
-	},
-
-	handleOledSave: function(restart) {
-		if (isReadonlyView)
-			return Promise.resolve();
-		var cfg = this.readOledFormConfig();
-		return callOledSet(cfg).then(L.bind(function(r) {
-			r = rpcData(r, {});
-			if (r.error) {
-				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
-				return;
-			}
-			if (!restart) {
-				ui.addNotification(null, E('p', {}, [ _('OLED settings saved.') ]), 'info');
-				return this.handleOledRefresh();
-			}
-			return callOledService('restart').then(L.bind(function(sr) {
-				sr = rpcData(sr, {});
-				if (sr.error)
-					ui.addNotification(null, E('p', {}, [ sr.message || sr.error ]), 'error');
-				else
-					ui.addNotification(null, E('p', {}, [ _('OLED settings saved and service restarted.') ]), 'info');
-				return this.handleOledRefresh();
-			}, this));
-		}, this));
-	},
-
 	handleOledRefresh: function() {
 		return callOledGet().then(L.bind(function(o) {
 			o = rpcData(o, {});
@@ -684,20 +620,8 @@ return view.extend({
 		});
 	},
 
-	handleOledService: function(action) {
-		return callOledService(action).then(L.bind(function(r) {
-			r = rpcData(r, {});
-			if (r.error)
-				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
-			else
-				ui.addNotification(null, E('p', {}, [ _('OLED service: %s (%s)').format(action, r.running ? _('running') : _('stopped')) ]), 'info');
-			return this.handleOledRefresh();
-		}, this));
-	},
-
 	buildOledTab: function(oled) {
 		oled = oled || {};
-		var pkgReady = !!(oled.config_present && oled.installed);
 		var i2cList = oled.i2c_devices || [];
 		if (!i2cList.length)
 			i2cList = [ oled.path || '/dev/i2c-7' ];
@@ -709,53 +633,40 @@ return view.extend({
 			}, [ dev ]);
 		});
 
-		function chk(id, label, checked) {
-			return E('label', { 'style': 'display:block;margin:.35em 0' }, [
-				E('input', {
-					'type': 'checkbox',
-					'id': id,
-					'checked': checked ? 'checked' : null,
-					'disabled': isReadonlyView
-				}),
-				' ',
-				label
-			]);
-		}
+		var oledAppLink = oled.config_present
+			? E('a', { 'href': L.url('admin/services/oled') }, [ _('Configure display → Services → OLED') ])
+			: E('em', {}, [ _('Install luci-app-oled for display configuration.') ]);
 
-		return E('div', { 'data-tab': 'oled', 'data-tab-title': _('OLED display') }, [
+		return E('div', { 'data-tab': 'oled', 'data-tab-title': _('OLED diagnostics') }, [
 			cbiSection(
-				_('Board wiring'),
+				_('I2C hardware reference'),
 				[
-					_('Waveshare 1.3" HAT (SH1106 128×64) on the CM5 FPC uses /dev/i2c-7. Use i2cget -y 7 0x3c 0x00 b to confirm 0x3c before enabling the daemon.')
+					_('Read-only wiring notes for the CM5 FPC OLED. Display settings, menu mode, and buttons are configured in the OLED app.'),
+					oledAppLink
 				],
 				[ oledBoardInfoBlock(oled) ]
 			),
 			cbiSection(
-				_('OLED status display'),
+				_('I2C probe'),
 				[
-					_('Managed by the luci-app-oled userspace daemon (SH1106 128×64). Full screensaver options remain under Services → OLED when the menu is enabled.')
+					_('Scan adapters with i2cdetect. Expect 0x3c on bus 7 for the Waveshare SH1106 HAT. This tab does not change OLED UCI.')
 				],
 				[
 					E('div', { 'id': 'periph-oled-meta', 'class': 'cbi-value-field' }, [ oledMetaBlock(oled) ]),
 					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('Enable display') ]),
+						E('label', { 'class': 'cbi-value-title' }, [ _('I2C adapter') ]),
 						E('div', { 'class': 'cbi-value-field' }, [
-							chk('periph-oled-enable', _('Run OLED daemon on boot'), oled.enable === '1')
-						])
-					]),
-					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('I2C device') ]),
-						E('div', { 'class': 'cbi-value-field' }, [
-							E('select', {
-								'id': 'periph-oled-path',
-								'disabled': isReadonlyView
-							}, pathOptions),
+							E('select', { 'id': 'periph-oled-path' }, pathOptions),
 							' ',
 							E('button', {
 								'class': 'btn cbi-button-action',
-								'click': ui.createHandlerFn(this, 'handleOledDetect'),
-								'disabled': isReadonlyView
-							}, [ _('Scan bus') ])
+								'click': ui.createHandlerFn(this, 'handleOledDetect')
+							}, [ _('Scan bus') ]),
+							' ',
+							E('button', {
+								'class': 'btn cbi-button-action',
+								'click': ui.createHandlerFn(this, 'handleOledRefresh')
+							}, [ _('Refresh status') ])
 						])
 					]),
 					E('div', { 'class': 'cbi-value' }, [
@@ -766,101 +677,9 @@ return view.extend({
 								'class': 'peripherals-detect-pre'
 							}, [ _('Click Scan bus to probe the selected I2C adapter.') ])
 						])
-					]),
-					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('Display fields') ]),
-						E('div', { 'class': 'cbi-value-field' }, [
-							chk('periph-oled-date', _('Date/time'), oled.date === '1'),
-							chk('periph-oled-lanip', _('LAN IP'), oled.lanip === '1'),
-							chk('periph-oled-cputemp', _('CPU temperature'), oled.cputemp === '1'),
-							chk('periph-oled-cpufreq', _('CPU frequency'), oled.cpufreq === '1'),
-							chk('periph-oled-netspeed', _('Network speed'), oled.netspeed === '1'),
-							chk('periph-oled-rotate', _('180° rotation'), oled.rotate === '1'),
-							chk('periph-oled-scroll', _('Scroll text screensaver'), oled.scroll === '1')
-						])
-					]),
-					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('Interfaces') ]),
-						E('div', { 'class': 'cbi-value-field' }, [
-							E('label', {}, [ _('IP interface'), ' ',
-								E('input', {
-									'type': 'text',
-									'id': 'periph-oled-ipifname',
-									'class': 'cbi-input-text',
-									'value': oled.ipifname || 'br-lan',
-									'disabled': isReadonlyView
-								})
-							]),
-							E('br'),
-							E('label', {}, [ _('Speed interface'), ' ',
-								E('input', {
-									'type': 'text',
-									'id': 'periph-oled-netsource',
-									'class': 'cbi-input-text',
-									'value': oled.netsource || 'br-lan',
-									'disabled': isReadonlyView
-								})
-							])
-						])
-					]),
-					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('Screensaver') ]),
-						E('div', { 'class': 'cbi-value-field' }, [
-							E('label', {}, [ _('Refresh interval (s)'), ' ',
-								E('input', {
-									'type': 'number',
-									'id': 'periph-oled-time',
-									'class': 'cbi-input-text',
-									'min': 5,
-									'max': 600,
-									'value': oled.time || '60',
-									'disabled': isReadonlyView
-								})
-							]),
-							E('br'),
-							E('label', {}, [ _('Scroll text'), ' ',
-								E('input', {
-									'type': 'text',
-									'id': 'periph-oled-text',
-									'class': 'cbi-input-text',
-									'value': oled.text || 'CM5',
-									'disabled': isReadonlyView
-								})
-							])
-						])
 					])
 				]
-			),
-			E('div', { 'class': 'cbi-page-actions' }, [
-				E('button', {
-					'class': 'btn cbi-button-save',
-					'click': ui.createHandlerFn(this, 'handleOledSave', false),
-					'disabled': isReadonlyView || !pkgReady
-				}, [ _('Save') ]),
-				' ',
-				E('button', {
-					'class': 'btn cbi-button-apply',
-					'click': ui.createHandlerFn(this, 'handleOledSave', true),
-					'disabled': isReadonlyView || !pkgReady
-				}, [ _('Save & restart') ]),
-				' ',
-				E('button', {
-					'class': 'btn cbi-button-action',
-					'click': ui.createHandlerFn(this, 'handleOledRefresh')
-				}, [ _('Refresh status') ]),
-				' ',
-				E('button', {
-					'class': 'btn cbi-button-action',
-					'click': ui.createHandlerFn(this, 'handleOledService', 'start'),
-					'disabled': isReadonlyView || !pkgReady
-				}, [ _('Start') ]),
-				' ',
-				E('button', {
-					'class': 'btn cbi-button-reset',
-					'click': ui.createHandlerFn(this, 'handleOledService', 'stop'),
-					'disabled': isReadonlyView || !pkgReady
-				}, [ _('Stop') ])
-			])
+			)
 		]);
 	},
 
@@ -1047,7 +866,7 @@ return view.extend({
 			}),
 			E('h2', {}, [ _('Peripherals') ]),
 			E('p', { 'class': 'cbi-map-descr' }, [
-				_('Manage infrared reception, the PWM cooling fan, SSD1306 OLED display, and kernel module diagnostics. Button script editing is handled by the dedicated Buttons app.')
+				_('Low-level peripheral tuning: infrared, PWM fan, I2C OLED diagnostics, and kernel module checks. OLED display settings live under Services → OLED; GPIO button scripts under System → Buttons.')
 			]),
 			E('div', {}, [
 				tabIr,

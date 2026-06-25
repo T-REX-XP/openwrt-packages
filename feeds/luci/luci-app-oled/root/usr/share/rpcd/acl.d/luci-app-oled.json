@@ -1,11 +1,36 @@
 {
 	"luci-app-oled": {
-		"description": "Grant UCI access for luci-app-oled",
+		"description": "Grant access for luci-app-oled (OLED display configuration)",
 		"read": {
-			"uci": [ "oled" ]
+			"ubus": {
+				"luci.oled": [
+					"getConfig",
+					"getStatus",
+					"detectI2c"
+				],
+				"oledd": [ "status" ]
+			},
+			"uci": [ "oled" ],
+			"file": {
+				"/tmp/oled_state": [ "read" ]
+			}
 		},
 		"write": {
-			"uci": [ "oled" ]
+			"ubus": {
+				"luci.oled": [
+					"setConfig",
+					"releaseRst",
+					"serviceControl"
+				]
+			},
+			"uci": [ "oled" ],
+			"file": {
+				"/etc/init.d/oled": [ "exec" ],
+				"/etc/init.d/oledd": [ "exec" ],
+				"/usr/lib/oled/cm5-waveshare-rst.sh": [ "exec" ],
+				"/usr/sbin/i2cdetect": [ "exec" ],
+				"/usr/bin/i2cdetect": [ "exec" ]
+			}
 		}
 	}
 }

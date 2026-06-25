@@ -2,6 +2,21 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r27] — 2026-06-25
+
+### Changed
+
+- **LuCI redesign** — new JS view (`Services → OLED`) with Status, Display & hardware, Menu mode, Button navigation, Legacy screensaver (collapsed), Boot/splash sections
+- **rpcd `luci.oled`** — status, service control, I2C scan, RST pulse; replaces legacy CBI/Lua controller
+- **Ownership** — all OLED UCI and service controls moved here from luci-app-peripherals
+
+## [luci-app-peripherals r15] — 2026-06-25
+
+### Changed
+
+- **OLED tab demoted** — diagnostics only (I2C scan, read-only wiring reference); no UCI writes or service controls
+- Cross-link to **Services → OLED** for display configuration
+
 ## [luci-app-oled r26] — 2026-06-25
 
 ### Fixed

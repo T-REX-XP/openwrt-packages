@@ -2,21 +2,133 @@
  * luci-app-oled theme — dark / light / system via luci-theme-bootstrap
  */
 
-.oled-status-running {
-	color: var(--success-color-high);
-	font-weight: 700;
+.luci-app-oled {
+	--oled-accent: var(--primary-color-high, #0069d6);
+	min-width: 0;
 }
 
-.oled-status-stopped {
-	color: var(--error-color-high);
-	font-weight: 700;
+.luci-app-oled .oled-section {
+	margin-bottom: 1.25em;
 }
 
-.oled-status-field {
-	margin-left: 50px;
-	margin-right: 10px;
+.luci-app-oled .oled-section-title {
+	margin-top: 0;
 }
 
-.oled-status-loading {
+.luci-app-oled .oled-status-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.75em;
+	margin-bottom: 0.75em;
+	min-width: 0;
+}
+
+.luci-app-oled .oled-status-card {
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.65em 0.75em;
+	min-width: 0;
+}
+
+.luci-app-oled .oled-status-label {
+	font-size: 0.85em;
 	color: var(--text-color-medium);
+	margin-bottom: 0.25em;
+}
+
+.luci-app-oled .oled-status-value {
+	color: var(--text-color-highest);
+	word-break: break-word;
+}
+
+.luci-app-oled .oled-pill {
+	display: inline-block;
+	font-size: 0.8em;
+	font-weight: 600;
+	padding: 0.1em 0.45em;
+	border-radius: 3px;
+	margin-left: 0.25em;
+}
+
+.luci-app-oled .oled-pill--ok {
+	background: var(--success-color-low);
+	color: var(--success-color-high);
+}
+
+.luci-app-oled .oled-pill--err {
+	background: var(--error-color-low);
+	color: var(--error-color-high);
+}
+
+.luci-app-oled .oled-inline-actions {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
+}
+
+.luci-app-oled .oled-detect-pre {
+	white-space: pre-wrap;
+	font-family: var(--font-mono, monospace);
+	min-height: 5em;
+	margin-top: 0.5em;
+	padding: 0.5em;
+	background: var(--background-color-low);
+	border: 1px solid var(--border-color-medium);
+	color: var(--text-color-high);
+}
+
+.luci-app-oled .oled-flag {
+	display: block;
+	margin: 0.3em 0;
+}
+
+.luci-app-oled .oled-flag-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.15em 1em;
+}
+
+.luci-app-oled .oled-time-range label {
+	margin-right: 0.5em;
+}
+
+.luci-app-oled .oled-legacy-panel {
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.5em 0.75em 0.75em;
+	background: var(--background-color-low);
+	margin-bottom: 1.25em;
+}
+
+.luci-app-oled .oled-legacy-summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--text-color-highest);
+	padding: 0.35em 0;
+}
+
+.luci-app-oled .oled-legacy-body {
+	margin-top: 0.5em;
+}
+
+.luci-app-oled .oled-crosslink {
+	display: inline-block;
+	margin-top: 0.35em;
+}
+
+@media (max-width: 768px) {
+	.luci-app-oled .oled-status-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.luci-app-oled .oled-flag-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 520px) {
+	.luci-app-oled .oled-status-grid {
+		grid-template-columns: 1fr;
+	}
 }

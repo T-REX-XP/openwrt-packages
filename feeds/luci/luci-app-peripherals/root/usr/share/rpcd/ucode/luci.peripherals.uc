@@ -344,10 +344,6 @@ function oled_daemon_present() {
 	return file_test('-x', '/usr/bin/oled');
 }
 
-function oled_init_present() {
-	return file_test('-x', '/etc/init.d/oled');
-}
-
 function oled_uci_get(option, def) {
 	if (!oled_config_present())
 		return def;
@@ -358,82 +354,33 @@ function oled_uci_get(option, def) {
 	return length(v) ? v : def;
 }
 
-function oled_uci_set(option, value) {
-	if (!match(option, /^[a-z]+$/))
-		return false;
-
-	let val = `${value}`;
-
-	if (option == 'path') {
-		if (!match(val, /^\/dev\/i2c-[0-9]+$/))
-			return false;
-	} else if (option == 'ipifname' || option == 'netsource') {
-		if (!match(val, /^[A-Za-z0-9_.-]+$/))
-			return false;
-	} else if (option == 'text') {
-		if (length(val) > 64)
-			val = substr(val, 0, 64);
-		if (!match(val, /^[ -~]*$/))
-			return false;
-	} else if (option == 'time' || option == 'from' || option == 'to') {
-		if (!match(val, /^[0-9]+$/))
-			return false;
-	} else if (!match(val, /^[01]$/)) {
-		return false;
-	}
-
-	let p = popen(`uci set oled.@oled[0].${option}=${shell_quote(val)} 2>&1`, 'r');
-	if (p) {
-		p.read('all');
-		p.close();
-	}
-	return true;
-}
-
-function oled_uci_commit() {
-	let p = popen('uci commit oled 2>&1', 'r');
-	if (p) {
-		p.read('all');
-		p.close();
-	}
-}
-
-function oled_running() {
-	let p = popen('pgrep -f /usr/bin/oled >/dev/null 2>&1; echo $?', 'r');
+function proc_running(pattern) {
+	let p = popen(`pgrep -f ${shell_quote(pattern)} >/dev/null 2>&1; echo $?`, 'r');
 	let code = trim(p ? (p.read('all') || '1') : '1');
 	if (p)
 		p.close();
 	return code == '0';
 }
 
+function oled_running() {
+	let menu_mode = oled_uci_get('menu_mode', '1');
+	if (menu_mode == '1')
+		return proc_running('/usr/sbin/oledd');
+	return proc_running('/usr/bin/oled');
+}
+
 function oled_get_config() {
 	return {
-		installed: oled_daemon_present(),
+		installed: oled_daemon_present() || file_test('-x', '/usr/sbin/oledd'),
 		config_present: oled_config_present(),
 		running: oled_running(),
-		showmenu: oled_uci_get('showmenu', '0'),
+		menu_mode: oled_uci_get('menu_mode', '1'),
 		enable: oled_uci_get('enable', '0'),
 		path: oled_uci_get('path', '/dev/i2c-7'),
-		rotate: oled_uci_get('rotate', '0'),
-		date: oled_uci_get('date', '0'),
-		lanip: oled_uci_get('lanip', '0'),
-		ipifname: oled_uci_get('ipifname', 'br-lan'),
-		cputemp: oled_uci_get('cputemp', '0'),
-		cpufreq: oled_uci_get('cpufreq', '0'),
-		netspeed: oled_uci_get('netspeed', '0'),
-		netsource: oled_uci_get('netsource', 'br-lan'),
-		time: oled_uci_get('time', '60'),
-		scroll: oled_uci_get('scroll', '0'),
-		text: oled_uci_get('text', ''),
 		i2c_devices: list_i2c_devices(),
 		board_info: oled_board_info()
 	};
 }
-
-const OLED_SET_OPTS = [
-	'enable', 'path', 'rotate', 'date', 'lanip', 'ipifname', 'cputemp', 'cpufreq',
-	'netspeed', 'netsource', 'time', 'scroll', 'text', 'showmenu'
-];
 
 function fan_diag(base, procset) {
 	const mt = module_tree_info();
@@ -842,38 +789,6 @@ const methods = {
 		}
 	},
 
-	oledSet: {
-		args: { config: 'config' },
-		call: function(req) {
-			if (!oled_config_present())
-				return { error: 'no_config', message: 'Install luci-app-oled first.' };
-			let cfg = req.args?.config;
-			if (type(cfg) != 'object')
-				return { error: 'invalid_config' };
-			let applied = 0;
-
-			for (let i = 0; i < length(OLED_SET_OPTS); i++) {
-				let key = OLED_SET_OPTS[i];
-
-				if (cfg[key] == null)
-					continue;
-
-				if (oled_uci_set(key, `${cfg[key]}`))
-					applied++;
-			}
-			if (!applied)
-				return { error: 'no_valid_options' };
-			oled_uci_commit();
-			if (oled_init_present()) {
-				if (oled_uci_get('enable', '0') == '1')
-					run_cmd('/etc/init.d/oled enable');
-				else
-					run_cmd('/etc/init.d/oled disable');
-			}
-			return { ok: true, config: oled_get_config() };
-		}
-	},
-
 	oledDetect: {
 		args: { bus: 'bus' },
 		call: function(req) {
@@ -898,24 +813,6 @@ const methods = {
 				ok: true,
 				path: dev,
 				output: run_cmd(`${i2cdetect} -y ${bus}`)
-			};
-		}
-	},
-
-	oledService: {
-		args: { action: 'action' },
-		call: function(req) {
-			let action = req.args?.action;
-			if (type(action) != 'string' || !match(action, /^(start|stop|restart|enable|disable|status)$/))
-				return { error: 'invalid_action' };
-			if (!oled_init_present())
-				return { error: 'no_init', message: 'Install luci-app-oled first.' };
-			let output = run_cmd(`/etc/init.d/oled ${action}`);
-			return {
-				ok: true,
-				action,
-				running: oled_running(),
-				output
 			};
 		}
 	}
