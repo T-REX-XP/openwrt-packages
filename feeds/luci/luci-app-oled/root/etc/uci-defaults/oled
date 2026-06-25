@@ -16,6 +16,30 @@ EOF
 
 . /lib/functions/system.sh
 
+oled_start_enabled() {
+	local menu_mode
+	menu_mode="$(uci -q get oled.@oled[0].menu_mode)"
+	[ "$menu_mode" = "1" ] && /etc/init.d/oledd enable && /etc/init.d/oledd start && return
+	/etc/init.d/oled enable
+	/etc/init.d/oled start
+}
+
+oled_ucitrack_init() {
+	local menu_mode initscript
+	menu_mode="$(uci -q get oled.@oled[0].menu_mode)"
+	if [ "$menu_mode" = "1" ]; then
+		initscript="oledd"
+	else
+		initscript="oled"
+	fi
+	uci -q batch <<-EOF >/dev/null
+		delete ucitrack.@oled[-1]
+		add ucitrack oled
+		set ucitrack.@oled[-1].init=$initscript
+		commit ucitrack
+EOF
+}
+
 cm5_oled_i2c_path() {
 	local dev bus
 	for dev in /dev/i2c-*; do
@@ -51,16 +75,10 @@ EOF
 esac
 
 if [ "$(uci -q get oled.@oled[0].enable)" = "1" ]; then
-	/etc/init.d/oled enable
-	/etc/init.d/oled start
+	oled_start_enabled
 fi
 
-uci -q batch <<-EOF >/dev/null
-	delete ucitrack.@oled[-1]
-	add ucitrack oled
-	set ucitrack.@oled[-1].init=oled
-	commit ucitrack
-EOF
+oled_ucitrack_init
 
 sed -e "/\/etc\/init\.d\/oled/d" -i /etc/crontabs/root && /etc/init.d/cron reload
 rm -rf /tmp/luci-*

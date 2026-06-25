@@ -6,17 +6,39 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for SH1106 128×64 OLED display
 LUCI_DEPENDS:=+libconfig +i2c-tools +coreutils-nohup
-LUCI_PKGARCH:=$(if $(realpath src/Makefile),,all)
+LUCI_PKGARCH:=$(if $(realpath src/Makefile),$(ARCH_PACKAGES),all)
 
+PKG_NAME:=luci-app-oled
 PKG_VERSION:=20230823
-PKG_RELEASE:=16
+PKG_RELEASE:=17
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_LICENSE_FILES:=LICENSE src/LICENSE
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+
 define Package/luci-app-oled/conffiles
 /etc/config/oled
+endef
+
+define Build/Prepare
+	$(INSTALL_DIR) $(PKG_BUILD_DIR)
+	$(CP) ./src $(PKG_BUILD_DIR)/
+endef
+
+define Build/Compile
+	$(MAKE) -C $(PKG_BUILD_DIR)/src \
+		CC="$(TARGET_CC)" \
+		CFLAGS="$(TARGET_CFLAGS) -Wall" \
+		LDFLAGS="$(TARGET_LDFLAGS) -lpthread -lconfig"
+endef
+
+define Package/luci-app-oled/install
+	$(call Package/luci/install/template,$(1))
+	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/oled $(1)/usr/bin/oled
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/oledd $(1)/usr/sbin/oledd
 endef
 
 # include/scan.mk only indexes dirs whose Makefile matches "call BuildPackage"; the real call is in luci.mk.

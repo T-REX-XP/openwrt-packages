@@ -1,0 +1,53 @@
+#!/bin/sh /etc/rc.common
+
+START=09
+STOP=90
+USE_PROCD=1
+PROG=/usr/sbin/oledd
+
+get_section() {
+	eval "export -n ${2}=\"$1\""
+	return 1
+}
+
+start_service() {
+	[ -f /usr/lib/oled/cm5-waveshare-rst.sh ] && sh /usr/lib/oled/cm5-waveshare-rst.sh
+
+	local mainsection
+	config_load oled
+	config_foreach get_section oled mainsection
+	local section=$mainsection
+
+	local enabled menu_mode
+	config_get enabled "$section" enable 0
+	config_get menu_mode "$section" menu_mode 0
+	[ "$enabled" = "1" ] || return 1
+	[ "$menu_mode" = "1" ] || return 1
+
+	[ -x /usr/lib/oled/oled-boot-state.sh ] && \
+		/usr/lib/oled/oled-boot-state.sh boot "Starting oledd..."
+
+	procd_open_instance
+	procd_set_param command ${PROG}
+
+	local param
+	config_get param "$section" path
+	[ -n "$param" ] && procd_append_param command --i2cDevPath="$param"
+
+	config_get param "$section" rotate
+	[ "$param" = "1" ] && procd_append_param command --rotate
+
+	config_get param "$section" menu_timeout
+	[ -n "$param" ] && procd_append_param command --view-timeout="$param"
+
+	procd_set_param respawn
+	procd_close_instance
+}
+
+stop_service() {
+	:
+}
+
+service_triggers() {
+	procd_add_reload_trigger "oled"
+}

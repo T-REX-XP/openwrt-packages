@@ -18,8 +18,13 @@ start_service() {
 	config_foreach get_section oled mainsection
 	local section=$mainsection
 
-	local enabled ; config_get enabled "$section" enable 0
-	if [[ $enabled -eq 0 ]]; then
+	local enabled menu_mode
+	config_get enabled "$section" enable 0
+	config_get menu_mode "$section" menu_mode 0
+	if [ "$enabled" != "1" ]; then
+		return 1
+	fi
+	if [ "$menu_mode" = "1" ]; then
 		return 1
 	fi
 

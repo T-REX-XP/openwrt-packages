@@ -1,0 +1,2 @@
+# Early boot marker for oledd — display init waits for START=09 oledd.
+[ -x /usr/lib/oled/oled-boot-state.sh ] && /usr/lib/oled/oled-boot-state.sh preinit "BOOTING..."

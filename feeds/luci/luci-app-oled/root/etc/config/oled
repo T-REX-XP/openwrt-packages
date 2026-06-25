@@ -27,3 +27,5 @@ config oled
 	option text 'CM5'
 	option netsource 'br-lan'
 	option path '/dev/i2c-7'
+	option menu_mode '0'
+	option menu_timeout '5'

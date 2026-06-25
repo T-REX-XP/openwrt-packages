@@ -1,0 +1,13 @@
+#!/bin/sh
+# Notify oledd that a network interface changed (Phase 1 hotplug stub).
+
+[ -n "$DEVICE" ] || exit 0
+
+case "$ACTION" in
+ifup|ifdown|ifupdate)
+	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
+	touch /tmp/oled_net_changed 2>/dev/null || true
+	;;
+esac
+
+exit 0

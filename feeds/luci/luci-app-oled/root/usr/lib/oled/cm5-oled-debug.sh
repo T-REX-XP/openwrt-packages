@@ -84,7 +84,22 @@ fi
 echo
 echo "=== UCI / daemon ==="
 uci show oled 2>/dev/null || echo "(no oled uci)"
-pgrep -af oled 2>/dev/null || echo "oled daemon not running"
+pgrep -af 'oledd|/usr/bin/oled' 2>/dev/null || echo "oled daemon not running"
+if [ -f /tmp/oled_state ]; then
+	echo "--- /tmp/oled_state ---"
+	cat /tmp/oled_state
+fi
+
+echo
+echo "=== menu mode (oledd) ==="
+if [ -x /usr/sbin/oledd ]; then
+	echo "  /usr/sbin/oledd installed"
+	menu_mode="$(uci -q get oled.@oled[0].menu_mode)"
+	echo "  menu_mode=${menu_mode:-0}"
+	[ "$menu_mode" = "1" ] && echo "  active init: /etc/init.d/oledd (START=09)" || echo "  active init: /etc/init.d/oled (legacy screensaver)"
+else
+	echo "(no /usr/sbin/oledd — upgrade luci-app-oled r17+)"
+fi
 
 echo
 echo "=== one-shot oled init test (SH1106 128×64) ==="
