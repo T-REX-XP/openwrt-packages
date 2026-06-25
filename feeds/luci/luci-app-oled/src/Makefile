@@ -28,9 +28,12 @@ OLEDD_SRCS := \
 	oledd/oledd_menu.c \
 	oledd/oledd_net.c \
 	oledd/oledd_pages.c \
+	oledd/oledd_qrcode.c \
+	oledd/qrcodegen.c \
 	oledd/oledd_ubus.c \
 	oledd/oledd_ubus_srv.c \
-	oledd/oledd_alert.c
+	oledd/oledd_alert.c \
+	oledd/oledd_wifi_ap.c
 OLEDD_OBJS := $(OLEDD_SRCS:.c=.o)
 
 OLEDD_BIN := oledd-bin

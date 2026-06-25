@@ -7,6 +7,7 @@
 #include "SSD1306_OLED.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <string.h>
 
 /* 3×5 uppercase font: 5 column bytes per glyph (bits 4..0 = rows). */
@@ -19,7 +20,7 @@ static const uint8_t xs_glyphs[][5] = {
 	['+' - ' '] = { 0, 0x04, 0x0e, 0x04, 0 },
 	['-' - ' '] = { 0, 0, 0x0e, 0, 0 },
 	['.' - ' '] = { 0, 0, 0, 0, 0x04 },
-	['/ - ' '] = { 0x01, 0x02, 0x04, 0x08, 0x10 },
+	['/' - ' '] = { 0x01, 0x02, 0x04, 0x08, 0x10 },
 	['0' - ' '] = { 0x0e, 0x11, 0x11, 0x11, 0x0e },
 	['1' - ' '] = { 0x04, 0x0c, 0x04, 0x04, 0x0e },
 	['2' - ' '] = { 0x0e, 0x01, 0x0e, 0x10, 0x0e },

@@ -7,6 +7,7 @@
 #include "oledd_data.h"
 #include "oledd_fonts.h"
 #include "oledd_icons.h"
+#include "oledd_qrcode.h"
 
 #include "SSD1306_OLED.h"
 
@@ -28,6 +29,7 @@ typedef enum {
 	EL_BAR,
 	EL_ICON,
 	EL_SPARKLINE,
+	EL_QRCODE,
 } el_type_t;
 
 typedef struct {
@@ -44,6 +46,7 @@ typedef struct {
 	double value;
 	char value_token[32];
 	char data_source[16];
+	char qr_source[16];
 	int spark_values[OLEDD_MAX_SPARK];
 	int spark_count;
 } oledd_element_t;
@@ -177,6 +180,22 @@ static void render_element(const oledd_element_t *el, struct oledd_data_ctx *ctx
 			draw_sparkline(el->x, el->y, el->w, el->h,
 				       el->spark_values, el->spark_count);
 		break;
+	case EL_QRCODE: {
+		const char *payload = NULL;
+		int size = el->w > 0 ? el->w : (el->icon_size > 0 ? el->icon_size : 48);
+
+		if (el->qr_source[0] && !strcmp(el->qr_source, "wifi_ap")) {
+			if (ctx->wifi_ap.active && ctx->wifi_ap.qr_payload[0])
+				payload = ctx->wifi_ap.qr_payload;
+		} else if (el->text[0]) {
+			subst_tokens(text, sizeof(text), el->text, ctx);
+			if (text[0])
+				payload = text;
+		}
+		if (payload)
+			oledd_qrcode_draw(el->x, el->y, size, payload);
+		break;
+	}
 	case EL_TEXT:
 	default:
 		subst_tokens(text, sizeof(text), el->text, ctx);
@@ -228,6 +247,7 @@ static int parse_element(el_type_t type, struct blob_attr *attr,
 		EL_VALUE,
 		EL_VALUES,
 		EL_DATA,
+		EL_SOURCE,
 		__EL_MAX,
 	};
 	static const struct blobmsg_policy pol[__EL_MAX] = {
@@ -250,6 +270,7 @@ static int parse_element(el_type_t type, struct blob_attr *attr,
 		[EL_VALUE] = { .name = "value", .type = BLOBMSG_TYPE_STRING },
 		[EL_VALUES] = { .name = "values", .type = BLOBMSG_TYPE_ARRAY },
 		[EL_DATA] = { .name = "data", .type = BLOBMSG_TYPE_STRING },
+		[EL_SOURCE] = { .name = "source", .type = BLOBMSG_TYPE_STRING },
 	};
 	struct blob_attr *tb[__EL_MAX];
 	struct blob_attr *cur;
@@ -272,6 +293,8 @@ static int parse_element(el_type_t type, struct blob_attr *attr,
 			el->type = EL_ICON;
 		else if (!strcmp(t, "sparkline"))
 			el->type = EL_SPARKLINE;
+		else if (!strcmp(t, "qrcode"))
+			el->type = EL_QRCODE;
 		else
 			el->type = EL_TEXT;
 	}
@@ -313,6 +336,9 @@ static int parse_element(el_type_t type, struct blob_attr *attr,
 	if (tb[EL_DATA])
 		strncpy(el->data_source, blobmsg_get_string(tb[EL_DATA]),
 			sizeof(el->data_source) - 1);
+	if (tb[EL_SOURCE])
+		strncpy(el->qr_source, blobmsg_get_string(tb[EL_SOURCE]),
+			sizeof(el->qr_source) - 1);
 	if (tb[EL_VALUE]) {
 		if (blobmsg_type(tb[EL_VALUE]) == BLOBMSG_TYPE_STRING) {
 			const char *vs = blobmsg_get_string(tb[EL_VALUE]);

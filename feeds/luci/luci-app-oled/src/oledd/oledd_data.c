@@ -151,6 +151,9 @@ void oledd_data_refresh(struct oledd_data_ctx *ctx)
 		ctx->sparkline[OLEDD_SPARKLINE_LEN - 1] = ctx->ping_ms ? ctx->ping_ms : 1;
 	}
 
+	if (ctx->ubus)
+		oledd_wifi_ap_refresh(ctx->ubus, &ctx->wifi_ap);
+
 	(void)ports;
 	(void)wifi;
 	(void)max_leases;
@@ -312,7 +315,24 @@ const char *oledd_data_resolve(struct oledd_data_ctx *ctx, const char *token)
 		snprintf(ctx->buf, sizeof(ctx->buf), "0 UP");
 	else if (!strcmp(token, "firewall_state"))
 		snprintf(ctx->buf, sizeof(ctx->buf), "ACTIVE");
-	else
+	else if (!strcmp(token, "wifi_ssid")) {
+		if (ctx->wifi_ap.active && ctx->wifi_ap.ssid[0])
+			snprintf(ctx->buf, sizeof(ctx->buf), "%s", ctx->wifi_ap.ssid);
+		else
+			snprintf(ctx->buf, sizeof(ctx->buf), "NO AP");
+		return ctx->buf;
+	} else if (!strcmp(token, "wifi_ap_state")) {
+		snprintf(ctx->buf, sizeof(ctx->buf),
+			 ctx->wifi_ap.active ? "ACTIVE" : "NO AP");
+		return ctx->buf;
+	} else if (!strcmp(token, "wifi_qr")) {
+		if (ctx->wifi_ap.active && ctx->wifi_ap.qr_payload[0])
+			snprintf(ctx->buf, sizeof(ctx->buf), "%s",
+				 ctx->wifi_ap.qr_payload);
+		else
+			ctx->buf[0] = '\0';
+		return ctx->buf;
+	} else
 		ctx->buf[0] = '\0';
 
 	return ctx->buf;

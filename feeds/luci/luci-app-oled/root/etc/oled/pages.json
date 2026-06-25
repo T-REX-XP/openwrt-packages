@@ -96,6 +96,22 @@
 			]
 		},
 		{
+			"id": "wifi",
+			"title": "WIFI",
+			"tabIcon": "wifi",
+			"enabled": true,
+			"elements": [
+				{ "type": "rect", "x": 0, "y": 0, "w": 128, "h": 9, "fill": true },
+				{ "type": "text", "x": 2, "y": 1, "text": "WIFI AP", "font": "xs", "invert": true },
+				{ "type": "text", "x": 126, "y": 1, "text": "{wifi_ap_state}", "font": "xs", "align": "right", "invert": true },
+				{ "type": "qrcode", "x": 68, "y": 10, "size": 48, "source": "wifi_ap" },
+				{ "type": "icon", "x": 2, "y": 14, "name": "wifi", "size": 16 },
+				{ "type": "text", "x": 2, "y": 32, "text": "SSID", "font": "xs" },
+				{ "type": "text", "x": 2, "y": 40, "text": "{wifi_ssid}", "font": "sm" },
+				{ "type": "text", "x": 2, "y": 52, "text": "SCAN TO JOIN", "font": "xs" }
+			]
+		},
+		{
 			"id": "security",
 			"title": "SECURITY",
 			"tabIcon": "shield",

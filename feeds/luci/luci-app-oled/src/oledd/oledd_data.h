@@ -5,6 +5,8 @@
 #ifndef OLEDD_DATA_H
 #define OLEDD_DATA_H
 
+#include "oledd_wifi_ap.h"
+
 struct ubus_context;
 
 #define OLEDD_SPARKLINE_LEN 16
@@ -21,6 +23,7 @@ struct oledd_data_ctx {
 	int ping_ms;
 	int sparkline[OLEDD_SPARKLINE_LEN];
 	int spark_count;
+	struct oledd_wifi_ap_info wifi_ap;
 };
 
 void oledd_data_refresh(struct oledd_data_ctx *ctx);
