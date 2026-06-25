@@ -19,5 +19,6 @@ typedef enum {
 int oledd_input_init(void);
 void oledd_input_close(void);
 oledd_event_t oledd_input_poll(void);
+oledd_event_t oledd_input_push(const char *type);
 
 #endif /* OLEDD_INPUT_H */

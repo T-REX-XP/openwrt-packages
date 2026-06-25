@@ -43,4 +43,7 @@ int oledd_ubus_interface_ipv4(struct ubus_context *ctx, const char *iface,
 int oledd_ubus_wifi_status(struct ubus_context *ctx,
 			   struct oledd_wifi_info *wifi);
 
+int oledd_ubus_interface_up(struct ubus_context *ctx, const char *iface,
+			    struct oledd_dev_status *st);
+
 #endif /* OLEDD_UBUS_H */

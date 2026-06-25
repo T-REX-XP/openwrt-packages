@@ -183,11 +183,13 @@ int oledd_ubus_device_status(struct ubus_context *ctx, const char *device,
 }
 
 enum {
+	IF_UP,
 	IF_IPV4,
 	__IF_MAX,
 };
 
 static const struct blobmsg_policy if_policy[__IF_MAX] = {
+	[IF_UP] = { .name = "up", .type = BLOBMSG_TYPE_BOOL },
 	[IF_IPV4] = { .name = "ipv4-address", .type = BLOBMSG_TYPE_ARRAY },
 };
 
@@ -199,6 +201,31 @@ enum {
 static const struct blobmsg_policy addr_policy[__ADDR_MAX] = {
 	[ADDR_ADDRESS] = { .name = "address", .type = BLOBMSG_TYPE_STRING },
 };
+
+int oledd_ubus_interface_up(struct ubus_context *ctx, const char *iface,
+			    struct oledd_dev_status *st)
+{
+	char path[64];
+	struct blob_attr *reply = NULL;
+	struct blob_attr *tb[__IF_MAX];
+
+	if (!ctx || !iface || !st)
+		return -1;
+
+	memset(st, 0, sizeof(*st));
+	snprintf(path, sizeof(path), "network.interface.%s", iface);
+
+	if (ubus_invoke_simple(ctx, path, "status", NULL, &reply) != 0)
+		return -1;
+
+	blobmsg_parse(if_policy, __IF_MAX, tb, blob_data(reply),
+		      blob_len(reply));
+
+	if (tb[IF_UP])
+		st->up = blobmsg_get_bool(tb[IF_UP]);
+
+	return 0;
+}
 
 int oledd_ubus_interface_ipv4(struct ubus_context *ctx, const char *iface,
 			      char *addr, size_t len)

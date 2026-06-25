@@ -11,7 +11,7 @@ Maps [oled-menu.md](oled-menu.md) phases 1–4 to package layout, APIs, and CM5 
 | **1** | SH1106 driver reuse, `oledd` daemon, procd, boot state file, hotplug stub, LuCI toggle | **Done (r17)** |
 | **2** | libubus metrics, `network.device` / `network.interface`, bandwidth from `/sys` | **Done (r18)** |
 | **3** | FIFO input, CM5 buttons, interactive menu | **Done (r19)** |
-| **4** | Preinit splash polish, error states, `ubus` `oledd` control API | Planned |
+| **4** | Preinit splash polish, error states, `ubus` `oledd` control API | **Done (r22)** |
 
 ## File layout (luci-app-oled)
 
@@ -28,8 +28,10 @@ feeds/luci/luci-app-oled/
 │       ├── oledd_input.c       # FIFO event reader (Phase 3)
 │       ├── oledd_menu.c        # Menu state machine + views (Phase 3)
 │       ├── oledd_ubus.c        # libubus client (system, network, WiFi)
+│       ├── oledd_ubus_srv.c    # libubus server: status, event, set_view (Phase 4)
+│       ├── oledd_alert.c       # WAN / load overlays (Phase 4)
 │       ├── oledd_net.c         # Port list, sysfs bandwidth rates
-│       └── oledd_config.c      # UCI: menu_wifi, menu_interactive, menu_nav_button, menu_select_button
+│       └── oledd_config.c      # UCI: menu_wifi, menu_interactive, menu_alerts, buttons
 └── root/
     ├── etc/
     │   ├── config/oled         # UCI: menu_mode, menu_timeout, path, …
@@ -81,9 +83,9 @@ Optional hook from network init:
 /usr/lib/oled/oled-boot-state.sh network "Configuring network..."
 ```
 
-## ubus API sketch (Phase 4 — not implemented)
+## ubus API (`oledd` object, r22)
 
-Future `oledd` ubus object for hotplug and LuCI:
+Registered by `oledd` when running in menu mode:
 
 ```json
 // ubus call oledd status
@@ -91,15 +93,21 @@ Future `oledd` ubus object for hotplug and LuCI:
   "running": true,
   "view": "ports",
   "boot_stage": "ready",
-  "i2c": "/dev/i2c-7"
+  "i2c": "/dev/i2c-7",
+  "menu_interactive": true,
+  "dimmed": false
 }
 
-// ubus call oledd event '{"type":"net","device":"eth0","action":"ifup"}'
+// ubus call oledd event '{"type":"net"}'
+// types: net | up | down | ok | back | next | refresh
 
 // ubus call oledd set_view '{"view":"system"}'
+// views: system | ports | wifi | boot | menu
 ```
 
-Phase 1 uses `/tmp/oled_state`. Phase 3 uses `/var/run/oledd.fifo` for typed input events.
+Hotplug `99-oled` prefers `ubus call oledd event`; falls back to `/usr/lib/oled/oledd-event.sh`.
+
+Phase 1–3 also use `/tmp/oled_state` and `/var/run/oledd.fifo` for boot progress and button input.
 
 ## CM5 hardware constraints
 
@@ -171,9 +179,9 @@ Future HAT joystick: send `up` / `down` / `back` via GPIO hotplug or `oledd-even
 
 Menu items: **System**, **Ports**, **WiFi** (if `menu_wifi`), **Boot log**.
 
-## Phase 4 next steps
+## Phase 4 (done, r22)
 
-1. Register `ubus` object `oledd` with `status`, `event`, `set_view`
-2. Preinit minimal I2C splash (if safe before `i2c-7` probe)
-3. Error overlays (WAN down, high load)
-4. Idle dim / timeout from `menu_timeout` + wake on link loss
+1. **`ubus` object `oledd`** — `status`, `event`, `set_view` in `oledd_ubus_srv.c`; polled in main loop
+2. **Preinit** — `80-oled-preinit` writes `/tmp/oled_state` only (no I2C before `oledd` START=09)
+3. **Error overlays** — WAN down (`eth0` operstate or `network.interface.wan`) and high load (`load1` > 2.0); UCI `menu_alerts` (default `1`)
+4. **Idle dim** — blank display after `menu_timeout` s without FIFO events; wake on input or net hotplug

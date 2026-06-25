@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "SSD1306_OLED.h"
+#include "oledd_alert.h"
 #include "oledd_net.h"
 #include "oledd_ubus.h"
 
@@ -48,8 +49,41 @@ static enum oled_view g_rotate_view = VIEW_SYSTEM;
 static enum menu_item g_menu_sel = ITEM_SYSTEM;
 static enum oled_view g_detail_view = VIEW_SYSTEM;
 static time_t g_view_started;
+static time_t g_last_activity;
+static int g_dimmed;
 static int g_item_count;
 static enum menu_item g_visible_items[ITEM_MAX];
+
+static const char *view_name(enum oled_view view)
+{
+	switch (view) {
+	case VIEW_BOOT:
+		return "boot";
+	case VIEW_SYSTEM:
+		return "system";
+	case VIEW_PORTS:
+		return "ports";
+	case VIEW_WIFI:
+		return "wifi";
+	default:
+		return "system";
+	}
+}
+
+static enum menu_item view_to_item(enum oled_view view)
+{
+	switch (view) {
+	case VIEW_PORTS:
+		return ITEM_PORTS;
+	case VIEW_WIFI:
+		return ITEM_WIFI;
+	case VIEW_BOOT:
+		return ITEM_BOOT;
+	case VIEW_SYSTEM:
+	default:
+		return ITEM_SYSTEM;
+	}
+}
 
 static int parse_state_kv(const char *key, char *val, size_t len)
 {
@@ -378,11 +412,101 @@ void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
 	g_menu_sel = ITEM_SYSTEM;
 	g_detail_view = VIEW_SYSTEM;
 	g_view_started = time(NULL);
+	g_last_activity = g_view_started;
+	g_dimmed = 0;
 }
 
 void oledd_menu_set_ubus(struct ubus_context *ubus)
 {
 	g_ubus = ubus;
+}
+
+void oledd_menu_wake(void)
+{
+	g_last_activity = time(NULL);
+	g_dimmed = 0;
+}
+
+int oledd_menu_is_dimmed(void)
+{
+	return g_dimmed;
+}
+
+void oledd_menu_check_idle(unsigned idle_sec)
+{
+	time_t now = time(NULL);
+
+	if (!idle_sec)
+		return;
+
+	if (g_screen == SCREEN_BOOT)
+		return;
+
+	if ((unsigned)(now - g_last_activity) >= idle_sec)
+		g_dimmed = 1;
+}
+
+const char *oledd_menu_view_name(void)
+{
+	switch (g_screen) {
+	case SCREEN_BOOT:
+		return "boot";
+	case SCREEN_MENU_LIST:
+		return "menu";
+	case SCREEN_ROTATE:
+		return view_name(g_rotate_view);
+	case SCREEN_MENU_DETAIL:
+	default:
+		return view_name(g_detail_view);
+	}
+}
+
+int oledd_menu_set_view(const char *view)
+{
+	enum oled_view v;
+
+	if (!view || !view[0])
+		return 0;
+
+	if (!strcmp(view, "menu")) {
+		if (!g_interactive)
+			return 0;
+		g_screen = SCREEN_MENU_LIST;
+		g_menu_sel = ITEM_SYSTEM;
+		g_view_started = time(NULL);
+		return 1;
+	}
+
+	if (!strcmp(view, "boot"))
+		v = VIEW_BOOT;
+	else if (!strcmp(view, "system"))
+		v = VIEW_SYSTEM;
+	else if (!strcmp(view, "ports"))
+		v = VIEW_PORTS;
+	else if (!strcmp(view, "wifi")) {
+		if (!g_menu_wifi)
+			return 0;
+		v = VIEW_WIFI;
+	} else {
+		return 0;
+	}
+
+	if (v == VIEW_BOOT) {
+		g_screen = SCREEN_BOOT;
+		g_view_started = time(NULL);
+		return 1;
+	}
+
+	if (g_interactive) {
+		g_menu_sel = view_to_item(v);
+		g_detail_view = v;
+		g_screen = SCREEN_MENU_DETAIL;
+	} else {
+		g_rotate_view = v;
+		g_screen = SCREEN_ROTATE;
+	}
+	g_view_started = time(NULL);
+	return 1;
 }
 
 static void leave_boot(void)
@@ -481,6 +605,7 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 	}
 
 	if (evt != OLEDD_EV_NONE) {
+		oledd_menu_wake();
 		if (g_interactive)
 			handle_interactive_event(evt);
 		else if (evt == OLEDD_EV_NET)
@@ -505,6 +630,12 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 
 void oledd_menu_render(double elapsed_sec)
 {
+	if (g_dimmed) {
+		clearDisplay();
+		Display();
+		return;
+	}
+
 	clearDisplay();
 
 	switch (g_screen) {
@@ -522,5 +653,6 @@ void oledd_menu_render(double elapsed_sec)
 		break;
 	}
 
+	oledd_alert_draw();
 	Display();
 }

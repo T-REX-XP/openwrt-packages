@@ -3,6 +3,13 @@
 
 [ -n "$DEVICE" ] || exit 0
 
+oledd_notify_net() {
+	if ubus -S call oledd event '{"type":"net"}' 2>/dev/null; then
+		return 0
+	fi
+	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
+}
+
 case "$ACTION" in
 ifup|ifupdate)
 	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
@@ -11,11 +18,11 @@ ifup|ifupdate)
 		/usr/lib/oled/oled-boot-state.sh ready "System ready" 2>/dev/null || true
 		;;
 	esac
-	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
+	oledd_notify_net
 	;;
 ifdown)
 	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
-	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
+	oledd_notify_net
 	;;
 esac
 

@@ -97,6 +97,11 @@ int oledd_config_menu_interactive(void)
 	return parse_option_int("menu_interactive", 1);
 }
 
+int oledd_config_menu_alerts(void)
+{
+	return parse_option_int("menu_alerts", 1);
+}
+
 void oledd_config_menu_nav_button(char *out, size_t len)
 {
 	parse_option_string("menu_nav_button", "BTN_2", out, len);

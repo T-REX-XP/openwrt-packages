@@ -15,6 +15,7 @@
 #define EVENT_LOG "/tmp/oledd_events.log"
 
 static int g_fd = -1;
+static oledd_event_t g_pending = OLEDD_EV_NONE;
 
 static void log_event(const char *line)
 {
@@ -74,11 +75,33 @@ void oledd_input_close(void)
 	}
 }
 
+oledd_event_t oledd_input_push(const char *type)
+{
+	oledd_event_t ev;
+
+	if (!type || !type[0])
+		return OLEDD_EV_NONE;
+
+	ev = parse_line(type);
+	if (ev == OLEDD_EV_NONE)
+		return OLEDD_EV_NONE;
+
+	log_event(type);
+	g_pending = ev;
+	return ev;
+}
+
 oledd_event_t oledd_input_poll(void)
 {
 	char buf[32];
 	ssize_t n;
 	oledd_event_t ev;
+
+	if (g_pending != OLEDD_EV_NONE) {
+		ev = g_pending;
+		g_pending = OLEDD_EV_NONE;
+		return ev;
+	}
 
 	if (g_fd < 0)
 		return OLEDD_EV_NONE;

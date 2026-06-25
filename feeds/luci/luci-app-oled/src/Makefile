@@ -16,7 +16,7 @@ OLED_SRCS := Example_Code/main.c Example_Code/example_app.c
 OLED_OBJS := $(OLED_SRCS:.c=.o)
 
 OLEDD_SRCS := oledd/oledd.c oledd/oledd_ubus.c oledd/oledd_net.c oledd/oledd_config.c \
-	oledd/oledd_input.c oledd/oledd_menu.c
+	oledd/oledd_input.c oledd/oledd_menu.c oledd/oledd_ubus_srv.c oledd/oledd_alert.c
 OLEDD_OBJS := $(OLEDD_SRCS:.c=.o)
 
 .PHONY: all clean oled oledd compile install

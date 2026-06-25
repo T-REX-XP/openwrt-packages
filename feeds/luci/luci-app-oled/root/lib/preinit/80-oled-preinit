@@ -1,2 +1,9 @@
-# Early boot marker for oledd — display init waits for START=09 oledd.
-[ -x /usr/lib/oled/oled-boot-state.sh ] && /usr/lib/oled/oled-boot-state.sh preinit "BOOTING..."
+# Early boot marker for oledd — state file only (Phase 4).
+#
+# Do NOT touch I2C or the SH1106 panel here: on CM5, i2c-7 and GPIO RST are
+# not guaranteed ready during preinit; userspace I2C before the oledd daemon
+# (START=09) can wedge the bus or show garbage. oledd performs RST + init safely.
+#
+# Optional early message appears in /tmp/oled_state for the Boot view once oledd starts.
+[ -x /usr/lib/oled/oled-boot-state.sh ] && \
+	/usr/lib/oled/oled-boot-state.sh preinit "BOOTING..."

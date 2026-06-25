@@ -45,6 +45,10 @@ o:value("BTN_2", translate("MaskROM key (BTN_2)"))
 o:value("none", translate("None"))
 o.default="wps"
 o:depends("menu_mode", "1")
+o = s:taboption("info", Flag, "menu_alerts", translate("Status alerts (oledd)"),
+	translate("Show WAN-down and high-load banners on the current view."))
+o.default=1
+o:depends("menu_mode", "1")
 o = s:taboption("info", Value, "path", translate("I2C PATH"))
 o.default='/dev/i2c-7'
 o = s:taboption("info", Flag, "rotate", translate("180 degree rotation"))

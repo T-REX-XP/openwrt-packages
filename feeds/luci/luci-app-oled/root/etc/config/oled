@@ -33,3 +33,4 @@ config oled
 	option menu_interactive '1'
 	option menu_nav_button 'BTN_2'
 	option menu_select_button 'wps'
+	option menu_alerts '1'

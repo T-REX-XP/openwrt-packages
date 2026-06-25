@@ -91,6 +91,15 @@ if [ -f /tmp/oled_state ]; then
 fi
 
 echo
+echo "=== oledd ubus (Phase 4) ==="
+if ubus -S list oledd 2>/dev/null | grep -q '^oledd$'; then
+	echo "--- ubus call oledd status ---"
+	ubus -S call oledd status 2>/dev/null || echo "(ubus call failed)"
+else
+	echo "  oledd ubus object not registered (start oledd in menu_mode)"
+fi
+
+echo
 echo "=== oledd input (Phase 3) ==="
 menu_interactive="$(uci -q get oled.@oled[0].menu_interactive)"
 menu_nav_button="$(uci -q get oled.@oled[0].menu_nav_button)"

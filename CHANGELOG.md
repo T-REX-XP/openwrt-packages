@@ -2,6 +2,21 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r22] — 2026-06-25
+
+### Added
+
+- **ubus object `oledd`** — `status`, `event`, `set_view` (`oledd_ubus_srv.c`); hotplug prefers `ubus call oledd event` with FIFO fallback
+- **Error overlays** — WAN-down and high-load (`load1` > 2.0) banners when UCI `menu_alerts=1` (`oledd_alert.c`)
+- **Idle dim** — blank display after `menu_timeout` seconds without FIFO input; wake on button/net events
+- UCI **`menu_alerts`** (default `1`); LuCI **Status alerts** toggle
+- Preinit `80-oled-preinit` documents why only `/tmp/oled_state` is written (no early I2C)
+
+### Changed
+
+- `cm5-oled-debug.sh` — `ubus call oledd status`
+- `docs/oled-menu-implementation.md` — Phase 4 done
+
 ## [luci-app-oled r21] — 2026-06-25
 
 ### Fixed

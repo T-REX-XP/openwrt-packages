@@ -1,6 +1,6 @@
 /*
  * oledd — OLED menu daemon (SH1106 128×64).
- * Phase 3: FIFO input, interactive menu, CM5 button hotplug.
+ * Phase 4: ubus control API, error overlays, idle dim.
  */
 
 #include <getopt.h>
@@ -13,11 +13,13 @@
 
 #include "I2C.h"
 #include "SSD1306_OLED.h"
+#include "oledd_alert.h"
 #include "oledd_config.h"
 #include "oledd_input.h"
 #include "oledd_menu.h"
 #include "oledd_net.h"
 #include "oledd_ubus.h"
+#include "oledd_ubus_srv.h"
 
 #define POLL_MS_DEFAULT 800
 #define VIEW_TIMEOUT_DEFAULT 5
@@ -33,6 +35,7 @@ static char g_i2c_path[32] = I2C_DEV0_PATH;
 static int g_rotate;
 static int g_menu_wifi = 1;
 static int g_menu_interactive = 1;
+static int g_menu_alerts = 1;
 static unsigned g_poll_ms = POLL_MS_DEFAULT;
 static unsigned g_view_timeout = VIEW_TIMEOUT_DEFAULT;
 static struct timespec g_last_poll;
@@ -128,6 +131,7 @@ int main(int argc, char *argv[])
 
 	g_menu_wifi = oledd_config_menu_wifi();
 	g_menu_interactive = oledd_config_menu_interactive();
+	g_menu_alerts = oledd_config_menu_alerts();
 	oledd_config_menu_nav_button(nav_btn, sizeof(nav_btn));
 	oledd_config_menu_select_button(sel_btn, sizeof(sel_btn));
 	fprintf(stderr, "oledd: nav_button=%s select_button=%s interactive=%d\n",
@@ -148,7 +152,10 @@ int main(int argc, char *argv[])
 		display_normal();
 
 	g_ubus = oledd_ubus_open();
+	if (g_ubus)
+		oledd_ubus_srv_register(g_ubus, g_i2c_path, g_menu_interactive);
 	oledd_input_init();
+	oledd_alert_init(g_menu_alerts);
 	oledd_menu_init(g_menu_interactive, g_menu_wifi, g_view_timeout, g_ubus);
 
 	show_splash();
@@ -158,18 +165,24 @@ int main(int argc, char *argv[])
 	while (!g_stop) {
 		double elapsed = poll_elapsed();
 
+		if (g_ubus)
+			oledd_ubus_srv_poll(g_ubus);
+
 		evt = oledd_input_poll();
 
 		if (!g_ubus)
 			g_ubus = oledd_ubus_open();
 		oledd_menu_set_ubus(g_ubus);
+		oledd_alert_poll(g_ubus);
 
+		oledd_menu_check_idle(g_view_timeout);
 		oledd_menu_tick(elapsed, evt);
 		oledd_menu_render(elapsed);
 
 		usleep(g_poll_ms * 1000);
 	}
 
+	oledd_ubus_srv_unregister(g_ubus);
 	oledd_input_close();
 	oledd_ubus_close(g_ubus);
 	g_ubus = NULL;
