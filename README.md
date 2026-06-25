@@ -153,7 +153,7 @@ Push a version tag (`v2026.05.14`) to trigger a release build. Download **`openw
 | Secret | Purpose |
 |--------|---------|
 | `PRIVATE_KEY` | Sign apk index on release builds |
-| `PUBLIC_KEY` | Published as `public-key.pem` on GitHub Pages |
+| `PUBLIC_KEY` | Published as `public-key.pem` on GitHub Pages (optional if `PRIVATE_KEY` is set — derived automatically) |
 | `KEY_BUILD` / `KEY_BUILD_PUB` | Legacy ipk signing (optional) |
 
 PR / push CI builds **unsigned** packages for compile verification only.
@@ -166,7 +166,7 @@ PR / push CI builds **unsigned** packages for compile verification only.
 | `deploy-pages` succeeded but site still 404 | Pages source was not GitHub Actions — enable per above, then republish |
 | Tag release missing (e.g. `v2026.06.22`) but build green | Fixed: `github-release` no longer shares the `github-pages` environment job |
 | `packages.adb` missing in tarball | Set `PRIVATE_KEY` secret; release builds require `INDEX=1` |
-| `PUBLIC_KEY` not on Pages | Add `PUBLIC_KEY` secret; republish with **skip_build** |
+| `PUBLIC_KEY` not on Pages | Ensure `PRIVATE_KEY` or `PUBLIC_KEY` secret is set; republish with **skip_build** (public key is derived from `PRIVATE_KEY` when needed) |
 | Node 20 deprecation notice in logs | Informational — not related to Pages failures |
 | GitHub Release OK, Pages job red | Enable Pages (above) or check **Verify feed URL** step logs |
 

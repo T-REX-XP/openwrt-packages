@@ -67,7 +67,7 @@ Verify with attached `SHA256SUMS`.
 | Secret | Purpose |
 |--------|---------|
 | `PRIVATE_KEY` | Sign apk index on release |
-| `PUBLIC_KEY` | Published as `public-key.pem` on Pages |
+| `PUBLIC_KEY` | Published as `public-key.pem` on Pages (optional — derived from `PRIVATE_KEY` when unset) |
 | `KEY_BUILD` / `KEY_BUILD_PUB` | Legacy ipk signing (optional) |
 
 PR CI builds are **unsigned** — compile verification only.

@@ -91,6 +91,9 @@ jobs:
 
       - name: Prepare release tarball
         if: inputs.prepare_release_tarball
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
         run: |
           set -euo pipefail
           FEED_SRC="bin/packages/${{ inputs.pkg_arch }}/${{ env.FEEDNAME }}"
@@ -103,10 +106,22 @@ jobs:
             ls -la "$FEED_SRC" || true
             exit 1
           fi
+          # Ship public-key.pem in the tarball for skip_build republish and offline installs.
+          if [[ -n "$PUBLIC_KEY" ]]; then
+            printf '%s\n' "$PUBLIC_KEY" > "$FEED_SRC/public-key.pem"
+          elif [[ -n "$PRIVATE_KEY" ]]; then
+            tmp="$(mktemp)"
+            printf '%s\n' "$PRIVATE_KEY" | grep -v '^untrusted comment:' > "$tmp"
+            {
+              printf 'untrusted comment: openwrt-packages release key\n'
+              openssl ec -in "$tmp" -pubout
+            } > "$FEED_SRC/public-key.pem"
+            rm -f "$tmp"
+          fi
           TARBALL="openwrt_packages_${{ inputs.pkg_arch }}-immortalwrt-${{ env.SDK_RELEASE }}.tar.gz"
           tar -c -z -f "$TARBALL" -C "$FEED_SRC" .
           ls -la "$TARBALL"
-          tar -tzf "$TARBALL" | head -20
+          tar -tzf "$TARBALL" | head -25
 
       - name: Upload package tree
         if: inputs.upload_packages || failure()

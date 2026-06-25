@@ -63,6 +63,29 @@ jobs:
           merge-multiple: true
           path: release-dist
 
+      - name: Extract public key from tarball
+        env:
+          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          cd release-dist
+          tar -xzf "${{ env.TARBALL }}" public-key.pem 2>/dev/null || true
+          if [[ ! -f public-key.pem ]]; then
+            if [[ -n "$PUBLIC_KEY" ]]; then
+              printf '%s\n' "$PUBLIC_KEY" > public-key.pem
+            elif [[ -n "$PRIVATE_KEY" ]]; then
+              tmp="$(mktemp)"
+              printf '%s\n' "$PRIVATE_KEY" | grep -v '^untrusted comment:' > "$tmp"
+              {
+                printf 'untrusted comment: openwrt-packages release key\n'
+                openssl ec -in "$tmp" -pubout
+              } > public-key.pem
+              rm -f "$tmp"
+            fi
+          fi
+          ls -la
+
       - name: Write SHA256SUMS
         run: |
           cd release-dist
@@ -76,6 +99,7 @@ jobs:
           files: |
             release-dist/openwrt_packages_*.tar.gz
             release-dist/SHA256SUMS
+            release-dist/public-key.pem
 
   pages:
     name: GitHub Pages
@@ -125,6 +149,13 @@ jobs:
             --dir release-dist
           ls -la release-dist/
 
+      - name: Checkout (feed page generator)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts/generate-feed-pages.sh
+          sparse-checkout-cone-mode: false
+
       - name: Assemble static feed tree
         run: |
           set -euo pipefail
@@ -132,51 +163,26 @@ jobs:
           mkdir -p "$dest"
           tar -xzf "release-dist/${{ env.TARBALL }}" -C "$dest"
           touch public/.nojekyll
-          if [[ ! -f "$dest/packages.adb" ]]; then
-            echo "::error::packages.adb missing after extract — check INDEX=1 and PRIVATE_KEY secrets"
-            find "$dest" -maxdepth 2 -type f | sort
-            exit 1
-          fi
           echo "Feed index: $dest/packages.adb ($(wc -c < "$dest/packages.adb") bytes)"
-          find public -type f | sort
+          find "$dest" -maxdepth 1 -name '*.apk' | wc -l | xargs echo ".apk files:"
 
-      - name: Install signing public keys
+      - name: Generate Pages index and public key
         env:
           PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           KEY_BUILD_PUB: ${{ secrets.KEY_BUILD_PUB }}
         run: |
           set -euo pipefail
-          if [[ -n "$PUBLIC_KEY" ]]; then
-            printf '%s\n' "$PUBLIC_KEY" > public/public-key.pem
-          else
-            echo "::warning::PUBLIC_KEY secret not set — public-key.pem will be missing on Pages"
-          fi
+          chmod +x scripts/generate-feed-pages.sh
+          scripts/generate-feed-pages.sh \
+            "public/${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}" \
+            public \
+            "${{ env.FEED_CHANNEL }}" \
+            "${{ env.PKG_ARCH }}"
           if [[ -n "$KEY_BUILD_PUB" ]]; then
             printf '%s\n' "$KEY_BUILD_PUB" > public/key-build.pub
           fi
-
-      - name: Write feed index
-        run: |
-          cat > public/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>openwrt_packages — Orange Pi CM5</title>
-          </head>
-          <body>
-            <h1>openwrt_packages</h1>
-            <p>ImmortalWrt feed for <strong>Orange Pi CM5 Base</strong> (RK3588 / <code>aarch64_generic</code>),
-              built from
-              <a href="https://github.com/T-REX-XP/openwrt-packages">T-REX-XP/openwrt-packages</a>.
-            </p>
-            <p>Feed path:
-              <code>immortalwrt-25.12/aarch64_generic/</code> —
-              <a href="https://github.com/T-REX-XP/openwrt-packages#option-d--install-from-published-feed">install instructions</a>.
-            </p>
-          </body>
-          </html>
-          EOF
+          find public -type f | sort
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
@@ -194,15 +200,23 @@ jobs:
           set -euo pipefail
           base="${PAGE_URL%/}/"
           feed_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/packages.adb"
+          index_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/"
           key_url="${base}public-key.pem"
+          apk_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/blocky-0.32.1-r2.apk"
           echo "Checking $feed_url"
           for attempt in 1 2 3 4 5 6; do
             if curl -fsI "$feed_url" | head -1 | grep -q '200'; then
               echo "Feed is live: $feed_url"
-              if curl -fsI "$key_url" | head -1 | grep -q '200'; then
-                echo "Public key: $key_url"
+              curl -fsI "$index_url" | head -1 | grep -q '200' && echo "Feed index: $index_url"
+              curl -fsI "$key_url" | head -1 | grep -q '200' && echo "Public key: $key_url" || \
+                echo "::warning::public-key.pem not reachable (set PUBLIC_KEY or PRIVATE_KEY secret)"
+              if curl -fsI "$apk_url" | head -1 | grep -q '200'; then
+                echo "Sample package: $apk_url"
               else
-                echo "::warning::public-key.pem not reachable (set PUBLIC_KEY secret?)"
+                first_apk="$(curl -fs "$index_url" | grep -oE 'href="[^"]+\.apk"' | head -1 | sed 's/href="//;s/"//')"
+                if [[ -n "$first_apk" ]]; then
+                  curl -fsI "${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/$first_apk" | head -1
+                fi
               fi
               exit 0
             fi
