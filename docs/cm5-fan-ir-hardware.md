@@ -6,7 +6,7 @@ Cross-check of **OPI_CM5_BASE_V1_2_SCH** (rev V1.2, Jan 2025) and **OPi CM5 core
 
 | Feature | Schematic / pin mux | Current DTS (ImmortalWrt) | Status |
 |--------|---------------------|-----------------------------|--------|
-| Case fan PWM | **PWM13_M1** → **GPIO4_B6** (`gpio4`, `RK_PB6`); net to **FAN1** 2-pin 1.25 mm (5 V, 2-wire) | `case_fan` `pwm-fan` on **`&pwm13`**, `pwm13m1_pins`, 20 ms period (`995-*-openwrt-fan.patch`) | **OK** (after pwm13 fix; was **MISMATCH** on pwm7) |
+| Case fan PWM | **PWM13_M1** → **GPIO4_B6** (`gpio4`, `RK_PB6`); net to **FAN1** 2-pin 1.25 mm (5 V, 2-wire) | `case_fan` `pwm-fan` on **`&pwm13`**, `pwm13m1_pins`, 20 ms period, normal polarity (`995-*-openwrt-fan.patch`) | **OK** (matches Orange Pi BSP; not pwm7/IR) |
 | Fan tach / RPM | Not wired — FAN1 is 2-pin only (no tach to SoC) | No `fan-supply` / no tach GPIO; `fan1_input` may be absent | **OK** (RPM n/a is expected) |
 | Onboard IR receiver | **IRM-3638** demodulator OUT → **PWM7_IR_M0** → **GPIO0_D0** (`gpio0`, `RK_PD0`, 1.8 V domain on JP3) | No `gpio-ir-receiver` / no `rockchip-pwm-capture` node in `994-02` / `994-03` | **OK** (deferred — see below) |
 | IR userspace | PWM input capture, not GPIO bit-bang | `luci-app-peripherals`: diagnostics + optional `kmod-ir-gpio-cir` for **external** receivers; comment-only `rc_maps.cfg` default | **OK** (matches hardware class) |
@@ -70,6 +70,39 @@ Userspace today:
 | Camera / VI FPCs | Sheets 11–12 | MIPI CSI (not fan/IR) |
 
 ## Validation on a running router
+
+**Firmware check:** `case_fan` and `package_thermal` cooling maps must be present in the
+running DTB. Images built before the `994-03` line-count fix (`+1,379` → `+1,382`)
+could truncate the DTS and drop fan/thermal nodes — reflash a current build if
+`case_fan` is missing below.
+
+```sh
+# Fan DT node
+tr '\0' ' ' </proc/device-tree/case_fan/compatible 2>/dev/null
+tr '\0' ' ' </proc/device-tree/case_fan/pwms 2>/dev/null | hexdump -C
+
+# Fan hwmon (name must be pwmfan)
+for d in /sys/class/hwmon/hwmon*; do
+	[ "$(cat "$d/name" 2>/dev/null)" = pwmfan ] && echo "FAN=$d" && ls -l "$d"/pwm*
+done
+
+# Manual spin test (enable=2 BEFORE pwm1)
+FAN=/sys/class/hwmon/hwmonX   # replace X
+echo 2 > "$FAN/pwm1_enable"
+echo 255 > "$FAN/pwm1"
+cat "$FAN/pwm1_enable" "$FAN/pwm1"
+# debug: pwm13 is febf0010.pwm on RK3588
+cat /sys/kernel/debug/pwm 2>/dev/null | sed -n '/febf0010/,/^$/p'
+
+# Thermal (auto mode: fan off below ~50 °C package temp is normal)
+for z in /sys/class/thermal/thermal_zone*; do
+	[ "$(cat "$z/type" 2>/dev/null)" = "package-thermal" ] && \
+		echo "$z temp=$(($(cat "$z/temp")/1000))°C"
+done
+```
+
+Polarity test: if full-speed (`255`) does not spin but `pwm1=0` with `pwm1_enable=2`
+does, add `PWM_POLARITY_INVERTED` to the `case_fan` `pwms` cell in DTS.
 
 ```sh
 # Fan

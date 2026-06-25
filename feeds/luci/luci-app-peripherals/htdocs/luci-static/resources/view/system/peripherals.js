@@ -144,7 +144,7 @@ function syncFanModeUi(mode) {
 		rng.disabled = isReadonlyView || disabled;
 	if (lbl) {
 		lbl.textContent = mode === 'auto'
-			? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 55 °C on CM5).')
+			? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 50–70 °C on CM5).')
 			: mode === 'off'
 				? _('PWM duty applies only in manual mode.')
 				: _('PWM duty is applied immediately when you save in manual mode.');
@@ -694,7 +694,7 @@ return view.extend({
 						'id': 'periph-fan-pwm-hint',
 						'class': 'cbi-section-descr periph-fan-pwm-hint'
 					}, [ initialMode === 'auto'
-						? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 55 °C on CM5).')
+						? _('PWM duty is stored for manual mode; automatic mode uses kernel thermal trips (about 50–70 °C on CM5).')
 						: initialMode === 'off'
 							? _('PWM duty applies only in manual mode.')
 							: _('PWM duty is applied immediately when you save in manual mode.')

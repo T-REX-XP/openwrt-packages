@@ -346,7 +346,7 @@ function fan_diag(base, procset) {
 	return {
 		hwmon: list_hwmon(),
 		module_state: module_state('pwm_fan', procset),
-		module_file: path_exists(`${lib_path}/pwm-fan.ko`),
+		module_file: path_exists(`${lib_path}/pwm-fan.ko`) || module_state('pwm_fan', procset) == 'builtin',
 		autoload: path_exists('/etc/modules.d/60-hwmon-pwmfan'),
 		dt_pwm_fan: dt_has_pwm_fan(),
 		device_tree_model: device_tree_model(),
