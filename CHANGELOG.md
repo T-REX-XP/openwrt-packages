@@ -2,6 +2,12 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r30] — 2026-06-25
+
+### Changed
+
+- **RST cleanup** — removed `cm5-waveshare-rst.sh`; RST is driven by kernel `waveshare-oled-rst` (CM5 DTS patch 999). `cm5_oled_release_rst()` in `cm5-apply-config.sh` and LuCI **Send RST pulse** write sysfs only.
+
 ## [luci-app-oled r29] — 2026-06-25
 
 ### Changed

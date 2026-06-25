@@ -11,8 +11,7 @@ cm5_oled_needs_menu_migration || exit 0
 
 logger -t oled-cm5-migrate "migrating legacy OLED config to menu mode (oledd)"
 cm5_apply_oled_config /dev/i2c-7
-
-[ -f /usr/lib/oled/cm5-waveshare-rst.sh ] && sh /usr/lib/oled/cm5-waveshare-rst.sh
+cm5_oled_release_rst || true
 
 /etc/init.d/oled stop 2>/dev/null
 /etc/init.d/oled disable 2>/dev/null

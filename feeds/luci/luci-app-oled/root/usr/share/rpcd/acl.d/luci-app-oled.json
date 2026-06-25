@@ -28,7 +28,7 @@
 				"/etc/init.d/oled": [ "exec" ],
 				"/etc/init.d/oledd": [ "exec" ],
 				"/usr/lib/oled/cm5-apply-config.sh": [ "read", "exec" ],
-				"/usr/lib/oled/cm5-waveshare-rst.sh": [ "exec" ],
+				"/sys/class/leds/waveshare-oled-rst/brightness": [ "write" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ]
 			}

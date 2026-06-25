@@ -46,7 +46,7 @@ feeds/luci/luci-app-oled/
         └── lib/oled/
             ├── oled-boot-state.sh
             ├── oledd-event.sh
-            ├── cm5-waveshare-rst.sh
+            ├── cm5-apply-config.sh
             └── cm5-oled-debug.sh
 ```
 
@@ -57,7 +57,7 @@ feeds/luci/luci-app-oled/
 | `0` | `/etc/init.d/oled` | `/usr/bin/oled` | 88 |
 | `1` (CM5 default) | `/etc/init.d/oledd` | `/usr/sbin/oledd` | 09 |
 
-**CM5 first boot (r24):** `xunlong,orangepi-cm5-base` images ship with `enable=1`, `menu_mode=1`, `path=/dev/i2c-7`. `uci-defaults/oled` runs `cm5-waveshare-rst.sh` and enables `oledd` when `/dev/i2c-7` exists — no manual UCI required.
+**CM5 first boot:** `xunlong,orangepi-cm5-base` images ship with `enable=1`, `menu_mode=1`, `path=/dev/i2c-7`. RST is held high by kernel `waveshare-oled-rst` (DTS patch 999); `uci-defaults/oled` enables `oledd` when `/dev/i2c-7` exists.
 
 Both respect `oled.@oled[0].enable` and UCI `path` (`/dev/i2c-7` on CM5).
 
@@ -124,7 +124,7 @@ Orange Pi CM5 Base + Waveshare 1.3" SH1106 HAT (FPC I2C @ **0x3c**):
 | 9 | RST (GPIO1_B4) | 22 |
 
 - Default UCI `path='/dev/i2c-7'`
-- RST: `cm5-waveshare-rst.sh` / `gpioset -c gpiochip1 12=1`
+- RST: kernel `waveshare-oled-rst` sysfs / LuCI **Send RST pulse**
 - **Button input** — CM5 onboard USERKEY (`wps`) and MaskROM (`BTN_2`) via `/etc/hotplug.d/button/99-oled`; UCI `menu_nav_button` / `menu_select_button`; HAT joystick GPIO deferred
 
 ## Phase 1 metrics (superseded by Phase 2)

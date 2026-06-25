@@ -3,11 +3,6 @@
 . /lib/functions/system.sh
 . /usr/lib/oled/cm5-apply-config.sh
 
-cm5_oled_release_rst() {
-	[ -f /usr/lib/oled/cm5-waveshare-rst.sh ] || return 0
-	sh /usr/lib/oled/cm5-waveshare-rst.sh
-}
-
 # Probe panel after RST; used for diagnostics only — do not gate enable on result.
 cm5_oled_probe_panel() {
 	local retries=0

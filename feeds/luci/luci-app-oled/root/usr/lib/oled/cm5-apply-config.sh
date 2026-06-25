@@ -1,6 +1,20 @@
 #!/bin/sh
 # CM5 Waveshare OLED menu-mode defaults (sourced by uci-defaults and migration).
 
+# RST on FPC pad 9 (GPIO1_B4): kernel gpio-leds node waveshare-oled-rst (immortalwrt DTS patch 999).
+cm5_oled_release_rst() {
+	[ "$(board_name 2>/dev/null)" = "xunlong,orangepi-cm5-base" ] || return 0
+	[ -e /sys/class/leds/waveshare-oled-rst/brightness ] || {
+		logger -t oled-cm5 "waveshare-oled-rst sysfs missing (need CM5 DTS patch 999)"
+		return 1
+	}
+	echo 1 > /sys/class/leds/waveshare-oled-rst/brightness 2>/dev/null || {
+		logger -t oled-cm5 "failed to set waveshare-oled-rst brightness"
+		return 1
+	}
+	return 0
+}
+
 cm5_apply_oled_config() {
 	local path="${1:-/dev/i2c-7}"
 	uci -q batch <<-EOF >/dev/null

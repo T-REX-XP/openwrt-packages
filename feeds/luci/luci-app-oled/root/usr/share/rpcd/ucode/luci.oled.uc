@@ -5,7 +5,7 @@
 import { readfile, popen, lsdir } from 'fs';
 
 const OLED_UCI = 'oled.@oled[0]';
-const CM5_RST = '/usr/lib/oled/cm5-waveshare-rst.sh';
+const CM5_RST_LED = '/sys/class/leds/waveshare-oled-rst/brightness';
 const BOOT_STATE = '/tmp/oled_state';
 
 const FLAG_OPTS = [
@@ -310,7 +310,7 @@ const methods = {
 				boot_stage: boot.stage || ubus?.boot_stage || '',
 				boot_message: boot.message || '',
 				ubus_available: ubus != null,
-				rst_script: file_test('-x', CM5_RST),
+				rst_led: file_test('-f', CM5_RST_LED),
 				preinit_hook: file_test('-f', '/lib/preinit/80-oled-preinit') ? '/lib/preinit/80-oled-preinit' : ''
 			};
 		}
@@ -335,9 +335,9 @@ const methods = {
 
 	releaseRst: {
 		call: function() {
-			if (!file_test('-x', CM5_RST))
-				return { error: 'no_rst_script' };
-			let res = run_cmd(`sh ${shell_quote(CM5_RST)}`);
+			if (!file_test('-f', CM5_RST_LED))
+				return { error: 'no_rst_led', message: 'Kernel waveshare-oled-rst LED missing (CM5 DTS patch 999).' };
+			let res = run_cmd(`echo 1 > ${shell_quote(CM5_RST_LED)}`);
 			return { ok: res.code == 0, output: res.output };
 		}
 	},

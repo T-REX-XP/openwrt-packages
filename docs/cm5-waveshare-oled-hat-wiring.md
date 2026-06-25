@@ -28,7 +28,7 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 | **I2C on FPC** | Pads **11/12** = GPIO4_B2/B3 = **`i2c7m3_xfer`** (SCL/SDA) |
 | **Power** | **3.3 V only** from FPC pad **1** or **2** — never 5 V |
 | **Minimum wires** | 5: 3V3, GND, SDA, SCL, **RST** (pad 9 → HAT pin 22) |
-| **RST (required)** | FPC pad **9** (**GPIO1_B4**) → HAT pin **22** — must be **driven high**; `luci-app-oled` runs `cm5-waveshare-rst.sh` at `oledd` start (`gpiochip1` line 12) |
+| **RST (required)** | FPC pad **9** (**GPIO1_B4**) → HAT pin **22** — held high at boot by kernel `waveshare-oled-rst` gpio-leds (immortalwrt DTS patch **999**) |
 | **Verified harness** | User-tested dupont wiring on CM5 Base J4 — see [§4](#4-verified-wire-by-wire-table-i2c) |
 | **Firmware gap** | ImmortalWrt patch **`998-*-fpc-i2c7`** enables **`i2c7`** + `i2c7m3_xfer` on the FPC; patch **`999-*-oled-rst`** drives **GPIO1_B4** (FPC pad 9) high at boot |
 | **Software** | CM5 ImmortalWrt images ship with **`luci-app-oled` enabled** — menu mode (`oledd`) on `/dev/i2c-7`, interactive nav via MaskROM + USERKEY; no manual UCI on first boot |
@@ -72,16 +72,11 @@ Per **OPI_CM5_BASE V1.2** (`01.Con_JP1_JP2`): pads **1** and **2** = 3V3; pads *
 
 > **Device-tree note:** The ImmortalWrt CM5 image enables **`i2c1`** with `i2c1m2_xfer` on **GPIO0_D4/D5** for the **onboard RTC** (HYM8563 @ `0x51`). That bus is **not** routed to **J4**. The FPC’s natural I2C pair is **`i2c7` mux m3** on **GPIO4_B2/B3** (pads **11/12**), which requires patch **`998-*-fpc-i2c7`**.
 
-### RST pin correction (schematic vs current firmware)
+### RST (kernel gpio-leds)
 
-**J4 pad 9** routes to **GPIO1_B4** on the **OPI_CM5_BASE V1.2** schematic — **not** GPIO4_B4.
+**J4 pad 9** = **GPIO1_B4** on the **OPI_CM5_BASE V1.2** schematic. ImmortalWrt CM5 DTS patch **`999-*-oled-rst`** exposes **`/sys/class/leds/waveshare-oled-rst`** (`default-state = on`) on that net. LuCI **Send RST pulse** writes `1` to the brightness sysfs node.
 
-The current ImmortalWrt CM5 patches **`999-*-oled-rst`** / **`9999-*-oled-rst-pinctrl`** drive **GPIO4_B4** (`gpiochip4`, line 12) via a `waveshare-oled-rst` gpio-leds node. That net does **not** reach FPC pad 9. Users can still get a working display by:
-
-1. Wiring FPC pad **9** → HAT pin **22**, and
-2. Releasing RST manually: `gpioset -c gpiochip1 -z 12=1` (**GPIO1_B4** = line **12** on **`gpiochip1`**)
-
-**Recommended future fix (immortalwrt DTS, not in this doc):** change the RST gpio-leds node and pinctrl to **GPIO1_B4** so pad 9 is driven high at boot.
+Manual fallback if sysfs is missing: `gpioset -c gpiochip1 -z 12=1` (**GPIO1_B4** = line **12** on **`gpiochip1`**).
 
 ---
 
@@ -229,7 +224,7 @@ The HAT ships in **4-wire SPI** mode (`BS0=0`, `BS1=0`). SPI needs **SCLK, MOSI,
 | **Current** | FPC 3.3 V is rated ~500 mA; OLED draw is small (~tens of mA). |
 | **I2C pull-ups** | **J4** has no external pull-ups (only **Rb1/Rb2** series resistors); CM5 DT patch **`9999-*`** enables SoC pull-ups on SDA/SCL. HAT may add its own. Confirm the panel with **`i2cget -y 7 0x3c 0x00 b`** (more reliable than `i2cdetect` on SH1106). |
 | **Controller chip** | HAT is **SH1106 128×64** — UCI must use `chip='sh1106_128x64'`, not `ssd1306_*`. |
-| **RST GPIO mismatch** | Firmware patch **999** drives **GPIO4_B4**, not the **GPIO1_B4** net on pad 9 — release RST manually until DTS is fixed. |
+| **RST sysfs missing** | Kernel without DTS patch **999** (GPIO1_B4) | Flash CM5 image with patch **999**; fallback `gpioset -c gpiochip1 -z 12=1` |
 | **Unused HAT pins** | Joystick and buttons on the HAT are not wired in this harness; ignore unless you add more GPIO lines from the FPC. |
 
 ---
@@ -242,7 +237,7 @@ Wiring is necessary but not sufficient. See [ssd1306-oled-openwrt-research.md](s
 |-------|--------|
 | **Wrong I2C controller** | Image enables **`i2c1`** (RTC on GPIO0). FPC needs **`i2c7`** with `pinctrl-0 = <&fpc_i2c7_xfer>` in CM5 device tree |
 | **Wrong `/dev/i2c-N`** | With `i2c7` enabled, the FPC bus is usually **`/dev/i2c-7`** on recent CM5 images; confirm with **`i2cget -y N 0x3c 0x00 b`** and set `oled.@oled[0].path` accordingly |
-| **Wrong RST GPIO in DT** | Patch **999** holds **GPIO4_B4** high; FPC pad **9** is **GPIO1_B4** — use `gpioset -c gpiochip1 12=1` until DTS is corrected |
+| **RST not high** | `waveshare-oled-rst` off or missing | `echo 1 > /sys/class/leds/waveshare-oled-rst/brightness` or LuCI **Send RST pulse** |
 | **SH1106 vs SSD1306** | HAT is **SH1106 128×64**; set UCI `chip='sh1106_128x64'` (`luci-app-oled` r13+ uses dedicated Waveshare init: `AD 8B`, page mode, col offset 2; no SSD1306 scroll/charge-pump). Wrong chip → daemon exits or blank display |
 | **No bus conflict** | Onboard RTC stays on `i2c1` @ `0x51`; OLED on separate `i2c7` @ `0x3c` |
 
@@ -302,7 +297,7 @@ pgrep -af oled
 2. Re-solder HAT jumpers to **I2C mode** (`BS0=0`, `BS1=1`, CS/DC/CLK/DIN → `1`)
 3. Wire **5 lines** (verified mapping): pad **1** → HAT **1** (3V3); pad **4** (or **7/8**) → HAT **6** (GND); pad **12** → HAT **3** (SDA); pad **11** → HAT **5** (SCL); pad **9** → HAT **22** (RST)
 4. **Enable `i2c7` + `i2c7m3_xfer`** in CM5 device tree (firmware change in `immortalwrt`, patch **998**)
-5. **Drive RST high on GPIO1_B4** (`gpioset -c gpiochip1 -z 12=1`) — patch **999** alone does not mux pad 9 until DTS uses **GPIO1_B4**
+5. **Confirm RST high:** `cat /sys/class/leds/waveshare-oled-rst/brightness` should be `1` (kernel patch **999** on GPIO1_B4)
 6. Point UCI `path` at the correct `/dev/i2c-N` (usually **`/dev/i2c-7`**)
 7. Set UCI **`chip`** to **`sh1106_128x64`**
 
@@ -348,30 +343,21 @@ On **Orange Pi CM5 Base** (per **OPI_CM5_BASE V1.2** schematic):
 
 **Without RST high on GPIO1_B4**, `i2cdetect -y 7` often shows a **stuck bus** (many hex digits across the grid). **`i2cget -y 7 0x3c 0x00 b`** is a better probe when RST is high and wiring is correct.
 
-**Immediate test on CM5 (before DTS fix)** — ImmortalWrt uses **`apk`**, not `opkg`. Your **`gpioset`** is **libgpiod 2.2+** (no **`-m`** option):
+**Verify RST on CM5** (kernel patch **999**):
 
 ```sh
-apk update && apk add gpiod-tools   # if gpioset missing
-/etc/init.d/oled stop
-uci set oled.@oled[0].enable='0' && uci commit oled
-
-# libgpiod 2.2+ — hold RST high on GPIO1_B4 (FPC pad 9):
-gpioset -c gpiochip1 -z 12=1
-# or: gpioset -c gpiochip1 12=1 &
-
-sleep 1
-gpioget -c gpiochip1 12    # expect: "12"=active or 1
-i2cget -y 7 0x3c 0x00 b    # expect: 0x00 (panel answers)
-i2cdetect -y 7               # optional; may look wrong on SH1106 even when i2cget works
+cat /sys/class/leds/waveshare-oled-rst/brightness   # expect 1
+gpioinfo -c gpiochip1 2>/dev/null | grep 'line  12'  # GPIO1_B4, FPC pad 9
 ```
 
-**Do not rely on patch 999 alone for pad 9:** it drives **GPIO4_B4** on **`gpiochip4`** line 12 — a different net. Checking `waveshare-oled-rst` or `gpioinfo -c gpiochip4` line 12 does **not** prove pad 9 is released.
-
-**After a future DTS fix** to **GPIO1_B4**, verify:
+Manual fallback if sysfs missing (`apk add gpiod-tools`):
 
 ```sh
-gpioinfo -c gpiochip1 | grep -A1 'line  12'
-# expect: waveshare-oled-rst (or similar), output, active
+/etc/init.d/oledd stop
+uci set oled.@oled[0].enable='0' && uci commit oled
+gpioset -c gpiochip1 -z 12=1
+sleep 1
+i2cget -y 7 0x3c 0x00 b    # expect: 0x00 (panel answers)
 ```
 
 You still must **wire pad 9 → HAT pin 22**.
@@ -383,7 +369,7 @@ Work bottom-up: **power → RST → I2C idle → scan → UCI → daemon**.
 1. **FPC orientation** — pin **1** at the CM5 **`1`** silkscreen mark (bottom-right). Reversed cable swaps power and I2C.
 2. **HAT disconnected** — `i2cget -y 7 0x3c 0x00 b` must **error**. `i2cdetect -y 7` should be all `--` (if not, CM5 bus or image patch **998** is wrong).
 3. **Only 3V3 + GND** to HAT (pads **1→1**, **4→6** or **7/8→6**) — still all `--`.
-4. **Drive RST high** on **gpiochip1** line **12** (`gpioset` above).
+4. **Confirm RST high** — `cat /sys/class/leds/waveshare-oled-rst/brightness` or LuCI **Send RST pulse**.
 5. **Add SDA + SCL** (pads **12→3**, **11→5**) — with DT patch **`9999-*`** (pull-ups), **`i2cdetect -y 7`** should show all **`--`**; with the HAT connected it should show **`3c`** at **0x3c** only.
 6. If **`i2cdetect`** still shows a full address grid, reflash an image with patches **`998`/`9999`** — that pattern means SDA is stuck low (missing pull-ups or bad wiring), not normal SH1106 behaviour.
 
@@ -410,7 +396,7 @@ echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
 |---------|--------------|-----|
 | Full hex grid on `i2c-7` but `i2cget` OK | SH1106 quirk / `i2cdetect` false positive | Trust `i2cget`; fix UCI `chip` if daemon exits |
 | Full hex grid and `i2cget` fails | RST low, bad wiring, or stuck bus | Drive **GPIO1_B4** high; check 5 wires; HAT off → `i2cget` errors |
-| `gpiochip4` line 12 = output but pad 9 dead | Patch **999** drives wrong net | Use `gpioset -c gpiochip1 12=1`; fix DTS to **GPIO1_B4** |
+| `waveshare-oled-rst` missing | Old kernel / no patch **999** | Rebuild CM5 image; fallback `gpioset -c gpiochip1 12=1` |
 | No `0x3c` on any bus | I2C jumpers still SPI, or patch **998** missing | §2 jumpers; flash **998** |
 | Only `0x51` on `i2c-1` | Normal RTC; OLED on wrong bus | Use **`/dev/i2c-7`**, not `i2c-1` |
 | `0x3c` present, daemon exits 1 | Wrong `chip` or old `luci-app-oled` (SSD1306 init on SH1106) | `apk list -I luci-app-oled` (need r13+); `uci set oled.@oled[0].chip='sh1106_128x64'` |
@@ -439,4 +425,4 @@ Re-enable with `/etc/init.d/oled start` when done.
 - [Orange Pi CM5 Base manual v1.3 (PDF)](https://orangepi.net/wp-content/uploads/2025/01/OrangePi_CM5_Base_RK3588S_user-manual_v1.3.pdf)
 - Orange Pi CM5 Base schematic **OPI_CM5_BASE V1.2**, sheet **`01.Con_JP1_JP2`** — **J4** pinout, **Rb1/Rb2** series resistors
 - [Waveshare 1.3" OLED HAT manual (PDF)](https://files.waveshare.com/upload/4/46/1.3inch_OLED_HAT_User_Manual_EN.pdf)
-- ImmortalWrt CM5 DTS: `i2c1` + RTC @ `0x51` in `994-03`; FPC I2C = `i2c7m3` on GPIO4_B2/B3 (pads **11/12**) in `998-*-fpc-i2c7`; SoC pull-ups in `9999-*-oled-rst-pinctrl`; RST gpio-leds in `999-*-oled-rst` (**GPIO4_B4 today — should be GPIO1_B4**)
+- ImmortalWrt CM5 DTS: `i2c1` + RTC @ `0x51` in `994-03`; FPC I2C = `i2c7m3` on GPIO4_B2/B3 (pads **11/12**) in `998-*-fpc-i2c7`; SoC pull-ups in `9999-*-oled-rst-pinctrl`; RST gpio-leds on **GPIO1_B4** in `999-*-oled-rst`

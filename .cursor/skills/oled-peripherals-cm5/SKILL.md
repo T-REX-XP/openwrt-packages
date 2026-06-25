@@ -25,7 +25,7 @@ description: >-
 |---------|-------|
 | I2C bus | `/dev/i2c-7` (`i2c@fec90000`, FPC pads 11/12) |
 | Address | `0x3c` |
-| RST | GPIO1_B4 — `usr/lib/oled/cm5-waveshare-rst.sh` |
+| RST | GPIO1_B4 — kernel `waveshare-oled-rst` LED (DTS patch 999); LuCI can `echo 1` to sysfs |
 | Menu daemon | `/usr/sbin/oledd` when `menu_mode=1` |
 | Nav button default | `BTN_2` (MaskROM) → `menu_nav_button` |
 | Auto-rotate default | `menu_interactive=0` |

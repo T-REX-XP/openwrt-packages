@@ -381,10 +381,10 @@ return view.extend({
 				E('button', {
 					'class': 'btn cbi-button-action',
 					'click': ui.createHandlerFn(this, 'handleRst'),
-					'disabled': isReadonlyView || !st.rst_script
+					'disabled': isReadonlyView || !st.rst_led
 				}, [ _('Send RST pulse') ]),
 				E('p', { 'class': 'cbi-value-description' }, [
-					_('Pulse the panel reset GPIO. Use after wiring changes or if the display stays blank.')
+					_('Drive waveshare-oled-rst high (kernel GPIO1_B4). Use after wiring changes or if the display stays blank.')
 				])
 			]))
 		]);
