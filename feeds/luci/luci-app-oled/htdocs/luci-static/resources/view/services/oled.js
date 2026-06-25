@@ -190,6 +190,11 @@ function optionSelected(value, current) {
 	return String(value) === String(current) ? 'selected' : null;
 }
 
+/* LuCI E() skips attrs only when null; disabled:false still disables the widget. */
+function disableIf(cond) {
+	return cond ? true : null;
+}
+
 function buildI2cPathList(cfg) {
 	cfg = cfg || {};
 	var i2cList = (cfg.i2c_devices || []).slice();
@@ -401,15 +406,26 @@ function renderPreviewCanvas(preview) {
 	]);
 }
 
-function renderPreviewControls(preview) {
+function previewDaemonRunning(preview, st) {
+	if (preview && preview.running != null)
+		return !!preview.running;
+	if (st && st.running != null)
+		return !!st.running;
+	return false;
+}
+
+function renderPreviewControls(preview, st) {
 	preview = preview || {};
+	st = st || {};
 	var pages = preview.pages || [];
+	var running = previewDaemonRunning(preview, st);
+	var blocked = isReadonlyView || !running;
 	var opts = [];
 
 	for (var i = 0; i < pages.length; i++) {
 		opts.push(E('option', {
 			'value': pages[i].id,
-			'selected': pages[i].id === preview.page_id ? 'selected' : null
+			'selected': optionSelected(pages[i].id, preview.page_id)
 		}, [ pages[i].title || pages[i].id ]));
 	}
 
@@ -418,19 +434,19 @@ function renderPreviewControls(preview) {
 			'class': 'btn cbi-button-action',
 			'id': 'oled-page-prev',
 			'click': ui.createHandlerFn(this, 'handlePageControl', 'prev'),
-			'disabled': isReadonlyView || !preview.running
+			'disabled': disableIf(blocked)
 		}, [ _('Previous page') ]),
 		' ',
 		E('button', {
 			'class': 'btn cbi-button-action',
 			'id': 'oled-page-next',
 			'click': ui.createHandlerFn(this, 'handlePageControl', 'next'),
-			'disabled': isReadonlyView || !preview.running
+			'disabled': disableIf(blocked)
 		}, [ _('Next page') ]),
 		' ',
 		E('select', {
 			'id': 'oled-page-jump',
-			'disabled': isReadonlyView || !preview.running || !pages.length
+			'disabled': disableIf(blocked || !pages.length)
 		}, opts.length ? opts : [
 			E('option', { 'value': '' }, [ _('No pages') ])
 		]),
@@ -439,15 +455,15 @@ function renderPreviewControls(preview) {
 			'class': 'btn cbi-button-action',
 			'id': 'oled-page-goto',
 			'click': ui.createHandlerFn(this, 'handlePageGoto'),
-			'disabled': isReadonlyView || !preview.running || !pages.length
+			'disabled': disableIf(blocked || !pages.length)
 		}, [ _('Jump to page') ])
 	]);
 }
 
-function renderPreviewPanel(preview) {
+function renderPreviewPanel(preview, st) {
 	return E('div', { 'class': 'oled-preview-panel', 'id': 'oled-preview-panel' }, [
 		renderPreviewCanvas(preview),
-		renderPreviewControls.call(this, preview)
+		renderPreviewControls.call(this, preview, st)
 	]);
 }
 
@@ -703,7 +719,7 @@ return view.extend({
 			cbiSection(_('Live preview'), [
 				_('Mirrors the physical 128×64 OLED page using the same pages.json layout and live metrics. Refreshes every few seconds.')
 			], [
-				renderPreviewPanel.call(this, preview)
+				renderPreviewPanel.call(this, preview, st)
 			], 'oled-section-preview'),
 			cbiSection(_('Status'), [
 				_('Live daemon and boot state. Refreshes automatically every few seconds.')
