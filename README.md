@@ -13,9 +13,9 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-blocky` | **luci-app-blocky** — LuCI for Blocky |
 | `feeds/luci/luci-app-speedtest` | **luci-app-speedtest** — LuCI for speedtest-go |
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |
-| `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, diagnostics |
+| `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, I2C bus scan |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
-| `feeds/luci/luci-app-oled` | **luci-app-oled** — SSD1306 I2C OLED status (CM5: `/dev/i2c-1`, `br-lan`) |
+| `feeds/luci/luci-app-oled` | **luci-app-oled** — SH1106 `oledd` menu (CM5: `/dev/i2c-7`, MaskROM/USERKEY nav) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
@@ -32,24 +32,24 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 | Layer | Packages | Feed | CM5 fit |
 |-------|----------|------|---------|
-| **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — primary DNS filter in CM5 profile |
+| **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — install from feed (not in default CM5 image) |
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
 | **Signature IDS** | `snort3`, `luci-app-snort3` | `snort3`: ImmortalWrt `packages`; LuCI: **this feed** | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
 | **Operator guide** | `luci-app-security-guide` | **this feed** | Security & privacy LuCI (CM5 profile) |
-| **Heavy IDS / SIEM** | Suricata, Zeek, Wazuh | **Not** in official OpenWrt feed | Use **Docker on CM5** or a second host + traffic mirror |
+| **Heavy IDS / SIEM** | Suricata, Zeek, Wazuh | **Not** in official OpenWrt feed | Mirror to an **external** Docker host (CM5 image does not ship Docker) |
 
 **Not recommended on-router for CM5:** Suricata **IPS** at 2.5 GbE with large rule sets; RK3588 **NPU does not accelerate** Snort/Suricata packet paths (ML inference only).
 
 ### Suggested CM5 stack (tiers)
 
-**Tier 1 — default (low risk, high value):** keep **`blocky`** + **`adblock`**; add **`banip`** + **`luci-app-banip`**; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
+**Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; optionally **`blocky`** from this feed; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
 **Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation.
 
-**Tier 3 — advanced:** mirror WAN/LAN to a **Docker** container (CM5 image includes `docker`/`dockerd`) for Suricata or Wazuh — see the research doc.
+**Tier 3 — advanced:** mirror WAN/LAN to a **Docker** host on another machine for Suricata or Wazuh — see the research doc.
 
 ### Install examples (ImmortalWrt 25.12+ / `apk`)
 

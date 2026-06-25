@@ -1,6 +1,6 @@
 # IDS / Traffic Analysis on OpenWrt / ImmortalWrt — Research Report
 
-*Saved for internal planning. Last updated: 2026-05-14.*
+*Last updated: 2026-06-25.*
 
 ## Summary
 
@@ -9,13 +9,13 @@ For **Orange Pi CM5 Base** (RK3588S, aarch64, dual **2.5 GbE**, ~8 GB RAM class 
 | Goal | Best fit on CM5 |
 |------|------------------|
 | Block known bad IPs / feeds | **`banIP`** + **`luci-app-banip`** |
-| DNS / domain threat filtering | **`adblock`**, **`blocky`** (already in CM5 image) |
+| DNS / domain threat filtering | **`adblock`**, **`luci-app-adblock`** (in CM5 image); **`blocky`** optional via feed |
 | Deep packet / signature IDS (Snort/Suricata class) | **`snort3`** on-router **or** **mirror to a separate host** |
 | Full **Suricata** in official feeds | **Not available** (Rust / maintenance; see below) |
 | Traffic visibility (not IDS) | **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`**, **`luci-app-statistics`** |
 | **NPU acceleration** for packet inspection | **No practical path today** — NPU is for ML inference, not L7 IDS |
 
-**Recommended default for this project:** add **`banIP`** + **`luci-app-banip`**, keep **`adblock`/`blocky`**, optionally **`snort3`** in **IDS (passive)** mode with a **minimal rule set**; use **Docker on CM5** or a **second machine** for heavy Suricata/SIEM if needed.
+**Recommended default for this project:** add **`banIP`** + **`luci-app-banip`**, keep **`adblock`**; optionally install **`blocky`** from the feed; optionally **`snort3`** in **IDS (passive)** mode with a **minimal rule set**; use an **external** Docker host for heavy Suricata/SIEM if needed.
 
 ---
 
@@ -26,7 +26,7 @@ From **`immortal_opi_cm5`** / **`armv8.mk`** profile:
 - **SoC:** Rockchip **RK3588S** — 4× Cortex-A76 + 4× Cortex-A55
 - **Network:** **`kmod-r8125`** (2.5 GbE); routing/NAT/SQM load scales with line rate
 - **RAM:** Typically sufficient for **Snort3 IDS** or **banIP**, but **not** for “datacenter rule sets at wire speed”
-- **Image today:** **`adblock`**, **`luci-app-adblock`**, **`blocky`**, **`luci-app-blocky`**, **`luci-app-statistics`**, **`nlbwmon`**, **`sqm-scripts`**; changelog also mentions **`banIP`**, **`tcpdump-mini`**, **`vnstat2`** as profile targets — verify **`DEVICE_PACKAGES`** when enabling
+- **Image today:** **`adblock`**, **`luci-app-adblock`**, **`nlbwmon`**, **`luci-app-nlbwmon`**; **`banIP`**, **`tcpdump-mini`**, **`vnstat2`** as profile targets — verify **`DEVICE_PACKAGES`** when enabling. **`blocky`**, **`luci-app-blocky`**, **`docker`**, **`luci-app-security-guide`**, **`luci-app-statistics`**, **`sqm-scripts`** are **not** in the slim CM5 profile (install from feed if needed).
 
 **Implication:** CM5 is **strong for an OpenWrt router**, but **2.5 GbE + full IPS rule sets** will still CPU-bound before the NPU helps in any way.
 
@@ -169,7 +169,7 @@ That is a **multi-month firmware project**, not an **`opkg install`**.
 | Solution | Type | OpenWrt package | LuCI | CM5 on-router | NPU help |
 |----------|------|-----------------|------|---------------|----------|
 | **banIP** | IP blocklists / “mini-IPS” | Yes | **luci-app-banip** | **Excellent** | No |
-| **adblock / blocky** | DNS filtering | Yes | Yes | **Excellent** (in profile) | No |
+| **adblock / blocky** | DNS filtering | Yes | Yes | **adblock in profile**; blocky via feed | No |
 | **Snort3** | Signature IDS/IPS | Yes | Community LuCI | **Good (IDS)**; IPS caution | No |
 | **Suricata** | Signature IDS/IPS | **No** (official) | External | Build yourself / Docker | No |
 | **tcpdump / vnstat / nlbwmon** | Capture / stats | Yes | Partial | **Excellent** | No |
@@ -183,7 +183,7 @@ That is a **multi-month firmware project**, not an **`opkg install`**.
 ### Tier 1 — ship in firmware (low risk, high value)
 
 1. **`banip`** + **`luci-app-banip`** — enable WAN-triggered feeds (Emerging Threats, etc.).
-2. Keep **`adblock`** + **`blocky`** for DNS threats (already present).
+2. Keep **`adblock`** for DNS threats; optionally install **`blocky`** from the feed.
 3. **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for operator visibility.
 
 ### Tier 2 — optional package / post-install
@@ -193,7 +193,7 @@ That is a **multi-month firmware project**, not an **`opkg install`**.
 
 ### Tier 3 — advanced
 
-6. **Docker on CM5** (profile already includes **`docker`/`dockerd`**) — run **Suricata** or **Wazuh agent** in container; router **TEE** mirror or port mirror.
+6. **External Docker host** — run **Suricata** or **Wazuh**; router **TEE** mirror or port mirror (CM5 image does not ship Docker).
 7. **NPU** — defer unless product goal is **edge ML** (cameras, custom models); **not** for IDS acceleration in 2026 on stock ImmortalWrt.
 
 ---

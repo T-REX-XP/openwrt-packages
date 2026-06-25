@@ -12,6 +12,7 @@ Maps [oled-menu.md](oled-menu.md) phases 1–4 to package layout, APIs, and CM5 
 | **2** | libubus metrics, `network.device` / `network.interface`, bandwidth from `/sys` | **Done (r18)** |
 | **3** | FIFO input, CM5 buttons, interactive menu | **Done (r19)** |
 | **4** | Preinit splash polish, error states, `ubus` `oledd` control API | **Done (r22)** |
+| **5** | LuCI JS/rpcd, RST sysfs, boot splash, single-page UI, `oledd` dashboard | **Done (r30–r34)** |
 
 ## File layout (luci-app-oled)
 
@@ -168,18 +169,18 @@ Boot completes (`stage=ready`) when hotplug sees `eth0` or `br-lan` ifup.
 1. **FIFO input** — `/var/run/oledd.fifo` (fallback `/tmp/oledd.fifo`); events: `net`, `up`, `down`, `ok`, `back`, `refresh`
 2. **`oledd_input.c`** — create FIFO on daemon start, non-blocking poll in main loop
 3. **`oledd_menu.c`** — interactive menu when UCI `menu_interactive=1` (default); auto-rotate when `0`
-4. **CM5 buttons** — hotplug appends to gpio-button-hotplug (does not replace `cm5-button-scripts`)
+4. **CM5 buttons** — `cm5-button-scripts` owns `/etc/rc.button/*`; handlers call `hotplug-call button` so `99-oled` receives events (r3). Mapping is UCI-driven in **Services → OLED** (`menu_nav_button`, `menu_select_button`).
 
-### CM5 button mapping (two buttons, no HAT joystick)
+### CM5 button mapping (defaults since r20)
 
-| Physical | `BUTTON` | FIFO | List view | Detail view |
-|----------|----------|------|-----------|-------------|
-| USERKEY | `wps` | `ok` | Open selected item | — |
-| MaskROM | `BTN_2` | `down` | Next item (wrap) | Back to menu |
+| Physical | `BUTTON` | FIFO | Action |
+|----------|----------|------|--------|
+| MaskROM | `BTN_2` | `next` | Next menu item or next screen (default nav) |
+| USERKEY | `wps` | `ok` | Select / open detail |
 
 Future HAT joystick: send `up` / `down` / `back` via GPIO hotplug or `oledd-event.sh`.
 
-Menu items: **System**, **Ports**, **WiFi** (if `menu_wifi`), **Boot log**.
+Menu / dashboard views (r34): **Network**, **System**, **WiFi** (if `menu_wifi`), **Boot log** in menu mode; auto-rotate starts on **Network** after boot.
 
 ## Phase 4 (done, r22)
 
@@ -187,3 +188,10 @@ Menu items: **System**, **Ports**, **WiFi** (if `menu_wifi`), **Boot log**.
 2. **Preinit** — `80-oled-preinit` writes `/tmp/oled_state` only (no I2C before `oledd` START=09)
 3. **Error overlays** — WAN down (`eth0` operstate or `network.interface.wan`) and high load (`load1` > 2.0); UCI `menu_alerts` (default `1`)
 4. **Idle dim** — blank display after `menu_timeout` s without FIFO events; wake on input or net hotplug
+
+## Phase 5 (done, r30–r34)
+
+1. **RST** — kernel `waveshare-oled-rst` on GPIO1_B4 (DTS patch 999); removed `cm5-waveshare-rst.sh` (r30)
+2. **Boot splash** — `ready` on `eth1`/`eth2`/lan events + 45s timeout when WAN unplugged (r31)
+3. **LuCI** — single scrollable page, no tabs/accordion (r32–r33); **Menu & buttons** documents handler vs mapping split
+4. **`oledd` dashboard** — Network/System/WiFi views with icons, clock, IPs (r34)

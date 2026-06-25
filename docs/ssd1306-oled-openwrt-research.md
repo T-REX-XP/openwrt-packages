@@ -1,6 +1,6 @@
 # SSD1306 OLED on OpenWrt / ImmortalWrt — Research Report
 
-*Last updated: 2026-06-24.*
+*Last updated: 2026-06-25.*
 
 ## CM5 Base + Waveshare 1.3" OLED HAT (hardware)
 
@@ -10,8 +10,8 @@ Key points that affect software choices below:
 
 | Topic | Detail |
 |-------|--------|
-| **FPC I2C** | Pads 10/11 = GPIO4_B3/B2 = **`i2c7m3`** — requires enabling **`i2c7`** in CM5 device tree (stock image only enables **`i2c1`** for onboard RTC @ `0x51`) |
-| **UCI path** | After DT change, set `oled.@oled[0].path` to the `/dev/i2c-N` where `i2cdetect` shows **`0x3c`** (not necessarily `/dev/i2c-1`) |
+| **FPC I2C** | Pads **11/12** = GPIO4_B2/B3 = **`i2c7m3`** — requires enabling **`i2c7`** in CM5 device tree (stock image only enables **`i2c1`** for onboard RTC @ `0x51`) |
+| **UCI path** | CM5 images default **`/dev/i2c-7`** when FPC `i2c7` is enabled; confirm with **`i2cget -y 7 0x3c 0x00 b`** |
 | **Controller** | Waveshare HAT uses **SH1106 128×64** — set `oled.@oled[0].chip='sh1106_128x64'` in UCI (CM5 uci-defaults when `0x3c` is found on FPC I2C) |
 
 ---
@@ -46,7 +46,7 @@ On a stock CM5 image you usually **do not** need `kmod-i2c-core` — bus driver 
 | **Bring-up** | `i2c-tools` | packages feed | No |
 | **Mainline DRM** | *(none today)* | `CONFIG_DRM_SSD130X` + DT in `config-6.12` | No kmod until `=m` |
 | **Dev4Embedded** | custom `kmod-ssd1306` | Out-of-tree | **Avoid** |
-| **Peripherals UX** | `luci-app-peripherals` | [feeds/luci/luci-app-peripherals](../feeds/luci/luci-app-peripherals/) | **Yes** (OLED tab + rpcd) |
+| **Peripherals UX** | `luci-app-peripherals` | [feeds/luci/luci-app-peripherals](../feeds/luci/luci-app-peripherals/) | **Yes** (I2C tab + rpcd; OLED config in luci-app-oled) |
 
 **luci-app-oled `LUCI_DEPENDS`:** `+i2c-tools +coreutils-nohup +libuci` — userspace I2C daemon, not a kernel module.
 
@@ -55,9 +55,9 @@ On a stock CM5 image you usually **do not** need `kmod-i2c-core` — bus driver 
 ```sh
 apk add i2c-tools coreutils-nohup   # if not on image
 apk add luci-app-oled               # after vendoring into feed
-i2cdetect -y 1                      # expect 0x3c on i2c1 (adjust N)
-# Configure /etc/config/oled: chip (ssd1306_128x32 | sh1106_128x64), i2cDevPath, br-lan
-/etc/init.d/oled enable && /etc/init.d/oled start
+i2cdetect -y 7                      # expect 0x3c on i2c7 (CM5 FPC)
+# Configure /etc/config/oled: chip sh1106_128x64, path /dev/i2c-7, menu_mode 1
+/etc/init.d/oledd enable && /etc/init.d/oledd start
 ```
 
 ---
@@ -121,16 +121,15 @@ Enable matching **`CONFIG_DRM_*` / SSD130x** options in `target/linux/rockchip/a
 
 References: [Using SSD1306 on Fedora (ssd130x DRM)](https://blog.dowhile0.org/2022/08/18/using-an-i2c-ssd1306-oled-on-fedora-with-a-raspberry-pi/), [Raspberry Pi kernel discussion on ssd1306 drivers](https://github.com/raspberrypi/linux/issues/7012).
 
-### 3. Extend luci-app-peripherals (CM5-specific UX) — **implemented**
+### 3. luci-app-peripherals (CM5) — **implemented**
 
-The CM5 image ships **`luci-app-peripherals`** (**System → Peripherals**) with **`luci.peripherals`** rpcd backend (fan, IR, diagnostics).
+The CM5 image ships **`luci-app-peripherals`** (**System → Peripherals**) with **`luci.peripherals`** rpcd backend (fan, IR, I2C scan, module diagnostics).
 
-**OLED integration (2026-06):**
+**Split with luci-app-oled (2026-06):**
 
-- **OLED display** tab: CM5 wiring reference, I2C bus scan (`i2cdetect`), UCI toggles for common fields, service start/stop
-- **rpcd** methods: `oledGet`, `oledSet`, `oledDetect`, `oledService`
-- Reuses **luci-app-oled** daemon (`/usr/bin/oled`) — no Dev4Embedded kernel module
-- Full screensaver options remain under **Services → OLED** (when `showmenu=1`)
+- **I2C tab** — read-only bus scan (`scanI2c` RPC, `i2c-tools`); cross-link to **Services → OLED**
+- **luci-app-oled** — all OLED UCI, `oledd` service, RST pulse, button mapping, boot splash
+- Reuses **oledd** / legacy **oled** daemons from **luci-app-oled** — no Dev4Embedded kernel module
 
 **Long-term:** mainline **DRM `ssd130x`** + device-tree node (see §2 below).
 
@@ -149,7 +148,7 @@ From **`immortal_opi_cm5`** device trees:
 - **`i2c0`**, **`i2c1`**, **`i2c2`** are enabled in the CM5 DTS
 - **`i2c1`** already hosts an **RTC at `0x51`** — a typical SSD1306 at **`0x3c`** can share the same bus if the carrier breaks out SDA/SCL to that controller
 
-**Waveshare 1.3" OLED HAT on the 12-pin FPC:** the natural I2C pair is **`i2c7m3`** on GPIO4_B2/B3 (FPC pads 11/10), which is **not** enabled in the current DT. See **[cm5-waveshare-oled-hat-wiring.md](cm5-waveshare-oled-hat-wiring.md)** for the full pin map, jumper settings, and verification steps.
+**Waveshare 1.3" OLED HAT on the 12-pin FPC:** the natural I2C pair is **`i2c7m3`** on GPIO4_B2/B3 (FPC pads **11/12**), enabled in CM5 ImmortalWrt patch **998**. See **[cm5-waveshare-oled-hat-wiring.md](cm5-waveshare-oled-hat-wiring.md)** for the full pin map, jumper settings, and verification steps.
 
 Confirm other wiring against the **CM5 Base carrier schematic** (which header pins map to which I2C instance).
 
@@ -187,8 +186,8 @@ Confirm other wiring against the **CM5 Base carrier schematic** (which header pi
 ## Recommended next steps
 
 1. **Do not** adopt Dev4Embedded as the default unless a **`/dev/ssd1306` char device** is an explicit goal.
-2. **Short path:** **`luci-app-oled`** is vendored in [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/). CM5 image adds **`i2c-tools`**, **`coreutils-nohup`**, **`luci-app-oled`** via **`DEVICE_PACKAGES`**; first boot sets **`/dev/i2c-1`** and **`br-lan`** in **`/etc/config/oled`**. **System → Peripherals → OLED display** provides I2C scan, UCI, and service control.
-3. **Long-term:** Add an **SSD1306 DT node** on the wired I2C bus, enable **mainline `ssd130x`**, then use fbcon or a small daemon. Peripherals OLED tab can remain the UCI/service entry point.
+2. **Short path:** **`luci-app-oled`** is vendored in [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/). CM5 image ships **`luci-app-oled`** via **`DEVICE_PACKAGES`**; first boot sets **`/dev/i2c-7`**, **`menu_mode=1`**, and **`oledd`**. **Services → OLED** owns configuration; **System → Peripherals → I2C** provides read-only bus scan.
+3. **Long-term:** Add an **SSD1306 DT node** on the wired I2C bus, enable **mainline `ssd130x`**, then use fbcon or a small daemon.
 4. **Bring-up checklist:** Install **`i2c-tools`**, run **`i2cdetect`**, verify **`dmesg`** after adding DT or starting the OLED daemon.
 
 ---

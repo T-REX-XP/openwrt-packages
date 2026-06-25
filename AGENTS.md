@@ -84,11 +84,11 @@ Primary device: **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM).
 
 **Suggested security stack (tiers)** — see [README.md](README.md) and `docs/ids-traffic-analysis-openwrt-research.md`:
 
-- **Tier 1:** blocky + adblock + banip + traffic visibility (tcpdump-mini, vnstat2, nlbwmon)
+- **Tier 1:** adblock + banip + traffic visibility (tcpdump-mini, vnstat2, nlbwmon); blocky optional via feed
 - **Tier 2:** snort3 + luci-app-snort3 in **passive IDS** mode on `br-lan`
 - **Tier 3:** mirror traffic to an **external** Docker host for Suricata/Wazuh (not on-router; CM5 image no longer ships Docker)
 
-**Blocky on CM5:** clients → dnsmasq `:53` → Blocky `127.0.0.1:5353`; LuCI/API via rpcd → `blocky-http-api` → `127.0.0.1:4000`. UCI blocklists → `blocky-lists-sync` (rewrite `config.yml`); live reload → `blocky-lists-refresh` (POST `/api/lists/refresh`). Router DNS toggle → `blocky-dnsmasq-sync`.
+**Blocky on CM5 (optional):** not in default `DEVICE_PACKAGES`; install from feed when needed. When enabled: clients → dnsmasq `:53` → Blocky `127.0.0.1:5353`; LuCI/API via rpcd → `blocky-http-api` → `127.0.0.1:4000`. UCI blocklists → `blocky-lists-sync` (rewrite `config.yml`); live reload → `blocky-lists-refresh` (POST `/api/lists/refresh`). Router DNS toggle → `blocky-dnsmasq-sync`.
 
 **Avoid on-router:** Suricata IPS at 2.5 GbE; RK3588 NPU does not accelerate Snort/Suricata.
 

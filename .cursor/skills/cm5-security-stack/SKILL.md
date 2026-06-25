@@ -16,21 +16,21 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 
 | Layer | Packages | Feed | CM5 fit |
 |-------|----------|------|---------|
-| DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — primary DNS filter |
+| DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — optional (not in default CM5 image) |
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
 | Signature IDS | snort3, luci-app-snort3 | snort3: ImmortalWrt; LuCI: **this feed** | Good in **passive IDS**; IPS needs tuning |
 | Visibility | tcpdump-mini, vnstat2, nlbwmon | ImmortalWrt | Excellent |
-| Operator guide | luci-app-security-guide | **this feed** | CM5 profile |
-| Heavy IDS/SIEM | Suricata, Zeek, Wazuh | Not in OpenWrt feed | Docker on CM5 or mirror host |
+| Operator guide | luci-app-security-guide | **this feed** | Optional feed install |
+| Heavy IDS/SIEM | Suricata, Zeek, Wazuh | Not in OpenWrt feed | External Docker host (not on-router) |
 
 ## Recommended tiers
 
-**Tier 1 (default):** blocky + adblock + banip + tcpdump-mini + vnstat2 + nlbwmon
+**Tier 1 (default):** adblock + banip + tcpdump-mini + vnstat2 + nlbwmon; blocky optional from feed
 
 **Tier 2 (optional):** snort3 + luci-app-snort3 in **IDS mode** on `br-lan`, minimal rules, monitor CPU/RAM
 
-**Tier 3 (advanced):** mirror WAN/LAN to Docker for Suricata/Wazuh
+**Tier 3 (advanced):** mirror WAN/LAN to an external Docker host for Suricata/Wazuh
 
 ## Not recommended on-router
 
@@ -68,5 +68,4 @@ Do not run **adblock** alongside Blocky as primary LAN filter (CM5 image disable
 ## CM5 network notes
 
 - Default LAN: `br-lan`, ports `eth1`/`eth2`, `192.168.8.1/24` (see immortalwrt `99-opi-cm5-network-migrate`)
-- OLED app: `/dev/i2c-1`, status on `br-lan`
-- CM5 image includes `docker`/`dockerd` for Tier 3 workloads
+- OLED: `/dev/i2c-7`, menu via `oledd`; config in **Services → OLED**

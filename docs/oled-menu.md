@@ -179,20 +179,23 @@ Optionally expose a lightweight control API (ubus object oledd) so other service
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Driver, `oledd`, procd, boot state, hotplug stub | **Done** — `luci-app-oled` **r17** (2026-06-25) |
-| 2 | libubus metrics, network views, bandwidth, WiFi stub | **Done** — `luci-app-oled` **r18** (2026-06-25) |
-| 3 | FIFO input, CM5 buttons, interactive menu | **Done** — `luci-app-oled` **r19** (2026-06-25) |
-| 4 | Preinit splash, ubus API, error states | Planned |
+| 1 | Driver, `oledd`, procd, boot state, hotplug stub | **Done** — `luci-app-oled` **r17** |
+| 2 | libubus metrics, network views, bandwidth, WiFi | **Done** — **r18** |
+| 3 | FIFO input, CM5 buttons, interactive menu | **Done** — **r19**–**r21** (configurable nav buttons) |
+| 4 | Preinit splash, ubus API, error states, idle dim | **Done** — **r22** |
+| 5 | LuCI JS + rpcd, boot splash fixes, RST sysfs, dashboard | **Done** — **r30**–**r34** |
+
+**Current (r34):** `oledd` dashboard rotates **Network / System / WiFi** with link icons, clock header, and WAN/LAN IPs. LuCI **Services → OLED** is a single scrollable page (Status, Service, Display & I2C, Menu & buttons, Legacy screensaver). RST via kernel `waveshare-oled-rst` sysfs only (no `cm5-waveshare-rst.sh`). Button handlers: **cm5-button-scripts** (`rc.button`); mapping: **luci-app-oled** (not `luci-app-buttons`).
 
 **Docs:** [oled-menu-implementation.md](oled-menu-implementation.md)
 
 **Package paths:**
 
-- Daemon: `feeds/luci/luci-app-oled/src/oledd/oledd.c` → `/usr/sbin/oledd`
-- Legacy screensaver: `feeds/luci/luci-app-oled/src/Example_Code/` → `/usr/bin/oled`
+- Daemon: `feeds/luci/luci-app-oled/src/oledd/` → `/usr/sbin/oledd`
+- Legacy screensaver: `src/Example_Code/` → `/usr/bin/oled`
 - Init: `root/etc/init.d/oledd`, `root/etc/init.d/oled`
-- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`, `menu_wifi`, `menu_interactive`)
-- Input: `root/usr/lib/oled/oledd-event.sh`, `/var/run/oledd.fifo`, `/etc/hotplug.d/button/99-oled`
+- UCI: `root/etc/config/oled` (`menu_mode`, `menu_timeout`, `menu_wifi`, `menu_interactive`, `menu_nav_button`, `menu_select_button`)
+- Input: `root/usr/lib/oled/oledd-event.sh`, `/var/run/oledd.fifo`, `/etc/hotplug.d/button/99-oled` (chains with `cm5-button-scripts` via `hotplug-call button`)
 - Boot state: `root/usr/lib/oled/oled-boot-state.sh`, `/tmp/oled_state`
 
-**Not yet implemented (Phase 4):** `ubus` `oledd` control object, screen dimming, error overlays, HAT joystick GPIO.
+**Deferred:** HAT joystick GPIO navigation.

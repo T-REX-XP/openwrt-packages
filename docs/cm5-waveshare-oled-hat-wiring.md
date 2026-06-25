@@ -8,7 +8,7 @@ Hardware guide for connecting a **[Waveshare 1.3" OLED HAT](https://www.waveshar
 
 - [SSD1306 OLED on OpenWrt / ImmortalWrt — Research Report](ssd1306-oled-openwrt-research.md) — software stack, kernel options, `luci-app-oled` vs mainline DRM
 - [`feeds/luci/luci-app-oled`](../feeds/luci/luci-app-oled/) — CM5 status daemon (userspace I2C)
-- [`feeds/luci/luci-app-peripherals`](../feeds/luci/luci-app-peripherals/) — **System → Peripherals → OLED display** tab
+- [`feeds/luci/luci-app-peripherals`](../feeds/luci/luci-app-peripherals/) — **System → Peripherals → I2C** tab (bus scan only; no OLED UCI)
 
 **Official manuals:**
 
@@ -115,8 +115,8 @@ Waveshare documents I2C mode as **BS1/BS0 = 1/0** in their hardware table (equiv
 
 **Use I2C**, not SPI:
 
-- [`luci-app-oled`](../feeds/luci/luci-app-oled/) talks **I2C userspace** via `/usr/bin/oled`
-- CM5 first-boot defaults set `path='/dev/i2c-1'` in `/etc/config/oled` — that bus hosts the **onboard RTC**, not the FPC
+- [`luci-app-oled`](../feeds/luci/luci-app-oled/) menu daemon **`oledd`** talks **I2C userspace** on CM5 **`/dev/i2c-7`**
+- **`i2c-1`** hosts the **onboard RTC** @ `0x51` — not the FPC OLED
 - FPC pads **11/12** map cleanly to **`i2c7m3`** (GPIO4_B2 SCL, GPIO4_B3 SDA)
 
 After enabling `i2c7` in firmware, run `i2cdetect` to find the correct `/dev/i2c-N` and update UCI.
@@ -277,17 +277,18 @@ dmesg | grep -iE 'i2c|ssd1306|oled|sh1106'
 
 ```sh
 uci set oled.@oled[0].chip='sh1106_128x64'
-uci set oled.@oled[0].path='/dev/i2c-N'    # replace N with bus where 3c appears
+uci set oled.@oled[0].path='/dev/i2c-7'
+uci set oled.@oled[0].menu_mode='1'
 uci set oled.@oled[0].enable='1'
 uci commit oled
-/etc/init.d/oled restart
-pgrep -af oled
+/etc/init.d/oledd restart
+pgrep -af oledd
 ```
 
 ### 5) LuCI
 
-- **System → Peripherals → OLED display** — bus scan, UCI toggles, service control
-- **Services → OLED** — full screensaver options (when `showmenu=1`)
+- **Services → OLED** — enable, I2C path/chip, RST pulse, menu mode, button mapping, service control
+- **System → Peripherals → I2C** — read-only bus scan (`scanI2c` RPC); cross-link to Services → OLED for configuration
 
 ---
 
@@ -388,7 +389,7 @@ echo "=== uci ===" && uci show oled 2>/dev/null
 echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
 ```
 
-**Healthy pattern:** `i2c-7` present; **`gpiochip1` line 12 driven high** (manual `gpioset` or future DT fix); **`i2cget -y 7 0x3c 0x00 b` succeeds**; UCI `path='/dev/i2c-7'`, `chip='sh1106_128x64'`; `luci-app-oled` r13+ installed; `oled` running when enabled.
+**Healthy pattern:** `i2c-7` present; **`waveshare-oled-rst` brightness `1`** (or `gpiochip1` line 12 high); **`i2cget -y 7 0x3c 0x00 b` succeeds**; UCI `path='/dev/i2c-7'`, `chip='sh1106_128x64'`, `menu_mode='1'`; `luci-app-oled` r26+ installed; `oledd` running when enabled.
 
 ### Quick decision tree
 
@@ -406,15 +407,16 @@ echo "=== daemon ===" && pgrep -af oled || echo "oled not running"
 ### Manual daemon test
 
 ```sh
-apk list -I luci-app-oled    # confirm r13+ after upgrade
-/etc/init.d/oled stop
-/usr/bin/oled --needInit --i2cDevPath=/dev/i2c-7 --chip=sh1106_128x64 --ipIfName=br-lan 2>&1 | head -5
-# expect: "Successfully connected" and process stays running (no exit 1)
+apk list -I luci-app-oled    # confirm r26+ after upgrade
+/etc/init.d/oledd stop
+/usr/sbin/oledd 2>&1 | head -5 &
+sleep 2
+ubus call oledd status
 ```
 
 Or run the bundled script: `sh /usr/lib/oled/cm5-oled-debug.sh`
 
-Re-enable with `/etc/init.d/oled start` when done.
+Re-enable with `/etc/init.d/oledd start` when done.
 
 ---
 

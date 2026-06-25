@@ -15,7 +15,7 @@ description: >-
 |---------|---------|-----------|
 | Display enable, menu, button mapping, boot splash, service control | **luci-app-oled** | **Services → OLED** |
 | Fan PWM, IR keymaps, I2C bus scan, kernel module diagnostics | **luci-app-peripherals** | **System → Peripherals** |
-| Physical button hotplug scripts (WPS, MaskROM logging) | **cm5-button-scripts** | (no LuCI on CM5 image; `/etc/rc.button/`) |
+| Physical button hotplug scripts (WPS, MaskROM logging) | **cm5-button-scripts** (r3: `hotplug-call button` chain) | (no LuCI on CM5 image; `/etc/rc.button/`) |
 
 **Optional (feed only, not CM5 image):** **luci-app-buttons** — script editor + polled live status; overlaps OLED mapping and SSH editing.
 
@@ -37,7 +37,7 @@ Shipped UCI: `feeds/luci/luci-app-oled/root/etc/config/oled` + `uci-defaults/ole
 ## luci-app-oled architecture
 
 ```text
-htdocs/luci-static/resources/view/services/oled.js   # tabbed JS view
+htdocs/luci-static/resources/view/services/oled.js   # single-page JS view
 htdocs/luci-static/resources/oled-theme.css
 root/usr/share/rpcd/ucode/luci.oled.uc                 # getConfig, setConfig, getStatus, …
 root/usr/share/luci/menu.d/luci-app-oled.json          # admin/services/oled
@@ -48,7 +48,7 @@ root/etc/init.d/oledd   # must be INSTALL_BIN + executable in repo
 
 **Legacy removed:** `luasrc/controller`, CBI `setting.lua` — do not reintroduce.
 
-**LuCI tabs:** Overview (status + service), Display (I2C, RST), Menu & buttons, Advanced (legacy screensaver).
+**LuCI layout (r32+):** single scrollable page — Status, Service, Display & I2C, Menu & buttons, Legacy screensaver (no tabs/accordion).
 
 ## luci-app-peripherals architecture
 
@@ -59,7 +59,7 @@ root/usr/share/rpcd/ucode/luci.peripherals.uc
 po/en/peripherals.po
 ```
 
-OLED tab: read-only status + `i2cdetect` scan only. Cross-link to **Services → OLED**.
+OLED tab: read-only **I2C** bus scan (`scanI2c` RPC) only. Cross-link to **Services → OLED**.
 
 ## Known failure modes (fixed in r26+)
 
