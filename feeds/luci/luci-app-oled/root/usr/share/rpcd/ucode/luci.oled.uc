@@ -310,7 +310,8 @@ const methods = {
 				boot_stage: boot.stage || ubus?.boot_stage || '',
 				boot_message: boot.message || '',
 				ubus_available: ubus != null,
-				rst_script: file_test('-x', CM5_RST)
+				rst_script: file_test('-x', CM5_RST),
+				preinit_hook: file_test('-f', '/lib/preinit/80-oled-preinit') ? '/lib/preinit/80-oled-preinit' : ''
 			};
 		}
 	},

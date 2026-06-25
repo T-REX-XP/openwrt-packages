@@ -111,6 +111,27 @@ function tableTitles(headers) {
 	}));
 }
 
+function periphInjectStyles() {
+	return E('link', {
+		'rel': 'stylesheet',
+		'type': 'text/css',
+		'href': L.resource('peripherals-theme.css')
+	});
+}
+
+function statusCard(label, value) {
+	return E('div', { 'class': 'periph-status-card' }, [
+		E('div', { 'class': 'periph-status-label' }, [ label ]),
+		E('div', { 'class': 'periph-status-value' }, [ value ])
+	]);
+}
+
+function statusPill(ok, label) {
+	return E('span', {
+		'class': 'periph-pill ' + (ok ? 'periph-pill--ok' : 'periph-pill--err')
+	}, [ label ]);
+}
+
 function fanEnableModeLabel(mode) {
 	var labels = {
 		'0': _('0 - hard off'),
@@ -122,107 +143,31 @@ function fanEnableModeLabel(mode) {
 	return labels[key] || (key || _('unknown'));
 }
 
-function fanBoardInfoBlock(fan) {
-	var info = (((fan || {}).diagnostics || {}).board_info) || {};
-	var modes = info.enable_modes || {};
-	var rows = [
-		[ _('Manual reference'), info.manual || 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3' ],
-		[ _('Fan connector'), info.connector || _('5V 2-pin 1.25mm fan socket') ],
-		[ _('Board control'), info.control || _('PWM speed and switch control') ],
-		[ _('Device tree'), '%s, %s'.format(info.dts_node || '/fan compatible=pwm-fan', info.pwm || 'PWM13') ],
-		[ _('PWM period'), info.period_ns ? _('%d ns').format(info.period_ns) : _('unknown') ],
-		[ _('RPM feedback'), info.tachometer || _('not exposed by the 2-pin connector') ],
-		[ _('Polarity test'), _('Use Full-speed test first. If the fan does not spin, use Inverted full-speed test before changing DTS polarity.') ],
-		[ _('pwm1_enable=0'), modes['0'] || _('hard off') ],
-		[ _('pwm1_enable=1'), modes['1'] || _('automatic/thermal idle') ],
-		[ _('pwm1_enable=2'), modes['2'] || _('manual PWM') ]
-	];
-
-	return E('table', { 'class': 'table' }, [
-		tableTitles([ _('Property'), _('Value') ]),
-		E('tbody', {}, rows.map(function(row) {
-			return E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ row[0] ]),
-				E('td', { 'class': 'td' }, [ row[1] ])
-			]);
-		}))
-	]);
-}
-
 function fanMetaBlock(fan) {
 	var diag = (fan || {}).diagnostics || {};
 	if (!fan || !fan.present) {
 		var hwmon = diag.hwmon || [];
-		var rows = [
-			E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ _('Device tree pwm-fan node') ]),
-				E('td', { 'class': 'td' }, [ diag.dt_pwm_fan ? _('present') : _('missing') ])
-			]),
-			E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ _('pwm_fan module') ]),
-				E('td', { 'class': 'td' }, [ diag.module_state || _('unknown') ])
-			]),
-			E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ _('pwm-fan.ko') ]),
-				E('td', { 'class': 'td' }, [ diag.module_file ? _('present') : _('missing') ])
-			]),
-			E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ _('Autoload file') ]),
-				E('td', { 'class': 'td' }, [ diag.autoload ? _('present') : _('missing') ])
-			]),
-			E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ _('Detected hwmon devices') ]),
-				E('td', { 'class': 'td' }, [
-					hwmon.length ? hwmon.map(function(h) {
-						return '%s=%s'.format(h.id || '?', h.name || _('unnamed'));
-					}).join(', ') : _('none')
-				])
-			])
-		];
 
 		return E('div', {}, [
 			E('p', { 'class': 'alert-message warning' }, [
-				_('No pwmfan device was found. If the device tree node is missing, the board is likely booting an older DTB/image. If the node exists but the module is missing or not loaded, reinstall/sysupgrade with the generated image or run %s and check %s.').format('modprobe pwm-fan', 'dmesg')
+				_('No PWM fan hwmon device was found. Check the device tree, kernel modules, and that pwm-fan is loaded.')
 			]),
-			E('table', { 'class': 'table' }, [
-				tableTitles([ _('Check'), _('State') ]),
-				E('tbody', {}, rows)
+			E('div', { 'class': 'periph-status-grid' }, [
+				statusCard(_('DT pwm-fan'), diag.dt_pwm_fan ? _('present') : _('missing')),
+				statusCard(_('pwm_fan module'), diag.module_state || _('unknown')),
+				statusCard(_('Module file'), diag.module_file ? _('present') : _('missing')),
+				statusCard(_('Autoload'), diag.autoload ? _('present') : _('missing')),
+				statusCard(_('hwmon devices'), hwmon.length ? hwmon.map(function(h) {
+					return '%s=%s'.format(h.id || '?', h.name || _('unnamed'));
+				}).join(', ') : _('none'))
 			])
 		]);
 	}
-	return E('div', {}, [
-		E('p', {}, [
-			_('PWM: %s, control: %s, RPM: %s').format(
-				fan.pwm1 != null ? fan.pwm1 : '—',
-				fanEnableModeLabel(fan.pwm1_enable),
-				fan.rpm != null && fan.rpm !== '' ? fan.rpm : _('n/a')
-			)
-		]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('The Orange Pi CM5 Base fan connector is a 2-wire 5V PWM-controlled output, so no tachometer/RPM input is expected.')
-		])
-	]);
-}
-
-function irBoardInfoBlock(irDev) {
-	var info = (irDev || {}).board_info || {};
-	var rows = [
-		[ _('Manual reference'), info.manual || 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3' ],
-		[ _('Onboard hardware'), info.onboard || _('Infrared receiver') ],
-		[ _('Kernel implementation'), info.implementation || _('PWM input capture') ],
-		[ _('RC device status'), info.rc_device || _('not exposed as /sys/class/rc/rc* by the current upstream kernel') ],
-		[ _('Default support'), info.default_support || _('external RC keymap support and onboard diagnostics') ],
-		[ _('External receivers'), info.external_receiver || _('gpio-ir-receiver device tree nodes can create /sys/class/rc/rc* devices') ]
-	];
-
-	return E('table', { 'class': 'table' }, [
-		tableTitles([ _('Property'), _('Value') ]),
-		E('tbody', {}, rows.map(function(row) {
-			return E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ row[0] ]),
-				E('td', { 'class': 'td' }, [ row[1] ])
-			]);
-		}))
+	return E('div', { 'class': 'periph-status-grid' }, [
+		statusCard(_('PWM duty'), fan.pwm1 != null ? String(fan.pwm1) : '—'),
+		statusCard(_('Control mode'), fanEnableModeLabel(fan.pwm1_enable)),
+		statusCard(_('RPM'), fan.rpm != null && fan.rpm !== '' ? String(fan.rpm) : _('n/a')),
+		statusCard(_('hwmon path'), fan.path || diag.path || '—')
 	]);
 }
 
@@ -230,7 +175,7 @@ function counterDevicesBlock(irDev) {
 	var counters = (irDev || {}).counter_devices || [];
 	if (!counters.length) {
 		return E('p', { 'class': 'alert-message notice' }, [
-			_('No Linux counter devices were found. This is normal on current RK3588 images unless a future device tree binding exposes the onboard PWM input-capture block.')
+			_('No Linux counter devices were found. Counter devices appear when the kernel exposes PWM input-capture hardware.')
 		]);
 	}
 
@@ -260,33 +205,9 @@ function counterDevicesBlock(irDev) {
 	]);
 }
 
-function oledBoardInfoBlock(oled) {
-	var info = (oled || {}).board_info || {};
-	var rows = [
-		[ _('Manual reference'), info.manual || 'OrangePi_CM5_Base_RK3588S_user-manual_v1.3' ],
-		[ _('Panel type'), info.panel || _('SSD1306 I2C OLED') ],
-		[ _('Default I2C bus (CM5)'), info.default_bus || '/dev/i2c-7' ],
-		[ _('Typical address'), info.default_address || '0x3c' ],
-		[ _('Bus note'), info.shared_bus || _('Confirm wiring on carrier schematic') ],
-		[ _('LAN interface'), info.lan_interface || 'br-lan' ],
-		[ _('Software stack'), info.daemon || _('luci-app-oled /usr/bin/oled') ],
-		[ _('Kernel I2C'), info.kernel || _('I2C char devices required') ]
-	];
-
-	return E('table', { 'class': 'table' }, [
-		tableTitles([ _('Property'), _('Value') ]),
-		E('tbody', {}, rows.map(function(row) {
-			return E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td' }, [ row[0] ]),
-				E('td', { 'class': 'td' }, [ row[1] ])
-			]);
-		}))
-	]);
-}
-
 function oledBusNumber(path) {
 	var m = String(path || '').match(/^\/dev\/i2c-([0-9]+)$/);
-	return m ? m[1] : '1';
+	return m ? m[1] : '0';
 }
 
 function oledMetaBlock(oled) {
@@ -302,13 +223,14 @@ function oledMetaBlock(oled) {
 		]);
 	}
 	var daemon = oled.menu_mode === '1' ? 'oledd' : 'oled';
-	return E('p', {}, [
-		_('Daemon (%s): %s, UCI enable: %s, configured bus: %s').format(
+	return E('div', { 'class': 'periph-status-grid' }, [
+		statusCard(_('Daemon'), E('span', {}, [
 			daemon,
-			oled.running ? _('running') : _('stopped'),
-			oled.enable === '1' ? _('yes') : _('no'),
-			oled.path || '—'
-		)
+			' ',
+			statusPill(oled.running, oled.running ? _('running') : _('stopped'))
+		])),
+		statusCard(_('Enabled'), oled.enable === '1' ? _('yes') : _('no')),
+		statusCard(_('I2C bus'), oled.path || '—')
 	]);
 }
 
@@ -376,7 +298,7 @@ return view.extend({
 		if (!diags.required_ok)
 			summaryParts.push(_('One or more required kernel features are not loaded or built in.'));
 		else if (!diags.ir_stack_ok)
-			summaryParts.push(_('External infrared receiver modules are not loaded. The onboard CM5 Base IR receiver is handled separately because it is wired through PWM input capture, not a gpio-ir-receiver RC device.'));
+			summaryParts.push(_('External infrared receiver modules are not loaded. GPIO IR receivers require kmod-ir-gpio-cir.'));
 
 		var summary = E('div', { 'class': summaryClass }, [
 			E('strong', {}, [ _('Status') ]),
@@ -635,61 +557,62 @@ return view.extend({
 	buildOledTab: function(oled) {
 		oled = oled || {};
 		var i2cList = oled.i2c_devices || [];
-		if (!i2cList.length)
-			i2cList = [ oled.path || '/dev/i2c-7' ];
+		var defaultPath = oled.path || (i2cList.length ? i2cList[0] : '');
+		if (!i2cList.length && defaultPath)
+			i2cList = [ defaultPath ];
 
 		var pathOptions = i2cList.map(function(dev) {
 			return E('option', {
 				'value': dev,
-				'selected': dev === (oled.path || '/dev/i2c-7')
+				'selected': dev === defaultPath
 			}, [ dev ]);
 		});
 
 		var oledAppLink = oled.config_present
-			? E('a', { 'href': L.url('admin/services/oled') }, [ _('Configure display → Services → OLED') ])
-			: E('em', {}, [ _('Install luci-app-oled for display configuration.') ]);
+			? E('a', {
+				'href': L.url('admin/services/oled'),
+				'class': 'periph-crosslink'
+			}, [ _('Configure display → Services → OLED') ])
+			: E('p', { 'class': 'alert-message notice' }, [ _('Install luci-app-oled for display configuration.') ]);
 
 		return E('div', { 'data-tab': 'oled', 'data-tab-title': _('OLED diagnostics') }, [
 			cbiSection(
-				_('I2C hardware reference'),
+				_('OLED status'),
 				[
-					_('Read-only wiring notes for the CM5 FPC OLED. Display settings, menu mode, and buttons are configured in the OLED app.'),
+					_('Read-only service and bus state. Display settings are in the OLED app.'),
 					oledAppLink
 				],
-				[ oledBoardInfoBlock(oled) ]
+				[
+					E('div', { 'id': 'periph-oled-meta' }, [ oledMetaBlock(oled) ])
+				]
 			),
 			cbiSection(
-				_('I2C probe'),
+				_('I2C bus scan'),
+				[ _('Probe the selected adapter with i2cdetect. This does not change OLED configuration.') ],
 				[
-					_('Scan adapters with i2cdetect. Expect 0x3c on bus 7 for the Waveshare SH1106 HAT. This tab does not change OLED UCI.')
-				],
-				[
-					E('div', { 'id': 'periph-oled-meta', 'class': 'cbi-value-field' }, [ oledMetaBlock(oled) ]),
 					E('div', { 'class': 'cbi-value' }, [
 						E('label', { 'class': 'cbi-value-title' }, [ _('I2C adapter') ]),
 						E('div', { 'class': 'cbi-value-field' }, [
-							E('select', { 'id': 'periph-oled-path' }, pathOptions),
+							E('select', { 'id': 'periph-oled-path' }, pathOptions.length ? pathOptions : [
+								E('option', { 'value': '' }, [ _('No I2C devices found') ])
+							]),
 							' ',
 							E('button', {
 								'class': 'btn cbi-button-action',
-								'click': ui.createHandlerFn(this, 'handleOledDetect')
+								'click': ui.createHandlerFn(this, 'handleOledDetect'),
+								'disabled': !pathOptions.length
 							}, [ _('Scan bus') ]),
 							' ',
 							E('button', {
 								'class': 'btn cbi-button-action',
 								'click': ui.createHandlerFn(this, 'handleOledRefresh')
-							}, [ _('Refresh status') ])
+							}, [ _('Refresh') ])
 						])
 					]),
-					E('div', { 'class': 'cbi-value' }, [
-						E('label', { 'class': 'cbi-value-title' }, [ _('i2cdetect output') ]),
-						E('div', { 'class': 'cbi-value-field' }, [
-							E('pre', {
-								'id': 'periph-oled-detect',
-								'class': 'peripherals-detect-pre'
-							}, [ _('Click Scan bus to probe the selected I2C adapter.') ])
-						])
-					])
+					E('pre', {
+						'id': 'periph-oled-detect',
+						'class': 'peripherals-detect-pre'
+					}, [ _('Scan output appears here.') ])
 				]
 			)
 		]);
@@ -721,6 +644,7 @@ return view.extend({
 					E('input', {
 						'type': 'range',
 						'id': 'periph-fan-pwm',
+						'class': 'periph-fan-slider',
 						'min': 0,
 						'max': 255,
 						'value': pwmVal,
@@ -731,24 +655,15 @@ return view.extend({
 						}
 					}),
 					' ',
-					E('span', { 'id': 'periph-fan-pwm-lbl', 'style': 'font-family:monospace;margin-left:0.5em' }, [ String(pwmVal) ])
+					E('span', { 'id': 'periph-fan-pwm-lbl', 'class': 'periph-fan-pwm-lbl' }, [ String(pwmVal) ])
 				])
 			])
 		];
 
 		return E('div', { 'data-tab': 'fan', 'data-tab-title': _('Cooling fan') }, [
 			cbiSection(
-				_('Board wiring'),
-				[
-					_('The official Orange Pi CM5 Base manual lists the cooling fan as a 5V 2-pin 1.25mm socket and states that fan speed and switching are controlled through PWM.')
-				],
-				[ fanBoardInfoBlock(fan) ]
-			),
-			cbiSection(
-				_('PWM fan'),
-				[
-					_('PWM-controlled cooling fan (hwmon name %s). The generated DTS exposes it as a pwm-fan on PWM13 M1 with thermal cooling levels.').format('pwmfan')
-				],
+				_('PWM fan control'),
+				[ _('Adjust cooling fan mode and PWM duty via the hwmon interface.') ],
 				fanSectionBody
 			),
 			E('div', { 'class': 'cbi-page-actions' }, [
@@ -812,25 +727,16 @@ return view.extend({
 
 		var tabIr = E('div', { 'data-tab': 'ir', 'data-tab-title': _('Infrared') }, [
 			cbiSection(
-				_('Onboard IR receiver'),
-				[
-					_('The CM5 Base includes an onboard infrared receiver. It is wired through PWM input capture, so it is not expected to appear as a normal RC-core device under %s on the current upstream kernel.').format('/sys/class/rc/')
-				],
-				[ irBoardInfoBlock(irDev) ]
-			),
-			cbiSection(
-				_('PWM/counter capture diagnostics'),
-				[
-					_('Future RK3588 PWM input-capture support should expose raw capture state through Linux counter devices. This section reports those devices when the kernel and device tree expose them.')
-				],
+				_('Counter capture'),
+				[ _('Linux counter devices exposed by PWM input-capture drivers, when available.') ],
 				[ counterDevicesBlock(irDev) ]
 			),
 			cbiSection(
-				_('External RC devices'),
-				[ _('Kernel remote control devices (%s) from external gpio-ir-receiver hardware or future compatible device-tree support.').format('/sys/class/rc/') ],
+				_('RC devices'),
+				[ _('Kernel remote-control devices under %s.').format('/sys/class/rc/') ],
 				[
 					(irDev.devices || []).length ? devTable : E('p', { 'class': 'alert-message notice' }, [
-						_('No external RC devices were found. This is not an error for the onboard CM5 Base IR receiver. If you attach a separate supported receiver, verify its device tree/overlay and that %s and %s are installed.').format('kmod-multimedia-input', 'kmod-ir-gpio-cir')
+						_('No RC devices found. Attach a gpio-ir-receiver or compatible device and ensure kmod-ir-gpio-cir is installed.')
 					])
 				]
 			),
@@ -870,15 +776,20 @@ return view.extend({
 			)
 		]);
 
-		var viewRoot = E([], [
-			E('link', {
-				'rel': 'stylesheet',
-				'type': 'text/css',
-				'href': L.resource('peripherals-theme.css')
-			}),
+		var viewRoot = E('div', { 'class': 'luci-app-peripherals' }, [
+			periphInjectStyles(),
 			E('h2', {}, [ _('Peripherals') ]),
 			E('p', { 'class': 'cbi-map-descr' }, [
-				_('Low-level peripheral tuning: infrared, PWM fan, I2C OLED diagnostics, and kernel module checks. OLED display settings live under Services → OLED; GPIO button scripts under System → Buttons.')
+				_('Low-level tuning for infrared, cooling fan, I2C diagnostics, and kernel modules.'),
+				' ',
+				_('Display settings:'),
+				' ',
+				E('a', { 'href': L.url('admin/services/oled') }, [ _('Services → OLED') ]),
+				'. ',
+				_('Button scripts:'),
+				' ',
+				E('a', { 'href': L.url('admin/system/buttons') }, [ _('System → Buttons') ]),
+				'.'
 			]),
 			E('div', {}, [
 				tabIr,

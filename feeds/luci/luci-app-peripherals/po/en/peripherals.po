@@ -1,0 +1,32 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-peripherals\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Peripherals"
+msgstr "Peripherals"
+
+msgid "OLED diagnostics"
+msgstr "OLED diagnostics"
+
+msgid "Cooling fan"
+msgstr "Cooling fan"
+
+msgid "Infrared"
+msgstr "Infrared"
+
+msgid "Diagnostics"
+msgstr "Diagnostics"
+
+msgid "Configure display → Services → OLED"
+msgstr "Configure display → Services → OLED"
+
+msgid "Services → OLED"
+msgstr "Services → OLED"
+
+msgid "System → Buttons"
+msgstr "System → Buttons"

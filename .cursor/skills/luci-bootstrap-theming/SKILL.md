@@ -40,10 +40,12 @@ Override fill opacities in dark mode on the same scoped root.
 ## LuCI JS patterns
 
 - Wrap the view in a scoped class: `E('div', { 'class': 'luci-app-blocky' }, [...])`
-- Inject stylesheet: `blockyInjectStyles()` → `L.resource('blocky-theme.css')`
-- **Charts:** use CSS tone classes (`blocky-bar-seg--total`, `blocky-vbar--blocked`) not inline `background:#hex`
-- **SVG paths:** read colors via `getComputedStyle` + CSS vars; re-apply on `data-darkmode` change
-- **Legends:** `blocky-legend-dot blocky-legend-dot--{tone}` classes
+- Inject stylesheet: `L.resource('<app>-theme.css')` via `<link>` in render
+- **Tabs:** group sections in `data-tab` / `data-tab-title` divs; `ui.tabs.initTabGroup(container.childNodes)`
+- **Status cards:** CSS grid (3 → 2 → 1 columns at 768px / 520px); labels use `--text-color-medium`, values `--text-color-highest`
+- **i18n:** every user-visible string through `_()`; add `po/en/<app>.po` for new apps
+- **Charts:** use CSS tone classes (`blocky-bar-seg--total`, …) not inline `background:#hex`
+- **No board-specific copy** in views — link to `docs/` or show detected hardware via RPC
 
 ## Responsive layout
 
@@ -68,7 +70,10 @@ Typical breakpoints: **1200px**, **768px**, **520px**.
 2. Run `node --check` on modified JS files
 3. Verify light, dark, and narrow viewport in LuCI
 
-## Reference implementation
+## Reference implementations
 
-- `feeds/luci/luci-app-blocky/htdocs/luci-static/resources/blocky-theme.css`
-- `feeds/luci/luci-app-blocky/htdocs/luci-static/resources/blocky-common.js`
+| App | CSS | JS view |
+|-----|-----|---------|
+| blocky (charts, pills) | `luci-app-blocky/.../blocky-theme.css` | `blocky-common.js` |
+| oled (tabs, status grid) | `luci-app-oled/.../oled-theme.css` | `view/services/oled.js` |
+| peripherals (tabs, diagnostics) | `luci-app-peripherals/.../peripherals-theme.css` | `view/system/peripherals.js` |

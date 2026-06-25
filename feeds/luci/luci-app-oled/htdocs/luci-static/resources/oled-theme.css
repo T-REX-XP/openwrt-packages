@@ -1,26 +1,24 @@
 /*
- * luci-app-oled theme — dark / light / system via luci-theme-bootstrap
+ * luci-app-oled — Bootstrap variables; light / dark / system
  */
 
 .luci-app-oled {
 	--oled-accent: var(--primary-color-high, #0069d6);
 	min-width: 0;
+	max-width: 100%;
 }
 
-.luci-app-oled .oled-section {
-	margin-bottom: 1.25em;
-}
-
-.luci-app-oled .oled-section-title {
-	margin-top: 0;
-}
-
-.luci-app-oled .oled-status-grid {
+.luci-app-oled .oled-status-grid,
+.luci-app-oled .oled-boot-grid {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 0.75em;
 	margin-bottom: 0.75em;
 	min-width: 0;
+}
+
+.luci-app-oled .oled-boot-grid {
+	margin-top: 0.75em;
 }
 
 .luci-app-oled .oled-status-card {
@@ -98,7 +96,7 @@
 	border-radius: 4px;
 	padding: 0.5em 0.75em 0.75em;
 	background: var(--background-color-low);
-	margin-bottom: 1.25em;
+	margin-top: 0.5em;
 }
 
 .luci-app-oled .oled-legacy-summary {
@@ -117,8 +115,15 @@
 	margin-top: 0.35em;
 }
 
+.luci-app-oled hr {
+	border: none;
+	border-top: 1px solid var(--border-color-medium);
+	margin: 1em 0;
+}
+
 @media (max-width: 768px) {
-	.luci-app-oled .oled-status-grid {
+	.luci-app-oled .oled-status-grid,
+	.luci-app-oled .oled-boot-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
@@ -128,7 +133,8 @@
 }
 
 @media (max-width: 520px) {
-	.luci-app-oled .oled-status-grid {
+	.luci-app-oled .oled-status-grid,
+	.luci-app-oled .oled-boot-grid {
 		grid-template-columns: 1fr;
 	}
 }

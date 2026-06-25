@@ -45,9 +45,8 @@ var callServiceControl = rpc.declare({
 
 var isReadonlyView = !L.hasViewPermission() || null;
 
-var CM5_DEFAULTS = {
+var FORM_DEFAULTS = {
 	enable: '1',
-	path: '/dev/i2c-7',
 	rotate: '0',
 	menu_mode: '1',
 	menu_timeout: '5',
@@ -68,7 +67,7 @@ var CM5_DEFAULTS = {
 	netsource: 'br-lan',
 	time: '60',
 	scroll: '0',
-	text: 'CM5'
+	text: 'OpenWrt'
 };
 
 function rpcData(data, fallback) {
@@ -90,16 +89,6 @@ function oledInjectStyles() {
 		'type': 'text/css',
 		'href': L.resource('oled-theme.css')
 	});
-}
-
-function section(title, descr, body, extraClass) {
-	var nodes = [];
-	if (title)
-		nodes.push(E('h3', { 'class': 'oled-section-title' }, [ title ]));
-	if (descr)
-		nodes.push(E('p', { 'class': 'cbi-section-descr' }, Array.isArray(descr) ? descr : [ descr ]));
-	nodes.push.apply(nodes, body || []);
-	return E('div', { 'class': 'cbi-section oled-section' + (extraClass ? ' ' + extraClass : '') }, nodes);
 }
 
 function fieldRow(title, field, descr) {
@@ -157,7 +146,7 @@ function flag(id) {
 
 function i2cBusNumber(path) {
 	var m = String(path || '').match(/^\/dev\/i2c-([0-9]+)$/);
-	return m ? m[1] : '7';
+	return m ? m[1] : '0';
 }
 
 function oledSyncLegacyVisibility() {
@@ -171,28 +160,28 @@ function oledSyncLegacyVisibility() {
 function readFormConfig() {
 	return {
 		enable: flag('oled-enable'),
-		path: val('oled-path', CM5_DEFAULTS.path),
+		path: val('oled-path'),
 		rotate: flag('oled-rotate'),
 		menu_mode: flag('oled-menu-mode'),
-		menu_timeout: val('oled-menu-timeout', CM5_DEFAULTS.menu_timeout),
+		menu_timeout: val('oled-menu-timeout', FORM_DEFAULTS.menu_timeout),
 		menu_wifi: flag('oled-menu-wifi'),
 		menu_interactive: flag('oled-menu-interactive'),
-		menu_nav_button: val('oled-nav-button', CM5_DEFAULTS.menu_nav_button),
-		menu_select_button: val('oled-select-button', CM5_DEFAULTS.menu_select_button),
+		menu_nav_button: val('oled-nav-button', FORM_DEFAULTS.menu_nav_button),
+		menu_select_button: val('oled-select-button', FORM_DEFAULTS.menu_select_button),
 		menu_alerts: flag('oled-menu-alerts'),
 		autoswitch: flag('oled-autoswitch'),
-		from: val('oled-from', CM5_DEFAULTS.from),
-		to: val('oled-to', CM5_DEFAULTS.to),
+		from: val('oled-from', FORM_DEFAULTS.from),
+		to: val('oled-to', FORM_DEFAULTS.to),
 		date: flag('oled-date'),
 		lanip: flag('oled-lanip'),
-		ipifname: val('oled-ipifname', CM5_DEFAULTS.ipifname),
+		ipifname: val('oled-ipifname', FORM_DEFAULTS.ipifname),
 		cputemp: flag('oled-cputemp'),
 		cpufreq: flag('oled-cpufreq'),
 		netspeed: flag('oled-netspeed'),
-		netsource: val('oled-netsource', CM5_DEFAULTS.netsource),
-		time: val('oled-time', CM5_DEFAULTS.time),
+		netsource: val('oled-netsource', FORM_DEFAULTS.netsource),
+		time: val('oled-time', FORM_DEFAULTS.time),
 		scroll: flag('oled-scroll'),
-		text: val('oled-text', CM5_DEFAULTS.text),
+		text: val('oled-text', FORM_DEFAULTS.text),
 		drawline: flag('oled-drawline'),
 		drawrect: flag('oled-drawrect'),
 		fillrect: flag('oled-fillrect'),
@@ -213,37 +202,23 @@ function statusPill(running, label) {
 	}, [ label || (running ? _('Running') : _('Stopped')) ]);
 }
 
+function statusCard(label, value) {
+	return E('div', { 'class': 'oled-status-card' }, [
+		E('div', { 'class': 'oled-status-label' }, [ label ]),
+		E('div', { 'class': 'oled-status-value' }, [ value ])
+	]);
+}
+
 function renderStatusBlock(st) {
 	st = st || {};
-	var daemonLabel = st.daemon === 'oledd' ? _('oledd (menu daemon)') : _('oled (legacy screensaver)');
+	var daemonLabel = st.daemon === 'oledd' ? _('oledd (menu)') : _('oled (legacy)');
 	return E('div', { 'class': 'oled-status-grid', 'id': 'oled-status-panel' }, [
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('Daemon') ]),
-			E('div', { 'class': 'oled-status-value' }, [ daemonLabel, ' ', statusPill(st.running) ])
-		]),
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('Current view') ]),
-			E('div', { 'class': 'oled-status-value' }, [ st.view || '—' ])
-		]),
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('Display state') ]),
-			E('div', { 'class': 'oled-status-value' }, [
-				st.dimmed ? _('Dimmed (idle)') : _('Active'),
-				st.menu_interactive ? (' · ' + _('Interactive')) : ''
-			])
-		]),
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('I2C path') ]),
-			E('div', { 'class': 'oled-status-value' }, [ st.path || '—' ])
-		]),
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('Boot stage') ]),
-			E('div', { 'class': 'oled-status-value' }, [ st.boot_stage || _('unknown') ])
-		]),
-		E('div', { 'class': 'oled-status-card' }, [
-			E('div', { 'class': 'oled-status-label' }, [ _('Boot message') ]),
-			E('div', { 'class': 'oled-status-value' }, [ st.boot_message || '—' ])
-		])
+		statusCard(_('Daemon'), E('span', {}, [ daemonLabel, ' ', statusPill(st.running) ])),
+		statusCard(_('Current view'), st.view || '—'),
+		statusCard(_('Display'), st.dimmed ? _('Dimmed') : _('Active')),
+		statusCard(_('I2C bus'), st.path || '—'),
+		statusCard(_('Boot stage'), st.boot_stage || _('unknown')),
+		statusCard(_('Boot message'), st.boot_message || '—')
 	]);
 }
 
@@ -270,7 +245,7 @@ return view.extend({
 				return;
 			}
 			ui.addNotification(null, E('p', {}, [
-				restart ? _('OLED settings saved and service restarted.') : _('OLED settings saved.')
+				restart ? _('Settings saved and service restarted.') : _('Settings saved.')
 			]), 'info');
 			return this.refreshStatus();
 		}, this));
@@ -283,14 +258,14 @@ return view.extend({
 				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
 			else
 				ui.addNotification(null, E('p', {}, [
-					_('Service %s on %s (%s)').format(action, r.init || 'oled', r.running ? _('running') : _('stopped'))
+					_('Service %s: %s').format(action, r.running ? _('running') : _('stopped'))
 				]), 'info');
 			return this.refreshStatus();
 		}, this));
 	},
 
 	handleDetect: function() {
-		var bus = i2cBusNumber(val('oled-path', CM5_DEFAULTS.path));
+		var bus = i2cBusNumber(val('oled-path'));
 		var out = document.getElementById('oled-detect-out');
 		if (out)
 			out.textContent = _('Scanning bus %s…').format(bus);
@@ -308,7 +283,7 @@ return view.extend({
 			if (r.error)
 				ui.addNotification(null, E('p', {}, [ r.error ]), 'error');
 			else
-				ui.addNotification(null, E('p', {}, [ _('RST line released (Waveshare HAT).') ]), 'info');
+				ui.addNotification(null, E('p', {}, [ _('Display reset signal sent.') ]), 'info');
 		});
 	},
 
@@ -327,137 +302,134 @@ return view.extend({
 		var cfg = data.config || {};
 		var st = data.status || {};
 		var i2cList = cfg.i2c_devices || [];
-		if (!i2cList.length)
-			i2cList = [ cfg.path || CM5_DEFAULTS.path ];
+		var defaultPath = cfg.path || (i2cList.length ? i2cList[0] : '');
+		if (!i2cList.length && defaultPath)
+			i2cList = [ defaultPath ];
 
 		function pick(key) {
-			return cfg[key] != null ? cfg[key] : CM5_DEFAULTS[key];
+			return cfg[key] != null ? cfg[key] : FORM_DEFAULTS[key];
 		}
 
 		var pathOptions = i2cList.map(function(dev) {
 			return E('option', {
 				'value': dev,
-				'selected': dev === pick('path')
+				'selected': dev === (pick('path') || defaultPath)
 			}, [ dev ]);
 		});
 
 		var periphLink = E('a', {
 			'href': L.url('admin/system/peripherals'),
 			'class': 'oled-crosslink'
-		}, [ _('Advanced I2C diagnostics → Peripherals') ]);
+		}, [ _('I2C diagnostics → Peripherals') ]);
 
-		var root = E('div', { 'class': 'luci-app-oled' }, [
-			oledInjectStyles(),
-			E('h2', {}, [ _('OLED display') ]),
-			E('p', { 'class': 'cbi-map-descr' }, [
-				_('SH1106 128×64 status display for Orange Pi CM5 Base. Menu mode uses oledd for boot splash, rotating views, and button navigation.')
+		var tabOverview = E('div', { 'data-tab': 'overview', 'data-tab-title': _('Overview') }, [
+			E('p', { 'class': 'cbi-section-descr' }, [
+				_('Live daemon and boot state. Refreshes automatically every few seconds.')
 			]),
-			section(_('Status'), [
-				_('Live daemon and boot state. Status refreshes every few seconds.')
-			], [
-				renderStatusBlock(st),
-				E('div', { 'class': 'cbi-page-actions oled-inline-actions' }, [
-					E('button', {
-						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'handleService', 'restart'),
-						'disabled': isReadonlyView
-					}, [ _('Restart') ]),
-					' ',
-					E('button', {
-						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'handleService', 'start'),
-						'disabled': isReadonlyView
-					}, [ _('Start') ]),
-					' ',
-					E('button', {
-						'class': 'btn cbi-button-reset',
-						'click': ui.createHandlerFn(this, 'handleService', 'stop'),
-						'disabled': isReadonlyView
-					}, [ _('Stop') ]),
-					' ',
-					E('button', {
-						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'refreshStatus')
-					}, [ _('Refresh') ])
+			renderStatusBlock(st),
+			E('div', { 'class': 'cbi-page-actions oled-inline-actions' }, [
+				E('button', {
+					'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleService', 'restart'),
+					'disabled': isReadonlyView
+				}, [ _('Restart') ]),
+				' ',
+				E('button', {
+					'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleService', 'start'),
+					'disabled': isReadonlyView
+				}, [ _('Start') ]),
+				' ',
+				E('button', {
+					'class': 'btn cbi-button-reset',
+					'click': ui.createHandlerFn(this, 'handleService', 'stop'),
+					'disabled': isReadonlyView
+				}, [ _('Stop') ]),
+				' ',
+				E('button', {
+					'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'refreshStatus')
+				}, [ _('Refresh') ])
+			]),
+			E('div', { 'class': 'oled-boot-grid' }, [
+				statusCard(_('ubus'), st.ubus_available ? _('available') : _('unavailable')),
+				statusCard(_('Interactive'), st.menu_interactive ? _('yes') : _('no')),
+				statusCard(_('Preinit hook'), st.preinit_hook || _('not installed'))
+			])
+		]);
+
+		var tabDisplay = E('div', { 'data-tab': 'display', 'data-tab-title': _('Display') }, [
+			E('p', { 'class': 'cbi-section-descr' }, [
+				_('Enable the display, select the I2C adapter, and adjust hardware options.'),
+				' ', periphLink
+			]),
+			fieldRow(_('Enable'), flagInput('oled-enable', _('Run on boot'), pick('enable') === '1')),
+			fieldRow(_('I2C bus'), E('div', {}, [
+				E('select', { 'id': 'oled-path', 'disabled': isReadonlyView || !pathOptions.length }, pathOptions.length ? pathOptions : [
+					E('option', { 'value': '' }, [ _('No I2C devices') ])
+				]),
+				' ',
+				E('button', {
+					'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleDetect'),
+					'disabled': isReadonlyView || !pathOptions.length
+				}, [ _('Scan bus') ]),
+				E('pre', { 'id': 'oled-detect-out', 'class': 'oled-detect-pre' }, [ _('Scan output appears here.') ])
+			])),
+			fieldRow(_('Rotation'), flagInput('oled-rotate', _('180° rotation'), pick('rotate') === '1')),
+			fieldRow(_('Reset display'), E('div', {}, [
+				E('button', {
+					'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleRst'),
+					'disabled': isReadonlyView || !st.rst_script
+				}, [ _('Send RST pulse') ]),
+				E('p', { 'class': 'cbi-value-description' }, [
+					_('Pulse the panel reset GPIO. Use after wiring changes or if the display stays blank.')
 				])
+			]))
+		]);
+
+		var tabMenu = E('div', { 'data-tab': 'menu', 'data-tab-title': _('Menu & buttons') }, [
+			E('p', { 'class': 'cbi-section-descr' }, [
+				_('Menu mode uses oledd for boot splash, rotating views, and button navigation.')
 			]),
-			section(_('Display & hardware'), [
-				_('CM5 Waveshare 1.3" HAT uses /dev/i2c-7. Enable runs oledd on boot when menu mode is on.'),
-				periphLink
-			], [
-				fieldRow(_('Enable display'), flagInput('oled-enable', _('Run OLED on boot'), pick('enable') === '1')),
-				fieldRow(_('I2C bus'), E('div', {}, [
-					E('select', { 'id': 'oled-path', 'disabled': isReadonlyView }, pathOptions),
-					' ',
-					E('button', {
-						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'handleDetect'),
-						'disabled': isReadonlyView
-					}, [ _('Scan bus') ]),
-					E('pre', {
-						'id': 'oled-detect-out',
-						'class': 'oled-detect-pre'
-					}, [ _('Optional: scan shows addresses on the selected bus.') ])
-				])),
-				fieldRow(_('Panel rotation'), flagInput('oled-rotate', _('180° rotation'), pick('rotate') === '1')),
-				fieldRow(_('RST release'), E('div', {}, [
-					E('button', {
-						'class': 'btn cbi-button-action',
-						'click': ui.createHandlerFn(this, 'handleRst'),
-						'disabled': isReadonlyView || !st.rst_script
-					}, [ _('Release Waveshare RST (GPIO)') ]),
-					E('p', { 'class': 'cbi-value-description' }, [
-						_('Runs cm5-waveshare-rst.sh on CM5. Safe to use after wiring changes or if the panel stays blank.')
-					])
-				]))
-			]),
-			section(_('Menu mode'), [
-				_('Interactive menu is off by default on CM5 (auto-rotate views). Turn on interactive mode for button-driven menus.')
-			], [
-				fieldRow(_('Menu mode (oledd)'), flagInput('oled-menu-mode', _('Use oledd menu daemon (recommended)'), pick('menu_mode') === '1')),
-				fieldRow(_('View timeout (s)'), E('input', {
-					'type': 'number',
-					'id': 'oled-menu-timeout',
-					'class': 'cbi-input-text',
-					'min': 3,
-					'max': 120,
-					'value': pick('menu_timeout'),
-					'disabled': isReadonlyView
-				}), _('Seconds per auto-rotated view (Boot / System / Ports / WiFi).')),
-				fieldRow(_('WiFi view'), flagInput('oled-menu-wifi', _('Include WiFi status view'), pick('menu_wifi') === '1')),
-				fieldRow(_('Interactive menu'), flagInput('oled-menu-interactive', _('Button-driven menu (disable auto-rotate)'), pick('menu_interactive') === '1')),
-				fieldRow(_('Status alerts'), flagInput('oled-menu-alerts', _('WAN-down and high-load banners'), pick('menu_alerts') === '1'))
-			]),
-			section(_('Button navigation'), [
-				_('CM5 defaults: MaskROM (BTN_2) advances screens; USERKEY (WPS) selects items when interactive mode is on.')
-			], [
-				fieldRow(_('Screen navigation'), E('select', {
-					'id': 'oled-nav-button',
-					'disabled': isReadonlyView
-				}, [
-					E('option', { 'value': 'BTN_2', 'selected': pick('menu_nav_button') === 'BTN_2' }, [ _('MaskROM key (BTN_2)') ]),
-					E('option', { 'value': 'wps', 'selected': pick('menu_nav_button') === 'wps' }, [ _('USERKEY (WPS)') ])
-				])),
-				fieldRow(_('Select / OK'), E('select', {
-					'id': 'oled-select-button',
-					'disabled': isReadonlyView
-				}, [
-					E('option', { 'value': 'wps', 'selected': pick('menu_select_button') === 'wps' }, [ _('USERKEY (WPS)') ]),
-					E('option', { 'value': 'BTN_2', 'selected': pick('menu_select_button') === 'BTN_2' }, [ _('MaskROM key (BTN_2)') ]),
-					E('option', { 'value': 'none', 'selected': pick('menu_select_button') === 'none' }, [ _('None') ])
-				]))
-			]),
+			fieldRow(_('Menu mode'), flagInput('oled-menu-mode', _('Use oledd menu daemon'), pick('menu_mode') === '1')),
+			fieldRow(_('View timeout'), E('input', {
+				'type': 'number',
+				'id': 'oled-menu-timeout',
+				'class': 'cbi-input-text',
+				'min': 0,
+				'max': 120,
+				'value': pick('menu_timeout'),
+				'disabled': isReadonlyView
+			}), _('Seconds per view when auto-rotating. Set 0 to disable idle dimming timeout side-effects.')),
+			fieldRow(_('WiFi view'), flagInput('oled-menu-wifi', _('Show WiFi status'), pick('menu_wifi') === '1')),
+			fieldRow(_('Interactive menu'), flagInput('oled-menu-interactive', _('Button-driven menu'), pick('menu_interactive') === '1')),
+			fieldRow(_('Status alerts'), flagInput('oled-menu-alerts', _('WAN-down and load banners'), pick('menu_alerts') === '1')),
+			E('hr'),
+			fieldRow(_('Navigate screens'), E('select', { 'id': 'oled-nav-button', 'disabled': isReadonlyView }, [
+				E('option', { 'value': 'BTN_2', 'selected': pick('menu_nav_button') === 'BTN_2' }, [ _('GPIO button 2 (BTN_2)') ]),
+				E('option', { 'value': 'wps', 'selected': pick('menu_nav_button') === 'wps' }, [ _('WPS key') ])
+			])),
+			fieldRow(_('Select / OK'), E('select', { 'id': 'oled-select-button', 'disabled': isReadonlyView }, [
+				E('option', { 'value': 'wps', 'selected': pick('menu_select_button') === 'wps' }, [ _('WPS key') ]),
+				E('option', { 'value': 'BTN_2', 'selected': pick('menu_select_button') === 'BTN_2' }, [ _('GPIO button 2 (BTN_2)') ]),
+				E('option', { 'value': 'none', 'selected': pick('menu_select_button') === 'none' }, [ _('None') ])
+			]))
+		]);
+
+		var tabAdvanced = E('div', { 'data-tab': 'advanced', 'data-tab-title': _('Advanced') }, [
 			E('details', {
 				'id': 'oled-legacy-panel',
-				'class': 'oled-legacy-panel cbi-section',
+				'class': 'oled-legacy-panel',
 				'open': pick('menu_mode') !== '1' ? 'open' : null
 			}, [
-				E('summary', { 'class': 'oled-legacy-summary' }, [ _('Legacy screensaver (advanced)') ]),
+				E('summary', { 'class': 'oled-legacy-summary' }, [ _('Legacy screensaver') ]),
 				E('div', { 'class': 'oled-legacy-body' }, [
 					E('p', { 'class': 'cbi-section-descr' }, [
-						_('Used when menu mode is off. The legacy /usr/bin/oled daemon draws screensaver animations and status fields.')
+						_('Used when menu mode is off. The legacy oled daemon draws screensaver content.')
 					]),
-					fieldRow(_('Auto time window'), flagInput('oled-autoswitch', _('Enable auto switch by time'), pick('autoswitch') === '1')),
+					fieldRow(_('Time window'), flagInput('oled-autoswitch', _('Limit to hours'), pick('autoswitch') === '1')),
 					fieldRow(_('Active hours'), E('div', { 'class': 'oled-time-range' }, [
 						E('label', {}, [ _('From'), ' ', timeSelect('oled-from', pick('from')) ]),
 						E('label', {}, [ _('To'), ' ', timeSelect('oled-to', pick('to')) ])
@@ -470,79 +442,48 @@ return view.extend({
 						flagInput('oled-netspeed', _('Network speed'), pick('netspeed') === '1')
 					])),
 					fieldRow(_('IP interface'), E('input', {
-						'type': 'text',
-						'id': 'oled-ipifname',
-						'class': 'cbi-input-text',
-						'value': pick('ipifname'),
-						'disabled': isReadonlyView
+						'type': 'text', 'id': 'oled-ipifname', 'class': 'cbi-input-text',
+						'value': pick('ipifname'), 'disabled': isReadonlyView
 					})),
 					fieldRow(_('Speed interface'), E('input', {
-						'type': 'text',
-						'id': 'oled-netsource',
-						'class': 'cbi-input-text',
-						'value': pick('netsource'),
-						'disabled': isReadonlyView
+						'type': 'text', 'id': 'oled-netsource', 'class': 'cbi-input-text',
+						'value': pick('netsource'), 'disabled': isReadonlyView
 					})),
-					fieldRow(_('Refresh interval (s)'), E('input', {
-						'type': 'number',
-						'id': 'oled-time',
-						'class': 'cbi-input-text',
-						'min': 5,
-						'max': 600,
-						'value': pick('time'),
-						'disabled': isReadonlyView
+					fieldRow(_('Refresh interval'), E('input', {
+						'type': 'number', 'id': 'oled-time', 'class': 'cbi-input-text',
+						'min': 5, 'max': 600, 'value': pick('time'), 'disabled': isReadonlyView
 					})),
-					fieldRow(_('Scroll text'), flagInput('oled-scroll', _('Scroll text screensaver'), pick('scroll') === '1')),
-					fieldRow(_('Scroll message'), E('input', {
-						'type': 'text',
-						'id': 'oled-text',
-						'class': 'cbi-input-text',
-						'value': pick('text'),
-						'disabled': isReadonlyView
+					fieldRow(_('Scroll text'), flagInput('oled-scroll', _('Enable scroll'), pick('scroll') === '1')),
+					fieldRow(_('Message'), E('input', {
+						'type': 'text', 'id': 'oled-text', 'class': 'cbi-input-text',
+						'value': pick('text'), 'disabled': isReadonlyView
 					})),
 					fieldRow(_('Demo animations'), E('div', { 'class': 'oled-flag-grid' }, [
-						flagInput('oled-drawline', _('Draw lines'), pick('drawline') === '1'),
-						flagInput('oled-drawrect', _('Draw rectangles'), pick('drawrect') === '1'),
-						flagInput('oled-fillrect', _('Fill rectangles'), pick('fillrect') === '1'),
-						flagInput('oled-drawcircle', _('Draw circles'), pick('drawcircle') === '1'),
-						flagInput('oled-drawroundrect', _('Round rect outline'), pick('drawroundrect') === '1'),
-						flagInput('oled-fillroundrect', _('Fill round rects'), pick('fillroundrect') === '1'),
-						flagInput('oled-drawtriangle', _('Draw triangles'), pick('drawtriangle') === '1'),
-						flagInput('oled-filltriangle', _('Fill triangles'), pick('filltriangle') === '1'),
-						flagInput('oled-displaybitmap', _('Mini bitmap'), pick('displaybitmap') === '1'),
-						flagInput('oled-displayinvertnormal', _('Invert display'), pick('displayinvertnormal') === '1'),
+						flagInput('oled-drawline', _('Lines'), pick('drawline') === '1'),
+						flagInput('oled-drawrect', _('Rectangles'), pick('drawrect') === '1'),
+						flagInput('oled-fillrect', _('Filled rects'), pick('fillrect') === '1'),
+						flagInput('oled-drawcircle', _('Circles'), pick('drawcircle') === '1'),
+						flagInput('oled-drawroundrect', _('Round rects'), pick('drawroundrect') === '1'),
+						flagInput('oled-fillroundrect', _('Filled round rects'), pick('fillroundrect') === '1'),
+						flagInput('oled-drawtriangle', _('Triangles'), pick('drawtriangle') === '1'),
+						flagInput('oled-filltriangle', _('Filled triangles'), pick('filltriangle') === '1'),
+						flagInput('oled-displaybitmap', _('Bitmap'), pick('displaybitmap') === '1'),
+						flagInput('oled-displayinvertnormal', _('Invert'), pick('displayinvertnormal') === '1'),
 						flagInput('oled-drawbitmapeg', _('Animated bitmap'), pick('drawbitmapeg') === '1')
 					]))
 				])
+			])
+		]);
+
+		var tabContainer = E('div', {}, [ tabOverview, tabDisplay, tabMenu, tabAdvanced ]);
+
+		var root = E('div', { 'class': 'luci-app-oled' }, [
+			oledInjectStyles(),
+			E('h2', {}, [ _('OLED display') ]),
+			E('p', { 'class': 'cbi-map-descr' }, [
+				_('SH1106 128×64 I2C display — menu, boot splash, and button navigation.')
 			]),
-			section(_('Boot / splash'), [
-				_('Preinit writes /tmp/oled_state before oledd starts. Boot view shows progress through network ready.')
-			], [
-				E('table', { 'class': 'table' }, [
-					E('tr', { 'class': 'tr table-titles' }, [
-						E('th', { 'class': 'th' }, [ _('Property') ]),
-						E('th', { 'class': 'th' }, [ _('Value') ])
-					]),
-					E('tbody', {}, [
-						E('tr', { 'class': 'tr' }, [
-							E('td', { 'class': 'td' }, [ _('Boot stage') ]),
-							E('td', { 'class': 'td' }, [ st.boot_stage || '—' ])
-						]),
-						E('tr', { 'class': 'tr' }, [
-							E('td', { 'class': 'td' }, [ _('Message') ]),
-							E('td', { 'class': 'td' }, [ st.boot_message || '—' ])
-						]),
-						E('tr', { 'class': 'tr' }, [
-							E('td', { 'class': 'td' }, [ _('ubus oledd') ]),
-							E('td', { 'class': 'td' }, [ st.ubus_available ? _('available') : _('unavailable') ])
-						]),
-						E('tr', { 'class': 'tr' }, [
-							E('td', { 'class': 'td' }, [ _('Preinit hook') ]),
-							E('td', { 'class': 'td' }, [ '/lib/preinit/80-oled-preinit' ])
-						])
-					])
-				])
-			]),
+			tabContainer,
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', {
 					'class': 'btn cbi-button-save',
@@ -558,6 +499,7 @@ return view.extend({
 			])
 		]);
 
+		ui.tabs.initTabGroup(tabContainer.childNodes);
 		poll.add(L.bind(this.refreshStatus, this), 5);
 
 		return root;

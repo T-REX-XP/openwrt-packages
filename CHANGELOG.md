@@ -2,6 +2,22 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r29] — 2026-06-25
+
+### Changed
+
+- **LuCI cleanup** — tabbed layout (Overview, Display, Menu & buttons, Advanced); removed board-specific copy; generic button labels and RST wording
+- **Theming** — responsive status grids, Bootstrap CSS variables, mobile breakpoints
+
+## [luci-app-peripherals r17] — 2026-06-25
+
+### Changed
+
+- **Removed hardcoded board/wiring tables** — fan, IR, and OLED tabs show runtime diagnostics only
+- **Scoped theme** — `.luci-app-peripherals` status cards, responsive grid, dark/light via Bootstrap variables
+- **i18n** — added `po/en/peripherals.po`; all UI strings wrapped in `_()`
+- Debug report uses detected device-tree model instead of static board reference blocks
+
 ## [luci-app-oled r28] — 2026-06-25
 
 ### Fixed

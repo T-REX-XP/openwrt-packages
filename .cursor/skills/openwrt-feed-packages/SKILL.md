@@ -31,6 +31,37 @@ Feed name: **`openwrt_packages`**. Link **`feeds/`**, not the repo root.
 - LuCI apps: stub `# call BuildPackage` in Makefile; real call is in `luci.mk`.
 - Go packages: use `golang-package.mk`, set `GO_PKG_LDFLAGS_X` for version.
 
+## LuCI app pattern (JS + rpcd)
+
+Modern apps in this feed use **not** `luasrc/controller` + CBI:
+
+```text
+htdocs/luci-static/resources/view/<area>/<app>.js
+htdocs/luci-static/resources/<app>-theme.css
+root/usr/share/rpcd/ucode/luci.<app>.uc
+root/usr/share/rpcd/acl.d/luci-app-<app>.json
+root/usr/share/luci/menu.d/luci-app-<app>.json
+po/en/<app>.po                    # optional; all UI strings via _()
+```
+
+- **`rpc.declare`:** always `expect: { '': {} }` for ucode rpcd backends.
+- **ACL:** grant `read`/`write` for every path touched (UCI, sysfs, helper scripts).
+- **Init scripts:** `$(INSTALL_BIN)` in `Package/.../install`; repo file mode `755`.
+- **Theming:** scoped root `.luci-app-<name>`; Bootstrap CSS variables only (see `luci-bootstrap-theming`).
+
+## luci-app-oled
+
+- Daemon: `/usr/sbin/oledd` (menu) or legacy `/usr/bin/oled` (screensaver); UCI `menu_mode`.
+- CM5 defaults: `/dev/i2c-7`, `menu_interactive=0`, `BTN_2` nav — via shipped UCI + `cm5-apply-config.sh`.
+- Migration: `uci-defaults/99-oled-cm5-migrate` on sysupgrade.
+- Go/C binary built in `src/` → `oledd-bin`; see skill **`oled-peripherals-cm5`**.
+
+## luci-app-peripherals
+
+- **Does not** write OLED UCI or start/stop `oledd`. OLED tab = I2C scan + read-only status.
+- Fan/IR: sysfs + UCI `luci_peripherals`; debug report is read-only shell aggregation.
+- No `board_info` blobs in RPC for LuCI tables — runtime diagnostics only.
+
 ## blocky package notes
 
 - Config: `/etc/blocky/config.yml`, `/etc/config/blocky`

@@ -1,47 +1,136 @@
 /*
- * luci-app-peripherals theme — dark / light / system via luci-theme-bootstrap
+ * luci-app-peripherals — Bootstrap variables; light / dark / system
  */
 
-.peripherals-debug-report {
+.luci-app-peripherals {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.luci-app-peripherals .periph-section {
+	margin-bottom: 1.25em;
+}
+
+.luci-app-peripherals .periph-status-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.75em;
+	margin: 0.5em 0 0.75em;
+	min-width: 0;
+}
+
+.luci-app-peripherals .periph-status-card {
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.65em 0.75em;
+	min-width: 0;
+}
+
+.luci-app-peripherals .periph-status-label {
+	font-size: 0.85em;
+	color: var(--text-color-medium);
+	margin-bottom: 0.25em;
+}
+
+.luci-app-peripherals .periph-status-value {
+	color: var(--text-color-highest);
+	word-break: break-word;
+}
+
+.luci-app-peripherals .periph-pill {
+	display: inline-block;
+	font-size: 0.8em;
+	font-weight: 600;
+	padding: 0.1em 0.45em;
+	border-radius: 3px;
+	margin-left: 0.25em;
+}
+
+.luci-app-peripherals .periph-pill--ok {
+	background: var(--success-color-low);
+	color: var(--success-color-high);
+}
+
+.luci-app-peripherals .periph-pill--warn {
+	background: var(--warn-color-low, rgba(239, 108, 0, 0.15));
+	color: var(--warn-color-high, #ef6c00);
+}
+
+.luci-app-peripherals .periph-pill--err {
+	background: var(--error-color-low);
+	color: var(--error-color-high);
+}
+
+.luci-app-peripherals .periph-crosslink {
+	display: inline-block;
+	margin-top: 0.35em;
+}
+
+.luci-app-peripherals .periph-inline-actions {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
+}
+
+.luci-app-peripherals .peripherals-debug-report,
+.luci-app-peripherals .peripherals-detect-pre {
 	width: 100%;
-	min-height: 34em;
 	font-family: var(--font-mono, monospace);
-	white-space: pre;
-	background: var(--background-color-low);
-	border: 1px solid var(--border-color-medium);
-	color: var(--text-color-high);
-}
-
-.peripherals-detect-pre {
 	white-space: pre-wrap;
-	font-family: var(--font-mono, monospace);
-	min-height: 6em;
+	word-break: break-word;
 	background: var(--background-color-low);
-	padding: 0.5em;
 	border: 1px solid var(--border-color-medium);
 	color: var(--text-color-high);
 }
 
-.peripherals-ir-maps {
+.luci-app-peripherals .peripherals-debug-report {
+	min-height: 34em;
+}
+
+.luci-app-peripherals .peripherals-detect-pre {
+	min-height: 6em;
+	padding: 0.5em;
+	margin-top: 0.5em;
+}
+
+.luci-app-peripherals .peripherals-ir-maps {
 	width: 100%;
 	min-height: 14em;
 	font-family: var(--font-mono, monospace);
 }
 
-.peripherals-code-inline {
+.luci-app-peripherals .peripherals-code-inline {
 	white-space: pre-wrap;
 	word-break: break-word;
 	font-size: 90%;
 	font-family: var(--font-mono, monospace);
 }
 
-.peripherals-keymap-list {
+.luci-app-peripherals .peripherals-keymap-list {
 	margin: 0.5em 0;
 	color: var(--text-color-high);
 }
 
-.peripherals-debug-output {
-	white-space: pre-wrap;
-	word-break: break-word;
-	color: var(--text-color-high);
+.luci-app-peripherals .periph-fan-slider {
+	vertical-align: middle;
+	width: min(100%, 18em);
+}
+
+.luci-app-peripherals .periph-fan-pwm-lbl {
+	font-family: var(--font-mono, monospace);
+	margin-left: 0.5em;
+	color: var(--text-color-highest);
+}
+
+@media (max-width: 768px) {
+	.luci-app-peripherals .periph-status-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 520px) {
+	.luci-app-peripherals .periph-status-grid {
+		grid-template-columns: 1fr;
+	}
 }
