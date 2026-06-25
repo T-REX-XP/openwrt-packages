@@ -1,7 +1,9 @@
 #!/bin/sh
-# Notify oledd of network changes; mark boot ready when WAN or LAN is up.
+# Notify oledd of network changes; mark boot ready when netifd brings an interface up.
+# WAN link is not required — eth1/eth2/br-lan or logical lan/wan is enough.
 
 [ -n "$DEVICE" ] || exit 0
+[ "$DEVICE" = "lo" ] && exit 0
 
 oledd_notify_net() {
 	if ubus -S call oledd event '{"type":"net"}' 2>/dev/null; then
@@ -10,12 +12,21 @@ oledd_notify_net() {
 	/usr/lib/oled/oledd-event.sh net 2>/dev/null || true
 }
 
+oled_mark_ready() {
+	/usr/lib/oled/oled-boot-state.sh ready "System ready" 2>/dev/null || true
+}
+
 case "$ACTION" in
 ifup|ifupdate)
 	/usr/lib/oled/oled-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
 	case "$DEVICE" in
-	eth0|br-lan)
-		/usr/lib/oled/oled-boot-state.sh ready "System ready" 2>/dev/null || true
+	eth0|eth1|eth2|br-lan)
+		oled_mark_ready
+		;;
+	esac
+	case "$INTERFACE" in
+	lan|wan)
+		oled_mark_ready
 		;;
 	esac
 	oledd_notify_net

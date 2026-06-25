@@ -5,11 +5,22 @@
 
 stage="${1:-boot}"
 message="${2:-}"
+prev_stage=""
+
+[ -f /tmp/oled_state ] && prev_stage=$(grep -m1 '^stage=' /tmp/oled_state 2>/dev/null | cut -d= -f2)
 
 {
 	echo "stage=$stage"
 	[ -n "$message" ] && echo "message=$message"
 } > /tmp/oled_state
+
+if [ "$stage" != "$prev_stage" ]; then
+	if [ -n "$message" ]; then
+		logger -t oledd-boot "stage=$stage $message"
+	else
+		logger -t oledd-boot "stage=$stage"
+	fi
+fi
 
 case "$stage" in
 ready)

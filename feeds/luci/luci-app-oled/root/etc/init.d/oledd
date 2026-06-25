@@ -29,8 +29,15 @@ start_service() {
 		retries=$((retries + 1))
 	done
 
-	[ -x /usr/lib/oled/oled-boot-state.sh ] && \
-		/usr/lib/oled/oled-boot-state.sh boot "Starting oledd..."
+	if [ -x /usr/lib/oled/oled-boot-state.sh ]; then
+		boot_stage=$(grep -m1 '^stage=' /tmp/oled_state 2>/dev/null | cut -d= -f2)
+		case "$boot_stage" in
+		ready|network) ;;
+		*)
+			/usr/lib/oled/oled-boot-state.sh boot "Starting oledd..."
+			;;
+		esac
+	fi
 
 	procd_open_instance
 	procd_set_param command ${PROG}
@@ -57,4 +64,5 @@ stop_service() {
 
 service_triggers() {
 	procd_add_reload_trigger "oled"
+	procd_add_interface_trigger "interface.*" lan /usr/lib/oled/oled-boot-state.sh ready "LAN up"
 }

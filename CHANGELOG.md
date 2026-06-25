@@ -2,6 +2,12 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r31] — 2026-06-25
+
+### Fixed
+
+- **Boot splash stuck on "booting"** when WAN has no cable — `ready` now set on `eth1`/`eth2`/lan netifd events, procd `lan` trigger, 45s oledd timeout; `! WAN down` remains a non-blocking alert.
+
 ## [luci-app-oled r30] — 2026-06-25
 
 ### Changed

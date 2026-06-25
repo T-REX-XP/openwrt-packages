@@ -15,6 +15,7 @@
 
 #define STATE_FILE "/tmp/oled_state"
 #define BOOT_DONE_STAGE "ready"
+#define BOOT_TIMEOUT_SEC 45
 
 enum oled_view {
 	VIEW_BOOT = 0,
@@ -50,6 +51,7 @@ static enum menu_item g_menu_sel = ITEM_SYSTEM;
 static enum oled_view g_detail_view = VIEW_SYSTEM;
 static time_t g_view_started;
 static time_t g_last_activity;
+static time_t g_boot_started;
 static int g_dimmed;
 static int g_item_count;
 static enum menu_item g_visible_items[ITEM_MAX];
@@ -413,6 +415,7 @@ void oledd_menu_init(int interactive, int menu_wifi, unsigned view_timeout,
 	g_detail_view = VIEW_SYSTEM;
 	g_view_started = time(NULL);
 	g_last_activity = g_view_started;
+	g_boot_started = g_view_started;
 	g_dimmed = 0;
 }
 
@@ -596,12 +599,21 @@ int oledd_menu_tick(double elapsed_sec, oledd_event_t evt)
 
 	if (g_screen == SCREEN_BOOT) {
 		if (boot_active()) {
-			if (evt != OLEDD_EV_NONE)
+			if ((unsigned)(now - g_boot_started) >= BOOT_TIMEOUT_SEC) {
+				fprintf(stderr,
+					"oledd: boot timeout (%us) — leaving splash\n",
+					BOOT_TIMEOUT_SEC);
+				leave_boot();
+				redraw = 1;
+			} else if (evt != OLEDD_EV_NONE) {
 				return 1;
-			return 1;
+			} else {
+				return 1;
+			}
+		} else {
+			leave_boot();
+			redraw = 1;
 		}
-		leave_boot();
-		redraw = 1;
 	}
 
 	if (evt != OLEDD_EV_NONE) {
