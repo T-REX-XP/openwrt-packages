@@ -158,6 +158,18 @@ Push a version tag (`v2026.05.14`) to trigger a release build. Download **`openw
 
 PR / push CI builds **unsigned** packages for compile verification only.
 
+**Generate apk signing keys (one-time, on a trusted machine):**
+
+```sh
+openssl ecparam -name prime256v1 -genkey -noout \
+  | sed '1s/^/untrusted comment: openwrt-packages release key\n/' > private-key.pem
+grep -v '^untrusted comment:' private-key.pem \
+  | openssl ec -pubout \
+  | sed '1s/^/untrusted comment: openwrt-packages release key\n/' > public-key.pem
+```
+
+Add `private-key.pem` to GitHub **Settings → Secrets → Actions** as `PRIVATE_KEY` (`PUBLIC_KEY` optional — derived when omitted). Push a new version tag to rebuild the signed feed; releases signed with ephemeral SDK keys cannot be trusted retroactively.
+
 ### Troubleshooting Release / Pages
 
 | Symptom | Fix |
@@ -166,7 +178,7 @@ PR / push CI builds **unsigned** packages for compile verification only.
 | `deploy-pages` succeeded but site still 404 | Pages source was not GitHub Actions — enable per above, then republish |
 | Tag release missing (e.g. `v2026.06.22`) but build green | Fixed: `github-release` no longer shares the `github-pages` environment job |
 | `packages.adb` missing in tarball | Set `PRIVATE_KEY` secret; release builds require `INDEX=1` |
-| `PUBLIC_KEY` not on Pages | Ensure `PRIVATE_KEY` or `PUBLIC_KEY` secret is set; republish with **skip_build** (public key is derived from `PRIVATE_KEY` when needed) |
+| `PUBLIC_KEY` not on Pages | Set `PRIVATE_KEY` secret (or `PUBLIC_KEY`); push a new tag to rebuild, then republish |
 | Node 20 deprecation notice in logs | Informational — not related to Pages failures |
 | GitHub Release OK, Pages job red | Enable Pages (above) or check **Verify feed URL** step logs |
 
