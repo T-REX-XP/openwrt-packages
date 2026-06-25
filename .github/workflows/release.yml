@@ -126,6 +126,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Checkout (feed page generator)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts/generate-feed-pages.sh
+          sparse-checkout-cone-mode: false
+
       - name: Download release tarball (build artifact)
         if: needs.build-cm5.result == 'success'
         uses: actions/download-artifact@v8
@@ -148,13 +155,6 @@ jobs:
             --pattern "${{ env.TARBALL }}" \
             --dir release-dist
           ls -la release-dist/
-
-      - name: Checkout (feed page generator)
-        uses: actions/checkout@v7
-        with:
-          sparse-checkout: |
-            scripts/generate-feed-pages.sh
-          sparse-checkout-cone-mode: false
 
       - name: Assemble static feed tree
         run: |
