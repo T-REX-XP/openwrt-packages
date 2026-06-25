@@ -2,6 +2,37 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-oled r19] — 2026-06-25
+
+### Added
+
+- **FIFO input** — `/var/run/oledd.fifo` (fallback `/tmp/oledd.fifo`) with typed events: `net`, `up`, `down`, `ok`, `back`, `refresh`; helper `/usr/lib/oled/oledd-event.sh`
+- **`oledd_input.c`** — FIFO create/read, non-blocking poll in main loop; event log at `/tmp/oledd_events.log`
+- **`oledd_menu.c`** — interactive menu state machine (list + detail views); auto-rotate preserved when `menu_interactive=0`
+- **CM5 button hotplug** — `/etc/hotplug.d/button/99-oled` (appends alongside `cm5-button-scripts`; does not replace `/etc/rc.button/*`)
+- LuCI toggle **Interactive menu (oledd)**; UCI `menu_interactive` (default `1`)
+
+### Changed
+
+- Net hotplug `99-oled` sends `oledd-event.sh net` instead of touching `/tmp/oled_net_changed`
+- `cm5-oled-debug.sh` — reports FIFO path, `menu_interactive`, last events
+- `docs/oled-menu-implementation.md` — Phase 3 marked done
+
+### CM5 two-button mapping (r19)
+
+| Button | Hotplug `BUTTON` | FIFO event | Menu action |
+|--------|------------------|------------|-------------|
+| USERKEY | `wps` | `ok` | Select / open detail |
+| MaskROM | `BTN_2` | `down` | Next item (list); back (detail) |
+
+HAT joystick UP/DOWN/BACK deferred to Phase 3+ GPIO.
+
+### Not yet implemented (Phase 4)
+
+- `ubus` object `oledd` (control API)
+- Preinit splash polish, error overlays
+- Screen dimming / idle timeout enforcement
+
 ## [luci-app-oled r18] — 2026-06-25
 
 ### Added
