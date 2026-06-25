@@ -86,7 +86,7 @@ Primary device: **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM).
 
 - **Tier 1:** blocky + adblock + banip + traffic visibility (tcpdump-mini, vnstat2, nlbwmon)
 - **Tier 2:** snort3 + luci-app-snort3 in **passive IDS** mode on `br-lan`
-- **Tier 3:** mirror traffic to Docker for Suricata/Wazuh (not on-router)
+- **Tier 3:** mirror traffic to an **external** Docker host for Suricata/Wazuh (not on-router; CM5 image no longer ships Docker)
 
 **Blocky on CM5:** clients → dnsmasq `:53` → Blocky `127.0.0.1:5353`; LuCI/API via rpcd → `blocky-http-api` → `127.0.0.1:4000`. UCI blocklists → `blocky-lists-sync` (rewrite `config.yml`); live reload → `blocky-lists-refresh` (POST `/api/lists/refresh`). Router DNS toggle → `blocky-dnsmasq-sync`.
 
