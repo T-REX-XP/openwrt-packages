@@ -102,9 +102,8 @@ cat > "$FEED_DIR/index.html" <<EOF
   </table>
   <h2>Install on router</h2>
   <pre># Trust the feed signing key (once)
-wget -O /tmp/public-key.pem ${key_url}
-# Install per your image apk docs, then:
-echo "${feed_url}packages.adb" >> /etc/apk/repositories.d/openwrt_packages.list
+wget -O /etc/apk/keys/t-rex-xp.github.io.pub ${key_url}
+echo "${feed_url}packages.adb" >> /etc/apk/repositories.d/customfeeds.list
 apk update
 apk add blocky luci-app-blocky</pre>
   <p><a href="${PAGE_BASE_URL%/}/">← Feed site root</a> ·

@@ -230,3 +230,48 @@ msgstr "Reset failed: %s"
 
 msgid "Service control failed: %s"
 msgstr "Service control failed: %s"
+
+msgid "Live preview"
+msgstr "Live preview"
+
+msgid "Mirrors the physical 128×64 OLED page using the same pages.json layout and live metrics. Refreshes every few seconds."
+msgstr "Mirrors the physical 128×64 OLED page using the same pages.json layout and live metrics. Refreshes every few seconds."
+
+msgid "Previous page"
+msgstr "Previous page"
+
+msgid "Next page"
+msgstr "Next page"
+
+msgid "Jump to page"
+msgstr "Jump to page"
+
+msgid "No pages"
+msgstr "No pages"
+
+msgid "No page"
+msgstr "No page"
+
+msgid "Page %d of %d"
+msgstr "Page %d of %d"
+
+msgid "Page"
+msgstr "Page"
+
+msgid "Ping sparkline"
+msgstr "Ping sparkline"
+
+msgid "Could not refresh preview: %s"
+msgstr "Could not refresh preview: %s"
+
+msgid "Page control failed."
+msgstr "Page control failed."
+
+msgid "Page control failed: %s"
+msgstr "Page control failed: %s"
+
+msgid "Could not jump to page."
+msgstr "Could not jump to page."
+
+msgid "Could not jump to page: %s"
+msgstr "Could not jump to page: %s"

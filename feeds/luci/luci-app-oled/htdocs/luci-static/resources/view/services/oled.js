@@ -50,7 +50,22 @@ var callGetLogs = rpc.declare({
 	expect: { '': {} }
 });
 
+var callGetPagePreview = rpc.declare({
+	object: 'luci.oled',
+	method: 'getPagePreview',
+	expect: { '': {} }
+});
+
+var callPageControl = rpc.declare({
+	object: 'luci.oled',
+	method: 'pageControl',
+	params: [ 'action', 'page_id' ],
+	expect: { '': {} }
+});
+
 var isReadonlyView = !L.hasViewPermission() || null;
+
+var PREVIEW_SCALE = 3;
 
 var FORM_DEFAULTS = {
 	enable: '1',
@@ -245,10 +260,16 @@ function statusCard(label, value) {
 function renderStatusBlock(st) {
 	st = st || {};
 	var daemonLabel = st.daemon === 'oledd' ? _('oledd (menu)') : _('oled (legacy)');
+	var pageLabel = st.page_title ?
+		(st.page_title + (st.page_id ? ' (' + st.page_id + ')' : '')) :
+		(st.view || '—');
 	return E('div', { 'class': 'oled-status-panel', 'id': 'oled-status-panel' }, [
 		E('div', { 'class': 'oled-status-grid' }, [
 			statusCard(_('Daemon'), E('span', {}, [ daemonLabel, ' ', statusPill(st.running) ])),
-			statusCard(_('Current view'), st.view || '—'),
+			statusCard(_('Current view'), pageLabel),
+			statusCard(_('Page'), st.page_count && st.page_idx != null ?
+				String((st.page_idx + 1) + ' / ' + st.page_count) :
+				(st.view === 'boot' ? _('boot') : (st.view || '—'))),
 			statusCard(_('Display'), st.dimmed ? _('Dimmed') : _('Active')),
 			statusCard(_('I2C bus'), st.path || '—'),
 			statusCard(_('Boot stage'), st.boot_stage || _('unknown')),
@@ -257,6 +278,176 @@ function renderStatusBlock(st) {
 			statusCard(_('Interactive'), st.menu_interactive ? _('yes') : _('no')),
 			statusCard(_('Preinit hook'), st.preinit_hook || _('not installed'))
 		])
+	]);
+}
+
+function previewFontClass(font) {
+	switch (font) {
+	case 'sm':
+	case 'md':
+		return 'oled-preview-font-sm';
+	case 'lg':
+	case 'xl':
+	case 'huge':
+		return 'oled-preview-font-lg';
+	default:
+		return 'oled-preview-font-xs';
+	}
+}
+
+function previewPosStyle(el, scale) {
+	var s = scale || PREVIEW_SCALE;
+	var style = 'left:' + (el.x * s) + 'px;top:' + (el.y * s) + 'px;';
+	if (el.w != null)
+		style += 'width:' + (el.w * s) + 'px;';
+	if (el.h != null)
+		style += 'height:' + (el.h * s) + 'px;';
+	return style;
+}
+
+function renderPreviewElement(el, scale) {
+	var s = scale || PREVIEW_SCALE;
+	var cls = 'oled-preview-el';
+
+	switch (el.type) {
+	case 'rect':
+		return E('div', {
+			'class': cls + ' oled-preview-rect' + (el.fill ? ' oled-preview-rect--fill' : ''),
+			'style': previewPosStyle(el, s)
+		});
+	case 'line':
+		return E('div', {
+			'class': cls + ' oled-preview-line',
+			'style': 'left:' + (el.x1 * s) + 'px;top:' + (el.y1 * s) +
+				'px;width:' + (Math.max(1, (el.x2 - el.x1) * s)) + 'px;'
+		});
+	case 'text':
+		return E('div', {
+			'class': cls + ' oled-preview-text ' + previewFontClass(el.font) +
+				(el.invert ? ' oled-preview-text--invert' : '') +
+				(el.align === 'right' ? ' oled-preview-text--right' : ''),
+			'style': previewPosStyle(el, s)
+		}, [ el.text || '' ]);
+	case 'bar':
+		var pct = Math.max(0, Math.min(1, el.value_num || 0));
+		return E('div', {
+			'class': cls + ' oled-preview-bar',
+			'style': previewPosStyle(el, s)
+		}, [
+			E('div', {
+				'class': 'oled-preview-bar-fill',
+				'style': 'width:' + Math.round(pct * 100) + '%;'
+			})
+		]);
+	case 'icon':
+		return E('div', {
+			'class': cls + ' oled-preview-icon',
+			'style': previewPosStyle({ x: el.x, y: el.y, w: el.size || 8, h: el.size || 8 }, s),
+			'title': el.name || ''
+		}, [ el.name ? el.name.substr(0, 3).toUpperCase() : '?' ]);
+	case 'sparkline':
+		return E('div', {
+			'class': cls + ' oled-preview-spark',
+			'style': previewPosStyle(el, s),
+			'title': _('Ping sparkline')
+		}, [ '~~~' ]);
+	case 'qrcode':
+		return E('div', {
+			'class': cls + ' oled-preview-qr',
+			'style': previewPosStyle(el, s),
+			'title': el.source || 'qr'
+		}, [ 'QR' ]);
+	default:
+		return null;
+	}
+}
+
+function renderPreviewCanvas(preview) {
+	preview = preview || {};
+	var scale = PREVIEW_SCALE;
+	var w = preview.width || 128;
+	var h = preview.height || 64;
+	var elements = preview.elements || [];
+	var nodes = [];
+
+	for (var i = 0; i < elements.length; i++) {
+		var node = renderPreviewElement(elements[i], scale);
+		if (node)
+			nodes.push(node);
+	}
+
+	var cls = 'oled-preview-screen';
+	if (preview.dimmed)
+		cls += ' oled-preview-screen--dimmed';
+	if (!preview.running)
+		cls += ' oled-preview-screen--offline';
+
+	return E('div', { 'class': 'oled-preview-wrap' }, [
+		E('div', {
+			'class': cls,
+			'id': 'oled-preview-screen',
+			'style': 'width:' + (w * scale) + 'px;height:' + (h * scale) + 'px;'
+		}, nodes),
+		E('div', { 'class': 'oled-preview-meta', 'id': 'oled-preview-meta' }, [
+			E('span', { 'class': 'oled-preview-page-title' }, [
+				preview.page_title || preview.page_id || preview.view || _('No page')
+			]),
+			preview.page_count && preview.page_idx != null ?
+				E('span', { 'class': 'oled-preview-page-idx' }, [
+					' ',
+					_('Page %d of %d').format((preview.page_idx || 0) + 1, preview.page_count)
+				]) : ''
+		])
+	]);
+}
+
+function renderPreviewControls(preview) {
+	preview = preview || {};
+	var pages = preview.pages || [];
+	var opts = [];
+
+	for (var i = 0; i < pages.length; i++) {
+		opts.push(E('option', {
+			'value': pages[i].id,
+			'selected': pages[i].id === preview.page_id ? 'selected' : null
+		}, [ pages[i].title || pages[i].id ]));
+	}
+
+	return E('div', { 'class': 'oled-preview-controls' }, [
+		E('button', {
+			'class': 'btn cbi-button-action',
+			'id': 'oled-page-prev',
+			'click': ui.createHandlerFn(this, 'handlePageControl', 'prev'),
+			'disabled': isReadonlyView || !preview.running
+		}, [ _('Previous page') ]),
+		' ',
+		E('button', {
+			'class': 'btn cbi-button-action',
+			'id': 'oled-page-next',
+			'click': ui.createHandlerFn(this, 'handlePageControl', 'next'),
+			'disabled': isReadonlyView || !preview.running
+		}, [ _('Next page') ]),
+		' ',
+		E('select', {
+			'id': 'oled-page-jump',
+			'disabled': isReadonlyView || !preview.running || !pages.length
+		}, opts.length ? opts : [
+			E('option', { 'value': '' }, [ _('No pages') ])
+		]),
+		' ',
+		E('button', {
+			'class': 'btn cbi-button-action',
+			'id': 'oled-page-goto',
+			'click': ui.createHandlerFn(this, 'handlePageGoto'),
+			'disabled': isReadonlyView || !preview.running || !pages.length
+		}, [ _('Jump to page') ])
+	]);
+}
+
+function renderPreviewPanel(preview) {
+	return E('div', { 'class': 'oled-preview-panel', 'id': 'oled-preview-panel' }, [
+		renderPreviewCanvas(preview),
+		renderPreviewControls.call(this, preview)
 	]);
 }
 
@@ -311,11 +502,13 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			callGetConfig(),
-			callGetStatus()
+			callGetStatus(),
+			callGetPagePreview()
 		]).then(function(parts) {
 			return {
 				config: rpcData(parts[0], {}).config || {},
-				status: rpcData(parts[1], {})
+				status: rpcData(parts[1], {}),
+				preview: rpcData(parts[2], {})
 			};
 		}).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [
@@ -409,6 +602,73 @@ return view.extend({
 		});
 	},
 
+	refreshPreview: function(notify) {
+		return callGetPagePreview().then(L.bind(function(preview) {
+			preview = rpcData(preview, {});
+			var panel = document.getElementById('oled-preview-panel');
+			if (panel && panel.parentNode) {
+				var next = renderPreviewPanel.call(this, preview);
+				panel.parentNode.replaceChild(next, panel);
+			}
+			var jump = document.getElementById('oled-page-jump');
+			if (jump && preview.page_id)
+				jump.value = preview.page_id;
+		}, this)).catch(function(e) {
+			if (notify)
+				ui.addNotification(null, E('p', {}, [
+					_('Could not refresh preview: %s').format(e)
+				]), 'error');
+		});
+	},
+
+	handlePageControl: function(action) {
+		if (isReadonlyView)
+			return Promise.resolve();
+		return callPageControl(action, '').then(L.bind(function(r) {
+			r = rpcData(r, {});
+			if (r.error || r.ok === false) {
+				ui.addNotification(null, E('p', {}, [
+					r.message || r.error || _('Page control failed.')
+				]), 'error');
+				return;
+			}
+			return Promise.all([
+				this.refreshPreview(false),
+				this.refreshStatus(false)
+			]);
+		}, this)).catch(function(e) {
+			ui.addNotification(null, E('p', {}, [
+				_('Page control failed: %s').format(e)
+			]), 'error');
+		});
+	},
+
+	handlePageGoto: function() {
+		if (isReadonlyView)
+			return Promise.resolve();
+		var sel = document.getElementById('oled-page-jump');
+		var pageId = sel ? String(sel.value || '') : '';
+		if (!pageId)
+			return Promise.resolve();
+		return callPageControl('goto', pageId).then(L.bind(function(r) {
+			r = rpcData(r, {});
+			if (r.error || r.ok === false) {
+				ui.addNotification(null, E('p', {}, [
+					r.message || r.error || _('Could not jump to page.')
+				]), 'error');
+				return;
+			}
+			return Promise.all([
+				this.refreshPreview(false),
+				this.refreshStatus(false)
+			]);
+		}, this)).catch(function(e) {
+			ui.addNotification(null, E('p', {}, [
+				_('Could not jump to page: %s').format(e)
+			]), 'error');
+		});
+	},
+
 	buildServiceButtons: function() {
 		return E('div', { 'class': 'cbi-page-actions oled-inline-actions' }, [
 			E('button', {
@@ -436,9 +696,15 @@ return view.extend({
 		]);
 	},
 
-	buildDashboardTab: function(st) {
+	buildDashboardTab: function(st, preview) {
 		st = st || {};
+		preview = preview || {};
 		return E('div', { 'data-tab': 'dashboard', 'data-tab-title': _('Dashboard') }, [
+			cbiSection(_('Live preview'), [
+				_('Mirrors the physical 128×64 OLED page using the same pages.json layout and live metrics. Refreshes every few seconds.')
+			], [
+				renderPreviewPanel.call(this, preview)
+			], 'oled-section-preview'),
 			cbiSection(_('Status'), [
 				_('Live daemon and boot state. Refreshes automatically every few seconds.')
 			], [
@@ -641,6 +907,7 @@ return view.extend({
 	render: function(data) {
 		var cfg = data.config || {};
 		var st = data.status || {};
+		var preview = data.preview || {};
 		var i2cPaths = buildI2cPathList(cfg);
 
 		function pick(key) {
@@ -660,7 +927,7 @@ return view.extend({
 		}, [ _('I2C diagnostics → Peripherals') ]);
 
 		var tabHost = E('div', { 'class': 'oled-tab-host' }, [
-			this.buildDashboardTab(st),
+			this.buildDashboardTab(st, preview),
 			this.buildDisplayTab(pick, pathOptions, st, periphLink),
 			this.buildMenuTab(pick),
 			this.buildButtonsTab(pick),
@@ -692,8 +959,11 @@ return view.extend({
 
 		ui.tabs.initTabGroup(tabHost.childNodes);
 		poll.add(L.bind(function() {
-			return this.refreshStatus(false);
-		}, this), 5);
+			return Promise.all([
+				this.refreshStatus(false),
+				this.refreshPreview(false)
+			]);
+		}, this), 4);
 		setTimeout(L.bind(this.refreshLogs, this), 0);
 
 		return root;

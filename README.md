@@ -130,10 +130,10 @@ Enable signing key from the site root (after the first tagged release with `PUBL
 
 ```sh
 # On the router (ImmortalWrt 25.12+ / apk) — CM5 example
-wget -O /tmp/public-key.pem \
+wget -O /etc/apk/keys/t-rex-xp.github.io.pub \
   https://t-rex-xp.github.io/openwrt-packages/public-key.pem
-# Install the key per your image’s apk docs, then add a repository line pointing at:
-# https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/
+echo "https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/packages.adb" \
+  >> /etc/apk/repositories.d/customfeeds.list
 apk update
 apk add blocky luci-app-blocky
 ```

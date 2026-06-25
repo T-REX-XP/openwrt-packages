@@ -47,9 +47,10 @@ Without this, the entire `https://t-rex-xp.github.io/openwrt-packages/` site ret
 ### Router install (apk)
 
 ```sh
-wget -O /tmp/public-key.pem \
+wget -O /etc/apk/keys/t-rex-xp.github.io.pub \
   https://t-rex-xp.github.io/openwrt-packages/public-key.pem
-# Install key per image docs, add repository line, then:
+echo "https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/packages.adb" \
+  >> /etc/apk/repositories.d/customfeeds.list
 apk update
 apk add blocky luci-app-blocky
 ```

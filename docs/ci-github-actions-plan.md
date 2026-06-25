@@ -305,10 +305,11 @@ After CI is live, extend [README.md](../README.md):
 2. Add **Option D — Install from published feed**:
 
    ```sh
-   # Example — adjust URL after Pages deploy
-   wget -O - https://t-rex-xp.github.io/openwrt-packages/immortalwrt-24.10/aarch64_generic/public-key.pem \
-     > /etc/apk/keys/...
-   # add repository line per ImmortalWrt apk docs
+   wget -O /etc/apk/keys/t-rex-xp.github.io.pub \
+     https://t-rex-xp.github.io/openwrt-packages/public-key.pem
+   echo "https://t-rex-xp.github.io/openwrt-packages/immortalwrt-25.12/aarch64_generic/packages.adb" \
+     >> /etc/apk/repositories.d/customfeeds.list
+   apk update
    apk add blocky luci-app-blocky
    ```
 

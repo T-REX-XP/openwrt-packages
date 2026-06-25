@@ -6,14 +6,20 @@
 				"luci.oled": [
 					"getConfig",
 					"getStatus",
+					"getPagePreview",
 					"detectI2c",
 					"getLogs"
 				],
-				"oledd": [ "status" ]
+				"oledd": [ "status" ],
+				"system": [ "info" ],
+				"network.interface.wan": [ "status" ],
+				"network.wireless": [ "status" ]
 			},
 			"uci": [ "oled" ],
 			"file": {
 				"/tmp/oled_state": [ "read" ],
+				"/etc/oled/pages.json": [ "read" ],
+				"/tmp/dhcp.leases": [ "read" ],
 				"/dev/i2c-*": [ "read" ],
 				"/sbin/logread": [ "exec" ],
 				"/bin/logread": [ "exec" ],
@@ -26,14 +32,17 @@
 				"luci.oled": [
 					"setConfig",
 					"releaseRst",
-					"serviceControl"
-				]
+					"serviceControl",
+					"pageControl"
+				],
+				"oledd": [ "set_view", "event" ]
 			},
 			"uci": [ "oled" ],
 			"file": {
 				"/etc/init.d/oled": [ "exec" ],
 				"/etc/init.d/oledd": [ "exec" ],
 				"/usr/lib/oled/cm5-apply-config.sh": [ "read", "exec" ],
+				"/usr/lib/oled/oledd-event.sh": [ "exec" ],
 				"/sys/class/leds/waveshare-oled-rst/brightness": [ "write" ],
 				"/usr/sbin/i2cdetect": [ "exec" ],
 				"/usr/bin/i2cdetect": [ "exec" ]
