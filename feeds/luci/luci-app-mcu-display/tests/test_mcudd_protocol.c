@@ -103,12 +103,35 @@ static void test_msgpack_rejected(void)
 	       "msgpack format rejected until phase 2");
 }
 
+static void test_gesture_evt(void)
+{
+	struct mcudd_parsed_msg msg;
+	const char *line =
+		"{\"v\":1,\"t\":\"evt\",\"op\":\"input\",\"data\":{\"type\":\"gesture\",\"dir\":\"left\"}}";
+
+	expect(mcudd_protocol_parse(line, &msg) == 0, "parse gesture evt");
+	expect(msg.type == MCUDD_MSG_RDCP_EVT_INPUT, "gesture type");
+	expect(!strcmp(msg.gesture_dir, "left"), "gesture dir left");
+}
+
+static void test_cmd_screen_builder(void)
+{
+	char out[256];
+
+	expect(mcudd_protocol_build_cmd_screen("router_wifi", out, sizeof(out)) == 0,
+	       "build cmd screen");
+	expect(strstr(out, "router_wifi") != NULL, "cmd has screen id");
+	expect(strstr(out, "\"t\":\"cmd\"") != NULL, "cmd type");
+}
+
 int main(void)
 {
 	test_legacy_cpu_request();
 	test_rdcp_req();
 	test_demo_alarms_config();
 	test_msgpack_rejected();
+	test_gesture_evt();
+	test_cmd_screen_builder();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
 	return tests_failed ? 1 : 0;

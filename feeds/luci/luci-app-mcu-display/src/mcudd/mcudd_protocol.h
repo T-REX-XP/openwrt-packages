@@ -14,6 +14,7 @@ typedef enum {
 	MCUDD_MSG_LEGACY_REQUEST,
 	MCUDD_MSG_RDCP_REQ,
 	MCUDD_MSG_RDCP_EVT,
+	MCUDD_MSG_RDCP_EVT_INPUT,
 	MCUDD_MSG_RDCP_ERR,
 } mcudd_msg_type_t;
 
@@ -33,6 +34,7 @@ struct mcudd_parsed_msg {
 	mcudd_scope_t scope;
 	unsigned req_id;
 	char screen[48];
+	char gesture_dir[8];
 };
 
 /* Parse one inbound newline-stripped line. Returns 0 on recognized message. */
@@ -48,5 +50,12 @@ int mcudd_protocol_format_out(const struct mcudd_config *cfg,
 			      const char *payload, char *out, size_t out_len);
 
 const char *mcudd_scope_name(mcudd_scope_t scope);
+
+mcudd_scope_t mcudd_scope_from_screen(const char *screen_id);
+
+/* Host → MCU command / push builders (newline not included). */
+int mcudd_protocol_build_cmd_screen(const char *screen_id, char *out, size_t out_len);
+int mcudd_protocol_build_push_boot(const char *stage, const char *text, unsigned pct,
+				   char *out, size_t out_len);
 
 #endif /* MCUDD_PROTOCOL_H */

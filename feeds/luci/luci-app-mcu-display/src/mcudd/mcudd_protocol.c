@@ -113,12 +113,22 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 			}
 		}
 		if (!strcmp(t, "evt")) {
-			out->type = MCUDD_MSG_RDCP_EVT;
-			if (json_find_string(line, "op", op, sizeof(op)) == 0 &&
-			    !strcmp(op, "screen") &&
-			    strstr(line, "\"screen\"") &&
+			if (json_find_string(line, "op", op, sizeof(op)) != 0)
+				return -1;
+			if (!strcmp(op, "screen") &&
 			    json_find_string(line, "screen", screen, sizeof(screen)) == 0) {
+				out->type = MCUDD_MSG_RDCP_EVT;
 				strncpy(out->screen, screen, sizeof(out->screen) - 1);
+				return 0;
+			}
+			if (!strcmp(op, "input") && strstr(line, "\"gesture\"")) {
+				out->type = MCUDD_MSG_RDCP_EVT_INPUT;
+				if (strstr(line, "\"dir\":\"right\""))
+					strncpy(out->gesture_dir, "right",
+						sizeof(out->gesture_dir) - 1);
+				else
+					strncpy(out->gesture_dir, "left",
+						sizeof(out->gesture_dir) - 1);
 				return 0;
 			}
 		}
@@ -174,4 +184,48 @@ int mcudd_protocol_format_out(const struct mcudd_config *cfg,
 	strncpy(out, payload, out_len - 1);
 	out[out_len - 1] = '\0';
 	return 0;
+}
+
+mcudd_scope_t mcudd_scope_from_screen(const char *screen_id)
+{
+	if (!screen_id)
+		return MCUDD_SCOPE_SYSTEM;
+	if (!strcmp(screen_id, "router_network"))
+		return MCUDD_SCOPE_NETWORK;
+	if (!strcmp(screen_id, "router_clients"))
+		return MCUDD_SCOPE_CLIENTS;
+	if (!strcmp(screen_id, "router_storage"))
+		return MCUDD_SCOPE_STORAGE;
+	if (!strcmp(screen_id, "router_wifi"))
+		return MCUDD_SCOPE_WIFI;
+	if (!strcmp(screen_id, "router_security"))
+		return MCUDD_SCOPE_SECURITY;
+	return MCUDD_SCOPE_SYSTEM;
+}
+
+int mcudd_protocol_build_cmd_screen(const char *screen_id, char *out, size_t out_len)
+{
+	int n;
+
+	if (!screen_id || !out || !out_len)
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"cmd\",\"op\":\"screen\",\"data\":{\"screen\":\"%s\"}}",
+		     screen_id);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+int mcudd_protocol_build_push_boot(const char *stage, const char *text, unsigned pct,
+				   char *out, size_t out_len)
+{
+	int n;
+
+	if (!stage || !text || !out || !out_len)
+		return -1;
+	if (pct > 100)
+		pct = 100;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"push\",\"op\":\"boot\",\"data\":{\"stage\":\"%s\",\"text\":\"%s\",\"pct\":%u}}",
+		     stage, text, pct);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
 }
