@@ -18,9 +18,11 @@ MCUDD_OBJS := $(MCUDD_SRCS:.c=.o)
 
 MCUDD_BIN := mcudd-bin
 
-.PHONY: all clean test
+.PHONY: all clean test compile
 
 all: $(MCUDD_BIN)
+
+compile: all
 
 $(MCUDD_BIN): $(MCUDD_OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
