@@ -24,6 +24,10 @@ all: $(MCUDD_BIN)
 
 compile: all
 
+install: compile
+	mkdir -p $(DESTDIR)/usr/sbin
+	cp $(MCUDD_BIN) $(DESTDIR)/usr/sbin/mcudd
+
 $(MCUDD_BIN): $(MCUDD_OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
