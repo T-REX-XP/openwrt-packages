@@ -10,13 +10,16 @@ const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts' ];
 const STRING_OPTS = {
 	path: /^\/dev\/[A-Za-z0-9._-]+$/,
 	pages: /^\/[ -~]+$/,
-	wire_format: /^(json|msgpack)$/
+	wire_format: /^(json|msgpack)$/,
+	wan_if: /^[A-Za-z0-9_.-]+$/,
+	lan_if: /^[A-Za-z0-9_.-]+$/,
+	wifi_if: /^[A-Za-z0-9_.-]+$/
 };
 const UINT_OPTS = [ 'baud', 'interval_system', 'interval_network', 'max_line' ];
 
 const ALL_SET_OPTS = [
 	'enable', 'demo_mode', 'push_alerts',
-	'path', 'pages', 'wire_format',
+	'path', 'pages', 'wire_format', 'wan_if', 'lan_if', 'wifi_if',
 	'baud', 'interval_system', 'interval_network', 'max_line'
 ];
 

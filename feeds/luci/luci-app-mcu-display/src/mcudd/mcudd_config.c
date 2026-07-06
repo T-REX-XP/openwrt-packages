@@ -106,6 +106,13 @@ int mcudd_config_load_file(const char *uci_path, struct mcudd_config *cfg)
 	if (!cfg->pages[0])
 		return -1;
 
+	if (parse_option_string(uci_path, "wan_if", cfg->wan_if, sizeof(cfg->wan_if)) != 0)
+		return -1;
+	if (parse_option_string(uci_path, "lan_if", cfg->lan_if, sizeof(cfg->lan_if)) != 0)
+		return -1;
+	if (parse_option_string(uci_path, "wifi_if", cfg->wifi_if, sizeof(cfg->wifi_if)) != 0)
+		return -1;
+
 	if (parse_option_int(uci_path, "interval_system", &v) != 0 || v <= 0)
 		return -1;
 	cfg->interval_system_ms = (unsigned)v;

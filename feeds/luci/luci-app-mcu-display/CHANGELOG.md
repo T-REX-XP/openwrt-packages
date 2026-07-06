@@ -1,5 +1,13 @@
 # luci-app-mcu-display CHANGELOG
 
+## 2 (2026-07-06)
+
+### Added
+
+- **Full router metric scopes** — `clients`, `wifi` (SSID + WPA QR payload), `security` via UCI/sysfs.
+- **UCI interface options** — `wan_if`, `lan_if`, `wifi_if` (required, no daemon defaults).
+- **pages.json** — titles aligned with OLED page names.
+
 ## 1 (2026-07-06)
 
 ### Added

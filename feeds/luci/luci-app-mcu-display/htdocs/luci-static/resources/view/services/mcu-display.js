@@ -139,6 +139,9 @@ return view.extend({
 			.value('msgpack', 'MessagePack (Phase 2)');
 		s.option(form.Flag, 'demo_mode', _('Demo alarm data'));
 		s.option(form.Value, 'pages', _('Pages JSON path'));
+		s.option(form.Value, 'wan_if', _('WAN interface'));
+		s.option(form.Value, 'lan_if', _('LAN bridge'));
+		s.option(form.Value, 'wifi_if', _('WiFi interface'));
 		s.option(form.Value, 'interval_system', _('System poll interval (ms)'));
 		s.option(form.Value, 'interval_network', _('Network poll interval (ms)'));
 		s.option(form.Flag, 'push_alerts', _('Push alerts'));

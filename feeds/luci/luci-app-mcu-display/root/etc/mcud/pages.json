@@ -1,11 +1,11 @@
 {
 	"version": 1,
 	"screens": [
-		{ "id": "router_system", "scope": "system", "enabled": true },
-		{ "id": "router_network", "scope": "network", "enabled": true },
-		{ "id": "router_clients", "scope": "clients", "enabled": true },
-		{ "id": "router_storage", "scope": "storage", "enabled": true },
-		{ "id": "router_wifi", "scope": "wifi", "enabled": true },
-		{ "id": "router_security", "scope": "security", "enabled": true }
+		{ "id": "router_system", "title": "SYSTEM", "scope": "system", "enabled": true },
+		{ "id": "router_network", "title": "NETWORK", "scope": "network", "enabled": true },
+		{ "id": "router_clients", "title": "CLIENTS", "scope": "clients", "enabled": true },
+		{ "id": "router_storage", "title": "STORAGE", "scope": "storage", "enabled": true },
+		{ "id": "router_wifi", "title": "WIFI AP", "scope": "wifi", "enabled": true },
+		{ "id": "router_security", "title": "SECURITY", "scope": "security", "enabled": true }
 	]
 }

@@ -18,6 +18,9 @@ struct mcudd_config {
 	char wire_format[16];
 	int demo_mode;
 	char pages[128];
+	char wan_if[32];
+	char lan_if[32];
+	char wifi_if[32];
 	unsigned interval_system_ms;
 	unsigned interval_network_ms;
 	int push_alerts;

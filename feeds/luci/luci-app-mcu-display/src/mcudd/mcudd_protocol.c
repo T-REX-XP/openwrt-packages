@@ -142,6 +142,12 @@ int mcudd_protocol_build_scope(const struct mcudd_config *cfg, mcudd_scope_t sco
 		return mcudd_metrics_alarms(cfg, buf, len);
 	case MCUDD_SCOPE_NETWORK:
 		return mcudd_metrics_network(cfg, buf, len);
+	case MCUDD_SCOPE_CLIENTS:
+		return mcudd_metrics_clients(cfg, buf, len);
+	case MCUDD_SCOPE_WIFI:
+		return mcudd_metrics_wifi(cfg, buf, len);
+	case MCUDD_SCOPE_SECURITY:
+		return mcudd_metrics_security(cfg, buf, len);
 	default:
 		snprintf(buf, len, "{\"error\":\"scope_unavailable\"}");
 		return 0;
