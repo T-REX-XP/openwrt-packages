@@ -2,6 +2,8 @@
  * mcudd_metrics — router metrics from /proc, /sys, UCI (scope payloads).
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "mcudd_metrics.h"
 
 #include <stdio.h>

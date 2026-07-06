@@ -2,6 +2,12 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-mcu-display r2] — 2026-07-06
+
+### Added
+
+- Router metric scopes: **clients**, **wifi** (QR payload), **security**; UCI `wan_if` / `lan_if` / `wifi_if`.
+
 ## [luci-app-mcu-display r1] — 2026-07-06
 
 ### Added
