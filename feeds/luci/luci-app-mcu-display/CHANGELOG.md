@@ -1,5 +1,18 @@
 # luci-app-mcu-display CHANGELOG
 
+## 12 (2026-07-06)
+
+### Changed
+
+- **CM5 debug UART default** — shipped UCI `path` is `/dev/ttyS2` (onboard 3-pin debug header, UART2 @ GPIO0_B5/B6) instead of FPC `/dev/ttyS4`; baud remains 115200.
+- **uci-defaults** — CM5 first-boot and `99-mcud-cm5-uart-migrate` rewrite legacy USB/FPC paths to `/dev/ttyS2`; migration flag bumped to `cm5_uart_migrated=2`.
+- **LuCI** — serial device help documents debug-header wiring and notes CM5 bootscript disables runtime serial console on ttyS2.
+
+### Firmware (immortalwrt)
+
+- Removed DTS patch **`9981-*-fpc-uart4`** (UART4 on J4 FPC no longer enabled).
+- **CM5 bootscript** — drops `console=ttyS2,1500000` so mcudd can use the debug UART at 115200; `earlycon` retained for early boot only.
+
 ## 11 (2026-07-06)
 
 ### Changed

@@ -25,11 +25,11 @@ changed=0
 
 case "$(board_name 2>/dev/null)" in
 xunlong,orangepi-cm5-base)
-	if [ -c /dev/ttyS4 ]; then
+	if [ -c /dev/ttyS2 ]; then
 		cur="$(uci -q get mcud.@mcud[0].path)"
 		case "$cur" in
-		''|/dev/ttyUSB0|/dev/ttyUSB1)
-			uci -q set mcud.@mcud[0].path='/dev/ttyS4'
+		''|/dev/ttyUSB0|/dev/ttyUSB1|/dev/ttyS4)
+			uci -q set mcud.@mcud[0].path='/dev/ttyS2'
 			changed=1
 			;;
 		esac

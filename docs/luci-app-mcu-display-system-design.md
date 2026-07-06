@@ -144,24 +144,23 @@ flowchart TB
 
 ### 3.2 Physical connection (CM5)
 
-| Option | Device node | CM5 J4 FPC | ESP32 side | Notes |
-|--------|-------------|------------|------------|-------|
-| **GPIO UART (production)** | `/dev/ttyS4` | Pad **6** TX (GPIO1_B3), pad **7** RX (GPIO1_B2), GND pad **7/8**, 3.3 V pad **1/2** | UART2 RX=16, TX=17 | **UART4 mux m2** — ImmortalWrt patch `9981-*-fpc-uart4`. Coexists with I2C7 OLED on pads 11/12. |
-| USB-UART cable | `/dev/ttyUSB0` | — | UART0 USB-CDC (dev) or UART2 (prod) | Dev / bench only; not the CM5 shipped default. |
-| Kernel debug UART | `/dev/ttyS2` | Module debug header (GPIO0_B5/B6) | — | **Do not use for mcudd** — `stdout-path` @ **1.5 Mbaud**. |
+| Option | Device node | CM5 connector | ESP32 side | Notes |
+|--------|-------------|---------------|------------|-------|
+| **Debug UART (production)** | `/dev/ttyS2` | 3-pin header: pin 1 GND, pin 2 RX (GPIO0_B6), pin 3 TX (GPIO0_B5) | UART2 RX=16, TX=17 | **UART2 mux m0** — enabled in `994-03` DTS. CM5 bootscript omits `console=ttyS2` so mcudd owns the port @ 115200. |
+| USB-UART cable | `/dev/ttyUSB0` | — | UART0 USB-CDC (dev) | Dev / bench only. |
+| ~~FPC UART4~~ | ~~`/dev/ttyS4`~~ | ~~J4 pads 6/7~~ | — | **Removed** — `9981-*-fpc-uart4` patch dropped; FPC reserved for OLED I2C7. |
 
-**Wiring (CM5 J4 → ESP32 UART2):**
+**Wiring (CM5 debug header → ESP32 UART2):**
 
-| CM5 J4 pad | Signal | → | ESP32 |
-|------------|--------|---|-------|
-| 6 | UART4 TX (GPIO1_B3) | → | GPIO16 (RX) |
-| 7 | UART4 RX (GPIO1_B2) | ← | GPIO17 (TX) |
-| 7 or 8 | GND | ↔ | GND |
-| 1 or 2 | 3.3 V | → | 3.3 V (optional if ESP32 self-powered) |
+| CM5 debug pin | Signal | → | ESP32 |
+|---------------|--------|---|-------|
+| 1 | GND | ↔ | GND |
+| 2 | UART_RX (GPIO0_B6) | ← | GPIO17 (TX) |
+| 3 | UART_TX (GPIO0_B5) | → | GPIO16 (RX) |
 
-**Rejected alternative:** UART7 mux m2 on pads **9/10** (GPIO1_B4/B5) conflicts with **OLED RST** on pad 9.
+**Console conflict:** UART2 is the kernel `stdout-path` @ **1.5 Mbaud** in DTS (`serial2:1500000n8`). ImmortalWrt CM5 bootscript sets `console=tty1` only (no runtime serial console) so mcudd can open `/dev/ttyS2` @ 115200. `earlycon` still prints briefly at 1.5 Mbaud during early boot. To restore a serial login console for bench debug: `fw_setenv bootargs "$(fw_printenv -n bootargs | sed 's/console=tty1/console=tty1 console=ttyS2,1500000/')"` — mcudd must stay disabled while the console is active.
 
-**Production recommendation:** `/dev/ttyS4` @ **115200 8N1**, DTR/RTS disabled. USB CDC reserved for ESP32 development only.
+**Production recommendation:** `/dev/ttyS2` @ **115200 8N1**, DTR/RTS disabled. USB CDC reserved for ESP32 development only. J4 FPC OLED on I2C7 (pads 11/12) is unaffected.
 
 ---
 
@@ -651,7 +650,7 @@ sequenceDiagram
 
 ## 11. Open questions
 
-1. ~~**Exact CM5 UART header pins**~~ — **Resolved:** J4 FPC UART4 m2 → `/dev/ttyS4`, pads 6 (TX) / 7 (RX); see §3.2 and immortalwrt patch `9981-*-fpc-uart4`.
+1. ~~**Exact CM5 UART header pins**~~ — **Resolved:** onboard debug header → `/dev/ttyS2` (UART2 m0, GPIO0_B5 TX / GPIO0_B6 RX); see §3.2. FPC UART4 approach removed.
 2. **Coexistence policy** — should `oledd` auto-pause when `mcudd` active, or run both?
 3. **Touch gestures vs physical buttons** — map gestures to `oledd`-style `UP/DOWN/OK` for LuCI debug?
 4. **CBOR library** — `libcbor` vs minimal hand-rolled for fixed schemas only.

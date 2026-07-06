@@ -2,6 +2,13 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-mcu-display r12] — 2026-07-06
+
+### Changed
+
+- **CM5 mcudd UART** — default `/dev/ttyS2` (onboard debug header) instead of FPC `/dev/ttyS4`; migration from USB/FPC paths; LuCI wiring docs updated.
+- **immortalwrt** — removed `9981-*-fpc-uart4` patch; CM5 bootscript drops `console=ttyS2` for mcudd compatibility.
+
 ## [luci-app-mcu-display r2] — 2026-07-06
 
 ### Added
