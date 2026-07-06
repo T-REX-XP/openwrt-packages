@@ -1,0 +1,27 @@
+#!/bin/sh
+# Sysupgrade migration: USB-serial default → CM5 J4 FPC UART4 (/dev/ttyS4).
+
+. /lib/functions/system.sh
+
+[ "$(board_name)" = "xunlong,orangepi-cm5-base" ] || exit 0
+[ -c /dev/ttyS4 ] || exit 0
+[ "$(uci -q get mcud.@mcud[0].cm5_uart_migrated)" = "1" ] && exit 0
+
+cur="$(uci -q get mcud.@mcud[0].path)"
+case "$cur" in
+/dev/ttyUSB0|/dev/ttyUSB1|'')
+	;;
+*)
+	exit 0
+	;;
+esac
+
+logger -t mcud-cm5-migrate "setting mcud path to /dev/ttyS4 (J4 FPC UART4)"
+uci -q batch <<-EOF
+	set mcud.@mcud[0].path='/dev/ttyS4'
+	set mcud.@mcud[0].baud='115200'
+	set mcud.@mcud[0].cm5_uart_migrated='1'
+	commit mcud
+EOF
+
+exit 0

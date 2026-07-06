@@ -22,6 +22,25 @@ changed=0
 	uci -q set mcud.@mcud[0].debug_serial=0
 	changed=1
 }
+
+case "$(board_name 2>/dev/null)" in
+xunlong,orangepi-cm5-base)
+	if [ -c /dev/ttyS4 ]; then
+		cur="$(uci -q get mcud.@mcud[0].path)"
+		case "$cur" in
+		''|/dev/ttyUSB0|/dev/ttyUSB1)
+			uci -q set mcud.@mcud[0].path='/dev/ttyS4'
+			changed=1
+			;;
+		esac
+		[ "$(uci -q get mcud.@mcud[0].baud)" = "115200" ] || {
+			uci -q set mcud.@mcud[0].baud=115200
+			changed=1
+		}
+	fi
+	;;
+esac
+
 [ "$changed" = 1 ] && uci commit mcud
 
 if [ -x /etc/init.d/mcudd ]; then

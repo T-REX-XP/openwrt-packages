@@ -105,7 +105,7 @@ return view.extend({
 				href: L.resource('mcu-display-theme.css')
 			}),
 			E('h2', {}, _('MCU Display')),
-			E('p', { 'class': 'hint' }, _('UART bridge to an ESP32 smart display. Configure the serial port in UCI before enabling the service.')),
+			E('p', { 'class': 'hint' }, _('UART bridge to an ESP32 smart display. On Orange Pi CM5 Base, use the J4 FPC GPIO UART (/dev/ttyS4) — not the kernel debug port (/dev/ttyS2). Configure the serial port in UCI before enabling the service.')),
 			tabHost
 		]);
 
@@ -176,7 +176,8 @@ return view.extend({
 		s.anonymous = true;
 
 		s.option(form.Flag, 'enable', _('Enable mcudd'));
-		s.option(form.Value, 'path', _('Serial device'));
+		s.option(form.Value, 'path', _('Serial device'),
+			_('CM5 Base J4 FPC: /dev/ttyS4 — UART4 on pad 6 (TX, GPIO1_B3) and pad 7 (RX, GPIO1_B2), 115200 8N1, 3.3 V logic. Wire ESP32 RX ← CM5 TX, ESP32 TX → CM5 RX, common GND (pad 7 or 8). Optional 3.3 V from pad 1/2. Do not use /dev/ttyS2 (kernel console @ 1.5 Mbaud). USB-UART adapters: /dev/ttyUSB0.'));
 		s.option(form.ListValue, 'baud', _('Baud rate'), _('Must match UCI and firmware.'))
 			.value('115200', '115200')
 			.value('230400', '230400')

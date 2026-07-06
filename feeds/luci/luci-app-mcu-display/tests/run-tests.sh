@@ -33,6 +33,11 @@ sh -n ../root/etc/init.d/mcudd || FAIL=1
 sh -n ../root/usr/lib/mcud/mcud-event.sh || FAIL=1
 
 echo ""
+echo ">> shell: uci-defaults syntax"
+sh -n ../root/etc/uci-defaults/mcud || FAIL=1
+sh -n ../root/etc/uci-defaults/99-mcud-cm5-uart-migrate || FAIL=1
+
+echo ""
 echo ">> node: mcu-display.js syntax"
 if command -v node >/dev/null 2>&1; then
 	node --check ../htdocs/luci-static/resources/view/services/mcu-display.js || FAIL=1

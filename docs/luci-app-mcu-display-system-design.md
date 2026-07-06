@@ -144,13 +144,24 @@ flowchart TB
 
 ### 3.2 Physical connection (CM5)
 
-| Option | Device node | ESP32 side | Notes |
-|--------|-------------|------------|-------|
-| USB-UART cable | `/dev/ttyUSB0` | UART0 USB-CDC (dev) or UART2 (prod) | Dev: flash/debug on USB; prod: separate UART header. |
-| CM5 UART header | `/dev/ttyS*` | UART2 RX=16 TX=17 | Preferred production — isolates debug from link. |
-| 3.3 V level | — | — | CM5 GPIO is 3.3 V; match ESP32; common GND. |
+| Option | Device node | CM5 J4 FPC | ESP32 side | Notes |
+|--------|-------------|------------|------------|-------|
+| **GPIO UART (production)** | `/dev/ttyS4` | Pad **6** TX (GPIO1_B3), pad **7** RX (GPIO1_B2), GND pad **7/8**, 3.3 V pad **1/2** | UART2 RX=16, TX=17 | **UART4 mux m2** — ImmortalWrt patch `9981-*-fpc-uart4`. Coexists with I2C7 OLED on pads 11/12. |
+| USB-UART cable | `/dev/ttyUSB0` | — | UART0 USB-CDC (dev) or UART2 (prod) | Dev / bench only; not the CM5 shipped default. |
+| Kernel debug UART | `/dev/ttyS2` | Module debug header (GPIO0_B5/B6) | — | **Do not use for mcudd** — `stdout-path` @ **1.5 Mbaud**. |
 
-**Production recommendation:** UART2 on ESP32 ↔ CM5 `ttyS*`, 115200 8N1, DTR/RTS disabled (same as simulators). USB CDC reserved for development only.
+**Wiring (CM5 J4 → ESP32 UART2):**
+
+| CM5 J4 pad | Signal | → | ESP32 |
+|------------|--------|---|-------|
+| 6 | UART4 TX (GPIO1_B3) | → | GPIO16 (RX) |
+| 7 | UART4 RX (GPIO1_B2) | ← | GPIO17 (TX) |
+| 7 or 8 | GND | ↔ | GND |
+| 1 or 2 | 3.3 V | → | 3.3 V (optional if ESP32 self-powered) |
+
+**Rejected alternative:** UART7 mux m2 on pads **9/10** (GPIO1_B4/B5) conflicts with **OLED RST** on pad 9.
+
+**Production recommendation:** `/dev/ttyS4` @ **115200 8N1**, DTR/RTS disabled. USB CDC reserved for ESP32 development only.
 
 ---
 
@@ -640,7 +651,7 @@ sequenceDiagram
 
 ## 11. Open questions
 
-1. **Exact CM5 UART header pins** — confirm from CM5 Base schematic (which `ttyS` appears in DTS).
+1. ~~**Exact CM5 UART header pins**~~ — **Resolved:** J4 FPC UART4 m2 → `/dev/ttyS4`, pads 6 (TX) / 7 (RX); see §3.2 and immortalwrt patch `9981-*-fpc-uart4`.
 2. **Coexistence policy** — should `oledd` auto-pause when `mcudd` active, or run both?
 3. **Touch gestures vs physical buttons** — map gestures to `oledd`-style `UP/DOWN/OK` for LuCI debug?
 4. **CBOR library** — `libcbor` vs minimal hand-rolled for fixed schemas only.

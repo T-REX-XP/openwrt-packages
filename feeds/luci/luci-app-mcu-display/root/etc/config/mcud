@@ -1,6 +1,6 @@
 config mcud 'main'
 	option enable '0'
-	option path '/dev/ttyUSB0'
+	option path '/dev/ttyS4'
 	option baud '115200'
 	option wire_format 'json'
 	option demo_mode '0'

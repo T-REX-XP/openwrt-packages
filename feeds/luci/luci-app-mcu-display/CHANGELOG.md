@@ -1,5 +1,17 @@
 # luci-app-mcu-display CHANGELOG
 
+## 11 (2026-07-06)
+
+### Changed
+
+- **CM5 GPIO UART default** — shipped UCI `path` is `/dev/ttyS4` (UART4 mux m2 on J4 FPC pads 6/7) instead of `/dev/ttyUSB0`; baud remains 115200.
+- **uci-defaults** — CM5 first-boot and `99-mcud-cm5-uart-migrate` rewrite legacy USB paths to `/dev/ttyS4` when `ttyS4` exists.
+- **LuCI** — serial device help text documents J4 FPC wiring (TX/RX/GND, 3.3 V) and warns not to use `/dev/ttyS2`.
+
+### Firmware (immortalwrt)
+
+- DTS patch **`9981-*-fpc-uart4`** enables `uart4m2_xfer` on GPIO1_B2/B3 without conflicting with I2C7 or OLED RST.
+
 ## 10 (2026-07-06)
 
 ### Fixed
