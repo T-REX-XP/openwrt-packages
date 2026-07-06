@@ -1,0 +1,17 @@
+.luci-app-mcu-display .cbi-section {
+	margin-bottom: 1.5rem;
+}
+
+.luci-app-mcu-display .mcu-status-ok {
+	color: var(--success-color-high, #4a9);
+}
+
+.luci-app-mcu-display .mcu-status-bad {
+	color: var(--error-color-high, #c44);
+}
+
+.luci-app-mcu-display .mcu-mono {
+	font-family: monospace;
+	font-size: 0.9em;
+	word-break: break-all;
+}

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -x /etc/init.d/mcudd ]; then
+	/etc/init.d/mcudd enable
+fi
+
+exit 0

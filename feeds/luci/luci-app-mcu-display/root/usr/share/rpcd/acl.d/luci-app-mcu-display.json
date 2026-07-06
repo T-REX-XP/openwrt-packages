@@ -1,0 +1,36 @@
+{
+	"luci-app-mcu-display": {
+		"description": "Grant access for luci-app-mcu-display (ESP32 UART display)",
+		"read": {
+			"ubus": {
+				"luci.mcu-display": [
+					"getConfig",
+					"getStatus",
+					"listSerialPorts",
+					"getLogs"
+				]
+			},
+			"uci": [ "mcud" ],
+			"file": {
+				"/etc/mcud/pages.json": [ "read" ],
+				"/dev/ttyUSB*": [ "read" ],
+				"/dev/ttyS*": [ "read" ],
+				"/dev/ttyACM*": [ "read" ],
+				"/sbin/logread": [ "exec" ],
+				"/bin/logread": [ "exec" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.mcu-display": [
+					"setConfig",
+					"serviceControl"
+				]
+			},
+			"uci": [ "mcud" ],
+			"file": {
+				"/etc/init.d/mcudd": [ "exec" ]
+			}
+		}
+	}
+}

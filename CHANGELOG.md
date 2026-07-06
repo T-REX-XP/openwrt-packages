@@ -2,6 +2,13 @@
 
 All notable changes to the **openwrt-packages** feed are documented here.
 
+## [luci-app-mcu-display r1] — 2026-07-06
+
+### Added
+
+- **luci-app-mcu-display** — ESP32 smart display over UART: `mcudd` daemon (RDCP v1 + legacy JSON), UCI `/etc/config/mcud`, LuCI Services → MCU Display, host unit tests.
+- **docs/luci-app-mcu-display-system-design.md** — architecture, protocol, and phased implementation plan.
+
 ## [luci-app-oled r34] — 2026-06-25
 
 ### Changed

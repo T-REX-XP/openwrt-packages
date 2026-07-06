@@ -1,0 +1,45 @@
+#!/bin/sh /etc/rc.common
+
+START=12
+STOP=88
+USE_PROCD=1
+PROG=/usr/sbin/mcudd
+
+mcud_instance() {
+	local section="$1"
+	local cfg_enable cfg_path retries=0
+
+	config_get cfg_enable "$section" enable
+	config_get cfg_path "$section" path
+
+	[ "$cfg_enable" = "1" ] || return 1
+	[ -n "$cfg_path" ] || {
+		logger -t mcudd "missing UCI option path"
+		return 1
+	}
+
+	while [ ! -c "$cfg_path" ] && [ "$retries" -lt 15 ]; do
+		sleep 1
+		retries=$((retries + 1))
+	done
+
+	procd_open_instance
+	procd_set_param command ${PROG}
+	procd_set_param stderr 1
+	procd_set_param stdout 1
+	procd_set_param respawn 3600 5 0
+	procd_close_instance
+}
+
+start_service() {
+	config_load mcud
+	config_foreach mcud_instance mcud
+}
+
+stop_service() {
+	:
+}
+
+service_triggers() {
+	procd_add_reload_trigger "mcud"
+}
