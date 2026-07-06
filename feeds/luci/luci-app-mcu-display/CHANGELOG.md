@@ -1,5 +1,31 @@
 # luci-app-mcu-display CHANGELOG
 
+## 4 (2026-07-06)
+
+### Added
+
+- **Syslog logging** — `mcudd` uses `LOG_DAEMON` ident `mcudd`; filter with `logread -e mcudd`.
+- **UCI debug options** — `log_level` (`error` | `warn` | `info` | `debug`), `debug` (protocol frames), `debug_serial` (UART TX/RX trace).
+- **LuCI Debug tab** — live log viewer via `getLogs` RPC; debug controls under Configuration.
+- **uci-defaults** — migrate missing logging options on upgrade.
+
+## 3 (2026-07-06)
+
+### Added
+
+- **Screen timeout** — UCI `screen_timeout` (seconds, 0=off) and `screen_timeout_mode` (`off` | `dim` | `blank`). `mcudd` pushes RDCP `push` / `op=config` on startup; LuCI form under Serial & protocol.
+- **uci-defaults** — migrate missing `screen_timeout` / `screen_timeout_mode` on upgrade.
+
+### ESP32 firmware (external)
+
+Handle host line:
+
+```json
+{"v":1,"t":"push","op":"config","data":{"screen_timeout":60,"screen_timeout_mode":"off"}}
+```
+
+After `screen_timeout` seconds without touch, apply `off` (backlight off), `dim` (minimum brightness), or `blank` (clear LVGL). Wake on touch; reset idle timer on any input event.
+
 ## 2 (2026-07-06)
 
 ### Added

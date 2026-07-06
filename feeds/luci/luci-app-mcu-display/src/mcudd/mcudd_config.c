@@ -70,6 +70,34 @@ static int validate_wire_format(const char *fmt)
 	return !strcmp(fmt, MCUDD_WIRE_JSON) || !strcmp(fmt, MCUDD_WIRE_MSGPACK);
 }
 
+static int validate_screen_timeout_mode(const char *mode)
+{
+	return !strcmp(mode, "off") || !strcmp(mode, "dim") || !strcmp(mode, "blank");
+}
+
+static int parse_log_level(const char *level, enum mcudd_log_level *out)
+{
+	if (!level || !out)
+		return -1;
+	if (!strcmp(level, "error")) {
+		*out = MCUDD_LOG_ERROR;
+		return 0;
+	}
+	if (!strcmp(level, "warn")) {
+		*out = MCUDD_LOG_WARN;
+		return 0;
+	}
+	if (!strcmp(level, "info")) {
+		*out = MCUDD_LOG_INFO;
+		return 0;
+	}
+	if (!strcmp(level, "debug")) {
+		*out = MCUDD_LOG_DEBUG;
+		return 0;
+	}
+	return -1;
+}
+
 int mcudd_config_load_file(const char *uci_path, struct mcudd_config *cfg)
 {
 	int v;
@@ -128,6 +156,35 @@ int mcudd_config_load_file(const char *uci_path, struct mcudd_config *cfg)
 	if (parse_option_int(uci_path, "max_line", &v) != 0 || v < 64)
 		return -1;
 	cfg->max_line = (unsigned)v;
+
+	if (parse_option_int(uci_path, "screen_timeout", &v) != 0 || v < 0)
+		return -1;
+	if (v > 3600)
+		return -1;
+	cfg->screen_timeout = (unsigned)v;
+
+	if (parse_option_string(uci_path, "screen_timeout_mode", cfg->screen_timeout_mode,
+				sizeof(cfg->screen_timeout_mode)) != 0)
+		return -1;
+	if (!validate_screen_timeout_mode(cfg->screen_timeout_mode))
+		return -1;
+
+	{
+		char level[16];
+
+		if (parse_option_string(uci_path, "log_level", level, sizeof(level)) != 0)
+			return -1;
+		if (parse_log_level(level, &cfg->log_level) != 0)
+			return -1;
+	}
+
+	if (parse_option_int(uci_path, "debug", &v) != 0)
+		return -1;
+	cfg->debug = v;
+
+	if (parse_option_int(uci_path, "debug_serial", &v) != 0)
+		return -1;
+	cfg->debug_serial = v;
 
 	return 0;
 }

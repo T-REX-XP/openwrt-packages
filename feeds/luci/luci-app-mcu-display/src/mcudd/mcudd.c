@@ -8,10 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include <unistd.h>
 
 #include "mcudd_config.h"
+#include "mcudd_log.h"
 #include "mcudd_protocol.h"
 #include "mcudd_serial.h"
 
@@ -99,14 +99,15 @@ static const char *page_neighbor(const char *screen_id, const char *dir)
 	return PAGE_IDS[(idx + MCUDD_PAGE_COUNT - 1) % MCUDD_PAGE_COUNT];
 }
 
-static int send_line(int fd, const char *line)
+static int send_line(const struct mcudd_config *cfg, int fd, const char *line)
 {
 	if (!line)
 		return -1;
+	mcudd_log_serial(cfg, "tx", line);
 	return mcudd_serial_write_line(fd, line);
 }
 
-static int send_boot_push(int fd)
+static int send_boot_push(const struct mcudd_config *cfg, int fd)
 {
 	char stage[32];
 	char message[96];
@@ -116,10 +117,22 @@ static int send_boot_push(int fd)
 	pct = read_boot_state(stage, sizeof(stage), message, sizeof(message));
 	if (mcudd_protocol_build_push_boot(stage, message, (unsigned)pct, out, sizeof(out)) != 0)
 		return -1;
-	return send_line(fd, out);
+	mcudd_log_proto(cfg, "push boot stage=%s pct=%d", stage, pct);
+	return send_line(cfg, fd, out);
 }
 
-static int send_cmd_screen(int fd, const char *screen_id)
+static int send_config_push(const struct mcudd_config *cfg, int fd)
+{
+	char out[256];
+
+	if (mcudd_protocol_build_push_config(cfg, out, sizeof(out)) != 0)
+		return -1;
+	mcudd_log_proto(cfg, "push config timeout=%us mode=%s",
+			cfg->screen_timeout, cfg->screen_timeout_mode);
+	return send_line(cfg, fd, out);
+}
+
+static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *screen_id)
 {
 	char out[256];
 
@@ -128,30 +141,16 @@ static int send_cmd_screen(int fd, const char *screen_id)
 	if (mcudd_protocol_build_cmd_screen(screen_id, out, sizeof(out)) != 0)
 		return -1;
 	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
-	return send_line(fd, out);
-}
-
-static int send_scope_response(const struct mcudd_config *cfg, int fd,
-			       mcudd_scope_t scope, unsigned req_id)
-{
-	struct mcudd_parsed_msg fake = { .type = MCUDD_MSG_RDCP_REQ, .scope = scope,
-					 .req_id = req_id };
-	char payload[2048];
-	char out[4096];
-
-	if (mcudd_protocol_build_scope(cfg, scope, payload, sizeof(payload)) != 0)
-		return -1;
-	if (mcudd_protocol_format_out(cfg, &fake, payload, out, sizeof(out)) != 0)
-		return -1;
-	return send_line(fd, out);
+	mcudd_log_proto(cfg, "cmd screen %s", screen_id);
+	return send_line(cfg, fd, out);
 }
 
 static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *dir)
 {
 	const char *next = page_neighbor(active_screen, dir);
 
-	syslog(LOG_INFO, "mcu gesture %s from %s -> %s", dir, active_screen, next);
-	return send_cmd_screen(fd, next);
+	mcudd_log(LOG_INFO, "gesture %s from %s -> %s", dir, active_screen, next);
+	return send_cmd_screen(cfg, fd, next);
 }
 
 static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -160,29 +159,34 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 	char payload[2048];
 	char out[4096];
 
+	mcudd_log_serial(cfg, "rx", line);
+
 	if (mcudd_protocol_parse(line, &msg) != 0) {
-		syslog(LOG_DEBUG, "ignored line: %s", line);
+		mcudd_log(LOG_DEBUG, "ignored line: %s", line);
 		return 0;
 	}
 
+	mcudd_log_proto(cfg, "frame type=%d scope=%d screen=%s",
+			(int)msg.type, (int)msg.scope, msg.screen);
+
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
 		strncpy(active_screen, msg.screen, sizeof(active_screen) - 1);
-		syslog(LOG_INFO, "mcu screen: %s", msg.screen);
+		mcudd_log(LOG_INFO, "screen: %s", msg.screen);
 		if (!strcmp(msg.screen, "router_boot"))
-			return send_boot_push(fd);
+			return send_boot_push(cfg, fd);
 		return 0;
 	}
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT_INPUT) {
 		if (strcmp(cfg->wire_format, MCUDD_WIRE_MSGPACK) == 0) {
-			syslog(LOG_WARNING, "wire_format msgpack not supported yet");
+			mcudd_log(LOG_WARNING, "wire_format msgpack not supported yet");
 			return -1;
 		}
 		return handle_gesture(cfg, fd, msg.gesture_dir);
 	}
 
 	if (strcmp(cfg->wire_format, MCUDD_WIRE_MSGPACK) == 0) {
-		syslog(LOG_WARNING, "wire_format msgpack not supported yet");
+		mcudd_log(LOG_WARNING, "wire_format msgpack not supported yet");
 		return -1;
 	}
 
@@ -192,7 +196,31 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 	if (mcudd_protocol_format_out(cfg, &msg, payload, out, sizeof(out)) != 0)
 		return -1;
 
-	return send_line(fd, out);
+	mcudd_log_proto(cfg, "scope %d req_id=%u (%u bytes)", (int)msg.scope,
+			msg.req_id, (unsigned)strlen(out));
+	return send_line(cfg, fd, out);
+}
+
+static void log_startup_config(const struct mcudd_config *cfg)
+{
+	static const char *const level_names[] = { "error", "warn", "info", "debug" };
+	const char *level = "info";
+
+	if (cfg->log_level >= MCUDD_LOG_ERROR &&
+	    cfg->log_level <= MCUDD_LOG_DEBUG)
+		level = level_names[cfg->log_level];
+
+	mcudd_log(LOG_INFO,
+		  "config: path=%s baud=%d wire=%s pages=%s wan=%s lan=%s wifi=%s",
+		  cfg->path, cfg->baud, cfg->wire_format, cfg->pages, cfg->wan_if,
+		  cfg->lan_if, cfg->wifi_if);
+	mcudd_log(LOG_INFO,
+		  "intervals: system=%ums network=%ums push_alerts=%d max_line=%u",
+		  cfg->interval_system_ms, cfg->interval_network_ms,
+		  cfg->push_alerts, cfg->max_line);
+	mcudd_log(LOG_INFO,
+		  "logging: level=%s debug=%d debug_serial=%d",
+		  level, cfg->debug, cfg->debug_serial);
 }
 
 int main(int argc, char **argv)
@@ -206,38 +234,47 @@ int main(int argc, char **argv)
 	(void)argc;
 	(void)argv;
 
-	openlog("mcudd", LOG_PID | LOG_CONS, LOG_DAEMON);
 	signal(SIGTERM, on_signal);
 	signal(SIGINT, on_signal);
 
 	if (mcudd_config_load(&cfg) != 0) {
-		syslog(LOG_ERR, "invalid or incomplete %s", MCUDD_UCI_FILE);
+		mcudd_log_init(NULL);
+		mcudd_log(LOG_ERR, "invalid or incomplete %s", MCUDD_UCI_FILE);
 		goto out;
 	}
 
+	mcudd_log_init(&cfg);
+
 	if (!cfg.enable) {
-		syslog(LOG_INFO, "disabled in UCI");
+		mcudd_log(LOG_INFO, "disabled in UCI");
 		ret = 0;
 		goto out;
 	}
 
+	log_startup_config(&cfg);
+
 	line_buf = calloc(cfg.max_line + 2, 1);
 	if (!line_buf) {
-		syslog(LOG_ERR, "out of memory");
+		mcudd_log(LOG_ERR, "out of memory");
 		goto out;
 	}
 
+	mcudd_log(LOG_INFO, "opening UART %s @ %d", cfg.path, cfg.baud);
 	fd = mcudd_serial_open(cfg.path, cfg.baud);
 	if (fd < 0) {
-		syslog(LOG_ERR, "cannot open %s: %s", cfg.path, strerror(errno));
+		mcudd_log(LOG_ERR, "cannot open %s: %s", cfg.path, strerror(errno));
 		goto out;
 	}
+	mcudd_log(LOG_INFO, "UART open on %s", cfg.path);
 
-	syslog(LOG_INFO, "started on %s @ %d (%s)", cfg.path, cfg.baud,
-	       cfg.wire_format);
+	if (send_boot_push(&cfg, fd) != 0)
+		mcudd_log(LOG_WARNING, "initial boot push failed");
 
-	if (send_boot_push(fd) != 0)
-		syslog(LOG_WARNING, "initial boot push failed");
+	if (send_config_push(&cfg, fd) != 0)
+		mcudd_log(LOG_WARNING, "screen timeout config push failed");
+	else
+		mcudd_log(LOG_INFO, "screen timeout: %us mode=%s",
+			  cfg.screen_timeout, cfg.screen_timeout_mode);
 
 	while (!g_stop) {
 		struct pollfd pfd = { .fd = fd, .events = POLLIN };
@@ -248,16 +285,24 @@ int main(int argc, char **argv)
 		if (pr < 0) {
 			if (errno == EINTR)
 				continue;
+			mcudd_log(LOG_ERR, "poll failed: %s", strerror(errno));
 			break;
 		}
 		if (pr == 0)
 			continue;
 
 		rr = mcudd_serial_read_char(fd, &ch);
-		if (rr < 0)
+		if (rr < 0) {
+			mcudd_log(LOG_ERR, "UART read error: %s", strerror(errno));
 			break;
+		}
 		if (rr == 0)
 			continue;
+
+		if (cfg.debug_serial && ch != '\n' && ch != '\r') {
+			char one[2] = { ch, '\0' };
+			mcudd_log_serial(&cfg, "rx-char", one);
+		}
 
 		if (ch == '\n' || ch == '\r') {
 			if (line_len > 0) {
@@ -271,14 +316,18 @@ int main(int argc, char **argv)
 		if (line_len < cfg.max_line)
 			line_buf[line_len++] = ch;
 		else
-			syslog(LOG_WARNING, "line exceeded max_line=%u", cfg.max_line);
+			mcudd_log(LOG_WARNING, "line exceeded max_line=%u", cfg.max_line);
 	}
 
+	if (g_stop)
+		mcudd_log(LOG_INFO, "shutdown requested");
 	ret = 0;
 
 out:
-	if (fd >= 0)
+	if (fd >= 0) {
+		mcudd_log(LOG_INFO, "closing UART");
 		mcudd_serial_close(fd);
+	}
 	free(line_buf);
 	closelog();
 	return ret;

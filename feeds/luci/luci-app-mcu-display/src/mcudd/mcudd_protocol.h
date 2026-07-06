@@ -57,5 +57,7 @@ mcudd_scope_t mcudd_scope_from_screen(const char *screen_id);
 int mcudd_protocol_build_cmd_screen(const char *screen_id, char *out, size_t out_len);
 int mcudd_protocol_build_push_boot(const char *stage, const char *text, unsigned pct,
 				   char *out, size_t out_len);
+int mcudd_protocol_build_push_config(const struct mcudd_config *cfg,
+				     char *out, size_t out_len);
 
 #endif /* MCUDD_PROTOCOL_H */

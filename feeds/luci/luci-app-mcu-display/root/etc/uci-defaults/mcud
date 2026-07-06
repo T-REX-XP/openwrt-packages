@@ -1,5 +1,29 @@
 #!/bin/sh
 
+changed=0
+
+[ -n "$(uci -q get mcud.@mcud[0].screen_timeout)" ] || {
+	uci -q set mcud.@mcud[0].screen_timeout=60
+	changed=1
+}
+[ -n "$(uci -q get mcud.@mcud[0].screen_timeout_mode)" ] || {
+	uci -q set mcud.@mcud[0].screen_timeout_mode=off
+	changed=1
+}
+[ -n "$(uci -q get mcud.@mcud[0].log_level)" ] || {
+	uci -q set mcud.@mcud[0].log_level=info
+	changed=1
+}
+[ -n "$(uci -q get mcud.@mcud[0].debug)" ] || {
+	uci -q set mcud.@mcud[0].debug=0
+	changed=1
+}
+[ -n "$(uci -q get mcud.@mcud[0].debug_serial)" ] || {
+	uci -q set mcud.@mcud[0].debug_serial=0
+	changed=1
+}
+[ "$changed" = 1 ] && uci commit mcud
+
 if [ -x /etc/init.d/mcudd ]; then
 	/etc/init.d/mcudd enable
 fi

@@ -11,6 +11,13 @@
 #define MCUDD_WIRE_JSON "json"
 #define MCUDD_WIRE_MSGPACK "msgpack"
 
+enum mcudd_log_level {
+	MCUDD_LOG_ERROR = 0,
+	MCUDD_LOG_WARN,
+	MCUDD_LOG_INFO,
+	MCUDD_LOG_DEBUG,
+};
+
 struct mcudd_config {
 	int enable;
 	char path[128];
@@ -25,6 +32,11 @@ struct mcudd_config {
 	unsigned interval_network_ms;
 	int push_alerts;
 	unsigned max_line;
+	unsigned screen_timeout;
+	char screen_timeout_mode[16];
+	enum mcudd_log_level log_level;
+	int debug;
+	int debug_serial;
 };
 
 /* Returns 0 when all required options are present and valid. */

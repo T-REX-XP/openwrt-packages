@@ -229,3 +229,19 @@ int mcudd_protocol_build_push_boot(const char *stage, const char *text, unsigned
 		     stage, text, pct);
 	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
 }
+
+int mcudd_protocol_build_push_config(const struct mcudd_config *cfg,
+				     char *out, size_t out_len)
+{
+	int n;
+	const char *mode;
+
+	if (!cfg || !out || !out_len)
+		return -1;
+
+	mode = cfg->screen_timeout_mode[0] ? cfg->screen_timeout_mode : "off";
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"push\",\"op\":\"config\",\"data\":{\"screen_timeout\":%u,\"screen_timeout_mode\":\"%s\"}}",
+		     cfg->screen_timeout, mode);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}

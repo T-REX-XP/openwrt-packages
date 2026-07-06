@@ -26,6 +26,8 @@ static struct mcudd_config test_cfg(void)
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.demo_mode = 0;
+	cfg.screen_timeout = 60;
+	strncpy(cfg.screen_timeout_mode, "off", sizeof(cfg.screen_timeout_mode) - 1);
 	strncpy(cfg.wire_format, MCUDD_WIRE_JSON, sizeof(cfg.wire_format) - 1);
 	return cfg;
 }
@@ -124,6 +126,21 @@ static void test_cmd_screen_builder(void)
 	expect(strstr(out, "\"t\":\"cmd\"") != NULL, "cmd type");
 }
 
+static void test_push_config_builder(void)
+{
+	struct mcudd_config cfg = test_cfg();
+	char out[256];
+
+	cfg.screen_timeout = 120;
+	strncpy(cfg.screen_timeout_mode, "dim", sizeof(cfg.screen_timeout_mode) - 1);
+	expect(mcudd_protocol_build_push_config(&cfg, out, sizeof(out)) == 0,
+	       "build push config");
+	expect(strstr(out, "\"t\":\"push\"") != NULL, "push type");
+	expect(strstr(out, "\"op\":\"config\"") != NULL, "config op");
+	expect(strstr(out, "\"screen_timeout\":120") != NULL, "timeout value");
+	expect(strstr(out, "\"screen_timeout_mode\":\"dim\"") != NULL, "timeout mode");
+}
+
 int main(void)
 {
 	test_legacy_cpu_request();
@@ -132,6 +149,7 @@ int main(void)
 	test_msgpack_rejected();
 	test_gesture_evt();
 	test_cmd_screen_builder();
+	test_push_config_builder();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
 	return tests_failed ? 1 : 0;

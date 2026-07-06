@@ -6,21 +6,25 @@ import { readfile, popen, lsdir } from 'fs';
 
 const MCUD_UCI = 'mcud.main';
 
-const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts' ];
+const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial' ];
 const STRING_OPTS = {
 	path: /^\/dev\/[A-Za-z0-9._-]+$/,
 	pages: /^\/[ -~]+$/,
 	wire_format: /^(json|msgpack)$/,
 	wan_if: /^[A-Za-z0-9_.-]+$/,
 	lan_if: /^[A-Za-z0-9_.-]+$/,
-	wifi_if: /^[A-Za-z0-9_.-]+$/
+	wifi_if: /^[A-Za-z0-9_.-]+$/,
+	screen_timeout_mode: /^(off|dim|blank)$/,
+	log_level: /^(error|warn|info|debug)$/
 };
 const UINT_OPTS = [ 'baud', 'interval_system', 'interval_network', 'max_line' ];
+const UINT_ZERO_OPTS = [ 'screen_timeout' ];
 
 const ALL_SET_OPTS = [
-	'enable', 'demo_mode', 'push_alerts',
+	'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial',
 	'path', 'pages', 'wire_format', 'wan_if', 'lan_if', 'wifi_if',
-	'baud', 'interval_system', 'interval_network', 'max_line'
+	'baud', 'interval_system', 'interval_network', 'max_line',
+	'screen_timeout', 'screen_timeout_mode', 'log_level'
 ];
 
 function shell_quote(val) {
@@ -42,6 +46,24 @@ function run_cmd(cmd) {
 	let code = p.close();
 	return { code, output };
 }
+
+function file_test(flag, path) {
+	let p = popen(`test ${flag} ${shell_quote(path)} && echo yes`, 'r');
+	let ok = trim(p ? (p.read('all') || '') : '') == 'yes';
+	if (p)
+		p.close();
+	return ok;
+}
+
+function find_logread() {
+	if (file_test('-x', '/sbin/logread'))
+		return '/sbin/logread';
+	if (file_test('-x', '/bin/logread'))
+		return '/bin/logread';
+	return '';
+}
+
+const MCUDD_LOG_PATTERN = 'mcudd';
 
 function uci_get(option) {
 	let p = popen(`uci -q get ${MCUD_UCI}.${option} 2>/dev/null`, 'r');
@@ -97,6 +119,10 @@ function get_config() {
 		let k = UINT_OPTS[i];
 		cfg[k] = uci_get(k);
 	}
+	for (let i = 0; i < length(UINT_ZERO_OPTS); i++) {
+		let k = UINT_ZERO_OPTS[i];
+		cfg[k] = uci_get(k);
+	}
 	cfg.serial_ports = list_serial_ports();
 	return cfg;
 }
@@ -116,6 +142,10 @@ function validate_set(config) {
 		} else if (index(UINT_OPTS, k) >= 0) {
 			let n = +config[k];
 			if (n != config[k] || n <= 0)
+				return `invalid ${k}`;
+		} else if (index(UINT_ZERO_OPTS, k) >= 0) {
+			let n = +config[k];
+			if (n != config[k] || n < 0 || n > 3600)
 				return `invalid ${k}`;
 		}
 	}
@@ -140,49 +170,75 @@ function get_status() {
 	};
 }
 
-return {
-	getConfig: function() {
-		return get_config();
+const methods = {
+	getConfig: {
+		call: function() {
+			return get_config();
+		}
 	},
 
-	setConfig: function(req) {
-		let config = req?.config ?? req?.[0] ?? req;
-		let restart = req?.restart ?? req?.[1] ?? '0';
-		let err = validate_set(config);
-		if (err)
-			return { ok: false, error: err };
+	setConfig: {
+		args: { config: 'config', restart: 'restart' },
+		call: function(req) {
+			let config = req.args?.config ?? req?.config ?? req?.[0] ?? req;
+			let restart = req.args?.restart ?? req?.restart ?? req?.[1] ?? '0';
+			let err = validate_set(config);
+			if (err)
+				return { ok: false, error: err };
 
-		for (let k in config)
-			uci_set(k, config[k]);
-		uci_commit();
+			for (let k in config)
+				uci_set(k, config[k]);
+			uci_commit();
 
-		if (restart == '1')
-			run_cmd('/etc/init.d/mcudd restart');
+			if (restart == '1')
+				run_cmd('/etc/init.d/mcudd restart');
 
-		return { ok: true };
+			return { ok: true };
+		}
 	},
 
-	getStatus: function() {
-		return get_status();
+	getStatus: {
+		call: function() {
+			return get_status();
+		}
 	},
 
-	listSerialPorts: function() {
-		return { ports: list_serial_ports() };
+	listSerialPorts: {
+		call: function() {
+			return { ports: list_serial_ports() };
+		}
 	},
 
-	serviceControl: function(req) {
-		let action = req?.action ?? req?.[0] ?? '';
-		if (!match(action, /^(start|stop|restart|enable|disable)$/))
-			return { ok: false, error: 'invalid action' };
-		let r = run_cmd(`/etc/init.d/mcudd ${action}`);
-		return { ok: r.code == 0, output: r.output };
+	serviceControl: {
+		args: { action: 'action' },
+		call: function(req) {
+			let action = req.args?.action ?? req?.action ?? req?.[0] ?? '';
+			if (!match(action, /^(start|stop|restart|enable|disable)$/))
+				return { ok: false, error: 'invalid action' };
+			let r = run_cmd(`/etc/init.d/mcudd ${action}`);
+			return { ok: r.code == 0, output: r.output };
+		}
 	},
 
-	getLogs: function(req) {
-		let limit = +(req?.limit ?? req?.[0] ?? 50);
-		if (limit < 1 || limit > 500)
-			limit = 50;
-		let r = run_cmd(`logread -e mcudd | tail -n ${limit}`);
-		return { lines: split(r.output, '\n') };
+	getLogs: {
+		args: { limit: 'limit' },
+		call: function(req) {
+			let logread = find_logread();
+			if (!length(logread))
+				return { error: 'missing_logread', message: 'logread not found' };
+			let limit = int(req.args?.limit);
+			if (!limit || limit < 1)
+				limit = 200;
+			if (limit > 2000)
+				limit = 2000;
+			let res = run_cmd(`${logread} -l ${limit} -e ${shell_quote(MCUDD_LOG_PATTERN)}`);
+			return {
+				ok: true,
+				limit,
+				output: res.output || ''
+			};
+		}
 	}
 };
+
+return { 'luci.mcu-display': methods };
