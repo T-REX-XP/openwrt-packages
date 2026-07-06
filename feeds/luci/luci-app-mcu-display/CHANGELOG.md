@@ -1,5 +1,11 @@
 # luci-app-mcu-display CHANGELOG
 
+## 10 (2026-07-06)
+
+### Fixed
+
+- **LuCI Configuration tab** — `renderConfigForm` shadowed the `form` module with a local `var form`, causing `form.JSONMap` to throw at runtime. Use `m` for the map instance and wrap flat RPC config as `{ mcud: { main: … } }` for `JSONMap`.
+
 ## 4 (2026-07-06)
 
 ### Added

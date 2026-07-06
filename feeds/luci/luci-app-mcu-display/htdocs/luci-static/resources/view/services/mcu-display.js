@@ -46,6 +46,22 @@ function rpcData(data) {
 	return data;
 }
 
+function configFormData(cfg) {
+	var main = {};
+	cfg = cfg || {};
+	for (var k in cfg) {
+		if (k !== 'serial_ports')
+			main[k] = cfg[k];
+	}
+	return { mcud: { main: main } };
+}
+
+function flattenFormData(data) {
+	if (!data || !data.mcud || !data.mcud.main)
+		return data || {};
+	return data.mcud.main;
+}
+
 function cbiSection(title, descrNodes, bodyNodes) {
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, title),
@@ -155,8 +171,8 @@ return view.extend({
 	},
 
 	renderConfigForm: function(cfg) {
-		var form = new form.JSONMap(cfg, _('Configuration'));
-		var s = form.section(form.NamedSection, 'main', 'mcud', _('Serial & protocol'));
+		var m = new form.JSONMap(configFormData(cfg), _('Configuration'));
+		var s = m.section(form.NamedSection, 'main', 'mcud', _('Serial & protocol'));
 		s.anonymous = true;
 
 		s.option(form.Flag, 'enable', _('Enable mcudd'));
@@ -205,10 +221,9 @@ return view.extend({
 		s.option(form.Flag, 'debug_serial', _('UART trace'),
 			_('Log raw TX/RX lines on the serial port (very verbose).'));
 
-		return form.render().then(function(node) {
+		return m.render().then(function(node) {
 			node.addEventListener('save', function() {
-				var map = form.getData();
-				return callSetConfig(map, '1');
+				return callSetConfig(flattenFormData(m.getData()), '1');
 			});
 			return node;
 		});
