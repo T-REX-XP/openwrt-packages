@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
-PKG_VERSION:=0.32.1
+PKG_VERSION:=0.34.0
 PKG_RELEASE:=21
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
