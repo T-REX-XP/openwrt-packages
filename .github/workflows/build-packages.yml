@@ -52,7 +52,7 @@ env:
   FEED_DIR: ${{ github.workspace }}/feeds
   SDK_RELEASE: 25.12-SNAPSHOT
   PACKAGES: >-
-    blocky luci-app-blocky luci-app-speedtest luci-app-security-guide
+    blocky yggdrasil luci-app-blocky luci-app-speedtest luci-app-security-guide
     luci-app-peripherals luci-app-buttons luci-app-oled luci-app-mcu-display
 
 jobs:

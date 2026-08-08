@@ -28,6 +28,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | Path | Package | Role |
 |------|---------|------|
 | `feeds/packages/blocky` | blocky | DNS proxy / ad-block (Go); DNS **5353**, HTTP/API **4000** on localhost |
+| `feeds/packages/yggdrasil` | yggdrasil | Encrypted IPv6 overlay ([yggdrasil-go](https://github.com/yggdrasil-network/yggdrasil-go)); netifd proto + `luci-proto-yggdrasil` from luci feed |
 | `feeds/packages/cm5-button-scripts` | cm5-button-scripts | GPIO key handlers for CM5 (`/etc/rc.button/wps`, etc.) |
 | `feeds/luci/luci-app-blocky` | luci-app-blocky | Blocky LuCI dashboard + dnsmasq integration |
 | `feeds/luci/luci-app-speedtest` | luci-app-speedtest | speedtest-go UI |
