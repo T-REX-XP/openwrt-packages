@@ -17,4 +17,8 @@ int mcudd_metrics_wifi(const struct mcudd_config *cfg, char *buf, size_t len);
 int mcudd_metrics_security(const struct mcudd_config *cfg, char *buf, size_t len);
 int mcudd_metrics_alarms(const struct mcudd_config *cfg, char *buf, size_t len);
 
+/* Test helpers: prefix /proc and /sys reads (empty = live system). */
+void mcudd_metrics_set_sysroot(const char *root);
+void mcudd_metrics_reset(void);
+
 #endif /* MCUDD_METRICS_H */

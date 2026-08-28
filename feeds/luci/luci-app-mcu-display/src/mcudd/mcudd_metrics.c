@@ -13,6 +13,66 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+static char g_sysroot[256];
+static unsigned long long g_prev_idle, g_prev_total;
+static int g_have_cpu_prev;
+static int g_last_cpu_pct;
+
+void mcudd_metrics_set_sysroot(const char *root)
+{
+	size_t n;
+
+	g_sysroot[0] = '\0';
+	g_have_cpu_prev = 0;
+	g_prev_idle = 0;
+	g_prev_total = 0;
+	g_last_cpu_pct = 0;
+	if (!root || !root[0])
+		return;
+	n = strlen(root);
+	if (n >= sizeof(g_sysroot))
+		n = sizeof(g_sysroot) - 1;
+	memcpy(g_sysroot, root, n);
+	g_sysroot[n] = '\0';
+	if (n > 1 && g_sysroot[n - 1] == '/')
+		g_sysroot[n - 1] = '\0';
+	mcudd_metrics_reset();
+}
+
+void mcudd_metrics_reset(void)
+{
+	g_have_cpu_prev = 0;
+	g_prev_idle = 0;
+	g_prev_total = 0;
+	g_last_cpu_pct = 0;
+}
+
+static FILE *fopen_sys(const char *rel, const char *mode)
+{
+	char path[384];
+
+	if (!rel)
+		return NULL;
+	if (g_sysroot[0])
+		snprintf(path, sizeof(path), "%s%s", g_sysroot, rel);
+	else
+		snprintf(path, sizeof(path), "%s", rel);
+	return fopen(path, mode);
+}
+
+static DIR *opendir_sys(const char *rel)
+{
+	char path[384];
+
+	if (!rel)
+		return NULL;
+	if (g_sysroot[0])
+		snprintf(path, sizeof(path), "%s%s", g_sysroot, rel);
+	else
+		snprintf(path, sizeof(path), "%s", rel);
+	return opendir(path);
+}
+
 static int run_shell(const char *cmd, char *out, size_t len)
 {
 	FILE *f;
@@ -39,7 +99,7 @@ static int read_proc_loadavg(float *load1)
 
 	if (!load1)
 		return -1;
-	f = fopen("/proc/loadavg", "r");
+	f = fopen_sys("/proc/loadavg", "r");
 	if (!f)
 		return -1;
 	if (fscanf(f, "%f %f %f", &l1, &l5, &l15) != 3) {
@@ -63,7 +123,7 @@ static int read_meminfo(unsigned long *total_kb, unsigned long *avail_kb)
 	*total_kb = 0;
 	*avail_kb = 0;
 
-	f = fopen("/proc/meminfo", "r");
+	f = fopen_sys("/proc/meminfo", "r");
 	if (!f)
 		return -1;
 
@@ -86,7 +146,7 @@ static int read_uptime_short(char *buf, size_t len)
 
 	if (!buf || !len)
 		return -1;
-	f = fopen("/proc/uptime", "r");
+	f = fopen_sys("/proc/uptime", "r");
 	if (!f)
 		return -1;
 	if (fscanf(f, "%ld", &up) != 1) {
@@ -113,7 +173,7 @@ static int read_proc_stat_totals(unsigned long long *idle_all,
 
 	if (!idle_all || !total)
 		return -1;
-	f = fopen("/proc/stat", "r");
+	f = fopen_sys("/proc/stat", "r");
 	if (!f)
 		return -1;
 	if (fscanf(f, "cpu %llu %llu %llu %llu %llu %llu %llu %llu",
@@ -130,8 +190,6 @@ static int read_proc_stat_totals(unsigned long long *idle_all,
 
 static int read_cpu_pct(int *pct_out)
 {
-	static unsigned long long prev_idle, prev_total;
-	static int have_prev;
 	unsigned long long idle_all, total, didle, dtotal;
 	int pct;
 
@@ -140,22 +198,22 @@ static int read_cpu_pct(int *pct_out)
 	if (read_proc_stat_totals(&idle_all, &total) != 0)
 		return -1;
 
-	if (!have_prev) {
-		prev_idle = idle_all;
-		prev_total = total;
-		have_prev = 1;
-		usleep(120000);
-		if (read_proc_stat_totals(&idle_all, &total) != 0)
-			return -1;
+	if (!g_have_cpu_prev) {
+		g_prev_idle = idle_all;
+		g_prev_total = total;
+		g_have_cpu_prev = 1;
+		g_last_cpu_pct = 0;
+		*pct_out = 0;
+		return 0;
 	}
 
-	didle = idle_all - prev_idle;
-	dtotal = total - prev_total;
-	prev_idle = idle_all;
-	prev_total = total;
+	didle = idle_all - g_prev_idle;
+	dtotal = total - g_prev_total;
+	g_prev_idle = idle_all;
+	g_prev_total = total;
 
 	if (dtotal == 0)
-		pct = 0;
+		pct = g_last_cpu_pct;
 	else if (dtotal < didle)
 		pct = 0;
 	else
@@ -164,6 +222,7 @@ static int read_cpu_pct(int *pct_out)
 		pct = 0;
 	if (pct > 100)
 		pct = 100;
+	g_last_cpu_pct = pct;
 	*pct_out = pct;
 	return 0;
 }
@@ -172,14 +231,19 @@ static int thermal_type_score(const char *type)
 {
 	if (!type || !type[0])
 		return 0;
-	if (strstr(type, "soc") || strstr(type, "package"))
+	/* RK3588: package-thermal (DTS &package_thermal) is the SoC sensor. */
+	if (strstr(type, "package"))
+		return 120;
+	if (strstr(type, "soc"))
+		return 110;
+	if (strstr(type, "tsadc"))
 		return 100;
 	if (strstr(type, "bigcore") || strstr(type, "cpu"))
 		return 90;
 	if (strstr(type, "little") || strstr(type, "center"))
 		return 80;
-	if (strstr(type, "gpu"))
-		return 40;
+	if (strstr(type, "gpu") || strstr(type, "npu"))
+		return 30;
 	return 10;
 }
 
@@ -218,7 +282,7 @@ static int read_cpu_temp_c(char *buf, size_t len)
 		return -1;
 	buf[0] = '\0';
 
-	d = opendir("/sys/class/thermal");
+	d = opendir_sys("/sys/class/thermal");
 	if (d) {
 		while ((de = readdir(d)) != NULL) {
 			int score;
@@ -227,7 +291,8 @@ static int read_cpu_temp_c(char *buf, size_t len)
 			if (strncmp(de->d_name, "thermal_zone", 12) != 0)
 				continue;
 			snprintf(path, sizeof(path),
-				 "/sys/class/thermal/%s/type", de->d_name);
+				 "%s/sys/class/thermal/%s/type",
+				 g_sysroot, de->d_name);
 			tf = fopen(path, "r");
 			type[0] = '\0';
 			if (tf) {
@@ -237,7 +302,8 @@ static int read_cpu_temp_c(char *buf, size_t len)
 			}
 			score = thermal_type_score(type);
 			snprintf(path, sizeof(path),
-				 "/sys/class/thermal/%s/temp", de->d_name);
+				 "%s/sys/class/thermal/%s/temp",
+				 g_sysroot, de->d_name);
 			if (read_temp_milli_file(path, &milli) != 0)
 				continue;
 			if (milli < 0 || milli > 125000)
@@ -252,7 +318,7 @@ static int read_cpu_temp_c(char *buf, size_t len)
 	}
 
 	if (best_score < 0) {
-		d = opendir("/sys/class/hwmon");
+		d = opendir_sys("/sys/class/hwmon");
 		if (d) {
 			while ((de = readdir(d)) != NULL) {
 				char name[64] = "";
@@ -261,7 +327,8 @@ static int read_cpu_temp_c(char *buf, size_t len)
 				if (strncmp(de->d_name, "hwmon", 5) != 0)
 					continue;
 				snprintf(path, sizeof(path),
-					 "/sys/class/hwmon/%s/name", de->d_name);
+					 "%s/sys/class/hwmon/%s/name",
+					 g_sysroot, de->d_name);
 				tf = fopen(path, "r");
 				if (tf) {
 					if (fgets(name, sizeof(name), tf))
@@ -273,8 +340,8 @@ static int read_cpu_temp_c(char *buf, size_t len)
 					int score = thermal_type_score(name);
 
 					snprintf(path, sizeof(path),
-						 "/sys/class/hwmon/%s/temp%d_input",
-						 de->d_name, i);
+						 "%s/sys/class/hwmon/%s/temp%d_input",
+						 g_sysroot, de->d_name, i);
 					if (read_temp_milli_file(path, &milli) != 0)
 						continue;
 					if (milli < 0 || milli > 125000)

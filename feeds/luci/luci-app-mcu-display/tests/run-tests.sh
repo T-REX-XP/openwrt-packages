@@ -23,6 +23,16 @@ if [ "$FAIL" -eq 0 ]; then
 fi
 
 echo ""
+echo ">> C: test_mcudd_metrics.c"
+cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_metrics \
+	"$SRC/mcudd/mcudd_metrics.c" \
+	test_mcudd_metrics.c || FAIL=1
+if [ "$FAIL" -eq 0 ]; then
+	./test_mcudd_metrics || FAIL=1
+	rm -f test_mcudd_metrics
+fi
+
+echo ""
 echo ">> C: test_mcudd_protocol.c"
 cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_protocol \
 	"$SRC/mcudd/mcudd_protocol.c" \

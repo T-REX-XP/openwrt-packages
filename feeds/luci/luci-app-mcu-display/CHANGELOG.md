@@ -1,5 +1,13 @@
 # luci-app-mcu-display CHANGELOG
 
+## 36 (2026-08-28)
+
+### Added
+
+- **Real CPU %** from `/proc/stat` busy/idle deltas (load average stays in `load_short` only). First sample is 0% (no blocking sleep).
+- **RK3588 temperature** — prefer `package-thermal`, then `soc-thermal`, then hwmon `tsadc`; `cpu_temp` is `--` when no sensor.
+- Host tests: `tests/test_mcudd_metrics.c`.
+
 ## 12 (2026-07-06)
 
 ### Changed
