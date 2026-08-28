@@ -149,12 +149,12 @@ function renderBlockingControls(status, onRefresh) {
 				' ',
 				blockyStatusDetail(_('auto-enables in %s').format(formatDuration(next.autoEnableInSec)))
 			]));
-			registerBlockingCountdownPoll(paintPauseNote, true, 'controls');
+			registerBlockingCountdownPoll(paintPauseNote, true, 'dashboard');
 		}
 		else {
 			while (pauseNoteHost.firstChild)
 				pauseNoteHost.removeChild(pauseNoteHost.firstChild);
-			registerBlockingCountdownPoll(paintPauseNote, false, 'controls');
+			registerBlockingCountdownPoll(paintPauseNote, false, 'dashboard');
 		}
 	}
 

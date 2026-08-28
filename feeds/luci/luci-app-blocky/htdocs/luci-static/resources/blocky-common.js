@@ -62,7 +62,6 @@ function createBlockyView(options) {
 			var statisticsHost = E('div', {});
 			var blocklistsHost = E('div', {});
 			var configHost = E('div', {});
-			var controlsHost = E('div', {});
 			var logsHost = E('div', {});
 			var debugHost = E('div', {});
 			var queryHost = E('div', {});
@@ -116,11 +115,6 @@ function createBlockyView(options) {
 						fresh[7] || { user: '', password: '', localOnly: true },
 						refreshPage
 					));
-					controlsHost.replaceChildren(
-						BlockyTabs.controls.renderBlockingControls(fresh[1], refreshPage),
-						BlockyTabs.controls.renderOperations(fresh[0], refreshPage),
-						BlockyTabs.controls.renderServiceControls(fresh[0], refreshPage)
-					);
 					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9], {
 						onQueryDomain: openDnsQuery
 					}));
@@ -141,10 +135,6 @@ function createBlockyView(options) {
 				onQueryDomain: openDnsQuery
 			}));
 			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));
-
-			controlsHost.appendChild(BlockyTabs.controls.renderBlockingControls(status, refreshPage));
-			controlsHost.appendChild(BlockyTabs.controls.renderOperations(service, refreshPage));
-			controlsHost.appendChild(BlockyTabs.controls.renderServiceControls(service, refreshPage));
 
 			if (!statsPollRegistered) {
 				statsPollRegistered = true;
@@ -186,10 +176,6 @@ function createBlockyView(options) {
 					{
 						title: _('Configuration'),
 						nodes: [ configHost ]
-					},
-					{
-						title: _('Controls'),
-						nodes: [ controlsHost ]
 					},
 					{
 						title: _('DNS Query'),

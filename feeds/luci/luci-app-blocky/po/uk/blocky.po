@@ -1408,3 +1408,15 @@ msgstr "Файл джерела: %s"
 
 msgid "Run DNS query for this domain"
 msgstr "Виконати DNS-запит для цього домену"
+
+msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Dashboard."
+msgstr "Після зміни DNS-порту в YAML збережіть і перезапустіть Blocky, потім знову перемкніть це, щоб dnsmasq відповідав. Оновлення списків — Refresh lists на Dashboard."
+
+msgid "Start from Dashboard"
+msgstr "Запустіть з Dashboard"
+
+msgid "Start Blocky from the Dashboard controls below or reboot."
+msgstr "Запустіть Blocky через елементи керування на Dashboard нижче або перезавантажте."
+
+msgid "Blocking, list maintenance, cache flush, and OpenWrt service actions."
+msgstr "Блокування, обслуговування списків, скидання кешу та керування сервісом OpenWrt."

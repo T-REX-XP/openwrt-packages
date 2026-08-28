@@ -514,6 +514,23 @@
 	gap: 0.85em;
 }
 
+.blocky-dash-controls-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.85em;
+	margin-top: 0.35em;
+}
+
+.blocky-dash-controls-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1em;
+}
+
+.blocky-dash-controls-grid .cbi-section {
+	margin: 0;
+}
+
 .blocky-dash-section-head {
 	min-width: 0;
 }
@@ -694,6 +711,10 @@
 	.blocky-toplists-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
+
+	.blocky-dash-controls-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 @media (max-width: 768px) {
@@ -764,6 +785,15 @@
 }
 
 @media (max-width: 520px) {
+	.luci-app-blocky .cbi-tabmenu {
+		flex-wrap: wrap;
+	}
+
+	.luci-app-blocky .cbi-tabmenu li {
+		flex: 1 1 auto;
+		min-width: 7.5em;
+	}
+
 	.blocky-dash-summary-grid {
 		grid-template-columns: 1fr;
 	}

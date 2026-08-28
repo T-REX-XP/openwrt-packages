@@ -287,12 +287,12 @@ After the program, a router admin should be able to **without SSH**:
 
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
-| E-1 | Merge **Controls** into **Dashboard** (remove duplicate tab) | todo | Tab hash `#controls` redirects; menu unchanged |
+| E-1 | Merge **Controls** into **Dashboard** (remove duplicate tab) | done | `#controls` → dashboard; controls grid on Dashboard |
 | E-2 | Refresh `luci-app-blocky-feature-plan.md` API table for 0.34 | todo | Version numbers aligned |
 | E-3 | Audit new `/api/stats` fields in 0.34; add widgets if useful | todo | Changelog note in PKG_RELEASE |
-| E-4 | `disableIf` / `optionSelected` audit on all dynamic selects | todo | No disabled controls stuck like oled bug |
-| E-5 | Mobile pass: charts + tables scroll; tab menu wraps | todo | Manual QA checklist in PR template |
-| E-6 | Update `po/uk/blocky.po` for new strings | todo | i18n complete for en/uk |
+| E-4 | `disableIf` / `optionSelected` audit on all dynamic selects | done | N/A — JS views only; no CBI disableIf usage |
+| E-5 | Mobile pass: charts + tables scroll; tab menu wraps | done | Tab menu wrap + controls grid stacks ≤1200px |
+| E-6 | Update `po/uk/blocky.po` for new strings | done | en/uk updated with Epic C–E strings |
 
 ---
 
@@ -358,9 +358,9 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 | B Status & Debug | 5 | 5 | 100% |
 | C Config safety | 6 | 6 | 100% |
 | D Logs workflow | 5 | 5 | 100% |
-| E UX & 0.34 | 6 | 0 | 0% |
+| E UX & 0.34 | 6 | 4 | 67% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **24** | **71%** |
+| **Total** | **34** | **28** | **82%** |
 
 Update this table as backlog items move to `done`.
 

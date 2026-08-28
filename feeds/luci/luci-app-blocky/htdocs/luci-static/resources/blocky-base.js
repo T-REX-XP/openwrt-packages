@@ -186,11 +186,11 @@ var BLOCKY_TAB_HASH = {
 	'block-lists': 2,
 	'configuration': 3,
 	'config': 3,
-	'controls': 4,
-	'query': 5,
-	'dns-query': 5,
-	'logs': 6,
-	'debug': 7
+	'controls': 0,
+	'query': 4,
+	'dns-query': 4,
+	'logs': 5,
+	'debug': 6
 };
 
 var BLOCKY_TAB_HASH_KEYS = [
@@ -198,7 +198,6 @@ var BLOCKY_TAB_HASH_KEYS = [
 	'statistics',
 	'blocklists',
 	'configuration',
-	'controls',
 	'query',
 	'logs',
 	'debug'
@@ -799,8 +798,8 @@ function renderBlockyStatusBar(pageStatus, onJumpTab) {
 
 	return E('div', { 'class': 'blocky-status-bar', 'role': 'status' }, [
 		item(_('Blocky'), bar.serviceOk, bar.serviceOk
-			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Controls'), 'controls'),
-		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'controls'),
+			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Dashboard'), 'dashboard'),
+		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'dashboard'),
 		item(_('Router DNS'), bar.dnsmasqOk, bar.dnsmasqOk
 			? _('dnsmasq → Blocky') : _('Enable in Configuration'), 'configuration'),
 		item(_('HTTP API'), bar.apiOk, bar.apiOk

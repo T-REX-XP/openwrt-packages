@@ -193,7 +193,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		{
 			label: _('Blocky service'),
 			ok: running,
-			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from Controls or reboot.')
+			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from the Dashboard controls below or reboot.')
 		},
 		{
 			label: _('Ad blocking'),
@@ -762,6 +762,19 @@ function mountDashboardContent(host, data, refreshPage) {
 				])
 			]),
 			renderRealtimeMetrics(metricsPayload)
+		]),
+		E('div', { 'class': 'blocky-dash-full blocky-dash-controls-section' }, [
+			E('div', { 'class': 'blocky-dash-section-head' }, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Controls') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
+					_('Blocking, list maintenance, cache flush, and OpenWrt service actions.')
+				])
+			]),
+			E('div', { 'class': 'blocky-dash-controls-grid' }, [
+				BlockyTabs.controls.renderBlockingControls(status, refreshPage),
+				BlockyTabs.controls.renderOperations(service, refreshPage),
+				BlockyTabs.controls.renderServiceControls(service, refreshPage)
+			])
 		])
 	);
 

@@ -1405,5 +1405,14 @@ msgstr "Log tail was truncated at 512 KiB. Use SSH or copy all for the loaded po
 msgid "Source file: %s"
 msgstr "Source file: %s"
 
-msgid "Run DNS query for this domain"
-msgstr "Run DNS query for this domain"
+msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Dashboard."
+msgstr "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Dashboard."
+
+msgid "Start from Dashboard"
+msgstr "Start from Dashboard"
+
+msgid "Start Blocky from the Dashboard controls below or reboot."
+msgstr "Start Blocky from the Dashboard controls below or reboot."
+
+msgid "Blocking, list maintenance, cache flush, and OpenWrt service actions."
+msgstr "Blocking, list maintenance, cache flush, and OpenWrt service actions."
