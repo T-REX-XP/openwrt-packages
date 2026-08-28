@@ -755,6 +755,73 @@ function pickLatestLogFilename(names) {
 	return best;
 }
 
+function parseBlockingStatusJson(text) {
+	var data = parseJson(text);
+
+	if (!data || typeof data !== 'object')
+		return { enabled: false, autoEnableInSec: 0 };
+
+	return {
+		enabled: !!data.enabled,
+		autoEnableInSec: Number(data.autoEnableInSec) || 0
+	};
+}
+
+function shapeBlockyStatusBar(status) {
+	status = status || {};
+	var blocking = status.blocking || {};
+	var paused = blocking.autoEnableInSec > 0;
+
+	return {
+		serviceOk: !!status.service_running,
+		blockingOk: !!blocking.enabled && !paused,
+		blockingPaused: paused,
+		blockingResumeSec: paused ? blocking.autoEnableInSec : 0,
+		dnsmasqOk: !!status.dnsmasq_forward && !!status.service_running,
+		apiOk: !!status.api_ok,
+		statsOk: !!status.stats_ok,
+		statsDisabled: !!status.stats_disabled,
+		version: safeString(status.version),
+		logLevel: safeString(status.log_level || 'warn'),
+		ports: status.ports || { dns: 5353, http: 4000 }
+	};
+}
+
+function serviceObjectFromStatus(st) {
+	if (!st || !st.service_running)
+		return {};
+
+	return {
+		blocky: {
+			instances: {
+				instance1: { running: true }
+			}
+		}
+	};
+}
+
+function statsResultFromStatus(st) {
+	if (!st)
+		return { ok: false, disabled: false, data: null };
+
+	if (st.stats_disabled)
+		return { ok: false, disabled: true, data: null };
+
+	if (st.stats_ok && st.stats_json) {
+		try {
+			var data = parseJson(st.stats_json);
+
+			if (data && (data.summary || (data.lists && (data.lists.denylist || data.lists.allowlist))))
+				return { ok: true, disabled: false, data: data };
+		}
+		catch (err) {
+			/* ignore */
+		}
+	}
+
+	return { ok: false, disabled: false, data: null };
+}
+
 return {
 	safeString: safeString,
 	execResultStdout: execResultStdout,
@@ -801,5 +868,9 @@ return {
 	validateHttpRequest: validateHttpRequest,
 	allowedLogDir: allowedLogDir,
 	isValidQueryLogFilename: isValidQueryLogFilename,
-	pickLatestLogFilename: pickLatestLogFilename
+	pickLatestLogFilename: pickLatestLogFilename,
+	parseBlockingStatusJson: parseBlockingStatusJson,
+	shapeBlockyStatusBar: shapeBlockyStatusBar,
+	serviceObjectFromStatus: serviceObjectFromStatus,
+	statsResultFromStatus: statsResultFromStatus
 };

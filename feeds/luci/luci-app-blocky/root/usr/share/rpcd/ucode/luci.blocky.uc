@@ -8,8 +8,136 @@ const SYNC = '/usr/sbin/blocky-lists-sync';
 const REFRESH = '/usr/sbin/blocky-lists-refresh';
 const HTTP = '/usr/sbin/blocky-http-api';
 const BLOCKY_BIN = '/usr/bin/blocky';
+const CONFIG = '/etc/blocky/config.yml';
+const DNSMASQ_SYNC = '/usr/sbin/blocky-dnsmasq-sync';
 const QUERY_LOG_ALLOW = '/tmp/blocky-logs';
 const MAX_LOG_BYTES = 524288;
+const MAX_SYSLOG_BYTES = 204800;
+const BLOCKY_LOG_PATTERN = 'blocky';
+
+function run_cmd(cmd) {
+	let p = popen(`${cmd} 2>&1`, 'r');
+	if (!p)
+		return { code: 1, output: 'popen failed' };
+
+	let output = p.read('all') || '';
+	let code = p.close();
+
+	return { code, output };
+}
+
+function file_test(flag, path) {
+	let p = popen(`test ${flag} ${shellquote(path)} && echo yes`, 'r');
+	let ok = trim(p ? (p.read('all') || '') : '') == 'yes';
+	if (p)
+		p.close();
+	return ok;
+}
+
+function find_logread() {
+	if (file_test('-x', '/sbin/logread'))
+		return '/sbin/logread';
+	if (file_test('-x', '/bin/logread'))
+		return '/bin/logread';
+	return '';
+}
+
+function read_config() {
+	try {
+		return readfile(CONFIG) || '';
+	} catch (e) {
+		return '';
+	}
+}
+
+function parse_log_level(yaml) {
+	let lines = split(yaml, '\n');
+	let in_log = false;
+
+	for (let i = 0; i < length(lines); i++) {
+		let line = lines[i];
+		if (match(line, /^log:\s*$/)) {
+			in_log = true;
+			continue;
+		}
+		if (!in_log)
+			continue;
+		if (match(line, /^[^#\s]/) && !match(line, /^  /))
+			break;
+		if (match(line, /^  level:\s*(.+)$/)) {
+			let val = trim(replace(line, /^  level:\s*/, ''));
+			return replace(replace(val, /['"]/g, ''), /#.*$/, '');
+		}
+	}
+	return 'warn';
+}
+
+function parse_port_value(raw, default_port) {
+	raw = trim(replace(replace(raw, /['"]/g, ''), /#.*$/, ''));
+	if (match(raw, /^:\d+$/))
+		return int(replace(raw, ':', '')) || default_port;
+	if (match(raw, /^[0-9]+$/))
+		return int(raw) || default_port;
+	let m = match(raw, /^(\[[^\]]+\]|[^:\s]+):(\d+)$/);
+	if (m)
+		return int(m[2]) || default_port;
+	return default_port;
+}
+
+function parse_port_from_config(yaml, key, default_port) {
+	let lines = split(yaml, '\n');
+	let in_ports = false;
+	let prefix = `  ${key}:`;
+
+	for (let i = 0; i < length(lines); i++) {
+		let line = lines[i];
+		if (match(line, /^ports:\s*$/)) {
+			in_ports = true;
+			continue;
+		}
+		if (!in_ports)
+			continue;
+		if (match(line, /^[^#\s]/) && !match(line, /^  /))
+			break;
+		if (index(line, prefix) != 0)
+			continue;
+		return parse_port_value(replace(line, prefix, ''), default_port);
+	}
+	return default_port;
+}
+
+function service_running() {
+	let res = run_bin('/etc/init.d/blocky', [ 'status' ]);
+	return res.ok || index(lower(res.output), 'running') >= 0;
+}
+
+function parse_blocking_status(text) {
+	text = trim(text || '');
+	if (!length(text))
+		return { enabled: false, autoEnableInSec: 0 };
+
+	let enabled = match(text, /"enabled"\s*:\s*true/) != null;
+	let auto = 0;
+	let m = match(text, /"autoEnableInSec"\s*:\s*([0-9]+)/);
+	if (m)
+		auto = int(m[1]) || 0;
+
+	return { enabled, autoEnableInSec: auto };
+}
+
+function stats_state(text) {
+	text = trim(text || '');
+	if (!length(text))
+		return { ok: false, disabled: false };
+
+	if (match(text, /statistics are disabled/i))
+		return { ok: false, disabled: true };
+
+	if (match(text, /"summary"/) || match(text, /"lists"/))
+		return { ok: true, disabled: false, json: text };
+
+	return { ok: false, disabled: false };
+}
 
 function shellquote(s) {
 	return `'${replace(s, "'", "'\\''")}'`;
@@ -165,6 +293,77 @@ const methods = {
 				ok: res.ok && length(version) > 0,
 				version: version,
 				output: res.output
+			};
+		}
+	},
+
+	getStatus: {
+		call: function() {
+			let yaml = read_config();
+			let config_present = length(yaml) > 0;
+			let dns_res = run_bin(DNSMASQ_SYNC, [ 'status' ]);
+			let dnsmasq_forward = trim(dns_res.output) == '1';
+			let blocking_raw = run_bin(HTTP, [ 'GET', 'api/blocking/status' ]);
+			let blocking = parse_blocking_status(blocking_raw.ok ? blocking_raw.output : '');
+			let stats_raw = run_bin(HTTP, [ 'GET', 'api/stats' ]);
+			let stats = stats_state(stats_raw.ok ? stats_raw.output : stats_raw.output);
+			let metrics = run_bin(HTTP, [ 'GET', 'metrics' ]);
+			let version_res = run_bin(BLOCKY_BIN, [ 'version' ]);
+			let version = trim(split(version_res.output, '\n')[0] || '');
+			let log_level = parse_log_level(yaml);
+
+			return {
+				ok: true,
+				service_running: service_running(),
+				dnsmasq_forward: dnsmasq_forward,
+				blocking: blocking,
+				api_ok: metrics.ok && length(metrics.output) > 0,
+				stats_ok: stats.ok,
+				stats_disabled: stats.disabled,
+				stats_json: stats.json || '',
+				version: version,
+				ports: {
+					dns: parse_port_from_config(yaml, 'dns', 5353),
+					http: parse_port_from_config(yaml, 'http', 4000)
+				},
+				config_present: config_present,
+				log_level: log_level
+			};
+		}
+	},
+
+	getLogs: {
+		args: { limit: 'limit', max_bytes: 'max_bytes' },
+		call: function(req) {
+			let logread = find_logread();
+			if (!length(logread))
+				return { ok: false, error: 'missing_logread', message: 'logread not found' };
+
+			let limit = int(req.args?.limit);
+			if (!limit || limit < 1)
+				limit = 200;
+			if (limit > 2000)
+				limit = 2000;
+
+			let max_bytes = int(req.args?.max_bytes) || MAX_SYSLOG_BYTES;
+			if (max_bytes < 1 || max_bytes > MAX_SYSLOG_BYTES)
+				max_bytes = MAX_SYSLOG_BYTES;
+
+			let res = run_cmd(`${logread} -l ${limit} -e ${shellquote(BLOCKY_LOG_PATTERN)}`);
+			let output = res.output || '';
+			let truncated = false;
+
+			if (length(output) > max_bytes) {
+				output = substr(output, length(output) - max_bytes);
+				truncated = true;
+			}
+
+			return {
+				ok: true,
+				limit: limit,
+				max_bytes: max_bytes,
+				truncated: truncated,
+				output: output
 			};
 		}
 	}

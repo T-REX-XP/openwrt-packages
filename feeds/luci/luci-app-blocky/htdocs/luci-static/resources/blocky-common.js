@@ -8,6 +8,7 @@
 'require blocky-tab-controls as tabControls';
 'require blocky-tab-query as tabQuery';
 'require blocky-tab-logs as tabLogs';
+'require blocky-tab-debug as tabDebug';
 'require baseclass';
 
 var BlockyTabs = {
@@ -17,12 +18,14 @@ var BlockyTabs = {
 	config: tabConfig,
 	controls: tabControls,
 	query: tabQuery,
-	logs: tabLogs
+	logs: tabLogs,
+	debug: tabDebug
 };
 
 var loadBlockyPageData = Blocky.loadBlockyPageData,
 	resolveDefaultTabFromHash = Blocky.resolveDefaultTabFromHash,
 	renderBlockyVersionBadge = Blocky.renderBlockyVersionBadge,
+	renderBlockyStatusBar = Blocky.renderBlockyStatusBar,
 	resolveBlockyVersion = Blocky.resolveBlockyVersion,
 	parseBlockyVersionFromMetrics = Blocky.parseBlockyVersionFromMetrics,
 	blockyCliStdout = Blocky.blockyCliStdout,
@@ -30,7 +33,9 @@ var loadBlockyPageData = Blocky.loadBlockyPageData,
 	unwrapFetchText = Blocky.unwrapFetchText,
 	EMPTY_BLOCKLIST_CATALOG = Blocky.EMPTY_BLOCKLIST_CATALOG,
 	notify = Blocky.notify,
+	replaceContent = Blocky.replaceContent,
 	renderTabs = Blocky.renderTabs,
+	BLOCKY_TAB_HASH = Blocky.BLOCKY_TAB_HASH,
 	BLOCKY_TAB_HASH_KEYS = Blocky.BLOCKY_TAB_HASH_KEYS;
 
 function createBlockyView(options) {
@@ -47,11 +52,11 @@ function createBlockyView(options) {
 			var status = data[1];
 			var config = data[2];
 			var metrics = data[3];
-			var dnsFwd = data[4];
 			var statsResult = data[5];
 			var uciAccess = data[7] || { user: '', password: '', localOnly: true };
 			var catalogData = data[8] || EMPTY_BLOCKLIST_CATALOG;
-			var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
+			var pageStatus = data[9] || {};
+			var dnsFwdRaw = blockyCliStdout(execResultStdout(data[4], '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
 			var statisticsHost = E('div', {});
@@ -59,10 +64,33 @@ function createBlockyView(options) {
 			var configHost = E('div', {});
 			var controlsHost = E('div', {});
 			var logsHost = E('div', {});
-			var versionText = parseBlockyVersionFromMetrics(metricsPayload);
+			var debugHost = E('div', {});
+			var statusBarHost = E('div', { 'class': 'blocky-status-bar-host' });
+			var versionText = parseBlockyVersionFromMetrics(metricsPayload) || pageStatus.version || '';
+
+			function jumpTab(hash) {
+				var idx = BLOCKY_TAB_HASH[hash];
+				if (idx == null)
+					return;
+
+				window.location.hash = hash;
+				var root = document.querySelector('.luci-app-blocky');
+				var buttons = root ? root.querySelectorAll('.cbi-tabmenu li') : [];
+				if (buttons[idx])
+					buttons[idx].click();
+			}
+
+			function refreshStatusBar(freshStatus) {
+				replaceContent(statusBarHost, renderBlockyStatusBar(freshStatus || pageStatus, jumpTab));
+			}
 
 			function refreshPage() {
 				return self.load().then(function(fresh) {
+					pageStatus = fresh[9] || {};
+					service = fresh[0];
+					status = fresh[1];
+					statsResult = fresh[5];
+					refreshStatusBar(pageStatus);
 					var mounted = BlockyTabs.dashboard.mountDashboardContent(dashboardHost, fresh, refreshPage);
 					BlockyTabs.dashboard.attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 					statisticsHost.replaceChildren(BlockyTabs.stats.renderStatisticsTab(fresh, refreshPage));
@@ -84,10 +112,13 @@ function createBlockyView(options) {
 						BlockyTabs.controls.renderServiceControls(fresh[0], refreshPage)
 					);
 					logsHost.replaceChildren(BlockyTabs.logs.renderQueryLogsTab(fresh[2]));
+					debugHost.replaceChildren(BlockyTabs.debug.renderDebugTab(fresh[9]));
 				}).catch(function(err) {
 					notify(err.message || String(err), 'danger');
 				});
 			}
+
+			refreshStatusBar(pageStatus);
 
 			var mounted = BlockyTabs.dashboard.mountDashboardContent(dashboardHost, data, refreshPage);
 			BlockyTabs.dashboard.attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
@@ -95,6 +126,7 @@ function createBlockyView(options) {
 			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload));
 			configHost.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
 			logsHost.appendChild(BlockyTabs.logs.renderQueryLogsTab(config));
+			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));
 
 			controlsHost.appendChild(BlockyTabs.controls.renderBlockingControls(status, refreshPage));
 			controlsHost.appendChild(BlockyTabs.controls.renderOperations(service, refreshPage));
@@ -115,7 +147,7 @@ function createBlockyView(options) {
 			}
 
 			return E('div', { 'class': 'luci-app-blocky' }, [
-				BlockyTabs.dashboard.BlockyTabs.dashboard.blockyInjectStyles(),
+				BlockyTabs.dashboard.blockyInjectStyles(),
 				E('div', { 'class': 'blocky-page-head' }, [
 					E('h2', {}, [ _('Blocky DNS') ]),
 					renderBlockyVersionBadge(versionText)
@@ -123,6 +155,7 @@ function createBlockyView(options) {
 				E('p', { 'class': 'cbi-section-descr' }, [
 					_('Dashboard for Blocky on your router — live statistics, blocking controls, DNS integration, and query logs.')
 				]),
+				statusBarHost,
 				renderTabs([
 					{
 						title: _('Dashboard'),
@@ -151,6 +184,10 @@ function createBlockyView(options) {
 					{
 						title: _('Logs'),
 						nodes: [ logsHost ]
+					},
+					{
+						title: _('Debug'),
+						nodes: [ debugHost ]
 					}
 				], defaultTab)
 			]);
@@ -165,4 +202,3 @@ function createBlockyView(options) {
 return baseclass.extend({
 	createBlockyView: createBlockyView
 });
-

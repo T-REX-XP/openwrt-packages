@@ -46,6 +46,10 @@ var densifyCatmullRom = bp.densifyCatmullRom;
 var buildSmoothAreaPath = bp.buildSmoothAreaPath;
 var buildSmoothLinePath = bp.buildSmoothLinePath;
 var parseBlockyVersionFromMetrics = bp.parseBlockyVersionFromMetrics;
+var parseBlockingStatusJson = bp.parseBlockingStatusJson;
+var shapeBlockyStatusBar = bp.shapeBlockyStatusBar;
+var serviceObjectFromStatus = bp.serviceObjectFromStatus;
+var statsResultFromStatus = bp.statsResultFromStatus;
 
 var CONFIG_PATH = '/etc/blocky/config.yml';
 var blockyApiAccess = {
@@ -133,6 +137,19 @@ var callBlockyGetVersion = rpc.declare({
 	expect: { '': {} }
 });
 
+var callBlockyGetStatus = rpc.declare({
+	object: 'luci.blocky',
+	method: 'getStatus',
+	expect: { '': {} }
+});
+
+var callBlockyGetLogs = rpc.declare({
+	object: 'luci.blocky',
+	method: 'getLogs',
+	params: [ 'limit', 'max_bytes' ],
+	expect: { '': {} }
+});
+
 
 function blockyRpcOk(res) {
 	return !!(res && typeof res === 'object' && res.ok);
@@ -163,7 +180,8 @@ var BLOCKY_TAB_HASH = {
 	'controls': 4,
 	'query': 5,
 	'dns-query': 5,
-	'logs': 6
+	'logs': 6,
+	'debug': 7
 };
 
 var BLOCKY_TAB_HASH_KEYS = [
@@ -173,7 +191,8 @@ var BLOCKY_TAB_HASH_KEYS = [
 	'configuration',
 	'controls',
 	'query',
-	'logs'
+	'logs',
+	'debug'
 ];
 
 
@@ -634,27 +653,76 @@ function renderTabs(tabs, activeIndex) {
 
 function loadBlockyPageData() {
 	return Promise.all([
-		L.resolveDefault(callServiceList('blocky'), {}),
+		L.resolveDefault(callBlockyGetStatus(), {}),
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 		loadBlockyUciAccess(),
-		L.resolveDefault(fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]), { code: 0, stdout: '0\n' }),
 		L.resolveDefault(callServiceList('adblock'), {}),
-		loadBlocklistCatalog()
-	]).then(function(bootstrap) {
-		applyBlockyApiAccess(bootstrap[1], bootstrap[2]);
+		loadBlocklistCatalog(),
+		L.resolveDefault(fetchText(blockyMetricsUrl()), '')
+	]).then(function(parts) {
+		var status = parts[0] || {};
 
-		return Promise.all([
-			Promise.resolve(bootstrap[0]),
-			L.resolveDefault(blockyApi('/blocking/status'), { enabled: false }),
-			Promise.resolve(bootstrap[1]),
-			L.resolveDefault(fetchText(blockyMetricsUrl()), ''),
-			Promise.resolve(bootstrap[3]),
-			L.resolveDefault(fetchBlockyStats(), { ok: false, data: null }),
-			Promise.resolve(bootstrap[4]),
-			Promise.resolve(bootstrap[2]),
-			Promise.resolve(bootstrap[5])
-		]);
+		applyBlockyApiAccess(parts[1], parts[2]);
+
+		return [
+			serviceObjectFromStatus(status),
+			status.blocking || { enabled: false },
+			parts[1],
+			parts[5],
+			{ code: 0, stdout: status.dnsmasq_forward ? '1\n' : '0\n' },
+			statsResultFromStatus(status),
+			parts[3],
+			parts[2],
+			parts[4],
+			status
+		];
 	});
+}
+
+function renderBlockyStatusBar(pageStatus, onJumpTab) {
+	var bar = shapeBlockyStatusBar(pageStatus);
+	var dnsPort = bar.ports.dns || 5353;
+
+	function jumpTab(hash) {
+		return function(ev) {
+			ev.preventDefault();
+			if (typeof onJumpTab === 'function')
+				onJumpTab(hash);
+		};
+	}
+
+	function item(label, ok, detail, hash) {
+		return E('div', { 'class': 'blocky-status-bar-item' }, [
+			E('span', { 'class': 'blocky-status-bar-label' }, [ label ]),
+			blockyPill(ok ? 'yes' : (bar.blockingPaused && label === _('Blocking') ? 'warn' : 'no'),
+				ok ? _('OK') : _('Check')),
+			detail ? blockyStatusDetail(detail) : '',
+			hash ? E('a', {
+				'href': '#' + hash,
+				'class': 'blocky-status-bar-link',
+				'click': jumpTab(hash)
+			}, [ _('Details') ]) : ''
+		]);
+	}
+
+	var blockingDetail = bar.blockingOk
+		? _('Active')
+		: (bar.blockingPaused
+			? _('Paused — resumes in %s').format(formatDuration(bar.blockingResumeSec))
+			: _('Disabled'));
+
+	return E('div', { 'class': 'blocky-status-bar', 'role': 'status' }, [
+		item(_('Blocky'), bar.serviceOk, bar.serviceOk
+			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Controls'), 'controls'),
+		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'controls'),
+		item(_('Router DNS'), bar.dnsmasqOk, bar.dnsmasqOk
+			? _('dnsmasq → Blocky') : _('Enable in Configuration'), 'configuration'),
+		item(_('HTTP API'), bar.apiOk, bar.apiOk
+			? _(':%d reachable').format(bar.ports.http || 4000) : _('Not reachable'), 'debug'),
+		bar.version ? E('span', { 'class': 'blocky-status-bar-version' }, [
+			_('Blocky %s').format(bar.version)
+		]) : ''
+	]);
 }
 
 function resolveBlockyVersion(metricsText) {
@@ -732,6 +800,9 @@ return {
 	setBlockyMetricsPollingHook: setBlockyMetricsPollingHook,
 	renderTabs: renderTabs,
 	loadBlockyPageData: loadBlockyPageData,
+	renderBlockyStatusBar: renderBlockyStatusBar,
+	callBlockyGetStatus: callBlockyGetStatus,
+	callBlockyGetLogs: callBlockyGetLogs,
 	resolveBlockyVersion: resolveBlockyVersion,
 	renderBlockyVersionBadge: renderBlockyVersionBadge,
 	resolveDefaultTabFromHash: resolveDefaultTabFromHash,
@@ -789,5 +860,9 @@ return {
 	densifyCatmullRom: bp.densifyCatmullRom,
 	buildSmoothAreaPath: bp.buildSmoothAreaPath,
 	buildSmoothLinePath: bp.buildSmoothLinePath,
-	parseBlockyVersionFromMetrics: bp.parseBlockyVersionFromMetrics
+	parseBlockyVersionFromMetrics: bp.parseBlockyVersionFromMetrics,
+	parseBlockingStatusJson: bp.parseBlockingStatusJson,
+	shapeBlockyStatusBar: bp.shapeBlockyStatusBar,
+	serviceObjectFromStatus: bp.serviceObjectFromStatus,
+	statsResultFromStatus: bp.statsResultFromStatus
 };

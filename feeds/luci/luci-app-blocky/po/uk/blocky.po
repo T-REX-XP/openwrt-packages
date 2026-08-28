@@ -1240,3 +1240,84 @@ msgstr "Зберегти YAML"
 
 msgid "Save YAML & restart"
 msgstr "Зберегти YAML та перезапустити"
+
+msgid "Debug"
+msgstr "Налагодження"
+
+msgid "Service syslog lines tagged blocky (procd, list downloads, startup). Set log level under Configuration → Logging."
+msgstr "Рядки syslog служби blocky (procd, завантаження списків, запуск). Рівень журналу — Configuration → Logging."
+
+msgid "Log level (config.yml)"
+msgstr "Рівень журналу (config.yml)"
+
+msgid "HTTP API"
+msgstr "HTTP API"
+
+msgid "Statistics API"
+msgstr "API статистики"
+
+msgid "Reachable"
+msgstr "Доступний"
+
+msgid "Unreachable"
+msgstr "Недоступний"
+
+msgid "Unavailable"
+msgstr "Недоступно"
+
+msgid "Lines"
+msgstr "Рядків"
+
+msgid "Copy to clipboard"
+msgstr "Копіювати в буфер"
+
+msgid "Loading service logs…"
+msgstr "Завантаження журналів…"
+
+msgid "Output truncated to the most recent 200 KiB."
+msgstr "Обрізано до останніх 200 КіБ."
+
+msgid "No matching log entries (try: logread -e blocky)."
+msgstr "Немає відповідних записів (спробуйте: logread -e blocky)."
+
+msgid "Log copied to clipboard."
+msgstr "Журнал скопійовано."
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "Не вдалося скопіювати — виділіть текст і скопіюйте вручну."
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Blocking"
+msgstr "Блокування"
+
+msgid "Active"
+msgstr "Активно"
+
+msgid "Paused — resumes in %s"
+msgstr "Призупинено — відновиться через %s"
+
+msgid "Disabled"
+msgstr "Вимкнено"
+
+msgid "Start from Controls"
+msgstr "Запустіть у Controls"
+
+msgid "Enable in Configuration"
+msgstr "Увімкніть у Configuration"
+
+msgid "dnsmasq → Blocky"
+msgstr "dnsmasq → Blocky"
+
+msgid ":%d reachable"
+msgstr ":%d доступний"
+
+msgid "Not reachable"
+msgstr "Недоступний"
+
+msgid "Details"
+msgstr "Деталі"
+
+msgid "UDP/TCP :%d"
+msgstr "UDP/TCP :%d"

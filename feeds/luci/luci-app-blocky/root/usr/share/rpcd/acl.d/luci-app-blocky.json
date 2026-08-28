@@ -7,11 +7,21 @@
 				"/etc/blocky/config.yml": [ "read" ],
 				"/etc/init.d/blocky": [ "exec" ],
 				"/usr/sbin/blocky-dnsmasq-sync": [ "exec" ],
-				"/usr/share/luci-app-blocky/blocklist-catalog.json": [ "read" ]
+				"/usr/share/luci-app-blocky/blocklist-catalog.json": [ "read" ],
+				"/sbin/logread": [ "exec" ],
+				"/bin/logread": [ "exec" ]
 			},
 			"ubus": {
 				"service": [ "list" ],
-				"luci.blocky": [ "sync_lists", "refresh_lists", "http_request", "read_query_log", "get_version" ]
+				"luci.blocky": [
+					"sync_lists",
+					"refresh_lists",
+					"http_request",
+					"read_query_log",
+					"get_version",
+					"getStatus",
+					"getLogs"
+				]
 			}
 		},
 		"write": {
@@ -25,7 +35,15 @@
 				"/usr/sbin/blocky-http-api": [ "exec" ]
 			},
 			"ubus": {
-				"luci.blocky": [ "sync_lists", "refresh_lists", "http_request", "read_query_log", "get_version" ]
+				"luci.blocky": [
+					"sync_lists",
+					"refresh_lists",
+					"http_request",
+					"read_query_log",
+					"get_version",
+					"getStatus",
+					"getLogs"
+				]
 			}
 		}
 	}

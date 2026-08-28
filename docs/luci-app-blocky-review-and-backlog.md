@@ -250,11 +250,11 @@ After the program, a router admin should be able to **without SSH**:
 
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
-| B-1 | Add `getStatus` rpcd: service running, blocking status, dnsmasq forward, ports, stats ok, version | todo | Single RPC replaces scattered load() calls |
-| B-2 | Add `getLogs` rpcd: `logread -e blocky` (line cap, e.g. 200 KiB) | todo | ACL read; matches oled pattern |
-| B-3 | Add **Debug** tab: refresh, copy, auto-load, log level hint | todo | Bootstrap theme; `_()` strings in po |
-| B-4 | Sticky **status bar** (service, blocking, dnsmasq, API reachability) | todo | Visible on every tab; links to Controls/Debug |
-| B-5 | Unit tests for `getStatus` response shaping (mock popen) | todo | shell or extracted ucode helpers |
+| B-1 | Add `getStatus` rpcd: service running, blocking status, dnsmasq forward, ports, stats ok, version | done | `getStatus` RPC; `loadBlockyPageData` uses it |
+| B-2 | Add `getLogs` rpcd: `logread -e blocky` (line cap, e.g. 200 KiB) | done | ACL + logread exec; 200 KiB cap |
+| B-3 | Add **Debug** tab: refresh, copy, auto-load, log level hint | done | `blocky-tab-debug.js`; auto-load on open |
+| B-4 | Sticky **status bar** (service, blocking, dnsmasq, API reachability) | done | Above tabs; links to Controls/Config/Debug |
+| B-5 | Unit tests for `getStatus` response shaping (mock popen) | done | `blocky-status.test.mjs` (4 tests) |
 
 ---
 
@@ -355,12 +355,12 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 | Epic | Items | Done | % |
 |------|-------|------|---|
 | A Test & refactor | 8 | 8 | 100% |
-| B Status & Debug | 5 | 0 | 0% |
+| B Status & Debug | 5 | 5 | 100% |
 | C Config safety | 6 | 0 | 0% |
 | D Logs workflow | 5 | 0 | 0% |
 | E UX & 0.34 | 6 | 0 | 0% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **8** | **24%** |
+| **Total** | **34** | **13** | **38%** |
 
 Update this table as backlog items move to `done`.
 

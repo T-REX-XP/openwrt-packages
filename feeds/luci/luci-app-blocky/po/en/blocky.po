@@ -1239,3 +1239,84 @@ msgstr "Save YAML"
 
 msgid "Save YAML & restart"
 msgstr "Save YAML & restart"
+
+msgid "Debug"
+msgstr "Debug"
+
+msgid "Service syslog lines tagged blocky (procd, list downloads, startup). Set log level under Configuration → Logging."
+msgstr "Service syslog lines tagged blocky (procd, list downloads, startup). Set log level under Configuration → Logging."
+
+msgid "Log level (config.yml)"
+msgstr "Log level (config.yml)"
+
+msgid "HTTP API"
+msgstr "HTTP API"
+
+msgid "Statistics API"
+msgstr "Statistics API"
+
+msgid "Reachable"
+msgstr "Reachable"
+
+msgid "Unreachable"
+msgstr "Unreachable"
+
+msgid "Unavailable"
+msgstr "Unavailable"
+
+msgid "Lines"
+msgstr "Lines"
+
+msgid "Copy to clipboard"
+msgstr "Copy to clipboard"
+
+msgid "Loading service logs…"
+msgstr "Loading service logs…"
+
+msgid "Output truncated to the most recent 200 KiB."
+msgstr "Output truncated to the most recent 200 KiB."
+
+msgid "No matching log entries (try: logread -e blocky)."
+msgstr "No matching log entries (try: logread -e blocky)."
+
+msgid "Log copied to clipboard."
+msgstr "Log copied to clipboard."
+
+msgid "Copy failed — select the text area and copy manually."
+msgstr "Copy failed — select the text area and copy manually."
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Blocking"
+msgstr "Blocking"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Paused — resumes in %s"
+msgstr "Paused — resumes in %s"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "Start from Controls"
+msgstr "Start from Controls"
+
+msgid "Enable in Configuration"
+msgstr "Enable in Configuration"
+
+msgid "dnsmasq → Blocky"
+msgstr "dnsmasq → Blocky"
+
+msgid ":%d reachable"
+msgstr ":%d reachable"
+
+msgid "Not reachable"
+msgstr "Not reachable"
+
+msgid "Details"
+msgstr "Details"
+
+msgid "UDP/TCP :%d"
+msgstr "UDP/TCP :%d"
