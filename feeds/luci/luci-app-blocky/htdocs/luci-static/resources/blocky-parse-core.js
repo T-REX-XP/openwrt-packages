@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 
 function safeString(value) {
 	if (value === null || value === undefined)
@@ -1056,7 +1057,7 @@ function normalizeValidateResponse(res) {
 	};
 }
 
-return {
+return baseclass.extend({
 	safeString: safeString,
 	execResultStdout: execResultStdout,
 	blockyCliStdout: blockyCliStdout,
@@ -1114,4 +1115,4 @@ return {
 	denylistFingerprintFromYaml: denylistFingerprintFromYaml,
 	blocklistsSyncNeeded: blocklistsSyncNeeded,
 	normalizeValidateResponse: normalizeValidateResponse
-};
+});

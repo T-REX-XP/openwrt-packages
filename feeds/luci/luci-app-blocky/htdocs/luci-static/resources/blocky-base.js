@@ -6,6 +6,7 @@
 'require uci';
 'require blocky-parse-core as bp';
 'require blocky-config-core as bc';
+'require baseclass';
 
 
 var safeString = bp.safeString;
@@ -842,7 +843,7 @@ function resolveDefaultTabFromHash(fallback) {
 	return fallback || 0;
 }
 
-return {
+return baseclass.extend({
 	formatDuration: formatDuration,
 	blockyPathFromUrl: blockyPathFromUrl,
 	blockyPill: blockyPill,
@@ -959,4 +960,4 @@ return {
 	denylistFingerprintFromYaml: bp.denylistFingerprintFromYaml,
 	blocklistsSyncNeeded: bp.blocklistsSyncNeeded,
 	normalizeValidateResponse: bp.normalizeValidateResponse
-};
+});

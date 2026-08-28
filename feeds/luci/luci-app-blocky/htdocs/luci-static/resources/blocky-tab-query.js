@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	execResultStdout = Blocky.execResultStdout,
@@ -219,9 +220,9 @@ function createQueryPanel(options) {
 	};
 }
 
-return {
+return baseclass.extend({
 	renderQueryResult: renderQueryResult,
 	mountQueryPanel: mountQueryPanel,
 	renderQuery: renderQuery,
 	createQueryPanel: createQueryPanel
-};
+});

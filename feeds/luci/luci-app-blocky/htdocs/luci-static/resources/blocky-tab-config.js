@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	execResultStdout = Blocky.execResultStdout,
@@ -836,7 +837,7 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 	].concat(body));
 }
 
-return {
+return baseclass.extend({
 	renderApiSecuritySection: renderApiSecuritySection,
 	renderRouterDnsIntegration: renderRouterDnsIntegration,
 	settingsRow: settingsRow,
@@ -848,4 +849,4 @@ return {
 	renderBlockySettingsForm: renderBlockySettingsForm,
 	renderBlockySettingsPage: renderBlockySettingsPage,
 	renderConfigYamlAdvanced: renderConfigYamlAdvanced
-};
+});

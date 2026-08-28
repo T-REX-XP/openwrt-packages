@@ -10,8 +10,10 @@ function loadLuCiCore(filename) {
 	let src = readFileSync(file, 'utf8');
 	src = src.replace(/^'use strict';\n?/, '');
 	src = src.replace(/^'require blocky-parse-core as bp';\n?/, '');
-	const fn = new Function(src);
-	return fn();
+	src = src.replace(/^'require baseclass';\n?/, '');
+	const baseclass = { extend: (obj) => obj };
+	const fn = new Function('baseclass', src);
+	return fn(baseclass);
 }
 
 export function loadBlockyParseCore() {
@@ -23,9 +25,11 @@ export function loadBlockyConfigCore(parseCore) {
 	let src = readFileSync(file, 'utf8');
 	src = src.replace(/^'use strict';\n?/, '');
 	src = src.replace(/^'require blocky-parse-core as bp';\n?/, '');
+	src = src.replace(/^'require baseclass';\n?/, '');
 	src = 'function safeString(value) { return bp.safeString(value); }\n' + src;
-	const fn = new Function('bp', src);
-	return fn(parseCore);
+	const baseclass = { extend: (obj) => obj };
+	const fn = new Function('bp', 'baseclass', src);
+	return fn(parseCore, baseclass);
 }
 
 export function fixturePath(name) {

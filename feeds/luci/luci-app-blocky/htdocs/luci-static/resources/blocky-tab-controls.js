@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	execResultStdout = Blocky.execResultStdout,
@@ -82,6 +83,7 @@ var safeString = Blocky.safeString,
 	blockyMetricsUrl = Blocky.blockyMetricsUrl,
 	fetchBlockyStats = Blocky.fetchBlockyStats,
 	runInit = Blocky.runInit,
+	isRunning = Blocky.isRunning,
 	execDnsmasqSync = Blocky.execDnsmasqSync,
 	shellQuote = Blocky.shellQuote,
 	blockyPill = Blocky.blockyPill,
@@ -247,8 +249,8 @@ function renderServiceControls(service, onRefresh) {
 	]);
 }
 
-return {
+return baseclass.extend({
 	renderBlockingControls: renderBlockingControls,
 	renderOperations: renderOperations,
 	renderServiceControls: renderServiceControls
-};
+});

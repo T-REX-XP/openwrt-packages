@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	execResultStdout = Blocky.execResultStdout,
@@ -549,7 +550,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 	]);
 }
 
-return {
+return baseclass.extend({
 	addBlocklistsFromPresets: addBlocklistsFromPresets,
 	saveCustomBlocklist: saveCustomBlocklist,
 	openCustomBlocklistModal: openCustomBlocklistModal,
@@ -557,4 +558,4 @@ return {
 	openNewBlocklistModal: openNewBlocklistModal,
 	loadUciBlocklists: loadUciBlocklists,
 	renderBlocklistsTab: renderBlocklistsTab
-};
+});

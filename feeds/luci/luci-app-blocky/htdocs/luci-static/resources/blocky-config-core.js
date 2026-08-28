@@ -1,6 +1,7 @@
 'use strict';
 
 'require blocky-parse-core as bp';
+'require baseclass';
 
 function safeString(value) {
 	return bp.safeString(value);
@@ -431,7 +432,7 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 	return out.join('\n');
 }
 
-return {
+return baseclass.extend({
 	extractYamlSection: extractYamlSection,
 	parseYamlScalar: parseYamlScalar,
 	parseYamlBool: parseYamlBool,
@@ -445,4 +446,4 @@ return {
 	yamlListLines: yamlListLines,
 	buildBlockySettingsYaml: buildBlockySettingsYaml,
 	patchBlockingLoadingSection: patchBlockingLoadingSection
-};
+});

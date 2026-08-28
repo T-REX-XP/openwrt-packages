@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	execResultStdout = Blocky.execResultStdout,
@@ -78,10 +79,12 @@ var safeString = Blocky.safeString,
 	blockyApi = Blocky.blockyApi,
 	blockyHttpRequest = Blocky.blockyHttpRequest,
 	fetchText = Blocky.fetchText,
+	unwrapFetchText = Blocky.unwrapFetchText,
 	fetchJson = Blocky.fetchJson,
 	blockyMetricsUrl = Blocky.blockyMetricsUrl,
 	fetchBlockyStats = Blocky.fetchBlockyStats,
 	runInit = Blocky.runInit,
+	isRunning = Blocky.isRunning,
 	execDnsmasqSync = Blocky.execDnsmasqSync,
 	shellQuote = Blocky.shellQuote,
 	blockyPill = Blocky.blockyPill,
@@ -764,7 +767,7 @@ function renderStatisticsTab(data, refreshPage) {
 	]);
 }
 
-return {
+return baseclass.extend({
 	gatherOverviewMetrics: gatherOverviewMetrics,
 	renderDashboardSummaryGrid: renderDashboardSummaryGrid,
 	renderStatRow: renderStatRow,
@@ -784,4 +787,4 @@ return {
 	renderStatsDashboard: renderStatsDashboard,
 	renderStatusDashboard: renderStatusDashboard,
 	renderStatisticsTab: renderStatisticsTab
-};
+});

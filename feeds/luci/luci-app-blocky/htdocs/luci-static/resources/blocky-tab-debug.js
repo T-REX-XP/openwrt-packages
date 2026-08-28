@@ -1,6 +1,7 @@
 'use strict';
 'require ui';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var notify = Blocky.notify,
 	callBlockyGetLogs = Blocky.callBlockyGetLogs,
@@ -137,6 +138,6 @@ function renderDebugTab(pageStatus) {
 	]);
 }
 
-return {
+return baseclass.extend({
 	renderDebugTab: renderDebugTab
-};
+});

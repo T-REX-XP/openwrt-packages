@@ -77,7 +77,7 @@ const configFns = [
 function buildCore(header, fnBlocks, exportNames, extra) {
 	const body = fnBlocks.map(([start, end]) => slice(start, end)).join('\n\n');
 	const exports = exportNames.map((n) => `\t${n}: ${n}`).join(',\n');
-	return `'use strict';\n\n${header}\n\n${body}\n\n${extra || ''}\nreturn {\n${exports}\n};\n`;
+	return `'use strict';\n\n${header}\n'require baseclass';\n\n${body}\n\n${extra || ''}\nreturn baseclass.extend({\n${exports}\n});\n`;
 }
 
 const formatDuration = `function formatDuration(seconds, notScheduledLabel) {

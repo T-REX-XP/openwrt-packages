@@ -236,7 +236,8 @@ function tabDestructuring() {
 		'refreshBlockyLists', 'execBlockyListsSync', 'execBlockyListsRefresh', 'loadBlocklistCatalog',
 		'loadUciBlocklists', 'blockyCloseModal', 'blockyOpenModal', 'blockyModalFooterCancel', 'blockyModalFooterSave',
 		'blockyPresetHomeUrl', 'blockyRpcOk', 'blockyRpcError', 'blockyApi', 'blockyHttpRequest', 'fetchText',
-		'fetchJson', 'blockyMetricsUrl', 'fetchBlockyStats', 'runInit', 'execDnsmasqSync', 'shellQuote',
+		'unwrapFetchText', 'fetchJson', 'blockyMetricsUrl', 'fetchBlockyStats', 'runInit', 'isRunning',
+		'isNamedServiceRunning', 'setBlockyMetricsPollingHook', 'execDnsmasqSync', 'shellQuote',
 		'blockyPill', 'blockyStatusDetail', 'blockyLegendDot', 'blockyChartColor', 'blockyChartFill',
 		'blockyCssVar', 'blockyThemeRoot', 'applyBlockyChartPathTheme', 'blockyAttachThemeSync',
 		'registerBlockingCountdownPoll', 'topListBarRow', 'mapToBarRows', 'resolveDenyCount', 'bc', 'bp'
@@ -272,6 +273,7 @@ function main() {
 'require uci';
 'require blocky-parse-core as bp';
 'require blocky-config-core as bc';
+'require baseclass';
 `;
 
 	const baseParts = (byModule['blocky-base.js'] || [])
@@ -284,7 +286,7 @@ function main() {
 	const baseFile = baseRequires + '\n' +
 		header.replace(/^'use strict';\n/, '').replace(/^('require [^']+';\n)+/m, '') + '\n' +
 		constants + '\n' +
-		baseParts.join('\n\n') + '\n\nreturn {\n' +
+		baseParts.join('\n\n') + '\n\nreturn baseclass.extend({\n' +
 		baseExports.map((n) => '\t' + n + ': ' + n).join(',\n') +
 		',\n\tCONFIG_PATH: CONFIG_PATH,\n\tblockyApiAccess: blockyApiAccess,\n\tRECORD_TYPES: RECORD_TYPES,\n\tPAUSE_PRESETS: PAUSE_PRESETS,\n\tEMPTY_BLOCKLIST_CATALOG: EMPTY_BLOCKLIST_CATALOG,\n\tBLOCKLIST_CATALOG_PATH: BLOCKLIST_CATALOG_PATH,\n\tBLOCKY_CHART_FALLBACK: BLOCKY_CHART_FALLBACK,\n\tBLOCKY_TAB_HASH: BLOCKY_TAB_HASH,\n\tBLOCKY_TAB_HASH_KEYS: BLOCKY_TAB_HASH_KEYS,\n\tREALTIME_WINDOWS: REALTIME_WINDOWS,\n\tcallServiceList: callServiceList,\n\tcallBlockySyncLists: callBlockySyncLists,\n\tcallBlockyRefreshLists: callBlockyRefreshLists,\n\tcallBlockyHttpRequest: callBlockyHttpRequest,\n\tcallBlockyReadQueryLog: callBlockyReadQueryLog,\n\tcallBlockyGetVersion: callBlockyGetVersion,\n\tbp: bp,\n\tbc: bc,\n\t' +
 		'safeString: bp.safeString,\n\texecResultStdout: bp.execResultStdout,\n\tblockyCliStdout: bp.blockyCliStdout,\n\t' +
@@ -304,7 +306,7 @@ function main() {
 		'padChartTime2: bp.padChartTime2,\n\tformatChartAxisTime: bp.formatChartAxisTime,\n\t' +
 		'samplesToXY: bp.samplesToXY,\n\tcatmullRomPoint: bp.catmullRomPoint,\n\t' +
 		'densifyCatmullRom: bp.densifyCatmullRom,\n\tbuildSmoothAreaPath: bp.buildSmoothAreaPath,\n\t' +
-		'buildSmoothLinePath: bp.buildSmoothLinePath,\n\tparseBlockyVersionFromMetrics: bp.parseBlockyVersionFromMetrics\n};\n';
+		'buildSmoothLinePath: bp.buildSmoothLinePath,\n\tparseBlockyVersionFromMetrics: bp.parseBlockyVersionFromMetrics\n});\n';
 	fs.writeFileSync(path.join(RES, 'blocky-base.js'), baseFile);
 
 	const tabRequires = `'use strict';
@@ -313,14 +315,15 @@ function main() {
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 `;
 
 	for (const [file, key] of Object.entries(TAB_KEYS)) {
 		const list = byModule[file] || [];
 		const body = list.map((seg) => rewriteCrossModuleCalls(seg.lines.join('\n'), file)).join('\n\n');
 		const exports = list.filter((seg) => seg.type === 'function').map((seg) => seg.name);
-		const tabFile = tabRequires + '\n' + tabDestructuring() + '\n' + body + '\n\nreturn {\n' +
-			exports.map((n) => '\t' + n + ': ' + n).join(',\n') + '\n};\n';
+		const tabFile = tabRequires + '\n' + tabDestructuring() + '\n' + body + '\n\nreturn baseclass.extend({\n' +
+			exports.map((n) => '\t' + n + ': ' + n).join(',\n') + '\n});\n';
 		fs.writeFileSync(path.join(RES, file), tabFile);
 	}
 

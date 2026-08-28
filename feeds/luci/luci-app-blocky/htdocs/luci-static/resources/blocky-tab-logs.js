@@ -2,6 +2,7 @@
 'require ui';
 'require poll';
 'require blocky-base as Blocky';
+'require baseclass';
 
 var safeString = Blocky.safeString,
 	parseQueryLogConfig = Blocky.parseQueryLogConfig,
@@ -530,7 +531,7 @@ function renderLogsTab(config, pageStatus, options) {
 	]);
 }
 
-return {
+return baseclass.extend({
 	renderQueryLogsTab: renderLogsTab,
 	renderLogsTab: renderLogsTab
-};
+});
