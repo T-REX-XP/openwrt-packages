@@ -72,13 +72,22 @@ static int read_boot_state(char *stage, size_t stage_len, char *message, size_t 
 
 	while (fgets(line, sizeof(line), f)) {
 		char *eq = strchr(line, '=');
+		char *nl;
+
 		if (!eq)
 			continue;
 		*eq = '\0';
-		if (stage && stage_len && !strcmp(line, "stage"))
+		nl = strchr(eq + 1, '\n');
+		if (nl)
+			*nl = '\0';
+		if (stage && stage_len && !strcmp(line, "stage")) {
 			strncpy(stage, eq + 1, stage_len - 1);
-		if (message && msg_len && !strcmp(line, "message"))
+			stage[stage_len - 1] = '\0';
+		}
+		if (message && msg_len && !strcmp(line, "message")) {
 			strncpy(message, eq + 1, msg_len - 1);
+			message[msg_len - 1] = '\0';
+		}
 		if (!strcmp(line, "pct"))
 			pct = atoi(eq + 1);
 	}
@@ -165,6 +174,27 @@ static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *s
 	return send_line(cfg, fd, out);
 }
 
+static int boot_stage_is_ready(const char *stage)
+{
+	return stage && !strcmp(stage, "ready");
+}
+
+static int leave_boot_screen(const struct mcudd_config *cfg, int fd)
+{
+	char stage[32];
+
+	read_boot_state(stage, sizeof(stage), NULL, 0);
+	if (!boot_stage_is_ready(stage))
+		return 0;
+	if (strcmp(active_screen, "router_boot") != 0)
+		return 0;
+
+	if (send_boot_push(cfg, fd) != 0)
+		mcudd_log(LOG_WARNING, "leave_boot: boot push failed");
+	mcudd_log(LOG_INFO, "leave_boot: router_boot -> router_system");
+	return send_cmd_screen(cfg, fd, "router_system");
+}
+
 static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
 {
 	const char *next = NULL;
@@ -191,13 +221,18 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 		return handle_nav(cfg, fd, line);
 	if (!strcmp(line, "boot"))
 		return send_boot_push(cfg, fd);
+	if (!strcmp(line, "ready"))
+		return leave_boot_screen(cfg, fd);
 	if (!strncmp(line, "screen ", 7)) {
 		strncpy(screen, line + 7, sizeof(screen) - 1);
 		screen[sizeof(screen) - 1] = '\0';
 		return send_cmd_screen(cfg, fd, screen);
 	}
-	if (!strcmp(line, "net") || !strcmp(line, "refresh"))
+	if (!strcmp(line, "net") || !strcmp(line, "refresh")) {
+		if (!strcmp(active_screen, "router_boot"))
+			return leave_boot_screen(cfg, fd);
 		return send_cmd_screen(cfg, fd, active_screen);
+	}
 	mcudd_log(LOG_DEBUG, "ignored fifo: %s", line);
 	return 0;
 }
@@ -359,11 +394,14 @@ int main(int argc, char **argv)
 		mcudd_log(LOG_INFO, "screen timeout: %us mode=%s",
 			  cfg.screen_timeout, cfg.screen_timeout_mode);
 
+	leave_boot_screen(&cfg, fd);
+
 	while (!g_stop) {
 		struct pollfd pfds[2];
 		int nfds = 1;
 		char ch;
 		int pr, rr;
+		static unsigned idle_polls;
 
 		pfds[0].fd = fd;
 		pfds[0].events = POLLIN;
@@ -380,8 +418,14 @@ int main(int argc, char **argv)
 			mcudd_log(LOG_ERR, "poll failed: %s", strerror(errno));
 			break;
 		}
-		if (pr == 0)
+		if (pr == 0) {
+			if (++idle_polls >= 4) {
+				idle_polls = 0;
+				leave_boot_screen(&cfg, fd);
+			}
 			continue;
+		}
+		idle_polls = 0;
 
 		if (fifo_fd >= 0 && (pfds[1].revents & POLLIN)) {
 			char fch;

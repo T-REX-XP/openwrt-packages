@@ -44,4 +44,18 @@ else
 	logger -t mcudd-boot "stage=$stage"
 fi
 
+# Tell mcudd to refresh boot push or leave router_boot when the host stage advances.
+mcud_notify_mcudd() {
+	[ -x /usr/lib/mcud/mcud-event.sh ] || return 0
+	case "$stage" in
+	network)
+		/usr/lib/mcud/mcud-event.sh boot
+		;;
+	ready)
+		/usr/lib/mcud/mcud-event.sh ready
+		;;
+	esac
+}
+mcud_notify_mcudd
+
 exit 0
