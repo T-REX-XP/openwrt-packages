@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "mcudd_config.h"
@@ -235,6 +236,164 @@ static void test_storage_swap_and_root(void)
 	expect(strstr(buf, "\"data_kind\":\"none\"") != NULL, "no data mount");
 }
 
+static void test_clients_dhcp_pool_and_summary(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+	time_t future = time(NULL) + 3600;
+	char lease[256];
+
+	setup_base_proc();
+	mkdir_p("/tmp");
+	write_file("/tmp/dhcp.pool_limit", "150\n");
+	snprintf(lease, sizeof(lease),
+		 "%lu aa:bb:cc:dd:ee:01 192.168.8.101 phone *\n"
+		 "%lu aa:bb:cc:dd:ee:02 192.168.8.102 laptop *\n"
+		 "%lu aa:bb:cc:dd:ee:03 192.168.8.103 * *\n"
+		 "100 aa:bb:cc:dd:ee:99 192.168.8.199 expired *\n",
+		 (unsigned long)future, (unsigned long)future,
+		 (unsigned long)future);
+	write_file("/tmp/dhcp.leases", lease);
+
+	expect(mcudd_metrics_clients(&cfg, buf, sizeof(buf)) == 0, "clients ok");
+	expect(strstr(buf, "\"dhcp_leases\":\"3\"") != NULL, "3 active leases");
+	expect(strstr(buf, "\"dhcp_pool\":150") != NULL, "pool 150");
+	expect(strstr(buf, "\"dhcp_pct\":2") != NULL, "pct 2 (3/150)");
+	expect(strstr(buf, "\"dhcp_summary\":\"phone, laptop, +1\"") != NULL,
+	       "summary names");
+	expect(strstr(buf, "\"wifi_24\":\"0\"") != NULL, "no AP under sysroot");
+	expect(strstr(buf, "\"lan_clients\":\"3\"") != NULL, "lan=leases-wifi");
+}
+
+static void write_wireless(const char *body)
+{
+	mkdir_p("/etc/config");
+	write_file("/etc/config/wireless", body);
+}
+
+static void setup_wlan0_up(void)
+{
+	mkdir_p("/sys/class/net/wlan0");
+	write_file("/sys/class/net/wlan0/flags", "0x1003\n");
+	write_file("/sys/class/net/wlan0/uevent", "INTERFACE=wlan0\n");
+}
+
+static void test_wifi_ap_psk2_up(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+
+	write_wireless(
+		"config wifi-device 'radio0'\n"
+		"\toption type 'mac80211'\n"
+		"\toption disabled '0'\n"
+		"\n"
+		"config wifi-iface 'default_radio0'\n"
+		"\toption device 'radio0'\n"
+		"\toption mode 'ap'\n"
+		"\toption ssid 'ImmortalCM5'\n"
+		"\toption encryption 'psk2'\n"
+		"\toption key 'secret'\n"
+		"\toption disabled '0'\n"
+		"\toption ifname 'wlan0'\n");
+	setup_wlan0_up();
+
+	expect(mcudd_metrics_wifi(&cfg, buf, sizeof(buf)) == 0, "wifi psk2");
+	expect(strstr(buf, "\"wifi_ssid\":\"ImmortalCM5\"") != NULL, "ssid");
+	expect(strstr(buf, "\"wifi_enc\":\"WPA2\"") != NULL, "enc WPA2");
+	expect(strstr(buf, "\"wifi_ap_state\":\"up\"") != NULL, "ap up from IFF_UP");
+	expect(strstr(buf, "\"wifi_qr\":\"WIFI:T:WPA;S:ImmortalCM5;P:secret;;\"") != NULL,
+	       "wpa qr");
+}
+
+static void test_wifi_skips_sta_and_disabled(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+
+	write_wireless(
+		"config wifi-device 'radio0'\n"
+		"\toption disabled '0'\n"
+		"\n"
+		"config wifi-iface 'wwan'\n"
+		"\toption device 'radio0'\n"
+		"\toption mode 'sta'\n"
+		"\toption ssid 'Upstream'\n"
+		"\toption encryption 'psk2'\n"
+		"\toption key 'other'\n"
+		"\n"
+		"config wifi-iface 'ap'\n"
+		"\toption device 'radio0'\n"
+		"\toption mode 'ap'\n"
+		"\toption ssid 'ImmortalCM5'\n"
+		"\toption encryption 'psk2'\n"
+		"\toption key 'secret'\n"
+		"\toption disabled '1'\n");
+	setup_wlan0_up();
+
+	expect(mcudd_metrics_wifi(&cfg, buf, sizeof(buf)) == 0, "wifi disabled");
+	expect(strstr(buf, "\"wifi_ssid\":\"ImmortalCM5\"") != NULL, "skip sta ssid");
+	expect(strstr(buf, "Upstream") == NULL, "sta ssid not used");
+	expect(strstr(buf, "\"wifi_ap_state\":\"disabled\"") != NULL, "uci disabled");
+}
+
+static void test_wifi_open_and_sae(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+
+	write_wireless(
+		"config wifi-device 'radio0'\n"
+		"\toption disabled '1'\n"
+		"\n"
+		"config wifi-iface 'ap'\n"
+		"\toption device 'radio0'\n"
+		"\toption mode 'ap'\n"
+		"\toption ssid 'Guest'\n"
+		"\toption encryption 'none'\n");
+	write_file("/sys/class/net/wlan0/flags", "0x1002\n");
+
+	expect(mcudd_metrics_wifi(&cfg, buf, sizeof(buf)) == 0, "wifi open radio off");
+	expect(strstr(buf, "\"wifi_enc\":\"open\"") != NULL, "open label");
+	expect(strstr(buf, "\"wifi_ap_state\":\"disabled\"") != NULL, "radio disabled");
+	expect(strstr(buf, "WIFI:T:nopass;S:Guest;;") != NULL, "nopass qr");
+
+	write_wireless(
+		"config wifi-device 'radio0'\n"
+		"\toption disabled '0'\n"
+		"\n"
+		"config wifi-iface 'ap'\n"
+		"\toption device 'radio0'\n"
+		"\toption mode 'ap'\n"
+		"\toption ssid 'Secure'\n"
+		"\toption encryption 'sae'\n"
+		"\toption key 'hunter2'\n");
+	setup_wlan0_up();
+	expect(mcudd_metrics_wifi(&cfg, buf, sizeof(buf)) == 0, "wifi sae");
+	expect(strstr(buf, "\"wifi_enc\":\"WPA3\"") != NULL, "sae is WPA3");
+	expect(strstr(buf, "WIFI:T:WPA;S:Secure;P:hunter2;;") != NULL,
+	       "sae still T:WPA in qr spec");
+}
+
+static void test_wifi_qr_escapes_ssid(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+
+	write_wireless(
+		"config wifi-iface 'ap'\n"
+		"\toption mode 'ap'\n"
+		"\toption ssid 'Cafe;WiFi'\n"
+		"\toption encryption 'psk2'\n"
+		"\toption key 'p:ass'\n");
+	setup_wlan0_up();
+
+	expect(mcudd_metrics_wifi(&cfg, buf, sizeof(buf)) == 0, "wifi escape");
+	/* JSON-escaped backslash + QR-escaped semicolon / colon */
+	expect(strstr(buf, "S:Cafe\\\\;WiFi") != NULL, "ssid semicolon escaped");
+	expect(strstr(buf, "P:p\\\\:ass") != NULL, "key colon escaped");
+}
+
 int main(void)
 {
 	char cmd[512];
@@ -252,6 +411,11 @@ int main(void)
 	test_temp_missing();
 	test_network_rates_ports_ping();
 	test_storage_swap_and_root();
+	test_clients_dhcp_pool_and_summary();
+	test_wifi_ap_psk2_up();
+	test_wifi_skips_sta_and_disabled();
+	test_wifi_open_and_sae();
+	test_wifi_qr_escapes_ssid();
 
 	mcudd_metrics_set_sysroot(NULL);
 	snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", g_root);

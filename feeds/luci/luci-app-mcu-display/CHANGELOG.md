@@ -1,5 +1,17 @@
 # luci-app-mcu-display CHANGELOG
 
+## 39 (2026-08-28)
+
+### Added
+
+- **Wi-Fi AP scope** — SSID + encryption from `/etc/config/wireless` (first `mode ap` iface; skips STA), AP `up` / `down` / `disabled` (UCI + `IFF_UP`, not carrier), WPA QR (`WIFI:T:WPA` / `nopass`) with JSON/QR escaping.
+
+## 38 (2026-08-28)
+
+### Added
+
+- **Storage scope** — root `statvfs`, overlay/extroot from `/proc/mounts`, swap from `/proc/meminfo`.
+
 ## 37 (2026-08-28)
 
 ### Added
