@@ -338,6 +338,8 @@ const methods = {
 		call: function(req) {
 			let config = req.args?.config ?? req?.config ?? req?.[0] ?? req;
 			let restart = req.args?.restart ?? req?.restart ?? req?.[1] ?? '0';
+			if (type(config) == 'string' && length(config))
+				config = json(config);
 			let err = validate_set(config);
 			if (err)
 				return { ok: false, error: err };
