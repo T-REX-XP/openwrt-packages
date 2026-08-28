@@ -72,25 +72,38 @@ static mcudd_scope_t scope_from_name(const char *name)
 
 static int json_find_data_uint(const char *json, const char *key, unsigned *out)
 {
-	char buf[16];
 	const char *data;
 	char pattern[64];
 	const char *p;
+	char *end = NULL;
+	unsigned long v;
 
-	if (!out)
+	if (!json || !key || !out)
 		return -1;
-	if (json_find_data_string(json, key, buf, sizeof(buf)) == 0) {
-		*out = (unsigned)strtoul(buf, NULL, 10);
-		return 0;
-	}
+
 	data = strstr(json, "\"data\"");
 	if (!data)
-		return -1;
+		data = json;
+
 	snprintf(pattern, sizeof(pattern), "\"%s\":", key);
 	p = strstr(data, pattern);
 	if (!p)
 		return -1;
-	*out = (unsigned)strtoul(p + strlen(pattern), NULL, 10);
+	p += strlen(pattern);
+	while (*p == ' ' || *p == '\t')
+		p++;
+	/* Quoted numeric string ("31") or bare number (31). */
+	if (*p == '"') {
+		p++;
+		v = strtoul(p, &end, 10);
+		if (!end || end == p || *end != '"')
+			return -1;
+	} else {
+		v = strtoul(p, &end, 10);
+		if (!end || end == p)
+			return -1;
+	}
+	*out = (unsigned)v;
 	return 0;
 }
 

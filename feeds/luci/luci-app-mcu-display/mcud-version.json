@@ -1,7 +1,7 @@
 {
 	"rdcp": 1,
 	"stack": "1.0.0",
-	"release": 32,
+	"release": 33,
 	"pages_schema": 1,
 	"components": {
 		"host": "mcudd",
