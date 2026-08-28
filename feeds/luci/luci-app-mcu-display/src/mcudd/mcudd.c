@@ -169,6 +169,8 @@ static int send_config_push(const struct mcudd_config *cfg, int fd)
 static int send_cmd_nav(const struct mcudd_config *cfg, int fd, const char *dir)
 {
 	char out[128];
+	const char *next = NULL;
+	const char *gesture_dir = "left";
 	int rc;
 
 	if (!dir || !dir[0])
@@ -180,7 +182,21 @@ static int send_cmd_nav(const struct mcudd_config *cfg, int fd, const char *dir)
 		mcudd_log(LOG_WARNING, "cmd nav %s tx failed", dir);
 		return rc;
 	}
-	mcudd_log(LOG_INFO, "cmd nav %s (host page %s)", dir, active_screen);
+	if (!strcmp(dir, "next")) {
+		next = mcudd_page_neighbor(active_screen, "left");
+		gesture_dir = "left";
+	} else if (!strcmp(dir, "prev")) {
+		next = mcudd_page_neighbor(active_screen, "right");
+		gesture_dir = "right";
+	}
+	if (next) {
+		strncpy(active_screen, next, sizeof(active_screen) - 1);
+		active_screen[sizeof(active_screen) - 1] = '\0';
+		write_active_screen(active_screen);
+	}
+	mcudd_log(LOG_INFO, "cmd nav %s -> %s (host guess)", dir,
+		  next ? next : active_screen);
+	(void)gesture_dir;
 	return 0;
 }
 
@@ -199,6 +215,9 @@ static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 		mcudd_log(LOG_WARNING, "cmd screen %s tx failed", screen_id);
 		return rc;
 	}
+	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
+	active_screen[sizeof(active_screen) - 1] = '\0';
+	write_active_screen(active_screen);
 	mcudd_log(LOG_INFO, "cmd screen %s", screen_id);
 	return 0;
 }
