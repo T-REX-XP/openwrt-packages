@@ -16,7 +16,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 
 | Layer | Packages | Feed | CM5 fit |
 |-------|----------|------|---------|
-| DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — optional (not in default CM5 image) |
+| DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — in default CM5 image |
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
 | Signature IDS | snort3, luci-app-snort3 | snort3: ImmortalWrt; LuCI: **this feed** | Good in **passive IDS**; IPS needs tuning |
@@ -26,7 +26,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 
 ## Recommended tiers
 
-**Tier 1 (default):** adblock + banip + tcpdump-mini + vnstat2 + nlbwmon; blocky optional from feed
+**Tier 1 (default):** adblock + banip + blocky + tcpdump-mini + vnstat2 + nlbwmon
 
 **Tier 2 (optional):** snort3 + luci-app-snort3 in **IDS mode** on `br-lan`, minimal rules, monitor CPU/RAM
 

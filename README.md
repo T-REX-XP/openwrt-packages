@@ -50,7 +50,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 | Layer | Packages | Feed | CM5 fit |
 |-------|----------|------|---------|
-| **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — install from feed (not in default CM5 image) |
+| **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — in default CM5 image |
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
 | **Signature IDS** | `snort3`, `luci-app-snort3` | `snort3`: ImmortalWrt `packages`; LuCI: **this feed** | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
@@ -63,7 +63,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 ### Suggested CM5 stack (tiers)
 
-**Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; optionally **`blocky`** from this feed; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
+**Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; **`blocky`** in CM5 image; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
 **Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation.
 

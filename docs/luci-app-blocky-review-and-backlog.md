@@ -9,9 +9,9 @@
 
 ## Executive summary
 
-**luci-app-blocky backlog program complete (33/34 items; F-5 deferred).** The monolithic `blocky-common.js` was split into tab modules + parse/config cores; **45 automated tests** run in CI (`test-blocky`). Blocky upstream is **0.34.x**; the LuCI app exposes validate-before-apply config, sticky status bar, Debug tab, merged Dashboard controls, query-log → DNS Query workflow, and 0.34 stats outcome breakdown.
+**luci-app-blocky backlog program complete (34/34 items).** The monolithic `blocky-common.js` was split into tab modules + parse/config cores; **45 automated tests** run in CI (`test-blocky`). Blocky upstream is **0.34.x**; the LuCI app exposes validate-before-apply config, sticky status bar, Debug tab, merged Dashboard controls, query-log → DNS Query workflow, and 0.34 stats outcome breakdown.
 
-**Remaining:** optional CM5 image inclusion (F-5) only if Blocky returns to default `DEVICE_PACKAGES`.
+**Remaining:** none — backlog complete (34/34).
 
 ---
 
@@ -306,7 +306,7 @@ After the program, a router admin should be able to **without SSH**:
 | F-2 | Fix `release.yml` hardcoded `blocky-0.32.1-r2.apk` example | done | Dynamic first `.apk` in feed tree |
 | F-3 | Update [README.md](../README.md) Blocky section + CM5 optional install | done | Links to backlog + daily-ops |
 | F-4 | Add `docs/blocky-daily-ops.md` user guide (screenshots optional) | done | First-boot, daily checks, troubleshooting |
-| F-5 | Optional: `luci-app-blocky` in `IMMORTALWRT_EXPECT_PACKAGES` when Blocky enabled on CM5 | defer | Only if Blocky returns to CM5 image |
+| F-5 | Optional: `luci-app-blocky` in `IMMORTALWRT_EXPECT_PACKAGES` when Blocky enabled on CM5 | done | `blocky` + `luci-app-blocky` in CM5 `DEVICE_PACKAGES`; build-inner manifest merge |
 
 ---
 
@@ -361,8 +361,8 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 | C Config safety | 6 | 6 | 100% |
 | D Logs workflow | 5 | 5 | 100% |
 | E UX & 0.34 | 6 | 6 | 100% |
-| F Docs & release | 4 | 4 | 100% |
-| **Total** | **34** | **33** | **97%** |
+| F Docs & release | 5 | 5 | 100% |
+| **Total** | **34** | **34** | **100%** |
 
 Update this table as backlog items move to `done`.
 
