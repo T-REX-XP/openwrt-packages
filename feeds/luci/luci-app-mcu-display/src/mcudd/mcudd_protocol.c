@@ -161,6 +161,12 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 					out->req_id = (unsigned)strtoul(p + 5, NULL, 10);
 				return 0;
 			}
+			if (json_find_string(line, "op", op, sizeof(op)) == 0 &&
+			    !strcmp(op, "poweroff")) {
+				out->type = MCUDD_MSG_RDCP_REQ_POWEROFF;
+				out->scope = MCUDD_SCOPE_NONE;
+				return 0;
+			}
 		}
 		if (!strcmp(t, "evt")) {
 			if (json_find_string(line, "op", op, sizeof(op)) != 0)

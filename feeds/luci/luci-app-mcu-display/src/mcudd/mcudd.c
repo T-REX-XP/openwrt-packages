@@ -239,6 +239,24 @@ static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *s
 	return send_cmd_screen_dir(cfg, fd, screen_id, "left");
 }
 
+static int mcudd_trigger_poweroff(void)
+{
+	pid_t pid;
+
+	mcudd_log(LOG_WARNING, "display requested system poweroff");
+	pid = fork();
+	if (pid < 0) {
+		mcudd_log(LOG_ERR, "poweroff fork failed: %s", strerror(errno));
+		return -1;
+	}
+	if (pid == 0) {
+		execl("/sbin/poweroff", "poweroff", (char *)NULL);
+		execl("/usr/sbin/poweroff", "poweroff", (char *)NULL);
+		_exit(1);
+	}
+	return 0;
+}
+
 static int boot_stage_is_ready(const char *stage)
 {
 	return stage && !strcmp(stage, "ready");
@@ -354,6 +372,11 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			  mcud_version_compatible(msg.version_stack, msg.version_release,
 						   msg.version_rdcp));
 		return 0;
+	}
+
+	if (msg.type == MCUDD_MSG_RDCP_REQ_POWEROFF) {
+		mcudd_log(LOG_WARNING, "RDCP poweroff req from display");
+		return mcudd_trigger_poweroff();
 	}
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {

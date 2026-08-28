@@ -150,6 +150,16 @@ static void test_cmd_nav_builder(void)
 	expect(mcudd_protocol_build_cmd_nav("up", out, sizeof(out)) != 0, "reject bad nav dir");
 }
 
+static void test_rdcp_poweroff_req(void)
+{
+	struct mcudd_parsed_msg msg;
+	const char *line =
+		"{\"v\":1,\"t\":\"req\",\"op\":\"poweroff\",\"data\":{\"source\":\"sw1\"}}";
+
+	expect(mcudd_protocol_parse(line, &msg) == 0, "parse poweroff req");
+	expect(msg.type == MCUDD_MSG_RDCP_REQ_POWEROFF, "poweroff type");
+}
+
 static void test_push_config_builder(void)
 {
 	struct mcudd_config cfg = test_cfg();
@@ -175,6 +185,7 @@ int main(void)
 	test_screen_evt();
 	test_cmd_screen_builder();
 	test_cmd_nav_builder();
+	test_rdcp_poweroff_req();
 	test_push_config_builder();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
