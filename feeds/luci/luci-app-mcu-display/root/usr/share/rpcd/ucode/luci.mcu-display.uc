@@ -263,9 +263,27 @@ function get_config() {
 	return cfg;
 }
 
+function normalize_config(raw) {
+	if (type(raw) == 'string' && length(raw))
+		raw = json(raw);
+	if (type(raw) != 'object')
+		return null;
+	if (raw.config && type(raw.config) == 'object')
+		raw = raw.config;
+	else if (raw.config && type(raw.config) == 'string' && length(raw.config))
+		raw = json(raw.config);
+	return raw;
+}
+
 function validate_set(config) {
+	config = normalize_config(config);
 	if (type(config) != 'object')
 		return 'invalid config';
+	let count = 0;
+	for (let k in config)
+		count++;
+	if (!count)
+		return 'empty config';
 	for (let k in config) {
 		if (index(ALL_SET_OPTS, k) < 0)
 			return `unknown option ${k}`;
@@ -336,10 +354,8 @@ const methods = {
 	setConfig: {
 		args: { config: 'config', restart: 'restart' },
 		call: function(req) {
-			let config = req.args?.config ?? req?.config ?? req?.[0] ?? req;
+			let config = normalize_config(req.args?.config ?? req?.config ?? req?.[0] ?? req);
 			let restart = req.args?.restart ?? req?.restart ?? req?.[1] ?? '0';
-			if (type(config) == 'string' && length(config))
-				config = json(config);
 			let err = validate_set(config);
 			if (err)
 				return { ok: false, error: err };
@@ -351,7 +367,7 @@ const methods = {
 			if (restart == '1')
 				run_cmd('/etc/init.d/mcudd restart');
 
-			return { ok: true };
+			return { ok: true, config: get_config() };
 		}
 	},
 

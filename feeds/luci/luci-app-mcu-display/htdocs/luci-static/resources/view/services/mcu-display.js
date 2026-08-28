@@ -193,13 +193,19 @@ function textInput(id, value, attrs) {
 	return E('input', el);
 }
 
+function configTabRoot() {
+	return document.querySelector('[data-tab="config"]') || document;
+}
+
 function val(id, fallback) {
-	var el = document.getElementById(id);
+	var root = configTabRoot();
+	var el = root.querySelector('#' + id) || document.getElementById(id);
 	return el ? String(el.value || '') : String(fallback || '');
 }
 
 function flag(id) {
-	var el = document.getElementById(id);
+	var root = configTabRoot();
+	var el = root.querySelector('#' + id) || document.getElementById(id);
 	return el && el.checked ? '1' : '0';
 }
 
@@ -228,6 +234,10 @@ function readFormConfig() {
 		menu_wps: flag('mcu-menu-wps'),
 		path_autodiscover: flag('mcu-path-autodiscover')
 	};
+}
+
+function encodeConfigPayload(cfg) {
+	return JSON.stringify(cfg || readFormConfig());
 }
 
 function pick(cfg, key) {
@@ -544,7 +554,7 @@ return view.extend({
 	handleMcuSave: function(restart) {
 		if (isReadonly)
 			return Promise.resolve();
-		return callSetConfig(readFormConfig(), restart ? '1' : '0').then(function(r) {
+		return callSetConfig(encodeConfigPayload(readFormConfig()), restart ? '1' : '0').then(function(r) {
 			r = rpcData(r, {});
 			if (r.error || r.ok === false) {
 				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Save failed.') ]), 'error');
@@ -553,8 +563,7 @@ return view.extend({
 			ui.addNotification(null, E('p', {}, [
 				restart ? _('Settings saved and mcudd restarted.') : _('Settings saved.')
 			]), 'info');
-			if (restart)
-				location.reload();
+			location.reload();
 		}).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Could not save: %s').format(e) ]), 'error');
 		});
