@@ -28,11 +28,17 @@
 #define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
 #define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
 #define MCUDD_LOCK_FILE "/var/run/mcudd.lock"
+/* Drop FIFO/gesture nav while a cmd screen is in flight or too soon after TX. */
+#define MCUDD_NAV_MIN_INTERVAL_MS 450u
+#define MCUDD_SCREEN_ACK_TIMEOUT_MS 2500u
 
 static volatile sig_atomic_t g_stop;
 static int g_lock_fd = -1;
 
 static char active_screen[48] = "router_boot";
+static char pending_screen[48];
+static int screen_cmd_pending;
+static unsigned long last_screen_tx_ms;
 static unsigned g_version_req_id;
 static unsigned g_ping_req_id;
 static char last_echo_sent[128];
@@ -44,6 +50,56 @@ static struct {
 	int echo_ok;
 	char echo_text[128];
 } link_state;
+
+static unsigned long mono_ms(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (unsigned long)ts.tv_sec * 1000UL +
+	       (unsigned long)(ts.tv_nsec / 1000000L);
+}
+
+static void screen_pending_clear(void)
+{
+	screen_cmd_pending = 0;
+	pending_screen[0] = '\0';
+}
+
+/* True while ESP32 has not acked the last screen cmd, or within TX cool-down. */
+static int screen_nav_busy(void)
+{
+	unsigned long now = mono_ms();
+
+	if (screen_cmd_pending) {
+		if (last_screen_tx_ms &&
+		    (now - last_screen_tx_ms) > MCUDD_SCREEN_ACK_TIMEOUT_MS) {
+			mcudd_log(LOG_WARNING,
+				  "screen ack timeout for %s; clearing pending",
+				  pending_screen[0] ? pending_screen : "?");
+			screen_pending_clear();
+		} else {
+			return 1;
+		}
+	}
+	if (last_screen_tx_ms &&
+	    (now - last_screen_tx_ms) < MCUDD_NAV_MIN_INTERVAL_MS)
+		return 1;
+	return 0;
+}
+
+static int screen_nav_allow(const char *reason)
+{
+	if (!screen_nav_busy())
+		return 1;
+	mcudd_log(LOG_INFO, "rate-limit %s (pending=%s age=%lums)",
+		  reason ? reason : "nav",
+		  screen_cmd_pending
+			  ? (pending_screen[0] ? pending_screen : "yes")
+			  : "interval",
+		  last_screen_tx_ms ? (mono_ms() - last_screen_tx_ms) : 0UL);
+	return 0;
+}
 
 static void write_firmware_version(const struct mcudd_parsed_msg *msg)
 {
@@ -267,6 +323,8 @@ static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 
 	if (!screen_id || !screen_id[0])
 		return -1;
+	if (!screen_nav_allow("cmd screen"))
+		return -1;
 	if (mcudd_protocol_build_cmd_screen_dir(screen_id, dir, out, sizeof(out)) != 0)
 		return -1;
 	rc = send_line(cfg, fd, out);
@@ -274,10 +332,12 @@ static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 		mcudd_log(LOG_WARNING, "cmd screen %s tx failed", screen_id);
 		return rc;
 	}
+	/* Keep /tmp/mcud_active_screen on last ack'd page until screen evt. */
 	if (mcudd_screen_id_known(screen_id)) {
-		strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
-		active_screen[sizeof(active_screen) - 1] = '\0';
-		write_active_screen(active_screen);
+		strncpy(pending_screen, screen_id, sizeof(pending_screen) - 1);
+		pending_screen[sizeof(pending_screen) - 1] = '\0';
+		screen_cmd_pending = 1;
+		last_screen_tx_ms = mono_ms();
 	}
 	mcudd_log(LOG_INFO, "cmd screen %s (await screen evt)", screen_id);
 	return 0;
@@ -334,6 +394,8 @@ static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
 
 	if (!cmd)
 		return -1;
+	if (!screen_nav_allow(cmd))
+		return 0;
 	if (!strcmp(cmd, "next"))
 		anim_dir = "left";
 	else if (!strcmp(cmd, "prev"))
@@ -366,11 +428,15 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 			mcudd_log(LOG_WARNING, "ignore fifo screen: %s", screen);
 			return -1;
 		}
+		if (!screen_nav_allow("fifo screen"))
+			return 0;
 		return send_cmd_screen(cfg, fd, screen);
 	}
 	if (!strcmp(line, "net") || !strcmp(line, "refresh")) {
 		if (!strcmp(active_screen, "router_boot"))
 			return leave_boot_screen(cfg, fd);
+		if (!screen_nav_allow("fifo refresh"))
+			return 0;
 		return send_cmd_screen(cfg, fd, active_screen);
 	}
 	if (!strcmp(line, "version"))
@@ -407,6 +473,8 @@ static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *di
 
 	if (!dir || !dir[0])
 		return -1;
+	if (!screen_nav_allow("gesture"))
+		return 0;
 	target = mcudd_page_neighbor(active_screen, dir);
 	mcudd_log(LOG_INFO, "gesture %s: %s -> %s", dir, active_screen, target);
 	return send_cmd_screen_dir(cfg, fd, target, dir);
@@ -472,10 +540,11 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			mcudd_log(LOG_WARNING, "ignore unknown screen evt: %s", msg.screen);
 			return 0;
 		}
+		screen_pending_clear();
 		strncpy(active_screen, msg.screen, sizeof(active_screen) - 1);
 		active_screen[sizeof(active_screen) - 1] = '\0';
 		write_active_screen(active_screen);
-		mcudd_log(LOG_INFO, "screen: %s", msg.screen);
+		mcudd_log(LOG_INFO, "screen evt ack: %s", msg.screen);
 		if (!strcmp(msg.screen, "router_boot"))
 			return send_boot_push(cfg, fd);
 		return 0;

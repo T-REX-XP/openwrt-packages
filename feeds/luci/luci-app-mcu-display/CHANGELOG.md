@@ -1,5 +1,12 @@
 # luci-app-mcu-display CHANGELOG
 
+## 41 (2026-08-28)
+
+### Fixed
+
+- **Active screen file** — `/tmp/mcud_active_screen` updates only on ESP32 `screen` evt ack (no optimistic write on TX).
+- **Nav rate-limit** — drop FIFO `next`/`prev`/`screen`/`refresh` and host gesture echoes while a screen cmd is pending or within 450 ms of last TX (2.5 s ack timeout clears a stuck pending).
+
 ## 39 (2026-08-28)
 
 ### Added
