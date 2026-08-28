@@ -100,6 +100,15 @@
 
 .luci-app-mcu-display .mcu-log-toolbar {
 	margin: 0.35em 0 0.5em;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35em;
+}
+
+.luci-app-mcu-display .mcu-log-status {
+	font-size: 0.9em;
+	color: var(--text-color-medium, #666);
 }
 
 .luci-app-mcu-display .mcu-page-controls {

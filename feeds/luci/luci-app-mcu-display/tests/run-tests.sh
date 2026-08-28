@@ -53,6 +53,7 @@ if command -v node >/dev/null 2>&1; then
 	node --check ../htdocs/luci-static/resources/view/services/mcu-display.js || FAIL=1
 	node --check ../htdocs/luci-static/resources/mcu-display-core.js || FAIL=1
 	node test-poll-handlers.mjs || FAIL=1
+	node mcu-display-core.test.mjs || FAIL=1
 else
 	echo "SKIP: node not found"
 	FAIL=1

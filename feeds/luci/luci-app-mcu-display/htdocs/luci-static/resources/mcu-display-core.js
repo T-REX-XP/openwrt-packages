@@ -335,5 +335,22 @@ return baseclass.extend({
 		if (screenId === 'router_boot')
 			return true;
 		return pageIds.indexOf(screenId) >= 0;
+	},
+
+	parseLogLimit: function(raw, fallback) {
+		var n = parseInt(raw, 10);
+		if (!n || n < 1)
+			n = fallback || 200;
+		if (n > 2000)
+			n = 2000;
+		return n;
+	},
+
+	countLogLines: function(text) {
+		if (!text)
+			return 0;
+		return String(text).split('\n').filter(function(line) {
+			return line.length > 0;
+		}).length;
 	}
 });

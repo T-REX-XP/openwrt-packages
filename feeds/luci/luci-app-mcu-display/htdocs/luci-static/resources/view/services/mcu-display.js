@@ -3,6 +3,7 @@
 'require rpc';
 'require ui';
 'require poll';
+'require mcu-display-core as mcu';
 
 var callGetConfig = rpc.declare({
 	object: 'luci.mcu-display',
@@ -81,16 +82,7 @@ var FORM_DEFAULTS = {
 };
 
 function rpcData(data, fallback) {
-	if (Array.isArray(data)) {
-		if (data.length > 1 && data[0] === 0 && data[1] != null)
-			return data[1];
-		if (data.length && data[0] != null && typeof data[0] === 'object')
-			return data[0];
-		return fallback || {};
-	}
-	if (data && data.result != null)
-		return rpcData(data.result, fallback);
-	return data || fallback || {};
+	return mcu.rpcData(data, fallback);
 }
 
 function cbiSection(title, descrNodes, bodyNodes) {
@@ -708,7 +700,7 @@ return view.extend({
 		var self = this;
 		return E('div', { 'data-tab': 'debug', 'data-tab-title': _('Debug') }, [
 			cbiSection(_('Debug logs'), [
-				_('Syslog from mcudd and mcud helpers (navigation, boot, UART). Page navigation lines appear after each prev/next/jump. For RDCP frame or raw UART traces, set Log level to Debug and enable the flags under Configuration → Debug & logging, then Save & Apply.')
+				_('Syslog from mcudd, mcud-event, and mcudd-boot (navigation, LuCI actions, boot, UART). Refreshes every %d s while this tab is open. Enable Configuration → Debug & logging for RDCP frame and raw UART line traces.').format(LOG_POLL_SEC)
 			], [
 				fieldRow(_('Line limit'), E('select', { 'id': 'mcu-log-limit' }, [
 					E('option', { 'value': '50' }, '50'),
@@ -719,25 +711,23 @@ return view.extend({
 				E('div', { 'class': 'mcu-log-toolbar' }, [
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, function() {
-							return self.refreshLogs();
-						})
+						click: ui.createHandlerFn(self, 'refreshLogs')
 					}, _('Refresh')),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-neutral',
-						click: ui.createHandlerFn(self, function() {
-							return self.copyLogs();
-						})
-					}, _('Copy to clipboard'))
+						click: ui.createHandlerFn(self, 'copyLogs')
+					}, _('Copy to clipboard')),
+					' ',
+					E('span', {
+						'class': 'mcu-log-status',
+						'id': 'mcu-log-status'
+					}, _('Open this tab or click Refresh to load logs.'))
 				]),
-				E('textarea', {
+				E('pre', {
 					'id': 'mcu-debug-log',
-					'class': 'mcu-log-pre',
-					readonly: 'readonly',
-					rows: 16,
-					placeholder: _('Click Refresh to load log lines.')
-				}, [])
+					'class': 'mcu-log-pre'
+				}, '')
 			])
 		]);
 	},
@@ -822,45 +812,64 @@ return view.extend({
 
 	logLimit: function() {
 		var el = document.getElementById('mcu-log-limit');
-		var n = el ? parseInt(el.value, 10) : 200;
-		return (n > 0 && n <= 2000) ? n : 200;
+		return mcu.parseLogLimit(el ? el.value : '', 200);
+	},
+
+	setLogView: function(text, lineCount) {
+		var pre = document.getElementById('mcu-debug-log');
+		var status = document.getElementById('mcu-log-status');
+		var stick = false;
+
+		if (pre) {
+			stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8;
+			pre.textContent = text || '';
+			if (stick)
+				pre.scrollTop = pre.scrollHeight;
+		}
+		if (status) {
+			if (lineCount > 0)
+				status.textContent = _('Showing %d log lines.').format(lineCount);
+			else if (text && text.indexOf('\n') < 0)
+				status.textContent = text;
+			else
+				status.textContent = _('No matching log entries.');
+		}
 	},
 
 	refreshLogs: function(silent) {
-		var ta = document.getElementById('mcu-debug-log');
-		if (ta && !silent)
-			ta.value = _('Loading logs…');
-		return callGetLogs(this.logLimit()).then(L.bind(function(r) {
+		var self = this;
+
+		if (!silent)
+			this.setLogView(_('Loading logs…'), 0);
+
+		return callGetLogs(String(this.logLimit())).then(L.bind(function(r) {
 			r = rpcData(r, {});
-			if (!ta)
-				return;
 			if (r.error) {
-				if (!silent) {
-					ta.value = r.message || r.error;
+				if (!silent)
+					this.setLogView(r.message || r.error, 0);
+				else
 					ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
-				}
 				return;
 			}
-			var next = r.output && r.output.length ? r.output : _('No matching log entries.');
-			if (ta.value !== next) {
-				var stick = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 8;
-				ta.value = next;
-				if (stick)
-					ta.scrollTop = ta.scrollHeight;
-			}
+			var output = r.output || '';
+			var count = r.line_count != null ? r.line_count : mcu.countLogLines(output);
+			if (!output.length)
+				this.setLogView(_('No matching log entries. Try Refresh after navigating a page or pressing a CM5 button.'), 0);
+			else
+				this.setLogView(output, count);
 		}, this)).catch(function(e) {
-			if (ta && !silent) {
-				ta.value = _('Could not load logs: %s').format(e);
-				ui.addNotification(null, E('p', {}, [ _('Could not load logs: %s').format(e) ]), 'error');
-			}
+			var msg = _('Could not load logs: %s').format(e);
+			if (!silent)
+				self.setLogView(msg, 0);
+			ui.addNotification(null, E('p', {}, [ msg ]), 'error');
 		});
 	},
 
 	copyLogs: function() {
-		var ta = document.getElementById('mcu-debug-log');
-		if (!ta || !ta.value)
+		var pre = document.getElementById('mcu-debug-log');
+		if (!pre || !pre.textContent)
 			return Promise.resolve();
-		var text = ta.value;
+		var text = pre.textContent;
 		var notify = function(ok) {
 			ui.addNotification(null, E('p', {}, [
 				ok ? _('Log copied to clipboard.') : _('Copy failed — select the text area and copy manually.')

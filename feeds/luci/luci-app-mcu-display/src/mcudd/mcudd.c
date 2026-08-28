@@ -198,6 +198,7 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 
 	if (!line || !line[0])
 		return 0;
+	mcudd_log(LOG_INFO, "fifo: %s", line);
 	if (!strcmp(line, "prev") || !strcmp(line, "next"))
 		return handle_nav(cfg, fd, line);
 	if (!strcmp(line, "boot"))
@@ -443,11 +444,6 @@ int main(int argc, char **argv)
 		}
 		if (rr == 0)
 			continue;
-
-		if (cfg.debug_serial && ch != '\n' && ch != '\r') {
-			char one[2] = { ch, '\0' };
-			mcudd_log_serial(&cfg, "rx-char", one);
-		}
 
 		if (ch == '\n' || ch == '\r') {
 			if (line_len > 0) {

@@ -9,10 +9,16 @@ sel=$(uci -q get mcud.@mcud[0].menu_select_button); [ -z "$sel" ] && sel=wps
 
 case "$BUTTON" in
 "$sel")
-	[ "$sel" != "none" ] && /usr/lib/mcud/mcud-event.sh next
+	[ "$sel" != "none" ] && {
+		logger -t mcud-event "button $BUTTON select -> next"
+		/usr/lib/mcud/mcud-event.sh next
+	}
 	;;
 "$nav")
-	[ "$nav" != "none" ] && /usr/lib/mcud/mcud-event.sh prev
+	[ "$nav" != "none" ] && {
+		logger -t mcud-event "button $BUTTON nav -> prev"
+		/usr/lib/mcud/mcud-event.sh prev
+	}
 	;;
 esac
 

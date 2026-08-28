@@ -69,7 +69,31 @@ function find_logread() {
 	return '';
 }
 
-const MCUDD_LOG_PATTERN = 'mcud';
+const MCUDD_LOG_TAGS = [ 'mcudd', 'mcud-event', 'mcudd-boot' ];
+
+function parse_log_limit(req, fallback) {
+	let raw = req?.args?.limit ?? req?.limit ?? req?.[0] ?? fallback ?? 200;
+	let limit = int(`${raw}`);
+	if (!limit || limit < 1)
+		limit = fallback ?? 200;
+	if (limit > 2000)
+		limit = 2000;
+	return limit;
+}
+
+function build_logread_cmd(logread, limit) {
+	let cmd = logread;
+	let i;
+
+	for (i = 0; i < length(MCUDD_LOG_TAGS); i++)
+		cmd += ` -e ${shell_quote(MCUDD_LOG_TAGS[i])}`;
+	cmd += ` | tail -n ${limit}`;
+	return cmd;
+}
+
+function log_mcud_event(msg) {
+	run_cmd(`logger -t mcud-event ${shell_quote(msg)}`);
+}
 
 function uci_get(option) {
 	let p = popen(`uci -q get ${MCUD_UCI}.${option} 2>/dev/null`, 'r');
@@ -409,6 +433,7 @@ const methods = {
 				return { error: 'event_script_missing', message: 'mcud-event.sh not installed' };
 
 			if (action == 'prev' || action == 'next') {
+				log_mcud_event(`luci pageControl ${action}`);
 				run_cmd(`${MCUD_EVENT_SH} ${shell_quote(action)}`);
 				return { ok: true, action, via: 'fifo' };
 			}
@@ -417,11 +442,13 @@ const methods = {
 				let page_id = trim(`${req.args?.page_id ?? req?.page_id ?? req?.[1] ?? ''}`);
 				if (!length(page_id))
 					return { error: 'missing_page_id' };
+				log_mcud_event(`luci pageControl goto ${page_id}`);
 				run_cmd(`${MCUD_EVENT_SH} screen ${shell_quote(page_id)}`);
 				return { ok: true, action, page_id, via: 'fifo' };
 			}
 
 			if (action == 'boot') {
+				log_mcud_event('luci pageControl boot');
 				run_cmd(`${MCUD_EVENT_SH} boot`);
 				return { ok: true, action, via: 'fifo' };
 			}
@@ -460,6 +487,7 @@ const methods = {
 			let action = req.args?.action ?? req?.action ?? req?.[0] ?? '';
 			if (!match(action, /^(start|stop|restart|enable|disable)$/))
 				return { ok: false, error: 'invalid action' };
+			log_mcud_event(`luci serviceControl ${action}`);
 			let r = run_cmd(`/etc/init.d/mcudd ${action}`);
 			return { ok: r.code == 0, output: r.output };
 		}
@@ -471,18 +499,15 @@ const methods = {
 			let logread = find_logread();
 			if (!length(logread))
 				return { error: 'missing_logread', message: 'logread not found' };
-			let limit = int(req.args?.limit);
-			if (!limit || limit < 1)
-				limit = 200;
-			if (limit > 2000)
-				limit = 2000;
-			/* Filter first, then tail: logread -l applies to the whole ring buffer,
-			 * so -l N -e pattern often returns nothing when mcudd is quiet. */
-			let res = run_cmd(`${logread} -e ${shell_quote(MCUDD_LOG_PATTERN)} | tail -n ${limit}`);
+			let limit = parse_log_limit(req, 200);
+			let res = run_cmd(build_logread_cmd(logread, limit));
+			let output = res.output || '';
+			let lines = length(output) ? split(output, '\n') : [];
 			return {
 				ok: true,
 				limit,
-				output: res.output || ''
+				line_count: length(lines),
+				output
 			};
 		}
 	}
