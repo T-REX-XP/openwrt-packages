@@ -53,7 +53,7 @@ Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes 
 | P2-3 | Sidecar files: active_screen, fw version, link_test | [ ] |
 | P2-4 | Boot state reader + `leave_boot` idle poll | [ ] |
 | P2-5 | Poweroff on RDCP req | [ ] |
-| P2-6 | LuCI package depends on Go `mcudd`; drop C `mcudd-bin` | [ ] |
+| P2-6 | LuCI package depends on Go `mcudd`; C sources in `mcudd-old` | [x] |
 | P2-7 | CI: cross-compile `aarch64` + run unit tests | [ ] |
 | P2-8 | Deploy CM5 soak 24 h; link-test in post-flash checklist | [ ] |
 

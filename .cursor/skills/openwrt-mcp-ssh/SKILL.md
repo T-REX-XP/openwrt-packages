@@ -119,7 +119,7 @@ Use host **`ssh root@192.168.8.1 '…'`** (with key) when MCP has no tool or out
 **Deploy rebuilt binary** (after `make package/luci-app-mcu-display/compile` in Docker):
 
 ```sh
-MCUDD=/path/to/feeds/luci/luci-app-mcu-display/src/mcudd-bin
+MCUDD=/path/to/feeds/packages/mcudd-old/src/mcudd-bin
 ssh root@192.168.8.1 "cat > /usr/sbin/mcudd" < "$MCUDD"
 ssh root@192.168.8.1 "chmod 755 /usr/sbin/mcudd && /etc/init.d/mcudd restart"
 ```

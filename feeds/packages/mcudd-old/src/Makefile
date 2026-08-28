@@ -9,7 +9,7 @@ endif
 LDFLAGS ?= -lpthread
 LDFLAGS_STATIC ?= -static
 
-VERSION_JSON := ../mcud-version.json
+VERSION_JSON := ../../luci/luci-app-mcu-display/mcud-version.json
 GEN_SCRIPT := ../scripts/gen-mcud-version.sh
 VERSION_HDR := mcudd/mcud_version.h
 

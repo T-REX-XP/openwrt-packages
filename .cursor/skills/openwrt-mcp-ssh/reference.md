@@ -72,7 +72,7 @@ Uses firewall4 / nftables on ImmortalWrt 25.x.
 
 | Task | SSH command |
 |------|-------------|
-| mcudd binary deploy | `cat mcudd-bin \| ssh root@HOST 'cat > /usr/sbin/mcudd && chmod 755 …'` |
+| mcudd binary deploy | `cat mcudd-bin \| ssh root@HOST 'cat > /usr/sbin/mcudd && chmod 755 …'` (build from `feeds/packages/mcudd` or legacy `mcudd-old/src`) |
 | RDCP link test | `ssh root@HOST /usr/lib/mcud/mcud-link-test.sh` |
 | Read link JSON | `ssh root@HOST cat /tmp/mcud_link_test.json` |
 | Blocky HTTP body | `ssh root@HOST wget -qO- http://127.0.0.1:4000/api/…` |

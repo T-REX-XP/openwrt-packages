@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mcudd
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -21,7 +21,7 @@ GO_PKG:=github.com/t-rex-xp/openwrt-packages/mcudd
 GO_PKG_BUILD_PKG:=./cmd/mcudd
 GO_PKG_LDFLAGS_X:= \
 	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Stack=1.0.0 \
-	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Release=44
+	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Release=45
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk

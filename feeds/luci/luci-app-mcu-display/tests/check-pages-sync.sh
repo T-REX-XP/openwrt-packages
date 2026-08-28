@@ -5,7 +5,7 @@ set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
 JSON="$PKG/root/etc/mcud/pages.json"
-MCUDD="$PKG/src/mcudd/mcudd_pages.c"
+MCUDD="$PKG/../../packages/mcudd-old/src/mcudd/mcudd_pages.c"
 ESP32="${ESP32_ROOT:-$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)}"
 FW="$ESP32/src/router/router_pages.c"
 FAIL=0

@@ -9,6 +9,7 @@ import (
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/config"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/daemon"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/version"
 )
@@ -25,43 +26,58 @@ func main() {
 		return
 	}
 
+	if err := runDaemon(); err != nil {
+		fmt.Fprintf(os.Stderr, "mcudd: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runDaemon() error {
+	release, err := acquireLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	cfg := config.Default()
 	if !cfg.Enable {
-		return
+		return nil
 	}
 
 	tp, err := openTransport(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "transport: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	defer tp.Close()
 
 	engine := daemon.New(cfg, tp)
 	engine.Log = stdLogger{}
+	_ = engine.State.WriteActiveScreen(pages.BootScreen)
+
 	if err := engine.Startup(); err != nil {
-		fmt.Fprintf(os.Stderr, "startup: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("startup: %w", err)
 	}
 
+	fifo, fifoPath, err := openFIFO()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: fifo unavailable: %v\n", err)
+	} else {
+		defer fifo.Close()
+		fmt.Printf("info: command FIFO %s\n", fifoPath)
+	}
+
+	stop := make(chan struct{})
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		close(stop)
+	}()
 
-	for {
-		select {
-		case <-sig:
-			return
-		default:
-			if buf, ok := tp.(*transport.Buffer); ok {
-				if !buf.HasRX() {
-					continue
-				}
-			}
-			if err := engine.PollOnce(); err != nil {
-				continue
-			}
-		}
+	if buf, ok := tp.(*transport.Buffer); ok {
+		return runMockLoop(engine, buf, fifo, stop)
 	}
+	return runPollLoop(engine, tp, fifo, stop)
 }
 
 type stdLogger struct{}

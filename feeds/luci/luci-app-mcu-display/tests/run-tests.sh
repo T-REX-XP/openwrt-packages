@@ -1,13 +1,12 @@
 #!/bin/sh
-# Host-side unit tests for luci-app-mcu-display (no OpenWrt SDK).
+# Host-side tests for luci-app-mcu-display (LuCI + integration checks).
 set -eu
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-SRC="$DIR/../src"
+PKG="$DIR/.."
+MCUDD_OLD="$PKG/../../packages/mcudd-old"
 cd "$DIR"
 FAIL=0
-
-sh "$DIR/../scripts/gen-mcud-version.sh" "$DIR/../mcud-version.json" "$SRC/mcudd/mcud_version.h"
 
 echo ">> shell: pages manifest sync"
 sh check-pages-sync.sh || FAIL=1
@@ -17,54 +16,12 @@ echo ">> shell: mcud-version sync"
 sh check-version-sync.sh || FAIL=1
 
 echo ""
-echo ">> C: test_mcudd_version.c"
-cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_version \
-	"$SRC/mcudd/mcud_version.c" \
-	test_mcudd_version.c || FAIL=1
-if [ "$FAIL" -eq 0 ]; then
-	./test_mcudd_version || FAIL=1
-	rm -f test_mcudd_version
-fi
-
-echo ""
-echo ">> C: test_mcudd_metrics.c"
-cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_metrics \
-	"$SRC/mcudd/mcudd_metrics.c" \
-	test_mcudd_metrics.c || FAIL=1
-if [ "$FAIL" -eq 0 ]; then
-	./test_mcudd_metrics || FAIL=1
-	rm -f test_mcudd_metrics
-fi
-
-echo ""
-echo ">> C: test_mcudd_protocol.c"
-cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_protocol \
-	"$SRC/mcudd/mcudd_protocol.c" \
-	"$SRC/mcudd/mcudd_metrics.c" \
-	test_mcudd_protocol.c || FAIL=1
-if [ "$FAIL" -eq 0 ]; then
-	./test_mcudd_protocol || FAIL=1
-	rm -f test_mcudd_protocol
-fi
-
-echo ""
-echo ">> C: test_mcudd_config.c"
-cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_config \
-	"$SRC/mcudd/mcudd_config.c" \
-	test_mcudd_config.c || FAIL=1
-if [ "$FAIL" -eq 0 ]; then
-	./test_mcudd_config || FAIL=1
-	rm -f test_mcudd_config
-fi
-
-echo ""
-echo ">> C: test_mcudd_pages.c"
-cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_pages \
-	"$SRC/mcudd/mcudd_pages.c" \
-	test_mcudd_pages.c || FAIL=1
-if [ "$FAIL" -eq 0 ]; then
-	./test_mcudd_pages || FAIL=1
-	rm -f test_mcudd_pages
+echo ">> mcudd-old C unit tests"
+if [ -x "$MCUDD_OLD/tests/run-tests.sh" ]; then
+	sh "$MCUDD_OLD/tests/run-tests.sh" || FAIL=1
+else
+	echo "SKIP: $MCUDD_OLD/tests/run-tests.sh not found" >&2
+	FAIL=1
 fi
 
 echo ""
