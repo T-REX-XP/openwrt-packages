@@ -44,7 +44,17 @@ Upstream **speedtest-go** stays on the standard packages feed; this feed only sh
 
 ## Host MCP (not in feed index)
 
-**[openwrt-mcp-server](https://github.com/T-REX-XP/openwrt-mcp-server)** — SSH MCP for ImmortalWrt 25.x (UCI, APK, firewall4). Runs on the **developer machine**, not on-router. Setup: `./scripts/setup-openwrt-mcp.sh` → see `docs/openwrt-mcp-server.md`. Default CM5 host: `192.168.8.1`.
+**[openwrt-mcp-server](https://github.com/T-REX-XP/openwrt-mcp-server)** — SSH MCP for ImmortalWrt 25.x (UCI, APK, firewall4). Runs on the **developer machine**, not on-router.
+
+| Item | Location |
+|------|----------|
+| Setup script | `./scripts/setup-openwrt-mcp.sh` → writes `.cursor/mcp.json` |
+| Docs | [docs/openwrt-mcp-server.md](docs/openwrt-mcp-server.md) |
+| Cursor skill | **`openwrt-mcp-ssh`** (`.cursor/skills/openwrt-mcp-ssh/`) |
+| Cursor rule | `.cursor/rules/openwrt-mcp-ssh.mdc` (live router / MCP context) |
+| MCP namespace | `user-openwrt` (24 tools: UCI safety commit, apk, ping, logs, …) |
+
+Default CM5 host: `192.168.8.1`. Use MCP for UCI/apk/network; SSH fallbacks for `mcudd` deploy, `/usr/lib/mcud/mcud-link-test.sh`, Blocky raw API, I2C — see skill **`openwrt-mcp-ssh`**.
 
 ## Development rules
 
@@ -110,6 +120,7 @@ Use these Cursor skills when working in this repo:
 | `oled-peripherals-cm5` | luci-app-mcu-display, luci-app-peripherals, mcudd, CM5 UART/menu defaults, display debug |
 | `openwrt-feed-ci-release` | GitHub Actions, release tags, Pages feed, apk signing |
 | `cm5-security-stack` | IDS/IPS, banIP, blocky, Snort3 mode and CM5 recommendations |
+| `openwrt-mcp-ssh` | Live router via MCP (`user-openwrt`) or SSH — UCI, apk, mcudd link test, post-flash validation |
 
 ## Key references
 

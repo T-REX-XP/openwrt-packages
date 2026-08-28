@@ -40,6 +40,8 @@ SSH-backed MCP tools for ImmortalWrt **25.x** / **APK**:
 
 See upstream [README](https://github.com/T-REX-XP/openwrt-mcp-server/blob/main/packages/openwrt-mcp-server/README.md) for full tool list and safety (UCI validation + rollback timer).
 
+**Cursor agents:** skill **`openwrt-mcp-ssh`** (`.cursor/skills/openwrt-mcp-ssh/`) and rule `.cursor/rules/openwrt-mcp-ssh.mdc` document MCP invocation (`user-openwrt`), UCI safety workflow, and SSH fallbacks (mcudd, link test, Blocky API).
+
 ## Manual install (without script)
 
 ```sh

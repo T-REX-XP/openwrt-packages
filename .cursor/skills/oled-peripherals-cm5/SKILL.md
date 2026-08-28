@@ -9,6 +9,8 @@ description: >-
 
 # OLED & peripherals on CM5 (openwrt-packages)
 
+**Live router debug:** use skill **`openwrt-mcp-ssh`** for MCP (`user-openwrt`) + SSH (`mcud-link-test.sh`, `logread -e mcudd`, mcudd deploy).
+
 ## Package ownership (do not overlap)
 
 | Concern | Package | LuCI path |
