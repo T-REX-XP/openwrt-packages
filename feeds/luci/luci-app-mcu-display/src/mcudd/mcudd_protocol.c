@@ -4,6 +4,7 @@
 
 #include "mcudd_protocol.h"
 
+#include "mcud_version.h"
 #include "mcudd_metrics.h"
 
 #include <stdio.h>
@@ -69,6 +70,33 @@ static mcudd_scope_t scope_from_name(const char *name)
 	return MCUDD_SCOPE_NONE;
 }
 
+static int json_find_data_uint(const char *json, const char *key, unsigned *out)
+{
+	char buf[16];
+
+	if (!out || json_find_data_string(json, key, buf, sizeof(buf)) != 0)
+		return -1;
+	*out = (unsigned)strtoul(buf, NULL, 10);
+	return 0;
+}
+
+static int parse_version_payload(const char *line, struct mcudd_parsed_msg *out)
+{
+	if (json_find_data_string(line, "stack", out->version_stack,
+				  sizeof(out->version_stack)) != 0)
+		return -1;
+	if (json_find_data_string(line, "component", out->version_component,
+				  sizeof(out->version_component)) != 0)
+		strncpy(out->version_component, MCUD_COMPONENT_FIRMWARE,
+			sizeof(out->version_component) - 1);
+	if (json_find_data_uint(line, "release", &out->version_release) != 0)
+		return -1;
+	if (json_find_data_uint(line, "rdcp", &out->version_rdcp) != 0)
+		out->version_rdcp = 1;
+	out->type = MCUDD_MSG_RDCP_EVT_VERSION;
+	return 0;
+}
+
 const char *mcudd_scope_name(mcudd_scope_t scope)
 {
 	switch (scope) {
@@ -124,6 +152,15 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 					out->req_id = (unsigned)strtoul(p + 5, NULL, 10);
 				return out->scope != MCUDD_SCOPE_NONE ? 0 : -1;
 			}
+			if (json_find_string(line, "op", op, sizeof(op)) == 0 &&
+			    !strcmp(op, "version")) {
+				out->type = MCUDD_MSG_RDCP_REQ;
+				out->scope = MCUDD_SCOPE_NONE;
+				p = strstr(line, "\"id\":");
+				if (p)
+					out->req_id = (unsigned)strtoul(p + 5, NULL, 10);
+				return 0;
+			}
 		}
 		if (!strcmp(t, "evt")) {
 			if (json_find_string(line, "op", op, sizeof(op)) != 0)
@@ -134,6 +171,8 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 				strncpy(out->screen, screen, sizeof(out->screen) - 1);
 				return 0;
 			}
+			if (!strcmp(op, "version"))
+				return parse_version_payload(line, out);
 			if (!strcmp(op, "input") && strstr(line, "\"gesture\"")) {
 				out->type = MCUDD_MSG_RDCP_EVT_INPUT;
 				if (json_find_data_string(line, "dir", out->gesture_dir,
@@ -281,5 +320,30 @@ int mcudd_protocol_build_push_config(const struct mcudd_config *cfg,
 	n = snprintf(out, out_len,
 		     "{\"v\":1,\"t\":\"push\",\"op\":\"config\",\"data\":{\"screen_timeout\":%u,\"screen_timeout_mode\":\"%s\"}}",
 		     cfg->screen_timeout, mode);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+int mcudd_protocol_build_push_hello(char *out, size_t out_len)
+{
+	int n;
+
+	if (!out || !out_len)
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"push\",\"op\":\"hello\",\"data\":{\"stack\":\"%s\",\"release\":%u,\"component\":\"%s\",\"rdcp\":%u}}",
+		     MCUD_STACK_VERSION, MCUD_STACK_RELEASE, MCUD_COMPONENT_HOST,
+		     MCUD_RDCP_VERSION);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+int mcudd_protocol_build_req_version(unsigned req_id, char *out, size_t out_len)
+{
+	int n;
+
+	if (!out || !out_len || !req_id)
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"req\",\"id\":%u,\"op\":\"version\"}",
+		     req_id);
 	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
 }

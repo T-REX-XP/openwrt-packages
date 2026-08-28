@@ -25,6 +25,13 @@ prev|next|net|refresh|boot|ready)
 		log_event "fifo write failed event=$event fifo=$fifo"
 	fi
 	;;
+version)
+	if printf 'version\n' >"$fifo" 2>/dev/null; then
+		log_event "fifo write ok event=version fifo=$fifo"
+	else
+		log_event "fifo write failed event=version fifo=$fifo"
+	fi
+	;;
 screen)
 	if [ -n "$screen_id" ]; then
 		if printf 'screen %s\n' "$screen_id" >"$fifo" 2>/dev/null; then

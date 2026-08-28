@@ -17,15 +17,36 @@
 #include "mcudd_pages.h"
 #include "mcudd_protocol.h"
 #include "mcudd_serial.h"
+#include "mcud_version.h"
 
 #define MCUDD_STATE_FILE "/tmp/mcud_state"
 #define MCUDD_ACTIVE_FILE "/tmp/mcud_active_screen"
+#define MCUDD_FW_VERSION_FILE "/tmp/mcud_firmware_version.json"
 #define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
 #define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
 
 static volatile sig_atomic_t g_stop;
 
 static char active_screen[48] = "router_boot";
+static unsigned g_version_req_id;
+
+static void write_firmware_version(const struct mcudd_parsed_msg *msg)
+{
+	FILE *f;
+
+	if (!msg)
+		return;
+	f = fopen(MCUDD_FW_VERSION_FILE, "w");
+	if (!f)
+		return;
+	fprintf(f,
+		"{\"stack\":\"%s\",\"release\":%u,\"component\":\"%s\",\"rdcp\":%u,\"synced\":%s}\n",
+		msg->version_stack, msg->version_release, msg->version_component,
+		msg->version_rdcp,
+		mcudd_version_compatible(msg->version_stack, msg->version_release,
+					 msg->version_rdcp) ? "true" : "false");
+	fclose(f);
+}
 
 static void write_active_screen(const char *screen_id)
 {
@@ -110,6 +131,27 @@ static int send_boot_push(const struct mcudd_config *cfg, int fd)
 	if (mcudd_protocol_build_push_boot(stage, message, (unsigned)pct, out, sizeof(out)) != 0)
 		return -1;
 	mcudd_log_proto(cfg, "push boot stage=%s pct=%d", stage, pct);
+	return send_line(cfg, fd, out);
+}
+
+static int send_hello_push(const struct mcudd_config *cfg, int fd)
+{
+	char out[256];
+
+	if (mcudd_protocol_build_push_hello(out, sizeof(out)) != 0)
+		return -1;
+	mcudd_log(LOG_INFO, "push hello %s", mcud_version_string());
+	return send_line(cfg, fd, out);
+}
+
+static int send_version_query(const struct mcudd_config *cfg, int fd)
+{
+	char out[128];
+
+	g_version_req_id++;
+	if (mcudd_protocol_build_req_version(g_version_req_id, out, sizeof(out)) != 0)
+		return -1;
+	mcudd_log(LOG_INFO, "req version id=%u", g_version_req_id);
 	return send_line(cfg, fd, out);
 }
 
@@ -219,6 +261,8 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 			return leave_boot_screen(cfg, fd);
 		return send_cmd_screen(cfg, fd, active_screen);
 	}
+	if (!strcmp(line, "version"))
+		return send_version_query(cfg, fd);
 	mcudd_log(LOG_DEBUG, "ignored fifo: %s", line);
 	return 0;
 }
@@ -264,6 +308,15 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 
 	mcudd_log_proto(cfg, "frame type=%d scope=%d screen=%s",
 			(int)msg.type, (int)msg.scope, msg.screen);
+
+	if (msg.type == MCUDD_MSG_RDCP_EVT_VERSION) {
+		write_firmware_version(&msg);
+		mcudd_log(LOG_INFO, "firmware version %s+%u rdcp=%u synced=%d",
+			  msg.version_stack, msg.version_release, msg.version_rdcp,
+			  mcudd_version_compatible(msg.version_stack, msg.version_release,
+						   msg.version_rdcp));
+		return 0;
+	}
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
 		if (!mcudd_screen_id_known(msg.screen)) {
@@ -313,6 +366,9 @@ static void log_startup_config(const struct mcudd_config *cfg)
 		level = level_names[cfg->log_level];
 
 	mcudd_log(LOG_INFO,
+		  "mcud stack %s rdcp=%u pages_schema=%u",
+		  mcud_version_string(), MCUD_RDCP_VERSION, MCUD_PAGES_SCHEMA);
+	mcudd_log(LOG_INFO,
 		  "config: path=%s baud=%d wire=%s pages=%s wan=%s lan=%s wifi=%s",
 		  cfg->path, cfg->baud, cfg->wire_format, cfg->pages, cfg->wan_if,
 		  cfg->lan_if, cfg->wifi_if);
@@ -336,8 +392,12 @@ int main(int argc, char **argv)
 	size_t fifo_len = 0;
 	int ret = 1;
 
-	(void)argc;
-	(void)argv;
+	if (argc >= 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "--version"))) {
+		printf("%s rdcp=%u pages_schema=%u component=%s\n",
+		       mcud_version_string(), MCUD_RDCP_VERSION, MCUD_PAGES_SCHEMA,
+		       MCUD_COMPONENT_HOST);
+		return 0;
+	}
 
 	signal(SIGTERM, on_signal);
 	signal(SIGINT, on_signal);
@@ -383,6 +443,11 @@ int main(int argc, char **argv)
 	else
 		mcudd_log(LOG_INFO, "screen timeout: %us mode=%s",
 			  cfg.screen_timeout, cfg.screen_timeout_mode);
+
+	if (send_hello_push(&cfg, fd) != 0)
+		mcudd_log(LOG_WARNING, "initial hello push failed");
+
+	send_version_query(&cfg, fd);
 
 	leave_boot_screen(&cfg, fd);
 

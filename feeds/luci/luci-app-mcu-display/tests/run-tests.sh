@@ -7,6 +7,22 @@ SRC="$DIR/../src"
 cd "$DIR"
 FAIL=0
 
+sh "$DIR/../scripts/gen-mcud-version.sh" "$DIR/../mcud-version.json" "$SRC/mcudd/mcud_version.h"
+
+echo ">> shell: version manifest sync"
+sh check-version-sync.sh || FAIL=1
+
+echo ""
+echo ">> C: test_mcudd_version.c"
+cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_version \
+	"$SRC/mcudd/mcud_version.c" \
+	test_mcudd_version.c || FAIL=1
+if [ "$FAIL" -eq 0 ]; then
+	./test_mcudd_version || FAIL=1
+	rm -f test_mcudd_version
+fi
+
+echo ""
 echo ">> C: test_mcudd_protocol.c"
 cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_protocol \
 	"$SRC/mcudd/mcudd_protocol.c" \

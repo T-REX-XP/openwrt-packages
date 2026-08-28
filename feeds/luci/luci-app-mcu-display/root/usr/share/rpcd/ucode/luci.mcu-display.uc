@@ -7,6 +7,8 @@ import { readfile, popen, lsdir } from 'fs';
 const MCUD_UCI = 'mcud.main';
 const BOOT_STATE = '/tmp/mcud_state';
 const ACTIVE_SCREEN = '/tmp/mcud_active_screen';
+const FW_VERSION_FILE = '/tmp/mcud_firmware_version.json';
+const HOST_VERSION_FILE = '/usr/share/mcud/version.json';
 const MCUD_EVENT_SH = '/usr/lib/mcud/mcud-event.sh';
 
 const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps', 'path_autodiscover' ];
@@ -145,6 +147,41 @@ function read_active_screen() {
 	} catch (e) {
 		return '';
 	}
+}
+
+function read_version_file(path) {
+	try {
+		let text = readfile(path);
+		if (!length(text))
+			return null;
+		return json(text);
+	} catch (e) {
+		return null;
+	}
+}
+
+function version_label(info) {
+	if (!info || type(info) != 'object')
+		return '';
+	let stack = info.stack || '';
+	let release = info.release;
+	if (!length(stack))
+		return '';
+	if (release != null && release != '')
+		return `${stack}+${release}`;
+	return stack;
+}
+
+function versions_synced(host, fw) {
+	if (!host || !fw)
+		return false;
+	if (host.rdcp != null && fw.rdcp != null && host.rdcp != fw.rdcp)
+		return false;
+	if (host.stack != fw.stack)
+		return false;
+	if (host.release != fw.release)
+		return false;
+	return true;
 }
 
 function load_pages_config() {
@@ -352,6 +389,9 @@ function get_status() {
 		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
 
 	let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
+	let host_version = read_version_file(HOST_VERSION_FILE);
+	let firmware_version = read_version_file(FW_VERSION_FILE);
+	let version_synced = versions_synced(host_version, firmware_version);
 
 	return {
 		running,
@@ -365,6 +405,12 @@ function get_status() {
 		page_title: pages_cfg ? page_title_for_id(pages_cfg, active) : active,
 		page_count: pages_cfg ? length(enabled_pages(pages_cfg)) : 0,
 		pages: pages_cfg ? page_summary_list(pages_cfg) : [],
+		host_version,
+		firmware_version,
+		host_version_label: version_label(host_version),
+		firmware_version_label: version_label(firmware_version),
+		version_synced,
+		rdcp_version: host_version?.rdcp ?? firmware_version?.rdcp ?? null,
 		boot_stage: boot.stage,
 		boot_message: boot.message,
 		boot_pct: boot.pct,
@@ -450,6 +496,12 @@ const methods = {
 			if (action == 'boot') {
 				log_mcud_event('luci pageControl boot');
 				run_cmd(`${MCUD_EVENT_SH} boot`);
+				return { ok: true, action, via: 'fifo' };
+			}
+
+			if (action == 'version') {
+				log_mcud_event('luci pageControl version');
+				run_cmd(`${MCUD_EVENT_SH} version`);
 				return { ok: true, action, via: 'fifo' };
 			}
 

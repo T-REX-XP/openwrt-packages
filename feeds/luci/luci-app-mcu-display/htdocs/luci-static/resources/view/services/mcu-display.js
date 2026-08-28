@@ -85,6 +85,10 @@ function rpcData(data, fallback) {
 	return mcu.rpcData(data, fallback);
 }
 
+function statusFingerprint(st) {
+	return mcu.statusFingerprint(st);
+}
+
 function cbiSection(title, descrNodes, bodyNodes) {
 	return E('div', { 'class': 'cbi-section' }, [
 		title ? E('h3', {}, title) : '',
@@ -302,6 +306,20 @@ function buildStatusGrid(status, cfg) {
 				status.page_idx != null ?
 					String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
 					'—'
+			])),
+		mcuStatusRow(_('Host stack'),
+			E('span', { 'id': 'mcu-live-host-version' }, [
+				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, status.host_version_label || '—'))
+			])),
+		mcuStatusRow(_('Firmware stack'),
+			E('span', { 'id': 'mcu-live-fw-version' }, [
+				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, status.firmware_version_label || '—'))
+			])),
+		mcuStatusRow(_('Version sync'),
+			E('span', { 'id': 'mcu-live-version-sync' }, [
+				status.firmware_version_label ?
+					mcuYesNoBadge(status.version_synced, _('synced'), _('out of sync')) :
+					mcuBadge('muted', _('unknown'))
 			]))
 	]);
 }
@@ -330,6 +348,28 @@ function updateLiveStatus(status, cfg) {
 		idxEl.textContent = status.page_idx != null ?
 			String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
 			'—';
+	}
+
+	var hostVerEl = document.getElementById('mcu-live-host-version');
+	if (hostVerEl) {
+		var hostMono = hostVerEl.querySelector('.mcu-mono');
+		if (hostMono)
+			hostMono.textContent = status.host_version_label || '—';
+	}
+
+	var fwVerEl = document.getElementById('mcu-live-fw-version');
+	if (fwVerEl) {
+		var fwMono = fwVerEl.querySelector('.mcu-mono');
+		if (fwMono)
+			fwMono.textContent = status.firmware_version_label || '—';
+	}
+
+	var syncEl = document.getElementById('mcu-live-version-sync');
+	if (syncEl) {
+		syncEl.textContent = '';
+		syncEl.appendChild(status.firmware_version_label ?
+			mcuYesNoBadge(status.version_synced, _('synced'), _('out of sync')) :
+			mcuBadge('muted', _('unknown')));
 	}
 
 	updatePagesLive(status);
@@ -437,10 +477,7 @@ return view.extend({
 		this._livePollFn = function() {
 			return callGetStatus().then(function(st) {
 				st = rpcData(st, {});
-				var fp = [
-					st.running, st.port_exists, st.fifo_ok, st.boot_stage,
-					st.page_id, st.page_idx, st.page_title
-				].join('|');
+				var fp = statusFingerprint(st);
 				if (fp === self._lastStatusFp)
 					return;
 				self._lastStatusFp = fp;
@@ -521,6 +558,17 @@ return view.extend({
 				_('Updates every %d s while this page is open (LuCI poll — no WebSocket required).').format(LIVE_POLL_SEC)
 			], [
 				buildStatusGrid(status, cfg)
+			]),
+			cbiSection(_('Version check'), [
+				_('Host and ESP32 firmware share one stack version (mcud-version.json). Query the display after boot or a firmware flash.')
+			], [
+				E('div', { 'class': 'cbi-page-actions' }, [
+					E('button', {
+						'class': 'cbi-button cbi-button-action',
+						click: ui.createHandlerFn(self, 'handlePageVersion'),
+						disabled: isReadonly || !status.running
+					}, _('Query firmware version'))
+				])
 			]),
 			cbiSection(_('Service control'), [], [ btns ])
 		]);
@@ -760,6 +808,10 @@ return view.extend({
 
 	handlePageBoot: function() {
 		return this.handlePageControl('boot');
+	},
+
+	handlePageVersion: function() {
+		return this.handlePageControl('version');
 	},
 
 	handlePageControl: function(action, pageId) {

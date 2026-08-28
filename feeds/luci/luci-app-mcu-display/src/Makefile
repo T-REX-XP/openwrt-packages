@@ -9,6 +9,10 @@ endif
 LDFLAGS ?= -lpthread
 LDFLAGS_STATIC ?= -static
 
+VERSION_JSON := ../mcud-version.json
+GEN_SCRIPT := ../scripts/gen-mcud-version.sh
+VERSION_HDR := mcudd/mcud_version.h
+
 MCUDD_SRCS := \
 	mcudd/mcudd.c \
 	mcudd/mcudd_pages.c \
@@ -16,7 +20,8 @@ MCUDD_SRCS := \
 	mcudd/mcudd_log.c \
 	mcudd/mcudd_serial.c \
 	mcudd/mcudd_protocol.c \
-	mcudd/mcudd_metrics.c
+	mcudd/mcudd_metrics.c \
+	mcudd/mcud_version.c
 MCUDD_OBJS := $(MCUDD_SRCS:.c=.o)
 
 MCUDD_BIN := mcudd-bin
@@ -31,14 +36,17 @@ install: compile
 	mkdir -p $(DESTDIR)/usr/sbin
 	cp $(MCUDD_BIN) $(DESTDIR)/usr/sbin/mcudd
 
-$(MCUDD_BIN): $(MCUDD_OBJS)
-	$(CC) $^ -o $@ $(LDFLAGS)
+$(VERSION_HDR): $(VERSION_JSON) $(GEN_SCRIPT)
+	sh $(GEN_SCRIPT) $(VERSION_JSON) $(VERSION_HDR)
 
-mcudd/%.o: mcudd/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(MCUDD_BIN): $(MCUDD_OBJS) $(VERSION_HDR)
+	$(CC) $(MCUDD_OBJS) -o $@ $(LDFLAGS)
+
+mcudd/%.o: mcudd/%.c $(VERSION_HDR)
+	$(CC) $(CFLAGS) -I mcudd -c -o $@ $<
 
 test:
 	$(MAKE) -C ../tests
 
 clean:
-	rm -rf $(MCUDD_BIN) $(MCUDD_OBJS)
+	rm -rf $(MCUDD_BIN) $(MCUDD_OBJS) $(VERSION_HDR)
