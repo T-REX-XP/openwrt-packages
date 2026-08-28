@@ -2,6 +2,7 @@
 'require view';
 'require rpc';
 'require ui';
+'require poll';
 
 var callGetConfig = rpc.declare({
 	object: 'luci.mcu-display',
@@ -50,6 +51,9 @@ var callGetLogs = rpc.declare({
 });
 
 var isReadonly = !L.hasViewPermission() || null;
+
+var LIVE_POLL_SEC = 1;
+var LOG_POLL_SEC = 3;
 
 var FORM_DEFAULTS = {
 	enable: '1',
@@ -278,6 +282,94 @@ function mcuBootBadge(status) {
 	return mcuBadge('muted', _('Unknown'));
 }
 
+function buildStatusGrid(status, cfg) {
+	var running = status.running;
+	var portOk = status.port_exists;
+	var cfgOk = status.config_complete;
+	var screenLabel = status.page_title || status.active_screen || '—';
+	var bootBadge = mcuBootBadge(status);
+
+	return E('div', { 'class': 'mcu-status-grid', 'id': 'mcu-live-status-grid' }, [
+		mcuStatusRow(_('Daemon'),
+			mcuYesNoBadge(running, _('running'), _('stopped'))),
+		mcuStatusRow(_('Serial device'),
+			mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
+		mcuStatusRow(_('Device present'),
+			mcuYesNoBadge(portOk, _('yes'), _('no'))),
+		mcuStatusRow(_('UCI complete'),
+			mcuYesNoBadge(cfgOk, _('yes'), _('no'))),
+		mcuStatusRow(_('Command FIFO'),
+			mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
+		mcuStatusRow(_('Boot'), bootBadge),
+		mcuStatusRow(_('Active screen'),
+			E('span', {
+				'id': 'mcu-live-active-screen',
+				'class': 'mcu-status-value'
+			}, [
+				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, screenLabel))
+			])),
+		mcuStatusRow(_('Page index'),
+			E('span', { 'id': 'mcu-live-page-idx' }, [
+				status.page_idx != null ?
+					String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
+					'—'
+			]))
+	]);
+}
+
+function updateLiveStatus(status, cfg) {
+	var screenEl = document.getElementById('mcu-live-active-screen');
+	var idxEl = document.getElementById('mcu-live-page-idx');
+	var screenLabel = status.page_title || status.active_screen || '—';
+
+	if (screenEl) {
+		var mono = screenEl.querySelector('.mcu-mono');
+		if (mono)
+			mono.textContent = screenLabel;
+		else
+			screenEl.textContent = screenLabel;
+		var badge = screenEl.querySelector('.mcu-badge');
+		if (badge) {
+			badge.classList.remove('mcu-badge--pulse');
+			void badge.offsetWidth;
+			badge.classList.add('mcu-badge--pulse');
+		}
+	}
+
+	if (idxEl) {
+		idxEl.textContent = status.page_idx != null ?
+			String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
+			'—';
+	}
+
+	updatePagesLive(status);
+}
+
+function updatePagesLive(status) {
+	var activeId = status.page_id || status.active_screen || '';
+	var rows = document.querySelectorAll('.luci-app-mcu-display tr[data-page-id]');
+	var jump = document.getElementById('mcu-page-jump');
+	var i;
+
+	for (i = 0; i < rows.length; i++) {
+		var row = rows[i];
+		var isActive = row.getAttribute('data-page-id') === activeId;
+		row.classList.toggle('mcu-page-row--active', isActive);
+	}
+
+	if (jump && activeId) {
+		for (i = 0; i < jump.options.length; i++) {
+			jump.options[i].selected = jump.options[i].value === activeId;
+		}
+	}
+
+	var indicator = document.getElementById('mcu-live-page-indicator');
+	if (indicator)
+		indicator.textContent = activeId ?
+			_('Live: %s').format(status.page_title || activeId) :
+			_('Live: waiting…');
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -308,64 +400,114 @@ return view.extend({
 
 		var root = E('div', { 'class': 'luci-app-mcu-display' }, [
 			E('link', { rel: 'stylesheet', href: L.resource('mcu-display-theme.css') }),
-			E('h2', {}, _('MCU Display')),
+			E('h2', {}, [
+				_('MCU Display'),
+				' ',
+				E('span', { 'class': 'mcu-live-pill', 'id': 'mcu-live-pill' }, _('Live'))
+			]),
 			E('p', { 'class': 'hint' }, _('UART bridge to an ESP32 smart display. Connect the yellow ESP32 board to the CM5 debug UART (/dev/ttyS2) at 115200 8N1, or use a USB serial adapter (/dev/ttyUSB0). Physical buttons (USERKEY / MaskROM) navigate pages when mcudd is running.')),
 			tabHost
 		]);
 
 		ui.tabs.initTabGroup(tabHost.childNodes);
 		this.bindTabHooks(tabHost);
+		this.startLivePoll(cfg);
 		return root;
+	},
+
+	startLivePoll: function(cfg) {
+		var self = this;
+		this._liveCfg = cfg || {};
+		this._lastStatusFp = '';
+
+		if (this._livePollId != null)
+			poll.remove(this._livePollId);
+
+		this._livePollId = poll.add(function() {
+			return callGetStatus().then(function(st) {
+				st = rpcData(st, {});
+				var fp = [
+					st.running, st.port_exists, st.fifo_ok, st.boot_stage,
+					st.page_id, st.page_idx, st.page_title
+				].join('|');
+				if (fp === self._lastStatusFp)
+					return;
+				self._lastStatusFp = fp;
+				updateLiveStatus(st, self._liveCfg);
+			});
+		}, LIVE_POLL_SEC);
+	},
+
+	stopLivePoll: function() {
+		if (this._livePollId != null) {
+			poll.remove(this._livePollId);
+			this._livePollId = null;
+		}
+	},
+
+	startLogPoll: function() {
+		var self = this;
+		this.stopLogPoll();
+		this._logPollId = poll.add(function() {
+			return self.refreshLogs(true);
+		}, LOG_POLL_SEC);
+	},
+
+	stopLogPoll: function() {
+		if (this._logPollId != null) {
+			poll.remove(this._logPollId);
+			this._logPollId = null;
+		}
 	},
 
 	bindTabHooks: function(tabHost) {
 		var self = this;
 		var debugPane = tabHost.querySelector('[data-tab="debug"]');
+		var pagesPane = tabHost.querySelector('[data-tab="pages"]');
+		var statusPane = tabHost.querySelector('[data-tab="status"]');
+
 		if (debugPane) {
 			debugPane.addEventListener('cbi-tab-active', function() {
 				self.refreshLogs();
+				self.startLogPoll();
 			});
 		}
+
+		[ statusPane, pagesPane ].forEach(function(pane) {
+			if (!pane)
+				return;
+			pane.addEventListener('cbi-tab-active', function() {
+				self.stopLogPoll();
+			});
+		});
+
+		if (debugPane && debugPane.classList.contains('cbi-tab-active'))
+			self.startLogPoll();
 	},
 
 	buildStatusTab: function(status, cfg) {
 		var self = this;
-		var running = status.running;
-		var portOk = status.port_exists;
-		var cfgOk = status.config_complete;
 		var btns = E('div', { 'class': 'cbi-page-actions' });
 		[ 'start', 'stop', 'restart' ].forEach(function(action) {
 			btns.appendChild(E('button', {
 				'class': 'cbi-button cbi-button-action',
 				click: ui.createHandlerFn(self, function() {
 					return callServiceControl(action).then(function() {
-						location.reload();
+						self._lastStatusFp = '';
+						return callGetStatus().then(function(st) {
+							updateLiveStatus(rpcData(st, {}), cfg);
+						});
 					});
 				}),
 				disabled: isReadonly
 			}, _(action)));
 		});
 
-		var bootBadge = mcuBootBadge(status);
-		var screenLabel = status.page_title || status.active_screen || '—';
-
 		return E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') }, [
-			cbiSection(_('Daemon status'), [], [
-				E('div', { 'class': 'mcu-status-grid' }, [
-					mcuStatusRow(_('Daemon'),
-						mcuYesNoBadge(running, _('running'), _('stopped'))),
-					mcuStatusRow(_('Serial device'),
-						mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
-					mcuStatusRow(_('Device present'),
-						mcuYesNoBadge(portOk, _('yes'), _('no'))),
-					mcuStatusRow(_('UCI complete'),
-						mcuYesNoBadge(cfgOk, _('yes'), _('no'))),
-					mcuStatusRow(_('Command FIFO'),
-						mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
-					mcuStatusRow(_('Boot'), bootBadge),
-					mcuStatusRow(_('Active screen'),
-						mcuBadge('info', E('span', { 'class': 'mcu-mono' }, screenLabel)))
-				])
+			cbiSection(_('Daemon status'), [
+				_('Updates every %d s while this page is open (LuCI poll — no WebSocket required).').format(LIVE_POLL_SEC)
+			], [
+				buildStatusGrid(status, cfg)
 			]),
 			cbiSection(_('Service control'), [], [ btns ])
 		]);
@@ -388,7 +530,11 @@ return view.extend({
 
 		var rows = [];
 		for (var j = 0; j < pageList.length; j++) {
-			rows.push(E('tr', {}, [
+			var isActive = pageList[j].id === (status.page_id || status.active_screen);
+			rows.push(E('tr', {
+				'class': 'mcu-page-row' + (isActive ? ' mcu-page-row--active' : ''),
+				'data-page-id': pageList[j].id
+			}, [
 				E('td', { 'class': 'mcu-mono' }, pageList[j].id),
 				E('td', {}, pageList[j].title || pageList[j].id),
 				E('td', { 'class': 'mcu-mono' }, pageList[j].scope || '')
@@ -396,6 +542,10 @@ return view.extend({
 		}
 
 		return E('div', { 'data-tab': 'pages', 'data-tab-title': _('Pages') }, [
+			E('p', {
+				'id': 'mcu-live-page-indicator',
+				'class': 'mcu-live-page-indicator'
+			}, _('Live: %s').format(status.page_title || status.page_id || '—')),
 			cbiSection(_('Screen navigation'), [
 				_('Send RDCP screen commands over UART. Previous / next mirror physical button mapping (MaskROM / USERKEY on CM5).')
 			], [
@@ -602,12 +752,14 @@ return view.extend({
 				return;
 			}
 			ui.addNotification(null, E('p', {}, [ _('Sent %s command to mcudd.').format(action) ]), 'info');
+			this._lastStatusFp = '';
 			return callGetStatus().then(L.bind(function(st) {
 				st = rpcData(st, {});
+				updateLiveStatus(st, this._liveCfg || {});
 				ui.addNotification(null, E('p', {}, [
 					_('Active screen: %s').format(st.page_title || st.active_screen || '—')
 				]), 'info');
-				return this.refreshLogs();
+				return this.refreshLogs(true);
 			}, this));
 		}, this)).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Page control failed: %s').format(e) ]), 'error');
@@ -626,7 +778,11 @@ return view.extend({
 				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Jump failed.') ]), 'error');
 			else {
 				ui.addNotification(null, E('p', {}, [ _('Jumped to %s').format(jump.value) ]), 'info');
-				return this.refreshLogs();
+				this._lastStatusFp = '';
+				return callGetStatus().then(L.bind(function(st) {
+					updateLiveStatus(rpcData(st, {}), this._liveCfg || {});
+					return this.refreshLogs(true);
+				}, this));
 			}
 		}, this)).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Jump failed: %s').format(e) ]), 'error');
@@ -639,25 +795,33 @@ return view.extend({
 		return (n > 0 && n <= 2000) ? n : 200;
 	},
 
-	refreshLogs: function() {
+	refreshLogs: function(silent) {
 		var ta = document.getElementById('mcu-debug-log');
-		if (ta)
+		if (ta && !silent)
 			ta.value = _('Loading logs…');
 		return callGetLogs(this.logLimit()).then(L.bind(function(r) {
 			r = rpcData(r, {});
 			if (!ta)
 				return;
 			if (r.error) {
-				ta.value = r.message || r.error;
-				ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
+				if (!silent) {
+					ta.value = r.message || r.error;
+					ui.addNotification(null, E('p', {}, [ r.message || r.error ]), 'error');
+				}
 				return;
 			}
-			ta.value = r.output && r.output.length ? r.output : _('No matching log entries.');
-			ta.scrollTop = ta.scrollHeight;
+			var next = r.output && r.output.length ? r.output : _('No matching log entries.');
+			if (ta.value !== next) {
+				var stick = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 8;
+				ta.value = next;
+				if (stick)
+					ta.scrollTop = ta.scrollHeight;
+			}
 		}, this)).catch(function(e) {
-			if (ta)
+			if (ta && !silent) {
 				ta.value = _('Could not load logs: %s').format(e);
-			ui.addNotification(null, E('p', {}, [ _('Could not load logs: %s').format(e) ]), 'error');
+				ui.addNotification(null, E('p', {}, [ _('Could not load logs: %s').format(e) ]), 'error');
+			}
 		});
 	},
 

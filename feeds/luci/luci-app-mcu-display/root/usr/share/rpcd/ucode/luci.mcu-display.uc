@@ -340,7 +340,8 @@ function get_status() {
 		pages: pages_cfg ? page_summary_list(pages_cfg) : [],
 		boot_stage: boot.stage,
 		boot_message: boot.message,
-		boot_pct: boot.pct
+		boot_pct: boot.pct,
+		updated_at: time()
 	};
 }
 
