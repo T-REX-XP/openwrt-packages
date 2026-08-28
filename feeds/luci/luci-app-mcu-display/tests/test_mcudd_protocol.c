@@ -175,6 +175,34 @@ static void test_push_config_builder(void)
 	expect(strstr(out, "\"screen_timeout_mode\":\"dim\"") != NULL, "timeout mode");
 }
 
+static void test_ping_pong_parse_build(void)
+{
+	struct mcudd_parsed_msg msg;
+	char out[256];
+	const char *pong_line =
+		"{\"v\":1,\"t\":\"res\",\"id\":9,\"data\":{\"pong\":1,\"uptime_ms\":12345}}";
+	const char *echo_line =
+		"{\"v\":1,\"t\":\"evt\",\"op\":\"echo\",\"data\":{\"text\":\"hello\"}}";
+
+	expect(mcudd_protocol_build_req_ping(9, out, sizeof(out)) == 0, "build req ping");
+	expect(strstr(out, "\"op\":\"ping\"") != NULL, "ping op");
+	expect(strstr(out, "\"id\":9") != NULL, "ping id");
+
+	expect(mcudd_protocol_parse(pong_line, &msg) == 0, "parse pong res");
+	expect(msg.type == MCUDD_MSG_RDCP_RES_PING, "pong type");
+	expect(msg.req_id == 9, "pong req id");
+	expect(msg.uptime_ms == 12345, "pong uptime");
+
+	expect(mcudd_protocol_build_cmd_echo("hello", out, sizeof(out)) == 0,
+	       "build cmd echo");
+	expect(strstr(out, "\"op\":\"echo\"") != NULL, "echo op");
+	expect(strstr(out, "hello") != NULL, "echo text");
+
+	expect(mcudd_protocol_parse(echo_line, &msg) == 0, "parse echo evt");
+	expect(msg.type == MCUDD_MSG_RDCP_EVT_ECHO, "echo evt type");
+	expect(!strcmp(msg.echo_text, "hello"), "echo text parsed");
+}
+
 int main(void)
 {
 	test_legacy_cpu_request();
@@ -187,6 +215,7 @@ int main(void)
 	test_cmd_nav_builder();
 	test_rdcp_poweroff_req();
 	test_push_config_builder();
+	test_ping_pong_parse_build();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
 	return tests_failed ? 1 : 0;

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Write navigation / control events to the mcudd FIFO.
-# Usage: mcud-event.sh <prev|next|net|refresh|boot|ready|screen> [screen_id]
+# Usage: mcud-event.sh <prev|next|net|refresh|boot|ready|screen|version|ping|echo> [arg]
 
 event="${1:-}"
 screen_id="${2:-}"
@@ -18,7 +18,7 @@ if [ ! -p "$fifo" ]; then
 fi
 
 case "$event" in
-prev|next|net|refresh|boot|ready)
+prev|next|net|refresh|boot|ready|ping)
 	if printf '%s\n' "$event" >"$fifo" 2>/dev/null; then
 		log_event "fifo write ok event=$event fifo=$fifo"
 	else
@@ -30,6 +30,19 @@ version)
 		log_event "fifo write ok event=version fifo=$fifo"
 	else
 		log_event "fifo write failed event=version fifo=$fifo"
+	fi
+	;;
+echo)
+	shift
+	text="$*"
+	if [ -n "$text" ]; then
+		if printf 'echo %s\n' "$text" >"$fifo" 2>/dev/null; then
+			log_event "fifo write ok event=echo text=$text fifo=$fifo"
+		else
+			log_event "fifo write failed event=echo fifo=$fifo"
+		fi
+	else
+		log_event "echo event ignored (empty text)"
 	fi
 	;;
 screen)

@@ -73,10 +73,24 @@ static mcudd_scope_t scope_from_name(const char *name)
 static int json_find_data_uint(const char *json, const char *key, unsigned *out)
 {
 	char buf[16];
+	const char *data;
+	char pattern[64];
+	const char *p;
 
-	if (!out || json_find_data_string(json, key, buf, sizeof(buf)) != 0)
+	if (!out)
 		return -1;
-	*out = (unsigned)strtoul(buf, NULL, 10);
+	if (json_find_data_string(json, key, buf, sizeof(buf)) == 0) {
+		*out = (unsigned)strtoul(buf, NULL, 10);
+		return 0;
+	}
+	data = strstr(json, "\"data\"");
+	if (!data)
+		return -1;
+	snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+	p = strstr(data, pattern);
+	if (!p)
+		return -1;
+	*out = (unsigned)strtoul(p + strlen(pattern), NULL, 10);
 	return 0;
 }
 
@@ -162,9 +176,29 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 				return 0;
 			}
 			if (json_find_string(line, "op", op, sizeof(op)) == 0 &&
+			    !strcmp(op, "ping")) {
+				out->type = MCUDD_MSG_RDCP_REQ;
+				out->scope = MCUDD_SCOPE_NONE;
+				p = strstr(line, "\"id\":");
+				if (p)
+					out->req_id = (unsigned)strtoul(p + 5, NULL, 10);
+				return 0;
+			}
+			if (json_find_string(line, "op", op, sizeof(op)) == 0 &&
 			    !strcmp(op, "poweroff")) {
 				out->type = MCUDD_MSG_RDCP_REQ_POWEROFF;
 				out->scope = MCUDD_SCOPE_NONE;
+				return 0;
+			}
+		}
+		if (!strcmp(t, "res")) {
+			if (strstr(line, "\"pong\"")) {
+				out->type = MCUDD_MSG_RDCP_RES_PING;
+				p = strstr(line, "\"id\":");
+				if (p)
+					out->req_id = (unsigned)strtoul(p + 5, NULL, 10);
+				if (json_find_data_uint(line, "uptime_ms", &out->uptime_ms) != 0)
+					out->uptime_ms = 0;
 				return 0;
 			}
 		}
@@ -179,6 +213,13 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 			}
 			if (!strcmp(op, "version"))
 				return parse_version_payload(line, out);
+			if (!strcmp(op, "echo")) {
+				out->type = MCUDD_MSG_RDCP_EVT_ECHO;
+				if (json_find_data_string(line, "text", out->echo_text,
+							  sizeof(out->echo_text)) != 0)
+					out->echo_text[0] = '\0';
+				return 0;
+			}
 			if (!strcmp(op, "input") && strstr(line, "\"gesture\"")) {
 				out->type = MCUDD_MSG_RDCP_EVT_INPUT;
 				if (json_find_data_string(line, "dir", out->gesture_dir,
@@ -351,5 +392,52 @@ int mcudd_protocol_build_req_version(unsigned req_id, char *out, size_t out_len)
 	n = snprintf(out, out_len,
 		     "{\"v\":1,\"t\":\"req\",\"id\":%u,\"op\":\"version\"}",
 		     req_id);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+static int json_escape_text(const char *in, char *out, size_t out_len)
+{
+	size_t i, j;
+
+	if (!in || !out || out_len < 2)
+		return -1;
+	for (i = 0, j = 0; in[i] && j + 2 < out_len; i++) {
+		char c = in[i];
+
+		if (c == '"' || c == '\\') {
+			out[j++] = '\\';
+			out[j++] = c;
+		} else if (c >= 0x20 && c < 0x7f) {
+			out[j++] = c;
+		}
+	}
+	out[j] = '\0';
+	return 0;
+}
+
+int mcudd_protocol_build_req_ping(unsigned req_id, char *out, size_t out_len)
+{
+	int n;
+
+	if (!out || !out_len || !req_id)
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"req\",\"id\":%u,\"op\":\"ping\"}",
+		     req_id);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+int mcudd_protocol_build_cmd_echo(const char *text, char *out, size_t out_len)
+{
+	char escaped[128];
+	int n;
+
+	if (!text || !out || !out_len)
+		return -1;
+	if (json_escape_text(text, escaped, sizeof(escaped)) != 0)
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"cmd\",\"op\":\"echo\",\"data\":{\"text\":\"%s\"}}",
+		     escaped);
 	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
 }

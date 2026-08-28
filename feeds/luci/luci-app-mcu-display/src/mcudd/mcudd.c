@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -23,6 +24,7 @@
 #define MCUDD_STATE_FILE "/tmp/mcud_state"
 #define MCUDD_ACTIVE_FILE "/tmp/mcud_active_screen"
 #define MCUDD_FW_VERSION_FILE "/tmp/mcud_firmware_version.json"
+#define MCUDD_LINK_TEST_FILE "/tmp/mcud_link_test.json"
 #define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
 #define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
 #define MCUDD_LOCK_FILE "/var/run/mcudd.lock"
@@ -32,6 +34,16 @@ static int g_lock_fd = -1;
 
 static char active_screen[48] = "router_boot";
 static unsigned g_version_req_id;
+static unsigned g_ping_req_id;
+static char last_echo_sent[128];
+
+static struct {
+	int ping_ok;
+	unsigned ping_id;
+	unsigned uptime_ms;
+	int echo_ok;
+	char echo_text[128];
+} link_state;
 
 static void write_firmware_version(const struct mcudd_parsed_msg *msg)
 {
@@ -48,6 +60,32 @@ static void write_firmware_version(const struct mcudd_parsed_msg *msg)
 		msg->version_rdcp,
 		mcud_version_compatible(msg->version_stack, msg->version_release,
 					 msg->version_rdcp) ? "true" : "false");
+	fclose(f);
+}
+
+static void write_link_test_file(void)
+{
+	FILE *f;
+	const char *echo_text = link_state.echo_text;
+
+	f = fopen(MCUDD_LINK_TEST_FILE, "w");
+	if (!f)
+		return;
+	fprintf(f,
+		"{\"ping_ok\":%s,\"ping_id\":%u,\"uptime_ms\":%u,"
+		"\"echo_ok\":%s,\"echo_text\":\"",
+		link_state.ping_ok ? "true" : "false",
+		link_state.ping_id, link_state.uptime_ms,
+		link_state.echo_ok ? "true" : "false");
+	if (echo_text && echo_text[0]) {
+		for (const char *p = echo_text; *p; p++) {
+			if (*p == '"' || *p == '\\')
+				fputc('\\', f);
+			if (*p >= 0x20 && *p < 0x7f)
+				fputc(*p, f);
+		}
+	}
+	fprintf(f, "\",\"updated_at\":%ld}\n", (long)time(NULL));
 	fclose(f);
 }
 
@@ -185,6 +223,31 @@ static int send_version_query(const struct mcudd_config *cfg, int fd)
 	return send_line(cfg, fd, out);
 }
 
+static int send_ping_query(const struct mcudd_config *cfg, int fd)
+{
+	char out[128];
+
+	g_ping_req_id++;
+	if (mcudd_protocol_build_req_ping(g_ping_req_id, out, sizeof(out)) != 0)
+		return -1;
+	mcudd_log(LOG_INFO, "req ping id=%u", g_ping_req_id);
+	return send_line(cfg, fd, out);
+}
+
+static int send_cmd_echo(const struct mcudd_config *cfg, int fd, const char *text)
+{
+	char out[256];
+
+	if (!text || !text[0])
+		return -1;
+	if (mcudd_protocol_build_cmd_echo(text, out, sizeof(out)) != 0)
+		return -1;
+	strncpy(last_echo_sent, text, sizeof(last_echo_sent) - 1);
+	last_echo_sent[sizeof(last_echo_sent) - 1] = '\0';
+	mcudd_log(LOG_INFO, "cmd echo (await echo evt): %s", last_echo_sent);
+	return send_line(cfg, fd, out);
+}
+
 static int send_config_push(const struct mcudd_config *cfg, int fd)
 {
 	char out[256];
@@ -312,6 +375,10 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 	}
 	if (!strcmp(line, "version"))
 		return send_version_query(cfg, fd);
+	if (!strcmp(line, "ping"))
+		return send_ping_query(cfg, fd);
+	if (!strncmp(line, "echo ", 5))
+		return send_cmd_echo(cfg, fd, line + 5);
 	mcudd_log(LOG_DEBUG, "ignored fifo: %s", line);
 	return 0;
 }
@@ -367,6 +434,31 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			  msg.version_stack, msg.version_release, msg.version_rdcp,
 			  mcud_version_compatible(msg.version_stack, msg.version_release,
 						   msg.version_rdcp));
+		return 0;
+	}
+
+	if (msg.type == MCUDD_MSG_RDCP_RES_PING) {
+		link_state.ping_ok = 1;
+		link_state.ping_id = msg.req_id;
+		link_state.uptime_ms = msg.uptime_ms;
+		write_link_test_file();
+		mcudd_log(LOG_INFO, "link ping ok id=%u uptime_ms=%u",
+			  msg.req_id, msg.uptime_ms);
+		return 0;
+	}
+
+	if (msg.type == MCUDD_MSG_RDCP_EVT_ECHO) {
+		int match = last_echo_sent[0] &&
+			    !strcmp(last_echo_sent, msg.echo_text);
+
+		link_state.echo_ok = 1;
+		strncpy(link_state.echo_text, msg.echo_text,
+			sizeof(link_state.echo_text) - 1);
+		link_state.echo_text[sizeof(link_state.echo_text) - 1] = '\0';
+		write_link_test_file();
+		mcudd_log(LOG_INFO, "link echo ok: %s%s",
+			  msg.echo_text,
+			  match ? "" : " (text mismatch)");
 		return 0;
 	}
 
@@ -445,7 +537,7 @@ int main(int argc, char **argv)
 	size_t line_len = 0;
 	int fd = -1;
 	int fifo_fd = -1;
-	char fifo_buf[128];
+	char fifo_buf[256];
 	size_t fifo_len = 0;
 	int ret = 1;
 

@@ -16,6 +16,8 @@ typedef enum {
 	MCUDD_MSG_RDCP_EVT,
 	MCUDD_MSG_RDCP_EVT_INPUT,
 	MCUDD_MSG_RDCP_EVT_VERSION,
+	MCUDD_MSG_RDCP_EVT_ECHO,
+	MCUDD_MSG_RDCP_RES_PING,
 	MCUDD_MSG_RDCP_REQ_POWEROFF,
 	MCUDD_MSG_RDCP_ERR,
 } mcudd_msg_type_t;
@@ -41,6 +43,8 @@ struct mcudd_parsed_msg {
 	char version_component[24];
 	unsigned version_release;
 	unsigned version_rdcp;
+	char echo_text[128];
+	unsigned uptime_ms;
 };
 
 /* Parse one inbound newline-stripped line. Returns 0 on recognized message. */
@@ -70,5 +74,7 @@ int mcudd_protocol_build_push_config(const struct mcudd_config *cfg,
 				     char *out, size_t out_len);
 int mcudd_protocol_build_push_hello(char *out, size_t out_len);
 int mcudd_protocol_build_req_version(unsigned req_id, char *out, size_t out_len);
+int mcudd_protocol_build_req_ping(unsigned req_id, char *out, size_t out_len);
+int mcudd_protocol_build_cmd_echo(const char *text, char *out, size_t out_len);
 
 #endif /* MCUDD_PROTOCOL_H */

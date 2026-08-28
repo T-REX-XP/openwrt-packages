@@ -57,6 +57,7 @@ echo ""
 echo ">> shell: init.d syntax"
 sh -n ../root/etc/init.d/mcudd || FAIL=1
 sh -n ../root/usr/lib/mcud/mcud-event.sh || FAIL=1
+sh -n ../root/usr/lib/mcud/mcud-link-test.sh || FAIL=1
 
 echo ""
 echo ">> shell: uci-defaults syntax"
