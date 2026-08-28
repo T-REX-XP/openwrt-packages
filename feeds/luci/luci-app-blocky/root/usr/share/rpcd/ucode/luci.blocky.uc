@@ -109,8 +109,8 @@ function parse_port_from_config(yaml, key, default_port) {
 }
 
 function service_running() {
-	let res = run_bin('/etc/init.d/blocky', [ 'status' ]);
-	return res.ok || index(lower(res.output), 'running') >= 0;
+	let res = run_cmd('pgrep -x blocky >/dev/null && echo yes');
+	return trim(res.output) == 'yes';
 }
 
 function parse_blocking_status(text) {
