@@ -40,23 +40,5 @@ test('countLogLines ignores trailing empty', () => {
 	assert.equal(mcu.countLogLines(''), 0);
 });
 
-test('statusFingerprint includes version fields', () => {
-	const fp = mcu.statusFingerprint({
-		running: true,
-		host_version_label: '1.0.0+31',
-		firmware_version_label: '1.0.0+31',
-		version_synced: true
-	});
-	assert.ok(fp.includes('1.0.0+31'));
-	assert.ok(fp.includes('true'));
-});
-
-test('parsePageControl version action', () => {
-	const r = mcu.parsePageControl('version');
-	assert.equal(r.ok, true);
-	assert.equal(r.action, 'version');
-	assert.equal(r.via, 'fifo');
-});
-
 console.log(`\nResults: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -55,7 +55,7 @@ var ALL_SET_OPTS = [
 	'menu_nav_button', 'menu_select_button'
 ];
 
-var PAGE_CONTROL_ACTIONS = [ 'prev', 'next', 'goto', 'boot', 'version' ];
+var PAGE_CONTROL_ACTIONS = [ 'prev', 'next', 'goto', 'boot' ];
 
 return baseclass.extend({
 	FORM_DEFAULTS: FORM_DEFAULTS,
@@ -129,8 +129,7 @@ return baseclass.extend({
 		st = st || {};
 		return [
 			st.running, st.port_exists, st.fifo_ok, st.boot_stage,
-			st.page_id, st.page_idx, st.page_title,
-			st.host_version_label, st.firmware_version_label, st.version_synced
+			st.page_id, st.page_idx, st.page_title
 		].join('|');
 	},
 
@@ -304,8 +303,6 @@ return baseclass.extend({
 				return { error: 'missing_page_id' };
 			return { ok: true, action: action, page_id: pageId, via: 'fifo' };
 		}
-		if (action === 'version')
-			return { ok: true, action: action, via: 'fifo' };
 		return { ok: true, action: action, via: 'fifo' };
 	},
 

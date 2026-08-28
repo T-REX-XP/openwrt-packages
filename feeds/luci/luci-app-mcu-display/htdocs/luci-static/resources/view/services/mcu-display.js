@@ -306,20 +306,6 @@ function buildStatusGrid(status, cfg) {
 				status.page_idx != null ?
 					String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
 					'—'
-			])),
-		mcuStatusRow(_('Host stack'),
-			E('span', { 'id': 'mcu-live-host-version' }, [
-				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, status.host_version_label || '—'))
-			])),
-		mcuStatusRow(_('Firmware stack'),
-			E('span', { 'id': 'mcu-live-fw-version' }, [
-				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, status.firmware_version_label || '—'))
-			])),
-		mcuStatusRow(_('Version sync'),
-			E('span', { 'id': 'mcu-live-version-sync' }, [
-				status.firmware_version_label ?
-					mcuYesNoBadge(status.version_synced, _('synced'), _('out of sync')) :
-					mcuBadge('muted', _('unknown'))
 			]))
 	]);
 }
@@ -348,28 +334,6 @@ function updateLiveStatus(status, cfg) {
 		idxEl.textContent = status.page_idx != null ?
 			String(status.page_idx + 1) + ' / ' + String(status.page_count || '?') :
 			'—';
-	}
-
-	var hostVerEl = document.getElementById('mcu-live-host-version');
-	if (hostVerEl) {
-		var hostMono = hostVerEl.querySelector('.mcu-mono');
-		if (hostMono)
-			hostMono.textContent = status.host_version_label || '—';
-	}
-
-	var fwVerEl = document.getElementById('mcu-live-fw-version');
-	if (fwVerEl) {
-		var fwMono = fwVerEl.querySelector('.mcu-mono');
-		if (fwMono)
-			fwMono.textContent = status.firmware_version_label || '—';
-	}
-
-	var syncEl = document.getElementById('mcu-live-version-sync');
-	if (syncEl) {
-		syncEl.textContent = '';
-		syncEl.appendChild(status.firmware_version_label ?
-			mcuYesNoBadge(status.version_synced, _('synced'), _('out of sync')) :
-			mcuBadge('muted', _('unknown')));
 	}
 
 	updatePagesLive(status);
@@ -461,8 +425,6 @@ return view.extend({
 		ui.tabs.initTabGroup(tabHost.childNodes);
 		this.bindTabHooks(tabHost);
 		this.startLivePoll(cfg);
-		if (status.running)
-			this.requestFirmwareVersion(true);
 		return root;
 	},
 
@@ -548,8 +510,6 @@ return view.extend({
 						self._lastStatusFp = '';
 						return callGetStatus().then(function(st) {
 							updateLiveStatus(rpcData(st, {}), cfg);
-							if (action === 'restart' || action === 'start')
-								self.requestFirmwareVersion(true);
 						});
 					});
 				}),
@@ -801,27 +761,6 @@ return view.extend({
 
 	handlePageBoot: function() {
 		return this.handlePageControl('boot');
-	},
-
-	requestFirmwareVersion: function(silent) {
-		if (isReadonly)
-			return Promise.resolve();
-		return callPageControl('version', '').then(L.bind(function(r) {
-			r = rpcData(r, {});
-			if (r.error || r.ok === false) {
-				if (!silent)
-					ui.addNotification(null, E('p', {}, [
-						r.message || r.error || _('Version query failed.')
-					]), 'error');
-				return;
-			}
-			this._lastStatusFp = '';
-		}, this)).catch(function(e) {
-			if (!silent)
-				ui.addNotification(null, E('p', {}, [
-					_('Version query failed: %s').format(e)
-				]), 'error');
-		});
 	},
 
 	handlePageControl: function(action, pageId) {
