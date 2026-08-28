@@ -1,4 +1,5 @@
 {
+	"_comment": "Keep screen id/scope order in sync with esp32-smartdisplay-demo src/router/router_pages.c",
 	"version": 1,
 	"screens": [
 		{ "id": "router_system", "title": "SYSTEM", "scope": "system", "enabled": true },

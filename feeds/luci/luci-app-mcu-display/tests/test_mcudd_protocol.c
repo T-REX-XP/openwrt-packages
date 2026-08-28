@@ -116,6 +116,17 @@ static void test_gesture_evt(void)
 	expect(!strcmp(msg.gesture_dir, "left"), "gesture dir left");
 }
 
+static void test_screen_evt(void)
+{
+	struct mcudd_parsed_msg msg;
+	const char *line =
+		"{\"v\":1,\"t\":\"evt\",\"op\":\"screen\",\"data\":{\"screen\":\"router_system\",\"action\":\"loaded\"}}";
+
+	expect(mcudd_protocol_parse(line, &msg) == 0, "parse screen evt");
+	expect(msg.type == MCUDD_MSG_RDCP_EVT, "screen evt type");
+	expect(!strcmp(msg.screen, "router_system"), "screen id from data object");
+}
+
 static void test_cmd_screen_builder(void)
 {
 	char out[256];
@@ -148,6 +159,7 @@ int main(void)
 	test_demo_alarms_config();
 	test_msgpack_rejected();
 	test_gesture_evt();
+	test_screen_evt();
 	test_cmd_screen_builder();
 	test_push_config_builder();
 

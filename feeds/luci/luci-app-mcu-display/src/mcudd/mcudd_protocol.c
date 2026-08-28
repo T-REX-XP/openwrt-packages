@@ -35,6 +35,19 @@ static int json_find_string(const char *json, const char *key, char *out, size_t
 	return 0;
 }
 
+/* Prefer keys inside "data":{...} — avoids matching "op":"screen" values. */
+static int json_find_data_string(const char *json, const char *key, char *out, size_t len)
+{
+	const char *data;
+
+	if (!json || !key || !out || !len)
+		return -1;
+	data = strstr(json, "\"data\"");
+	if (!data)
+		return json_find_string(json, key, out, len);
+	return json_find_string(data, key, out, len);
+}
+
 static mcudd_scope_t scope_from_name(const char *name)
 {
 	if (!name)
@@ -116,19 +129,22 @@ int mcudd_protocol_parse(const char *line, struct mcudd_parsed_msg *out)
 			if (json_find_string(line, "op", op, sizeof(op)) != 0)
 				return -1;
 			if (!strcmp(op, "screen") &&
-			    json_find_string(line, "screen", screen, sizeof(screen)) == 0) {
+			    json_find_data_string(line, "screen", screen, sizeof(screen)) == 0) {
 				out->type = MCUDD_MSG_RDCP_EVT;
 				strncpy(out->screen, screen, sizeof(out->screen) - 1);
 				return 0;
 			}
 			if (!strcmp(op, "input") && strstr(line, "\"gesture\"")) {
 				out->type = MCUDD_MSG_RDCP_EVT_INPUT;
-				if (strstr(line, "\"dir\":\"right\""))
-					strncpy(out->gesture_dir, "right",
-						sizeof(out->gesture_dir) - 1);
-				else
-					strncpy(out->gesture_dir, "left",
-						sizeof(out->gesture_dir) - 1);
+				if (json_find_data_string(line, "dir", out->gesture_dir,
+							  sizeof(out->gesture_dir)) != 0) {
+					if (strstr(line, "\"dir\":\"right\""))
+						strncpy(out->gesture_dir, "right",
+							sizeof(out->gesture_dir) - 1);
+					else
+						strncpy(out->gesture_dir, "left",
+							sizeof(out->gesture_dir) - 1);
+				}
 				return 0;
 			}
 		}
