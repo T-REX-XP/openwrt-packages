@@ -89,6 +89,14 @@ const TAB_REQUIRE = {
 	logs: 'blocky-tab-logs as tabLogs'
 };
 
+/** Names defined in the same tab module — must not be pulled from Blocky (would overwrite locals). */
+const TAB_LOCAL_EXPORTS = {
+	'blocky-tab-dashboard.js': new Set([
+		'blockyThemeRoot', 'blockyCssVar', 'blockyChartColor', 'blockyChartFill',
+		'blockyLegendDot', 'applyBlockyChartPathTheme', 'blockyAttachThemeSync'
+	])
+};
+
 const COMMON_DESTRUCT = [
 	'loadBlockyPageData', 'resolveDefaultTabFromHash', 'renderBlockyVersionBadge',
 	'resolveBlockyVersion', 'parseBlockyVersionFromMetrics', 'blockyCliStdout', 'execResultStdout',
@@ -257,7 +265,8 @@ function crossTabRequires(currentModule, body) {
 	return [...keys].sort().map((key) => "'require " + TAB_REQUIRE[key] + "';").join('\n');
 }
 
-function tabDestructuring() {
+function tabDestructuring(file) {
+	const skip = TAB_LOCAL_EXPORTS[file] || new Set();
 	const names = [
 		'safeString', 'execResultStdout', 'blockyCliStdout', 'parseDnsForwardFlag', 'parseBlockyPortLine',
 		'parseBlockyPortValue', 'isLoopbackHost', 'blockyHttpBaseUrl', 'unwrapFsRead', 'emptyBlocklistCatalog',
@@ -279,7 +288,7 @@ function tabDestructuring() {
 		'blockyPill', 'blockyStatusDetail', 'blockyLegendDot', 'blockyChartColor', 'blockyChartFill',
 		'blockyCssVar', 'blockyThemeRoot', 'applyBlockyChartPathTheme', 'blockyAttachThemeSync',
 		'registerBlockingCountdownPoll', 'topListBarRow', 'mapToBarRows', 'resolveDenyCount', 'bc', 'bp'
-	];
+	].filter((n) => !skip.has(n));
 	return 'var ' + names.map((n) => n + ' = Blocky.' + n).join(',\n\t') + ';\n';
 }
 
@@ -363,7 +372,7 @@ function main() {
 		const extraRequires = crossTabRequires(file, body);
 		const tabFile = tabRequires +
 			(extraRequires ? extraRequires + '\n' : '') +
-			tabDestructuring() + '\n' + body + '\n\nreturn baseclass.extend({\n' +
+			tabDestructuring(file) + '\n' + body + '\n\nreturn baseclass.extend({\n' +
 			exports.map((n) => '\t' + n + ': ' + n).join(',\n') + '\n});\n';
 		fs.writeFileSync(path.join(RES, file), tabFile);
 	}

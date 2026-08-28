@@ -25,7 +25,11 @@ function run_cmd(cmd) {
 	let output = p.read('all') || '';
 	let code = p.close();
 
-	return { code, output };
+	return { code: code, output: output };
+}
+
+function rpc_args(req) {
+	return req && req.args ? req.args : {};
 }
 
 function file_test(flag, path) {
@@ -160,7 +164,7 @@ function run_bin(path, args) {
 	let output = p.read('all') || '';
 	let code = p.close();
 
-	return { ok: code == 0, code, output };
+	return { ok: code == 0, code: code, output: output };
 }
 
 function validate_http(method, path, body) {
@@ -226,16 +230,22 @@ const methods = {
 	http_request: {
 		args: { method: 'method', path: 'path', body: 'body' },
 		call: function(req) {
-			let args = validate_http(req.args?.method, req.args?.path, req.args?.body);
-			if (!args)
-				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request arguments' };
+			let ra = rpc_args(req);
+			let method = upper(ra.method || 'GET');
+			let path = trim(ra.path || 'metrics');
 
-			let run_args = [ args[0], args[1] ];
-			if (args[2] != null && length(args[2]))
-				run_args.push(args[2]);
+			if (method != 'GET' && method != 'POST')
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request method' };
+
+			if (!match(path, /^[A-Za-z0-9_\/.\-]+$/) || index(path, '..') >= 0)
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request path' };
+
+			let run_args = [ method, path ];
+			if (ra.body != null && length(String(ra.body)))
+				push(run_args, String(ra.body));
 
 			let res = run_bin(HTTP, run_args);
-			let stdout = res.ok ? res.output : '';
+			let stdout = res.ok ? (res.output || '') : '';
 
 			if (length(stdout) > MAX_HTTP_UBUS_OUT)
 				stdout = substr(stdout, 0, MAX_HTTP_UBUS_OUT);
@@ -244,7 +254,7 @@ const methods = {
 				ok: res.ok,
 				code: res.code,
 				stdout: stdout,
-				stderr: res.ok ? '' : res.output
+				stderr: res.ok ? '' : substr(res.output || '', 0, 512)
 			};
 		}
 	},
@@ -252,14 +262,15 @@ const methods = {
 	read_query_log: {
 		args: { target: 'target', max_bytes: 'max_bytes' },
 		call: function(req) {
-			let dir = allowed_log_dir(req.args?.target);
+			let ra = rpc_args(req);
+			let dir = allowed_log_dir(ra.target);
 			if (!dir)
 				return { ok: false, error: 'invalid log directory (allowed: /tmp/blocky-logs)' };
 
 			if (access(dir))
 				return { ok: false, error: `log directory not found: ${dir}` };
 
-			let max_bytes = int(req.args?.max_bytes) || MAX_LOG_BYTES;
+			let max_bytes = int(ra.max_bytes) || MAX_LOG_BYTES;
 			if (max_bytes < 1 || max_bytes > MAX_LOG_BYTES)
 				max_bytes = MAX_LOG_BYTES;
 
@@ -341,8 +352,9 @@ const methods = {
 	validate_config: {
 		args: { yaml: 'yaml' },
 		call: function(req) {
+			let ra = rpc_args(req);
 			let path = CONFIG;
-			let yaml = req.args?.yaml;
+			let yaml = ra.yaml;
 
 			if (yaml != null && length(String(yaml))) {
 				try {
@@ -374,17 +386,18 @@ const methods = {
 	getLogs: {
 		args: { limit: 'limit', max_bytes: 'max_bytes' },
 		call: function(req) {
+			let ra = rpc_args(req);
 			let logread = find_logread();
 			if (!length(logread))
 				return { ok: false, error: 'missing_logread', message: 'logread not found' };
 
-			let limit = int(req.args?.limit);
+			let limit = int(ra.limit);
 			if (!limit || limit < 1)
 				limit = 200;
 			if (limit > 2000)
 				limit = 2000;
 
-			let max_bytes = int(req.args?.max_bytes) || MAX_SYSLOG_BYTES;
+			let max_bytes = int(ra.max_bytes) || MAX_SYSLOG_BYTES;
 			if (max_bytes < 1 || max_bytes > MAX_SYSLOG_BYTES)
 				max_bytes = MAX_SYSLOG_BYTES;
 
