@@ -6,13 +6,13 @@ import (
 	"errors"
 	"io"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/daemon"
 	fifopkg "github.com/t-rex-xp/openwrt-packages/mcudd/internal/fifo"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
+	"golang.org/x/sys/unix"
 )
 
 const pollTimeoutMS = 500
@@ -23,11 +23,11 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 		return errors.New("missing engine or serial")
 	}
 
-	pfds := []syscall.PollFd{{Fd: int32(serial.Fd()), Events: syscall.POLLIN}}
+	pfds := []unix.PollFd{{Fd: int32(serial.Fd()), Events: unix.POLLIN}}
 	fifoIdx := -1
 	if fifo != nil {
 		fifoIdx = len(pfds)
-		pfds = append(pfds, syscall.PollFd{Fd: int32(fifo.Fd()), Events: syscall.POLLIN})
+		pfds = append(pfds, unix.PollFd{Fd: int32(fifo.Fd()), Events: unix.POLLIN})
 	}
 
 	fifoBuf := make([]byte, 0, 256)
@@ -40,9 +40,9 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 		default:
 		}
 
-		n, err := syscall.Poll(pfds, pollTimeoutMS)
+		n, err := unix.Poll(pfds, pollTimeoutMS)
 		if err != nil {
-			if err == syscall.EINTR {
+			if err == unix.EINTR {
 				continue
 			}
 			return err
@@ -57,7 +57,7 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 		}
 		idlePolls = 0
 
-		if fifoIdx >= 0 && pfds[fifoIdx].Revents&syscall.POLLIN != 0 {
+		if fifoIdx >= 0 && pfds[fifoIdx].Revents&unix.POLLIN != 0 {
 			var chunk [64]byte
 			for {
 				nr, rerr := fifo.Read(chunk[:])
@@ -77,7 +77,7 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 					}
 				}
 				if rerr != nil {
-					if errors.Is(rerr, io.EOF) || errors.Is(rerr, syscall.EAGAIN) {
+					if errors.Is(rerr, io.EOF) || errors.Is(rerr, unix.EAGAIN) {
 						break
 					}
 					return rerr
@@ -88,7 +88,7 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 			}
 		}
 
-		if pfds[0].Revents&syscall.POLLIN != 0 {
+		if pfds[0].Revents&unix.POLLIN != 0 {
 			for i := 0; i < 32; i++ {
 				if err := e.PollOnce(); err != nil {
 					if errors.Is(err, io.EOF) || errors.Is(err, os.ErrDeadlineExceeded) {

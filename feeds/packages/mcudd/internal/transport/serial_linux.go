@@ -41,8 +41,8 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 		f.Close()
 		return nil, err
 	}
-	var status int
-	if err := unix.IoctlGetInt(int(f.Fd()), unix.TIOCMGET, &status); err == nil {
+	status, err := unix.IoctlGetInt(int(f.Fd()), unix.TIOCMGET)
+	if err == nil {
 		status &^= unix.TIOCM_DTR | unix.TIOCM_RTS
 		_ = unix.IoctlSetInt(int(f.Fd()), unix.TIOCMSET, status)
 	}
@@ -77,7 +77,8 @@ func (s *Serial) WriteLine(line string) error {
 	if err != nil {
 		return err
 	}
-	return unix.Tcdrain(int(s.Fd()))
+	// TCSBRK arg 0 == tcdrain(3) on Linux.
+	return unix.IoctlSetInt(int(s.Fd()), unix.TCSBRK, 0)
 }
 
 func (s *Serial) ReadByte() (byte, error) {
