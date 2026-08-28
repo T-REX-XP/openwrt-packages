@@ -27,8 +27,20 @@ permissions:
   actions: write
 
 jobs:
+  test-blocky:
+    name: luci-app-blocky unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run blocky host tests
+        run: feeds/luci/luci-app-blocky/tests/run-tests.sh
+
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
+    needs: test-blocky
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT

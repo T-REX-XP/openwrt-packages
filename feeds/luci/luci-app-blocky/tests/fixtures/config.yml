@@ -1,0 +1,76 @@
+# ImmortalWrt / OpenWrt defaults — Blocky listens on localhost; dnsmasq :53 forwards here.
+# Upstream ideas: https://comfy.guide/server/blocky/ (adapted for router + Blocky 0.34.x syntax)
+
+upstreams:
+  init:
+    strategy: fast
+  timeout: 5s
+  groups:
+    default:
+      - 1.1.1.1
+      - 9.9.9.9
+      - tcp-tls:1.1.1.1:853
+      - https://1.1.1.1/dns-query
+
+# Resolve denylist URLs and upstream hostnames.
+# Static resolvers only — do not use resolvFile here: at first boot
+# /tmp/resolv.conf.auto is often empty and Blocky refuses to start.
+bootstrapDns:
+  - tcp+udp:1.1.1.1
+  - tcp+udp:9.9.9.9
+  - https://1.1.1.1/dns-query
+
+blocking:
+  denylists:
+    hagezi_light:
+      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt
+    urlhaus:
+      - https://urlhaus.abuse.ch/downloads/hostfile/
+  clientGroupsBlock:
+    default:
+      - hagezi_light
+      - urlhaus
+  loading:
+    strategy: fast
+    refreshPeriod: 4h
+    downloads:
+      cachePath: /var/lib/blocky/lists
+      timeout: 60s
+      writeTimeout: 60s
+      readTimeout: 60s
+      attempts: 5
+      cooldown: 10s
+    concurrency: 4
+
+caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: false
+
+hostsFile:
+  sources:
+    - /etc/hosts
+
+log:
+  level: warn
+  privacy: false
+
+queryLog:
+  type: csv
+  target: /tmp/blocky-logs
+  logRetentionDays: 7
+  flushInterval: 30s
+
+ports:
+  dns: 127.0.0.1:5353
+  http: 127.0.0.1:4000
+
+rebindingProtection:
+  enable: true
+
+prometheus:
+  enable: true
+  path: /metrics
+
+statistics:
+  enable: true

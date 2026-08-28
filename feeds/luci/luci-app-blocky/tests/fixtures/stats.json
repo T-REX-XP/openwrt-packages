@@ -1,0 +1,9 @@
+{
+  "summary": { "total": 1000 },
+  "lists": {
+    "denylist": {
+      "hagezi_light": 45000,
+      "urlhaus": 1200
+    }
+  }
+}

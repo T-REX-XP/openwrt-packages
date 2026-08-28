@@ -6,6 +6,56 @@
 'require poll';
 'require baseclass';
 'require uci';
+'require blocky-parse-core as bp';
+'require blocky-config-core as bc';
+
+var safeString = bp.safeString;
+var execResultStdout = bp.execResultStdout;
+var blockyCliStdout = bp.blockyCliStdout;
+var parseDnsForwardFlag = bp.parseDnsForwardFlag;
+var parseBlockyPortLine = bp.parseBlockyPortLine;
+var parseBlockyPortValue = bp.parseBlockyPortValue;
+var isLoopbackHost = bp.isLoopbackHost;
+var blockyHttpBaseUrl = bp.blockyHttpBaseUrl;
+var unwrapFsRead = bp.unwrapFsRead;
+var emptyBlocklistCatalog = bp.emptyBlocklistCatalog;
+var normalizeBlocklistCatalog = bp.normalizeBlocklistCatalog;
+var sanitizeBlocklistId = bp.sanitizeBlocklistId;
+var parseBlockyDnsPort = bp.parseBlockyDnsPort;
+var formatNumber = bp.formatNumber;
+var formatPercent = bp.formatPercent;
+var parseJson = bp.parseJson;
+var sumMapValues = bp.sumMapValues;
+var sumDenylistEntries = bp.sumDenylistEntries;
+var parseQueryLogConfig = bp.parseQueryLogConfig;
+var parseMetrics = bp.parseMetrics;
+var parseLabeledMetricGauge = bp.parseLabeledMetricGauge;
+var parseDenylistGroupCounts = bp.parseDenylistGroupCounts;
+var mergeDenyCounts = bp.mergeDenyCounts;
+var metricValue = bp.metricValue;
+var formatCompactNumber = bp.formatCompactNumber;
+var deriveCumulative = bp.deriveCumulative;
+var deriveOverview = bp.deriveOverview;
+var filterSamplesByWindow = bp.filterSamplesByWindow;
+var downsampleSamples = bp.downsampleSamples;
+var bucketAggregateBars = bp.bucketAggregateBars;
+var padChartTime2 = bp.padChartTime2;
+var formatChartAxisTime = bp.formatChartAxisTime;
+var samplesToXY = bp.samplesToXY;
+var catmullRomPoint = bp.catmullRomPoint;
+var densifyCatmullRom = bp.densifyCatmullRom;
+var buildSmoothAreaPath = bp.buildSmoothAreaPath;
+var buildSmoothLinePath = bp.buildSmoothLinePath;
+var parseBlockyVersionFromMetrics = bp.parseBlockyVersionFromMetrics;
+
+function formatDuration(seconds) {
+	return bp.formatDuration(seconds, _('not scheduled'));
+}
+
+function blockyPathFromUrl(url) {
+	return bp.blockyPathFromUrl(url, blockyApiAccess.baseUrl);
+}
+
 
 var CONFIG_PATH = '/etc/blocky/config.yml';
 var blockyApiAccess = {
@@ -252,126 +302,13 @@ function appendContentNode(node, content) {
 		node.appendChild(content);
 }
 
-function safeString(value) {
-	if (value === null || value === undefined)
-		return '';
 
-	return String(value);
-}
 
-/** Prefer fs.exec (ubus): { code, stdout, stderr }. fs.exec_direct (cgi-exec) may return raw stdout string only. */
-function execResultStdout(value, fallback) {
-	if (value === null || value === undefined)
-		return fallback;
 
-	if (typeof value === 'string')
-		return value;
 
-	if (typeof value === 'object' && value.stdout !== undefined)
-		return safeString(value.stdout);
 
-	return fallback;
-}
 
-function blockyCliStdout(raw) {
-	if (raw === null || raw === undefined || raw === '')
-		return '';
 
-	if (typeof raw === 'string')
-		return raw;
-
-	if (typeof TextDecoder !== 'undefined') {
-		try {
-			if (raw instanceof ArrayBuffer)
-				return new TextDecoder().decode(raw);
-
-			if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(raw))
-				return new TextDecoder().decode(raw);
-		}
-		catch (err) {
-			/* ignore decode failure */
-		}
-	}
-
-	return String(raw);
-}
-
-function parseDnsForwardFlag(stdoutRaw) {
-	var text = safeString(blockyCliStdout(stdoutRaw)).trim();
-	var line = text.split(/\r?\n/).shift();
-
-	line = safeString(line).trim().toLowerCase();
-
-	return line === '1' || line === 'true' || line === 'yes' || line === 'on';
-}
-
-function parseBlockyPortLine(configYaml, key, defaultPort) {
-	var lines = safeString(configYaml).split(/\n/);
-	var inPorts = false;
-	var baseIndent = -1;
-	var i;
-	var line;
-	var m;
-	var lead;
-	var re = new RegExp('^\\s+' + key + '\\s*:\\s*(.+)$');
-
-	for (i = 0; i < lines.length; i++) {
-		line = lines[i];
-		if (/^\s*ports\s*:\s*$/.test(line)) {
-			inPorts = true;
-			m = line.match(/^(\s*)/);
-			baseIndent = m ? m[1].length : 0;
-			continue;
-		}
-		if (!inPorts)
-			continue;
-
-		if (line.trim() === '')
-			continue;
-
-		lead = line.match(/^(\s*)/);
-		if (lead && lead[1].length <= baseIndent)
-			break;
-
-		m = line.match(re);
-		if (m)
-			return parseBlockyPortValue(m[1]);
-	}
-
-	return { host: '127.0.0.1', port: defaultPort };
-}
-
-function parseBlockyPortValue(raw) {
-	var value = safeString(raw).trim().replace(/['"]/g, '');
-
-	if (/^\d+$/.test(value))
-		return { host: '0.0.0.0', port: Number(value) };
-
-	if (value.charAt(0) === ':')
-		return { host: '0.0.0.0', port: Number(value.slice(1)) || 4000 };
-
-	var m = value.match(/^(\[[^\]]+\]|[^:\s]+):(\d+)$/);
-	if (m)
-		return { host: m[1], port: Number(m[2]) };
-
-	return { host: '127.0.0.1', port: 4000 };
-}
-
-function isLoopbackHost(host) {
-	var h = safeString(host).toLowerCase();
-
-	return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
-}
-
-function blockyHttpBaseUrl(configYaml) {
-	var ep = parseBlockyPortLine(configYaml, 'http', 4000);
-	var host = ep.host;
-
-	if (host === '0.0.0.0' || host === '::' || host === '[::]')
-		host = '127.0.0.1';
-
-	return 'http://' + host + ':' + String(ep.port);
-}
 
 function applyBlockyApiAccess(configYaml, access) {
 	blockyApiAccess.baseUrl = blockyHttpBaseUrl(configYaml);
@@ -395,50 +332,8 @@ var BLOCKLIST_CATALOG_PATH = '/usr/share/luci-app-blocky/blocklist-catalog.json'
 var EMPTY_BLOCKLIST_CATALOG = { presets: [], catalog: [], presetMap: {} };
 var blocklistCatalogPromise = null;
 
-function unwrapFsRead(value) {
-	return safeString(blockyCliStdout(value)).trim();
-}
 
-function emptyBlocklistCatalog() {
-	return { presets: [], catalog: [], presetMap: {} };
-}
 
-function normalizeBlocklistCatalog(raw) {
-	var data = null;
-	var text = unwrapFsRead(raw);
-
-	if (text) {
-		try {
-			data = JSON.parse(text);
-		}
-		catch (err) {
-			data = null;
-		}
-	}
-	else if (raw && typeof raw === 'object' && Array.isArray(raw.presets)) {
-		data = raw;
-	}
-
-	if (!data || !Array.isArray(data.presets))
-		return emptyBlocklistCatalog();
-
-	var presetMap = {};
-	var presets = [];
-
-	data.presets.forEach(function(preset) {
-		if (!preset || !preset.id || !preset.name || !preset.url)
-			return;
-
-		presetMap[preset.id] = preset;
-		presets.push(preset);
-	});
-
-	return {
-		presets: presets,
-		catalog: Array.isArray(data.catalog) ? data.catalog : [],
-		presetMap: presetMap
-	};
-}
 
 function loadBlocklistCatalog(forceReload) {
 	if (forceReload)
@@ -807,9 +702,6 @@ function openNewBlocklistModal(refreshPage, catalogData) {
 	);
 }
 
-function sanitizeBlocklistId(raw) {
-	return safeString(raw).toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_|_$/g, '');
-}
 
 function loadUciBlocklists() {
 	return uci.load('blocky').then(function() {
@@ -1020,9 +912,6 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 	]);
 }
 
-function parseBlockyDnsPort(configYaml) {
-	return parseBlockyPortLine(configYaml, 'dns', 5353).port;
-}
 
 function execDnsmasqSync(argv) {
 	return fs.exec('/usr/sbin/blocky-dnsmasq-sync', argv || []).then(function(res) {
@@ -1035,76 +924,10 @@ function execDnsmasqSync(argv) {
 	});
 }
 
-function formatNumber(value) {
-	var number = Number(value || 0);
 
-	if (!isFinite(number))
-		number = 0;
 
-	return number.toLocaleString ? number.toLocaleString() : String(number);
-}
 
-function formatPercent(value) {
-	var number = Number(value || 0);
 
-	if (!isFinite(number))
-		number = 0;
-
-	return number.toFixed(1) + '%';
-}
-
-function formatDuration(seconds) {
-	var value = Number(seconds || 0);
-	var minutes;
-
-	if (!isFinite(value) || value <= 0)
-		return _('not scheduled');
-
-	minutes = Math.floor(value / 60);
-
-	return '%dm %02ds'.format(minutes, value % 60);
-}
-
-function parseJson(text) {
-	if (!text)
-		return {};
-
-	try {
-		return JSON.parse(text);
-	}
-	catch (err) {
-		return {};
-	}
-}
-
-function blockyPathFromUrl(url) {
-	var path = safeString(url).trim();
-
-	if (!path)
-		return 'metrics';
-
-	if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) {
-		var base = blockyApiAccess.baseUrl;
-
-		if (path.indexOf(base) === 0)
-			path = path.slice(base.length);
-		else {
-			var m = path.match(/\/\/[^/]+(\/.*)?$/);
-
-			path = m && m[1] ? m[1] : '/metrics';
-		}
-	}
-
-	path = path.replace(/^\//, '');
-
-	if (path === 'metrics' || path.indexOf('metrics?') === 0)
-		return 'metrics';
-
-	if (path.indexOf('api/') === 0)
-		return path;
-
-	return 'api/' + path;
-}
 
 function blockyHttpRequest(method, path, body) {
 	return callBlockyHttpRequest(method || 'GET', path || 'metrics', body != null ? String(body) : '').then(function(res) {
@@ -1150,57 +973,13 @@ function blockyMetricsUrl() {
 
 function fetchBlockyStats() {
 	return callBlockyHttpRequest('GET', 'api/stats', '').then(function(res) {
-		var text = safeString(res && res.stdout).trim();
-		var errText = safeString(res && res.stderr).trim();
-
-		if (!blockyRpcOk(res)) {
-			if (/statistics are disabled/i.test(errText || text))
-				return { ok: false, disabled: true, data: null };
-
-			return { ok: false, disabled: false, data: null };
-		}
-
-		if (!text)
-			return { ok: false, disabled: false, data: null };
-
-		try {
-			var data = parseJson(text);
-
-			if (!data || typeof data !== 'object')
-				return { ok: false, disabled: false, data: null };
-
-			if (!data.summary && !(data.lists && (data.lists.denylist || data.lists.allowlist)))
-				return { ok: false, disabled: false, data: null };
-
-			return { ok: true, disabled: false, data: data };
-		}
-		catch (err) {
-			return { ok: false, disabled: false, data: null };
-		}
+		return bp.parseBlockyStatsResponse(res);
 	}).catch(function() {
 		return { ok: false, disabled: false, data: null };
 	});
 }
 
-function sumMapValues(map) {
-	var total = 0;
 
-	if (!map || typeof map !== 'object')
-		return 0;
-
-	Object.keys(map).forEach(function(key) {
-		total += Number(map[key]) || 0;
-	});
-
-	return total;
-}
-
-function sumDenylistEntries(stats) {
-	if (!stats || !stats.lists || !stats.lists.denylist)
-		return 0;
-
-	return sumMapValues(stats.lists.denylist);
-}
 
 function mapToBarRows(items, limit) {
 	var rows = (items || []).slice(0, limit || 10);
@@ -1277,19 +1056,6 @@ function registerBlockingCountdownPoll(onStatus, active, channel) {
 	}, 1);
 }
 
-function parseQueryLogConfig(configYaml) {
-	var yaml = safeString(configYaml);
-	var typeMatch = yaml.match(/(?:^|\n)queryLog:[\s\S]*?\n\s+type:\s*(\S+)/);
-	var targetMatch = yaml.match(/(?:^|\n)queryLog:[\s\S]*?\n\s+target:\s*(\S+)/);
-
-	if (!typeMatch)
-		return null;
-
-	return {
-		type: typeMatch[1].replace(/['"]/g, ''),
-		target: targetMatch ? targetMatch[1].replace(/['"]/g, '').replace(/\/$/, '') : ''
-	};
-}
 
 function shellQuote(value) {
 	return "'" + safeString(value).replace(/'/g, "'\\''") + "'";
@@ -1403,185 +1169,13 @@ function isNamedServiceRunning(service, name) {
 		service[name].instances.instance1 && service[name].instances.instance1.running);
 }
 
-function parseMetrics(text) {
-	var metrics = {};
-	var lines = safeString(text).split(/\n/);
 
-	lines.forEach(function(line) {
-		var match;
-		var name;
-		var labels;
-		var value;
-		var responseType;
 
-		if (!line || line.charAt(0) === '#')
-			return;
 
-		match = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/);
-		if (!match)
-			return;
 
-		name = match[1];
-		labels = match[2] || '';
-		value = Number(match[3]);
 
-		if (!isFinite(value))
-			return;
 
-		metrics[name] = (metrics[name] || 0) + value;
 
-		if (labels && name === 'blocky_response_total') {
-			responseType = /response_type="([^"]+)"/.exec(labels);
-
-			if (responseType) {
-				name = 'blocky_response_total:' + String(responseType[1]).toUpperCase();
-				metrics[name] = (metrics[name] || 0) + value;
-			}
-		}
-	});
-
-	return metrics;
-}
-
-function parseLabeledMetricGauge(text, metricNames, labelName) {
-	var map = {};
-	var lines = safeString(text).split(/\n/);
-	var names = Array.isArray(metricNames) ? metricNames : [ metricNames ];
-	var labelRe = new RegExp(labelName + '="([^"]+)"');
-	var i;
-	var line;
-	var match;
-	var labels;
-	var labelMatch;
-	var value;
-
-	for (i = 0; i < lines.length; i++) {
-		line = lines[i];
-
-		if (!line || line.charAt(0) === '#')
-			continue;
-
-		match = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+(-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$/);
-		if (!match || names.indexOf(match[1]) === -1)
-			continue;
-
-		labels = match[2] || '';
-		labelMatch = labels.match(labelRe);
-		value = Number(match[3]);
-
-		if (!labelMatch || !isFinite(value))
-			continue;
-
-		map[labelMatch[1]] = value;
-	}
-
-	return map;
-}
-
-function parseDenylistGroupCounts(metricsText) {
-	return parseLabeledMetricGauge(metricsText, [
-		'blocky_denylist_cache_entries',
-		'blocky_denylist_cache'
-	], 'group');
-}
-
-function mergeDenyCounts(primary, fallback) {
-	var map = {};
-	var key;
-
-	Object.keys(fallback || {}).forEach(function(name) {
-		map[name] = fallback[name];
-	});
-
-	Object.keys(primary || {}).forEach(function(name) {
-		map[name] = primary[name];
-	});
-
-	return map;
-}
-
-function metricValue(metrics, names) {
-	var value = 0;
-
-	names.forEach(function(name) {
-		if (metrics[name])
-			value += metrics[name];
-	});
-
-	return value;
-}
-
-function formatCompactNumber(value) {
-	var number = Number(value || 0);
-
-	if (!isFinite(number))
-		number = 0;
-
-	if (number >= 1e9)
-		return (number / 1e9).toFixed(1).replace(/\.0$/, '') + 'G';
-
-	if (number >= 1e6)
-		return (number / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
-
-	if (number >= 1e3)
-		return (number / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
-
-	return formatNumber(number);
-}
-
-function deriveCumulative(metrics) {
-	var totalQueries = metricValue(metrics, [
-		'blocky_query_total',
-		'blocky_queries_total'
-	]);
-	var blockedQueries = metricValue(metrics, [
-		'blocky_response_total:BLOCKED',
-		'blocky_query_blocked_total',
-		'blocky_blocked_total',
-		'blocky_response_total_blocked'
-	]);
-	var cacheHits = metricValue(metrics, [
-		'blocky_cache_hit_total',
-		'blocky_cache_hits_total'
-	]);
-	var cacheMisses = metricValue(metrics, [
-		'blocky_cache_miss_total',
-		'blocky_cache_misses_total'
-	]);
-	var denylistEntries = metricValue(metrics, [
-		'blocky_denylist_cache_entries',
-		'blocky_denylist_cache',
-		'blocky_blocking_denylists_entries',
-		'blocky_denylists_entries',
-		'blocky_blocking_groups_total'
-	]);
-
-	return {
-		totalQueries: totalQueries,
-		blockedQueries: blockedQueries,
-		cacheHits: cacheHits,
-		cacheMisses: cacheMisses,
-		denylistEntries: denylistEntries
-	};
-}
-
-function deriveOverview(metrics) {
-	var cumulative = deriveCumulative(metrics);
-	var totalQueries = cumulative.totalQueries;
-	var blockedQueries = cumulative.blockedQueries;
-	var cacheHits = cumulative.cacheHits;
-	var cacheMisses = cumulative.cacheMisses;
-	var denylistEntries = cumulative.denylistEntries;
-
-	return {
-		totalQueries: totalQueries,
-		blockedQueries: blockedQueries,
-		blockedRate: totalQueries > 0 ? blockedQueries / totalQueries * 100 : 0,
-		cacheHitRate: cacheHits + cacheMisses > 0 ? cacheHits / (cacheHits + cacheMisses) * 100 : 0,
-		denylistEntries: denylistEntries,
-		hasMetrics: Object.keys(metrics).length > 0
-	};
-}
 
 var REALTIME_WINDOWS = [
 	[ '1h', _('1h'), 3600000 ],
@@ -1611,174 +1205,15 @@ function setBlockyMetricsPollingHook(fn) {
 	registerBlockyMetricsPolling();
 }
 
-function filterSamplesByWindow(samples, windowMs) {
-	var cutoff = Date.now() - windowMs;
 
-	return samples.filter(function(s) {
-		return s.t >= cutoff;
-	});
-}
 
-function downsampleSamples(samples, maxPoints) {
-	var out = [];
-	var i;
-	var idx;
 
-	if (samples.length <= maxPoints)
-		return samples.slice();
 
-	for (i = 0; i < maxPoints; i++) {
-		idx = Math.floor(i * (samples.length - 1) / (maxPoints - 1));
-		out.push(samples[idx]);
-	}
 
-	return out;
-}
 
-function bucketAggregateBars(samples, bucketCount) {
-	var buckets = [];
-	var span;
-	var t0;
-	var t1;
-	var bi;
-	var s;
-	var i;
 
-	if (!samples.length)
-		return buckets;
 
-	t0 = samples[0].t;
-	t1 = samples[samples.length - 1].t;
-	span = Math.max(1, t1 - t0);
 
-	for (i = 0; i < bucketCount; i++) {
-		buckets.push({
-			total: 0,
-			blocked: 0,
-			cached: 0
-		});
-	}
-
-	for (i = 0; i < samples.length; i++) {
-		s = samples[i];
-		bi = Math.min(bucketCount - 1, Math.floor((s.t - t0) / span * bucketCount));
-		buckets[bi].total += s.total;
-		buckets[bi].blocked += s.blocked;
-		buckets[bi].cached += s.cached;
-	}
-
-	return buckets;
-}
-
-function padChartTime2(n) {
-	n = Math.floor(n);
-
-	return (n < 10 ? '0' : '') + n;
-}
-
-function formatChartAxisTime(ms) {
-	var d = new Date(ms);
-
-	return padChartTime2(d.getHours()) + ':' + padChartTime2(d.getMinutes());
-}
-
-function samplesToXY(samples, field, W, H, padL, padR, padT, padB, maxY) {
-	var innerW = W - padL - padR;
-	var innerH = H - padT - padB;
-	var pts = [];
-	var i;
-	var x;
-	var y;
-	var v;
-
-	for (i = 0; i < samples.length; i++) {
-		v = samples[i][field];
-		x = padL + innerW * (samples.length <= 1 ? 0.5 : i / (samples.length - 1));
-		y = padT + innerH * (1 - Math.min(v / maxY, 1));
-		pts.push({ x: x, y: y });
-	}
-
-	return pts;
-}
-
-function catmullRomPoint(t, p0, p1, p2, p3) {
-	var t2 = t * t;
-	var t3 = t2 * t;
-
-	return {
-		x: 0.5 * ((2 * p1.x) +
-			(-p0.x + p2.x) * t +
-			(2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-			(-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-		y: 0.5 * ((2 * p1.y) +
-			(-p0.y + p2.y) * t +
-			(2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-			(-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
-	};
-}
-
-function densifyCatmullRom(pts, steps) {
-	var out = [];
-	var i;
-	var s;
-	var p0;
-	var p1;
-	var p2;
-	var p3;
-
-	if (!pts.length)
-		return [];
-
-	if (pts.length === 1)
-		return [ pts[0] ];
-
-	steps = Math.max(4, steps || 10);
-
-	for (i = 0; i < pts.length - 1; i++) {
-		p0 = i === 0 ? pts[0] : pts[i - 1];
-		p1 = pts[i];
-		p2 = pts[i + 1];
-		p3 = i + 2 < pts.length ? pts[i + 2] : pts[pts.length - 1];
-
-		for (s = 0; s < steps; s++)
-			out.push(catmullRomPoint(s / steps, p0, p1, p2, p3));
-	}
-
-	out.push(pts[pts.length - 1]);
-	return out;
-}
-
-function buildSmoothAreaPath(densePts, baselineY) {
-	var d = '';
-	var i;
-
-	if (!densePts.length)
-		return '';
-
-	d = 'M ' + densePts[0].x + ',' + baselineY +
-		' L ' + densePts[0].x + ',' + densePts[0].y;
-
-	for (i = 1; i < densePts.length; i++)
-		d += ' L ' + densePts[i].x + ',' + densePts[i].y;
-
-	d += ' L ' + densePts[densePts.length - 1].x + ',' + baselineY + ' Z';
-	return d;
-}
-
-function buildSmoothLinePath(densePts) {
-	var d = '';
-	var i;
-
-	if (!densePts.length)
-		return '';
-
-	d = 'M ' + densePts[0].x + ',' + densePts[0].y;
-
-	for (i = 1; i < densePts.length; i++)
-		d += ' L ' + densePts[i].x + ',' + densePts[i].y;
-
-	return d;
-}
 
 function buildQueriesChartUnderlay(series, maxY, W, H, padL, padR, padT, padB) {
 	var innerW = W - padL - padR;
@@ -3107,42 +2542,7 @@ function renderQueryLogsTab(config) {
 	]);
 	var pageState = { page: 0, pageSize: 50, rows: [], logPath: '' };
 
-	function parseCsvRows(text) {
-		var lines = safeString(text).split(/\n/);
-		var rows = [];
-		var i;
 
-		for (i = 0; i < lines.length; i++) {
-			var line = lines[i].trim();
-
-			if (!line || line.charAt(0) === '#')
-				continue;
-
-			var cols = line.split('\t');
-			if (cols.length < 6)
-				cols = line.split(';');
-			if (cols.length < 6)
-				cols = line.split(',');
-
-			if (cols.length < 6)
-				continue;
-
-			if (/^time(stamp)?$/i.test(cols[0]) || cols[0] === '2006-01-02 15:04:05')
-				continue;
-
-			rows.push({
-				time: cols[0],
-				client: cols[1] || cols[2] || '',
-				question: cols[5] || cols[2] || '',
-				type: cols[9] || cols[3] || '',
-				response: cols[4] || cols[7] || '',
-				reason: cols[4] || '',
-				answer: cols[6] || ''
-			});
-		}
-
-		return rows.reverse();
-	}
 
 	function filteredRows() {
 		var domainNeedle = filterDomain.value.trim().toLowerCase();
@@ -3263,7 +2663,7 @@ function renderQueryLogsTab(config) {
 				throw new Error((res && res.error) || _('Failed to read query log'));
 
 			pageState.logPath = res.path || '';
-			pageState.rows = parseCsvRows(res.content || '');
+			pageState.rows = bp.parseCsvRows(res.content || '');
 			pageState.page = 0;
 			updateResponseFilterOptions();
 			renderTable();
@@ -3432,358 +2832,6 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	].concat(body));
 }
 
-function extractYamlSection(yaml, sectionName) {
-	var lines = safeString(yaml).split('\n');
-	var out = [];
-	var inSection = false;
-	var re = new RegExp('^' + sectionName + ':\\s*$');
-
-	lines.forEach(function(line) {
-		if (re.test(line)) {
-			inSection = true;
-			out.push(line);
-			return;
-		}
-
-		if (!inSection)
-			return;
-
-		if (/^[a-zA-Z0-9_]+:\s*$/.test(line) && !re.test(line))
-			return;
-
-		if (/^[^#\s]/.test(line) && !re.test(line))
-			return;
-
-		out.push(line);
-	});
-
-	return out.length ? out.join('\n') : '';
-}
-
-function parseYamlScalar(sectionYaml, key, fallback) {
-	var m = safeString(sectionYaml).match(new RegExp('(?:^|\\n)\\s+' + key + ':\\s*(.+)$', 'm'));
-
-	if (!m)
-		return fallback;
-
-	return m[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
-}
-
-function parseYamlBool(sectionYaml, key, fallback) {
-	var value = parseYamlScalar(sectionYaml, key, null);
-
-	if (value === null)
-		return fallback;
-
-	value = value.toLowerCase();
-
-	return value === 'true' || value === '1' || value === 'yes';
-}
-
-function parseYamlListItems(sectionYaml) {
-	var items = [];
-
-	safeString(sectionYaml).split('\n').forEach(function(line) {
-		var m = line.match(/^\s+-\s+(.+)$/);
-
-		if (!m)
-			return;
-
-		items.push(m[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
-	});
-
-	return items;
-}
-
-function parseUpstreamGroupResolvers(sectionYaml) {
-	var items = [];
-	var inDefault = false;
-
-	safeString(sectionYaml).split('\n').forEach(function(line) {
-		if (/^\s+default:\s*$/.test(line)) {
-			inDefault = true;
-			return;
-		}
-
-		if (inDefault && /^\s+-\s+(.+)$/.test(line)) {
-			items.push(line.match(/^\s+-\s+(.+)$/)[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
-			return;
-		}
-
-		if (inDefault && /^\s+[A-Za-z0-9_*[\].-]+:\s*$/.test(line))
-			inDefault = false;
-	});
-
-	return items;
-}
-
-function parseBlockySettings(yaml) {
-	var upstreams = extractYamlSection(yaml, 'upstreams');
-	var bootstrap = extractYamlSection(yaml, 'bootstrapDns');
-	var blocking = extractYamlSection(yaml, 'blocking');
-	var caching = extractYamlSection(yaml, 'caching');
-	var hostsFile = extractYamlSection(yaml, 'hostsFile');
-	var logSec = extractYamlSection(yaml, 'log');
-	var queryLog = extractYamlSection(yaml, 'queryLog');
-	var ports = extractYamlSection(yaml, 'ports');
-	var rebinding = extractYamlSection(yaml, 'rebindingProtection');
-	var prometheus = extractYamlSection(yaml, 'prometheus');
-	var statistics = extractYamlSection(yaml, 'statistics');
-	var dnsEp = parseBlockyPortLine(yaml, 'dns', 5353);
-	var httpEp = parseBlockyPortLine(yaml, 'http', 4000);
-	var bootstrapItems = parseYamlListItems(bootstrap);
-	var bootstrapResolvers = [];
-	var initMatch = upstreams.match(/init:\s*\n\s+strategy:\s*(\S+)/);
-	var refreshMatch = blocking.match(/refreshPeriod:\s*(\S+)/);
-	var downloadTimeoutMatch = blocking.match(/downloads:[\s\S]*?\n\s+timeout:\s*(\S+)/);
-	var downloadAttemptsMatch = blocking.match(/downloads:[\s\S]*?\n\s+attempts:\s*(\S+)/);
-	var loadingStrategyMatch = blocking.match(/loading:[\s\S]*?\n\s+strategy:\s*(\S+)/);
-	var cachePathMatch = blocking.match(/cachePath:\s*(\S+)/);
-	var writeTimeoutMatch = blocking.match(/writeTimeout:\s*(\S+)/);
-	var readTimeoutMatch = blocking.match(/readTimeout:\s*(\S+)/);
-	var cooldownMatch = blocking.match(/cooldown:\s*(\S+)/);
-	var concurrencyMatch = blocking.match(/concurrency:\s*(\S+)/);
-
-	bootstrapItems.forEach(function(item) {
-		if (/^resolvFile:/i.test(item))
-			return;
-
-		bootstrapResolvers.push(item);
-	});
-
-	return {
-		upstreamResolvers: parseUpstreamGroupResolvers(upstreams),
-		upstreamInitStrategy: initMatch ? initMatch[1].replace(/['"]/g, '') : 'fast',
-		upstreamTimeout: parseYamlScalar(upstreams, 'timeout', '5s'),
-		bootstrapResolvers: bootstrapResolvers,
-		bootstrapUseWan: bootstrapItems.some(function(item) {
-			return /^resolvFile:/i.test(item);
-		}),
-		listRefreshPeriod: refreshMatch ? refreshMatch[1].replace(/['"]/g, '') : '4h',
-		loadingStrategy: loadingStrategyMatch ? loadingStrategyMatch[1].replace(/['"]/g, '') : 'fast',
-		listCachePath: cachePathMatch ? cachePathMatch[1].replace(/['"]/g, '') : '/var/lib/blocky/lists',
-		listDownloadTimeout: downloadTimeoutMatch ? downloadTimeoutMatch[1].replace(/['"]/g, '') : '60s',
-		listWriteTimeout: writeTimeoutMatch ? writeTimeoutMatch[1].replace(/['"]/g, '') : '60s',
-		listReadTimeout: readTimeoutMatch ? readTimeoutMatch[1].replace(/['"]/g, '') : '60s',
-		listDownloadAttempts: downloadAttemptsMatch ? downloadAttemptsMatch[1].replace(/['"]/g, '') : '5',
-		listCooldown: cooldownMatch ? cooldownMatch[1].replace(/['"]/g, '') : '10s',
-		listConcurrency: concurrencyMatch ? concurrencyMatch[1].replace(/['"]/g, '') : '4',
-		cachingMinTime: parseYamlScalar(caching, 'minTime', '5m'),
-		cachingMaxTime: parseYamlScalar(caching, 'maxTime', '30m'),
-		cachingPrefetch: parseYamlBool(caching, 'prefetching', false),
-		hostsSources: parseYamlListItems(hostsFile),
-		logLevel: parseYamlScalar(logSec, 'level', 'warn'),
-		logPrivacy: parseYamlBool(logSec, 'privacy', false),
-		queryLogType: parseYamlScalar(queryLog, 'type', 'csv'),
-		queryLogTarget: parseYamlScalar(queryLog, 'target', '/tmp/blocky-logs'),
-		queryLogRetention: parseYamlScalar(queryLog, 'logRetentionDays', '7'),
-		queryLogFlush: parseYamlScalar(queryLog, 'flushInterval', '30s'),
-		portDns: dnsEp.host + ':' + String(dnsEp.port),
-		portHttp: httpEp.host + ':' + String(httpEp.port),
-		rebindingEnable: parseYamlBool(rebinding, 'enable', true),
-		prometheusEnable: parseYamlBool(prometheus, 'enable', true),
-		prometheusPath: parseYamlScalar(prometheus, 'path', '/metrics'),
-		statisticsEnable: parseYamlBool(statistics, 'enable', true),
-		blockingSection: blocking
-	};
-}
-
-function yamlQuote(value) {
-	var v = safeString(value).trim();
-
-	if (!v)
-		return '""';
-
-	if (/[:#{}[\],&*?|>!%@`"]|\s/.test(v))
-		return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-
-	return v;
-}
-
-function yamlListLines(items, indent) {
-	var prefix = indent || '      ';
-
-	return items.filter(function(item) {
-		return safeString(item).trim();
-	}).map(function(item) {
-		return prefix + '- ' + yamlQuote(item.trim());
-	}).join('\n');
-}
-
-function buildBlockySettingsYaml(fields, currentYaml) {
-	var blocking = fields.blockingSection || extractYamlSection(currentYaml, 'blocking');
-	var upstreamResolvers = fields.upstreamResolvers.split(/\n/).map(function(s) {
-		return s.trim();
-	}).filter(Boolean);
-	var bootstrapResolvers = fields.bootstrapResolvers.split(/\n/).map(function(s) {
-		return s.trim();
-	}).filter(Boolean);
-	var hostsSources = fields.hostsSources.split(/\n/).map(function(s) {
-		return s.trim();
-	}).filter(Boolean);
-	var bootstrapLines = bootstrapResolvers.slice();
-
-	if (fields.bootstrapUseWan)
-		bootstrapLines.push('resolvFile: /tmp/resolv.conf.auto');
-
-	if (!blocking.trim())
-		blocking = extractYamlSection(currentYaml, 'blocking');
-
-	return [
-		'upstreams:',
-		'  init:',
-		'    strategy: ' + yamlQuote(fields.upstreamInitStrategy || 'fast'),
-		'  timeout: ' + yamlQuote(fields.upstreamTimeout || '5s'),
-		'  groups:',
-		'    default:',
-		yamlListLines(upstreamResolvers, '      '),
-		'',
-		'bootstrapDns:',
-		bootstrapLines.length ? yamlListLines(bootstrapLines, '  ') : '  - tcp+udp:1.1.1.1',
-		'',
-		blocking.trim(),
-		'',
-		'caching:',
-		'  minTime: ' + yamlQuote(fields.cachingMinTime || '5m'),
-		'  maxTime: ' + yamlQuote(fields.cachingMaxTime || '30m'),
-		'  prefetching: ' + (fields.cachingPrefetch ? 'true' : 'false'),
-		'',
-		'hostsFile:',
-		'  sources:',
-		hostsSources.length ? yamlListLines(hostsSources, '    ') : '    - /etc/hosts',
-		'',
-		'log:',
-		'  level: ' + yamlQuote(fields.logLevel || 'warn'),
-		'  privacy: ' + (fields.logPrivacy ? 'true' : 'false'),
-		'',
-		'queryLog:',
-		'  type: ' + yamlQuote(fields.queryLogType || 'csv'),
-		'  target: ' + yamlQuote(fields.queryLogTarget || '/tmp/blocky-logs'),
-		'  logRetentionDays: ' + yamlQuote(fields.queryLogRetention || '7'),
-		'  flushInterval: ' + yamlQuote(fields.queryLogFlush || '30s'),
-		'',
-		'ports:',
-		'  dns: ' + yamlQuote(fields.portDns || '127.0.0.1:5353'),
-		'  http: ' + yamlQuote(fields.portHttp || '127.0.0.1:4000'),
-		'',
-		'rebindingProtection:',
-		'  enable: ' + (fields.rebindingEnable ? 'true' : 'false'),
-		'',
-		'prometheus:',
-		'  enable: ' + (fields.prometheusEnable ? 'true' : 'false'),
-		'  path: ' + yamlQuote(fields.prometheusPath || '/metrics'),
-		'',
-		'statistics:',
-		'  enable: ' + (fields.statisticsEnable ? 'true' : 'false'),
-		''
-	].join('\n');
-}
-
-function patchBlockingLoadingSection(blockingYaml, fields) {
-	var lines = safeString(blockingYaml).split('\n');
-	var out = [];
-	var inLoading = false;
-	var inDownloads = false;
-	var replaced = {};
-
-	function patchLine(line, key, indent, value, flag) {
-		if (replaced[flag])
-			return null;
-
-		if (!new RegExp('^' + indent + key + ':').test(line))
-			return null;
-
-		replaced[flag] = true;
-		return indent + key + ': ' + yamlQuote(value);
-	}
-
-	lines.forEach(function(line) {
-		if (/^\s+loading:\s*$/.test(line)) {
-			inLoading = true;
-			inDownloads = false;
-			out.push(line);
-			return;
-		}
-
-		if (inLoading && /^\s+downloads:\s*$/.test(line)) {
-			inDownloads = true;
-			out.push(line);
-			return;
-		}
-
-		if (inLoading && !inDownloads) {
-			var loadingStrategy = patchLine(line, 'strategy', '    ', fields.loadingStrategy || 'fast', 'loadingStrategy');
-			if (loadingStrategy) {
-				out.push(loadingStrategy);
-				return;
-			}
-
-			var loadingConcurrency = patchLine(line, 'concurrency', '    ', fields.listConcurrency || '4', 'concurrency');
-			if (loadingConcurrency) {
-				out.push(loadingConcurrency);
-				return;
-			}
-		}
-
-		if (inLoading) {
-			var refresh = patchLine(line, 'refreshPeriod', '    ', fields.listRefreshPeriod || '4h', 'refreshPeriod');
-			if (refresh) {
-				out.push(refresh);
-				return;
-			}
-		}
-
-		if (inDownloads) {
-			if (/^\s{6}concurrency:/.test(line))
-				return;
-
-			var patched = patchLine(line, 'cachePath', '      ', fields.listCachePath || '/var/lib/blocky/lists', 'cachePath') ||
-				patchLine(line, 'timeout', '      ', fields.listDownloadTimeout || '60s', 'timeout') ||
-				patchLine(line, 'writeTimeout', '      ', fields.listWriteTimeout || '60s', 'writeTimeout') ||
-				patchLine(line, 'readTimeout', '      ', fields.listReadTimeout || '60s', 'readTimeout') ||
-				patchLine(line, 'attempts', '      ', fields.listDownloadAttempts || '5', 'attempts') ||
-				patchLine(line, 'cooldown', '      ', fields.listCooldown || '10s', 'cooldown');
-
-			if (patched) {
-				out.push(patched);
-				return;
-			}
-		}
-
-		if (/^\s{2}[A-Za-z0-9_]+:/.test(line) && !/^\s+loading:/.test(line)) {
-			inLoading = false;
-			inDownloads = false;
-		}
-
-		out.push(line);
-	});
-
-	if (!replaced.concurrency) {
-		var insertAt = -1;
-		var i;
-
-		for (i = 0; i < out.length; i++) {
-			if (/^\s+refreshPeriod:/.test(out[i])) {
-				insertAt = i + 1;
-				break;
-			}
-		}
-
-		if (insertAt < 0) {
-			for (i = 0; i < out.length; i++) {
-				if (/^\s+loading:\s*$/.test(out[i])) {
-					insertAt = i + 1;
-					break;
-				}
-			}
-		}
-
-		if (insertAt >= 0)
-			out.splice(insertAt, 0, '    concurrency: ' + yamlQuote(fields.listConcurrency || '4'));
-	}
-
-	return out.join('\n');
-}
 
 function settingsRow(label, descr, control) {
 	return E('div', { 'class': 'blocky-settings-row' }, [
@@ -3900,13 +2948,13 @@ function readBlockySettingsForm(state) {
 function saveBlockySettingsForm(state, currentYaml, restart) {
 	var fields = readBlockySettingsForm(state);
 
-	fields.blockingSection = patchBlockingLoadingSection(fields.blockingSection, fields);
+	fields.blockingSection = bc.patchBlockingLoadingSection(fields.blockingSection, fields);
 
 	if (!/^127\.0\.0\.1:|^localhost:|^\[::1\]:/.test(fields.portDns) ||
 	    !/^127\.0\.0\.1:|^localhost:|^\[::1\]:/.test(fields.portHttp))
 		throw new Error(_('Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router.'));
 
-	var yaml = buildBlockySettingsYaml(fields, currentYaml);
+	var yaml = bc.buildBlockySettingsYaml(fields, currentYaml);
 
 	return fs.write(CONFIG_PATH, yaml).then(function() {
 		return uci.load('blocky').then(function() {
@@ -3921,7 +2969,7 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 }
 
 function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
-	var parsed = parseBlockySettings(configYaml);
+	var parsed = bc.parseBlockySettings(configYaml);
 	var state = {
 		upstreamResolvers: E('textarea', {
 			'class': 'cbi-input-textarea blocky-settings-textarea',
@@ -4461,11 +3509,6 @@ function registerStatsPoll(dashboardHost, refreshPage) {
 	}, 45);
 }
 
-function parseBlockyVersionFromMetrics(text) {
-	var match = safeString(text).match(/blocky_build_info\{[^}]*version="([^"]+)"/);
-
-	return match ? match[1] : '';
-}
 
 function resolveBlockyVersion(metricsText) {
 	var fromMetrics = parseBlockyVersionFromMetrics(metricsText);

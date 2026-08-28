@@ -39,7 +39,7 @@ function validate_http(method, path, body) {
 		return null;
 
 	path = trim(path || 'metrics');
-	if (!match(path, /^[A-Za-z0-9_\/.\-]+$/))
+	if (!match(path, /^[A-Za-z0-9_\/.\-]+$/) || index(path, '..') >= 0)
 		return null;
 
 	if (body != null)

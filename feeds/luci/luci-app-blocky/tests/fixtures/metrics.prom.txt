@@ -1,0 +1,10 @@
+# HELP blocky_query_total DNS queries
+# TYPE blocky_query_total counter
+blocky_query_total 1000
+blocky_response_total{response_type="BLOCKED"} 120
+blocky_response_total{response_type="CACHED"} 300
+blocky_cache_hit_total 250
+blocky_cache_miss_total 50
+blocky_denylist_cache_entries{group="hagezi_light"} 45000
+blocky_denylist_cache_entries{group="urlhaus"} 1200
+blocky_build_info{version="0.34.0"} 1
