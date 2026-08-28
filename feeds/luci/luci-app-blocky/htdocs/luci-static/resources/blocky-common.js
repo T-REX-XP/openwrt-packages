@@ -112,7 +112,7 @@ function createBlockyView(options) {
 						BlockyTabs.controls.renderOperations(fresh[0], refreshPage),
 						BlockyTabs.controls.renderServiceControls(fresh[0], refreshPage)
 					);
-					logsHost.replaceChildren(BlockyTabs.logs.renderQueryLogsTab(fresh[2]));
+					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9]));
 					debugHost.replaceChildren(BlockyTabs.debug.renderDebugTab(fresh[9]));
 				}).catch(function(err) {
 					notify(err.message || String(err), 'danger');
@@ -126,7 +126,7 @@ function createBlockyView(options) {
 			statisticsHost.appendChild(BlockyTabs.stats.renderStatisticsTab(data, refreshPage));
 			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
 			configHost.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
-			logsHost.appendChild(BlockyTabs.logs.renderQueryLogsTab(config));
+			logsHost.appendChild(BlockyTabs.logs.renderLogsTab(config, pageStatus));
 			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));
 
 			controlsHost.appendChild(BlockyTabs.controls.renderBlockingControls(status, refreshPage));

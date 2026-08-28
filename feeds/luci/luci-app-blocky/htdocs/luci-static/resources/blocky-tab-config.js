@@ -262,9 +262,33 @@ function renderBlockyConfigLayout(sections, toolbar, activeIndex) {
 	]);
 }
 
+function readUpstreamGroupsFromState(state) {
+	var groups = {};
+
+	state.upstreamGroupRows.forEach(function(row) {
+		var name = safeString(row.nameInput.value).trim().replace(/[^A-Za-z0-9_*[\].-]/g, '_').replace(/^-+/, '');
+		var resolvers;
+
+		if (!name)
+			return;
+
+		resolvers = row.resolversInput.value.split(/\n/).map(function(line) {
+			return line.trim();
+		}).filter(Boolean);
+
+		groups[name] = resolvers;
+	});
+
+	if (!groups.default)
+		groups.default = [];
+
+	return groups;
+}
+
 function readBlockySettingsForm(state) {
 	return {
-		upstreamResolvers: state.upstreamResolvers.value,
+		upstreamGroups: readUpstreamGroupsFromState(state),
+		upstreamResolvers: (state.upstreamGroupRows[0] && state.upstreamGroupRows[0].resolversInput.value) || '',
 		upstreamInitStrategy: state.upstreamInitStrategy.value,
 		upstreamTimeout: state.upstreamTimeout.value,
 		bootstrapResolvers: state.bootstrapResolvers.value,
@@ -320,13 +344,106 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 	});
 }
 
+function renderUpstreamGroupsEditor(parsed) {
+	var listHost = E('div', { 'class': 'blocky-upstream-groups-list' });
+	var rows = [];
+
+	function sanitizeGroupName(raw) {
+		return safeString(raw).trim().replace(/[^A-Za-z0-9_*[\].-]/g, '_').replace(/^-+/, '');
+	}
+
+	function repaint() {
+		replaceContent(listHost, rows.map(function(row) {
+			return row.panel;
+		}));
+	}
+
+	function addGroup(name, resolvers) {
+		var isDefault = name === 'default';
+		var nameInput = E('input', {
+			'class': 'cbi-input-text blocky-upstream-group-name',
+			'value': name || '',
+			'placeholder': _('Group name'),
+			'readonly': isDefault ? 'readonly' : null
+		});
+		var resolversInput = E('textarea', {
+			'class': 'cbi-input-textarea blocky-settings-textarea blocky-upstream-group-resolvers',
+			'rows': 4,
+			'placeholder': _('One resolver per line')
+		}, [ (resolvers || []).join('\n') ]);
+		var row = { nameInput: nameInput, resolversInput: resolversInput, panel: null };
+		var panel = E('div', { 'class': 'blocky-upstream-group' }, [
+			E('div', { 'class': 'blocky-upstream-group-head' }, [
+				E('label', { 'class': 'blocky-upstream-group-label' }, [ _('Group') ]),
+				nameInput,
+				isDefault ? '' : E('button', {
+					'type': 'button',
+					'class': 'cbi-button cbi-button-negative blocky-upstream-group-remove',
+					'click': ui.createHandlerFn(null, function(ev) {
+						ev.preventDefault();
+						rows = rows.filter(function(entry) {
+							return entry !== row;
+						});
+						repaint();
+					})
+				}, [ _('Remove') ])
+			]),
+			resolversInput
+		]);
+
+		row.panel = panel;
+		rows.push(row);
+		repaint();
+		return row;
+	}
+
+	Object.keys(parsed.upstreamGroups || { default: parsed.upstreamResolvers }).sort(function(a, b) {
+		if (a === 'default')
+			return -1;
+		if (b === 'default')
+			return 1;
+		return a.localeCompare(b);
+	}).forEach(function(name) {
+		addGroup(name, (parsed.upstreamGroups && parsed.upstreamGroups[name]) || (name === 'default' ? parsed.upstreamResolvers : []));
+	});
+
+	if (!rows.length)
+		addGroup('default', parsed.upstreamResolvers || []);
+
+	return {
+		host: E('div', { 'class': 'blocky-upstream-groups' }, [
+			listHost,
+			E('p', { 'class': 'blocky-upstream-groups-actions' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button cbi-button-add',
+					'click': ui.createHandlerFn(null, function(ev) {
+						ev.preventDefault();
+						var base = 'group_' + String(rows.length + 1);
+						var name = base;
+
+						while (rows.some(function(entry) {
+							return sanitizeGroupName(entry.nameInput.value) === name;
+						}))
+							name = base + '_' + String(Date.now());
+
+						addGroup(name, []);
+					})
+				}, [ _('Add upstream group') ])
+			]),
+			E('p', { 'class': 'blocky-note-soft' }, [
+				_('The default group is used for most clients. Additional groups can be referenced from blocking clientGroupsBlock in Advanced YAML.')
+			])
+		]),
+		rows: rows
+	};
+}
+
 function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
 	var parsed = bc.parseBlockySettings(configYaml);
+	var upstreamEditor = renderUpstreamGroupsEditor(parsed);
 	var state = {
-		upstreamResolvers: E('textarea', {
-			'class': 'cbi-input-textarea blocky-settings-textarea',
-			'rows': 5
-		}, [ parsed.upstreamResolvers.join('\n') ]),
+		upstreamGroupRows: upstreamEditor.rows,
 		upstreamInitStrategy: E('select', { 'class': 'cbi-input-select' }, [
 			E('option', { 'value': 'fast', 'selected': parsed.upstreamInitStrategy === 'fast' ? '' : null }, [ 'fast' ]),
 			E('option', { 'value': 'blocking', 'selected': parsed.upstreamInitStrategy === 'blocking' ? '' : null }, [ 'blocking' ]),
@@ -509,9 +626,9 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 				_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
 				[
 					settingsRow(
-						_('Resolvers (default group)'),
-						_('One entry per line.'),
-						state.upstreamResolvers
+						_('Resolver groups'),
+						_('One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
+						upstreamEditor.host
 					),
 					settingsRow(_('Startup strategy'), _('fast = start quickly; blocking = wait for upstreams.'), state.upstreamInitStrategy),
 					settingsRow(_('Query timeout'), '', state.upstreamTimeout)

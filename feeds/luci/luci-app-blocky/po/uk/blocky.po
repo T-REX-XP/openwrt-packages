@@ -1336,3 +1336,72 @@ msgstr "UCI змінено — синхронізуйте з config.yml"
 
 msgid "UCI and config.yml in sync"
 msgstr "UCI і config.yml синхронізовано"
+
+msgid "Resolver groups"
+msgstr "Групи резолверів"
+
+msgid "One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs."
+msgstr "Один резолвер на рядок у групі. Підтримуються IP, tcp-tls: та https: DoH URL."
+
+msgid "Group"
+msgstr "Група"
+
+msgid "Group name"
+msgstr "Назва групи"
+
+msgid "One resolver per line"
+msgstr "Один резолвер на рядок"
+
+msgid "Remove"
+msgstr "Видалити"
+
+msgid "Add upstream group"
+msgstr "Додати upstream-групу"
+
+msgid "The default group is used for most clients. Additional groups can be referenced from blocking clientGroupsBlock in Advanced YAML."
+msgstr "Група default використовується для більшості клієнтів. Додаткові групи можна вказати в blocking clientGroupsBlock у Advanced YAML."
+
+msgid "Logs"
+msgstr "Журнали"
+
+msgid "Query log"
+msgstr "Журнал запитів"
+
+msgid "Service log"
+msgstr "Журнал сервісу"
+
+msgid "Auto-refresh (30s)"
+msgstr "Автооновлення (30 с)"
+
+msgid "Blocked"
+msgstr "Заблоковано"
+
+msgid "Cached"
+msgstr "Кешовано"
+
+msgid "All"
+msgstr "Усі"
+
+msgid "Copy page"
+msgstr "Копіювати сторінку"
+
+msgid "Copy filtered"
+msgstr "Копіювати відфільтроване"
+
+msgid "Visible page copied to clipboard."
+msgstr "Видиму сторінку скопійовано."
+
+msgid "Copied first %d filtered rows."
+msgstr "Скопійовано перші %d відфільтрованих рядків."
+
+msgid "Filtered rows copied to clipboard."
+msgstr "Відфільтровані рядки скопійовано."
+
+msgid "Copy failed."
+msgstr "Не вдалося скопіювати."
+
+msgid "Log tail was truncated at 512 KiB. Use SSH or copy all for the loaded portion only."
+msgstr "Хвіст журналу обрізано до 512 KiB. Для повного перегляду використовуйте SSH або копіюйте завантажену частину."
+
+msgid "Source file: %s"
+msgstr "Файл джерела: %s"

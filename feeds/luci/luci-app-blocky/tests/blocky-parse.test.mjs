@@ -148,6 +148,20 @@ test('parseCsvRows tab and comma', () => {
 	const csvRows = bp.parseCsvRows(csv);
 	assert.ok(csvRows.length >= 1);
 	assert.match(csvRows[0].question, /example\.com|ads\.example\.com/);
+
+	const tsv = readFixture('query-log-tab.tsv');
+	const tsvRows = bp.parseCsvRows(tsv);
+	assert.equal(tsvRows.length, 2);
+	assert.equal(tsvRows[0].question, 'ads.example.com');
+	assert.equal(tsvRows[0].response, 'BLOCKED');
+	assert.equal(tsvRows[1].response, 'CACHED');
+});
+
+test('formatQueryLogRowsText', () => {
+	const text = bp.formatQueryLogRowsText([
+		{ time: 't', client: 'c', question: 'q', type: 'A', response: 'CACHED', answer: '1.2.3.4' }
+	]);
+	assert.match(text, /t\tc\tq\tA\tCACHED/);
 });
 
 test('parseQueryLogConfig', () => {

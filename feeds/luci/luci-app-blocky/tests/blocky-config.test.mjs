@@ -49,7 +49,66 @@ test('parseBlockySettings reads CM5 defaults', () => {
 	assert.equal(s.listRefreshPeriod, '4h');
 	assert.equal(s.queryLogTarget, '/tmp/blocky-logs');
 	assert.ok(s.upstreamResolvers.length >= 1);
+	assert.ok(s.upstreamGroups.default.length >= 1);
 	assert.equal(s.bootstrapUseWan, false);
+});
+
+test('parseUpstreamGroups reads multiple groups', () => {
+	const upstreams = [
+		'upstreams:',
+		'  init:',
+		'    strategy: fast',
+		'  timeout: 5s',
+		'  groups:',
+		'    default:',
+		'      - 1.1.1.1',
+		'    privacy:',
+		'      - 9.9.9.9'
+	].join('\n');
+	const groups = bc.parseUpstreamGroups(upstreams);
+	assert.deepEqual(groups.default, [ '1.1.1.1' ]);
+	assert.deepEqual(groups.privacy, [ '9.9.9.9' ]);
+});
+
+test('buildBlockySettingsYaml writes upstream groups', () => {
+	const built = bc.buildBlockySettingsYaml({
+		upstreamGroups: {
+			default: [ '1.1.1.1' ],
+			privacy: [ '9.9.9.9' ]
+		},
+		upstreamInitStrategy: 'fast',
+		upstreamTimeout: '5s',
+		bootstrapResolvers: 'tcp+udp:1.1.1.1',
+		bootstrapUseWan: false,
+		hostsSources: '/etc/hosts',
+		blockingSection: bc.extractYamlSection(FIXTURE, 'blocking'),
+		cachingMinTime: '5m',
+		cachingMaxTime: '30m',
+		cachingPrefetch: false,
+		logLevel: 'warn',
+		logPrivacy: false,
+		queryLogType: 'csv',
+		queryLogTarget: '/tmp/blocky-logs',
+		queryLogRetention: '7',
+		queryLogFlush: '30s',
+		portDns: '127.0.0.1:5353',
+		portHttp: '127.0.0.1:4000',
+		rebindingEnable: true,
+		prometheusEnable: true,
+		prometheusPath: '/metrics',
+		statisticsEnable: true,
+		listRefreshPeriod: '4h',
+		loadingStrategy: 'fast',
+		listCachePath: '/var/lib/blocky/lists',
+		listDownloadTimeout: '60s',
+		listWriteTimeout: '60s',
+		listReadTimeout: '60s',
+		listDownloadAttempts: '5',
+		listCooldown: '10s',
+		listConcurrency: '4'
+	}, FIXTURE);
+	assert.match(built, /privacy:/);
+	assert.match(built, /9\.9\.9\.9/);
 });
 
 test('yamlQuote escapes special chars', () => {

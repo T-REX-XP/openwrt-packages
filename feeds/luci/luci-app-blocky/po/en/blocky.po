@@ -1335,3 +1335,72 @@ msgstr "UCI changed — sync to config.yml"
 
 msgid "UCI and config.yml in sync"
 msgstr "UCI and config.yml in sync"
+
+msgid "Resolver groups"
+msgstr "Resolver groups"
+
+msgid "One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs."
+msgstr "One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs."
+
+msgid "Group"
+msgstr "Group"
+
+msgid "Group name"
+msgstr "Group name"
+
+msgid "One resolver per line"
+msgstr "One resolver per line"
+
+msgid "Remove"
+msgstr "Remove"
+
+msgid "Add upstream group"
+msgstr "Add upstream group"
+
+msgid "The default group is used for most clients. Additional groups can be referenced from blocking clientGroupsBlock in Advanced YAML."
+msgstr "The default group is used for most clients. Additional groups can be referenced from blocking clientGroupsBlock in Advanced YAML."
+
+msgid "Logs"
+msgstr "Logs"
+
+msgid "Query log"
+msgstr "Query log"
+
+msgid "Service log"
+msgstr "Service log"
+
+msgid "Auto-refresh (30s)"
+msgstr "Auto-refresh (30s)"
+
+msgid "Blocked"
+msgstr "Blocked"
+
+msgid "Cached"
+msgstr "Cached"
+
+msgid "All"
+msgstr "All"
+
+msgid "Copy page"
+msgstr "Copy page"
+
+msgid "Copy filtered"
+msgstr "Copy filtered"
+
+msgid "Visible page copied to clipboard."
+msgstr "Visible page copied to clipboard."
+
+msgid "Copied first %d filtered rows."
+msgstr "Copied first %d filtered rows."
+
+msgid "Filtered rows copied to clipboard."
+msgstr "Filtered rows copied to clipboard."
+
+msgid "Copy failed."
+msgstr "Copy failed."
+
+msgid "Log tail was truncated at 512 KiB. Use SSH or copy all for the loaded portion only."
+msgstr "Log tail was truncated at 512 KiB. Use SSH or copy all for the loaded portion only."
+
+msgid "Source file: %s"
+msgstr "Source file: %s"

@@ -635,41 +635,144 @@ function blockyPathFromUrl(url, baseUrl) {
 	return 'api/' + path;
 }
 
+function normalizeCsvHeader(name) {
+	return safeString(name).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function detectCsvDelimiter(line) {
+	if (line.indexOf('\t') >= 0)
+		return '\t';
+	if (line.indexOf(';') >= 0)
+		return ';';
+	return ',';
+}
+
+function parseCsvHeaderMap(headerLine, delimiter) {
+	var aliases = {
+		time: [ 'time', 'timestamp' ],
+		client: [ 'clientip', 'client', 'ip' ],
+		clientName: [ 'clientname' ],
+		duration: [ 'duration' ],
+		response: [ 'responsereason', 'reason', 'responsetype', 'response' ],
+		question: [ 'question', 'query' ],
+		type: [ 'type', 'qtype' ],
+		answer: [ 'responseanswer', 'answer' ]
+	};
+	var map = {};
+	var cols = headerLine.split(delimiter);
+	var field;
+	var i;
+	var key;
+
+	for (i = 0; i < cols.length; i++) {
+		key = normalizeCsvHeader(cols[i]);
+
+		for (field in aliases) {
+			if (map[field] != null)
+				continue;
+
+			if (aliases[field].some(function(alias) {
+				return normalizeCsvHeader(alias) === key;
+			}))
+				map[field] = i;
+		}
+	}
+
+	return map;
+}
+
+function parseCsvRowMapped(cols, map) {
+	function pick(field, fallbacks) {
+		var idx;
+		var j;
+
+		if (map[field] != null && cols[map[field]] != null)
+			return safeString(cols[map[field]]).trim();
+
+		if (fallbacks) {
+			for (j = 0; j < fallbacks.length; j++) {
+				idx = fallbacks[j];
+				if (cols[idx] != null)
+					return safeString(cols[idx]).trim();
+			}
+		}
+
+		return '';
+	}
+
+	var response = pick('response', [ 4, 7 ]);
+
+	return {
+		time: pick('time', [ 0 ]),
+		client: pick('client', [ 1, 2 ]),
+		clientName: pick('clientName', [ 2 ]),
+		duration: pick('duration', [ 3 ]),
+		question: pick('question', [ 5, 2 ]),
+		type: pick('type', [ 9, 6, 3 ]),
+		response: response,
+		reason: response,
+		answer: pick('answer', [ 6, 7 ])
+	};
+}
+
 function parseCsvRows(text) {
 	var lines = safeString(text).split(/\n/);
 	var rows = [];
+	var headerMap = null;
+	var delimiter = '\t';
 	var i;
+	var line;
+	var cols;
 
 	for (i = 0; i < lines.length; i++) {
-		var line = lines[i].trim();
+		line = lines[i].trim();
 
 		if (!line || line.charAt(0) === '#')
 			continue;
 
-		var cols = line.split('\t');
-		if (cols.length < 6)
-			cols = line.split(';');
-		if (cols.length < 6)
-			cols = line.split(',');
+		if (!headerMap) {
+			delimiter = detectCsvDelimiter(line);
+			cols = line.split(delimiter);
 
-		if (cols.length < 6)
+			if (/^time(stamp)?$/i.test(cols[0]) || normalizeCsvHeader(cols[0]) === 'timestamp') {
+				headerMap = parseCsvHeaderMap(line, delimiter);
+				continue;
+			}
+		}
+
+		cols = line.split(delimiter);
+		if (cols.length < 4 && delimiter !== ',') {
+			cols = line.split(',');
+			delimiter = ',';
+		}
+		if (cols.length < 4 && delimiter !== ';') {
+			cols = line.split(';');
+			delimiter = ';';
+		}
+
+		if (cols.length < 4)
 			continue;
 
 		if (/^time(stamp)?$/i.test(cols[0]) || cols[0] === '2006-01-02 15:04:05')
 			continue;
 
-		rows.push({
-			time: cols[0],
-			client: cols[1] || cols[2] || '',
-			question: cols[5] || cols[2] || '',
-			type: cols[9] || cols[3] || '',
-			response: cols[4] || cols[7] || '',
-			reason: cols[4] || '',
-			answer: cols[6] || ''
-		});
+		rows.push(headerMap ? parseCsvRowMapped(cols, headerMap) : parseCsvRowMapped(cols, {}));
 	}
 
 	return rows.reverse();
+}
+
+function formatQueryLogRowsText(rows) {
+	return (rows || []).map(function(row) {
+		return [
+			row.time,
+			row.client,
+			row.question,
+			row.type,
+			row.response || row.reason,
+			row.answer || ''
+		].join('\t');
+	}).join('\n');
 }
 
 function parseBlockyStatsResponse(res) {
@@ -976,6 +1079,7 @@ return {
 	formatDuration: formatDuration,
 	blockyPathFromUrl: blockyPathFromUrl,
 	parseCsvRows: parseCsvRows,
+	formatQueryLogRowsText: formatQueryLogRowsText,
 	parseBlockyStatsResponse: parseBlockyStatsResponse,
 	validateHttpRequest: validateHttpRequest,
 	allowedLogDir: allowedLogDir,

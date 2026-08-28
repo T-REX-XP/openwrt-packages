@@ -70,25 +70,100 @@ function parseYamlListItems(sectionYaml) {
 }
 
 function parseUpstreamGroupResolvers(sectionYaml) {
-	var items = [];
-	var inDefault = false;
+	var groups = parseUpstreamGroups(sectionYaml);
+	return groups.default || [];
+}
+
+function parseUpstreamGroups(sectionYaml) {
+	var groups = {};
+	var currentGroup = null;
+	var inGroups = false;
+	var baseIndent = -1;
 
 	safeString(sectionYaml).split('\n').forEach(function(line) {
-		if (/^\s+default:\s*$/.test(line)) {
-			inDefault = true;
+		if (/^\s+groups:\s*$/.test(line)) {
+			inGroups = true;
+			currentGroup = null;
+			var m = line.match(/^(\s*)/);
+			baseIndent = m ? m[1].length : 2;
 			return;
 		}
 
-		if (inDefault && /^\s+-\s+(.+)$/.test(line)) {
-			items.push(line.match(/^\s+-\s+(.+)$/)[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
+		if (!inGroups)
+			return;
+
+		var lead = line.match(/^(\s*)/);
+		if (lead && lead[1].length <= baseIndent && line.trim() !== '')
+			return;
+
+		var groupMatch = line.match(/^\s+([A-Za-z0-9_*[\].-]+):\s*$/);
+		if (groupMatch) {
+			currentGroup = groupMatch[1];
+			groups[currentGroup] = groups[currentGroup] || [];
 			return;
 		}
 
-		if (inDefault && /^\s+[A-Za-z0-9_*[\].-]+:\s*$/.test(line))
-			inDefault = false;
+		var itemMatch = line.match(/^\s+-\s+(.+)$/);
+		if (itemMatch && currentGroup) {
+			groups[currentGroup].push(itemMatch[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, ''));
+		}
 	});
 
-	return items;
+	if (!groups.default)
+		groups.default = [];
+
+	return groups;
+}
+
+function upstreamGroupsFromFields(fields) {
+	var groups = fields.upstreamGroups;
+	var name;
+	var out = {};
+
+	if (groups && typeof groups === 'object') {
+		Object.keys(groups).forEach(function(key) {
+			name = safeString(key).trim();
+			if (!name)
+				return;
+
+			out[name] = (groups[key] || []).map(function(item) {
+				return safeString(item).trim();
+			}).filter(Boolean);
+		});
+
+		if (Object.keys(out).length)
+			return out;
+	}
+
+	out.default = safeString(fields.upstreamResolvers).split(/\n/).map(function(s) {
+		return s.trim();
+	}).filter(Boolean);
+
+	return out;
+}
+
+function buildUpstreamGroupsYaml(groups) {
+	var lines = [ '  groups:' ];
+	var names = Object.keys(groups).sort(function(a, b) {
+		if (a === 'default')
+			return -1;
+		if (b === 'default')
+			return 1;
+		return a.localeCompare(b);
+	});
+
+	if (!names.length)
+		names = [ 'default' ];
+
+	names.forEach(function(name) {
+		var list = yamlListLines(groups[name] || [], '      ');
+
+		lines.push('    ' + name + ':');
+		if (list)
+			lines.push(list);
+	});
+
+	return lines.join('\n');
 }
 
 function parseBlockySettings(yaml) {
@@ -126,6 +201,7 @@ function parseBlockySettings(yaml) {
 	});
 
 	return {
+		upstreamGroups: parseUpstreamGroups(upstreams),
 		upstreamResolvers: parseUpstreamGroupResolvers(upstreams),
 		upstreamInitStrategy: initMatch ? initMatch[1].replace(/['"]/g, '') : 'fast',
 		upstreamTimeout: parseYamlScalar(upstreams, 'timeout', '5s'),
@@ -186,9 +262,7 @@ function yamlListLines(items, indent) {
 
 function buildBlockySettingsYaml(fields, currentYaml) {
 	var blocking = fields.blockingSection || extractYamlSection(currentYaml, 'blocking');
-	var upstreamResolvers = fields.upstreamResolvers.split(/\n/).map(function(s) {
-		return s.trim();
-	}).filter(Boolean);
+	var upstreamGroups = upstreamGroupsFromFields(fields);
 	var bootstrapResolvers = fields.bootstrapResolvers.split(/\n/).map(function(s) {
 		return s.trim();
 	}).filter(Boolean);
@@ -208,9 +282,7 @@ function buildBlockySettingsYaml(fields, currentYaml) {
 		'  init:',
 		'    strategy: ' + yamlQuote(fields.upstreamInitStrategy || 'fast'),
 		'  timeout: ' + yamlQuote(fields.upstreamTimeout || '5s'),
-		'  groups:',
-		'    default:',
-		yamlListLines(upstreamResolvers, '      '),
+		buildUpstreamGroupsYaml(upstreamGroups),
 		'',
 		'bootstrapDns:',
 		bootstrapLines.length ? yamlListLines(bootstrapLines, '  ') : '  - tcp+udp:1.1.1.1',
@@ -365,6 +437,9 @@ return {
 	parseYamlBool: parseYamlBool,
 	parseYamlListItems: parseYamlListItems,
 	parseUpstreamGroupResolvers: parseUpstreamGroupResolvers,
+	parseUpstreamGroups: parseUpstreamGroups,
+	upstreamGroupsFromFields: upstreamGroupsFromFields,
+	buildUpstreamGroupsYaml: buildUpstreamGroupsYaml,
 	parseBlockySettings: parseBlockySettings,
 	yamlQuote: yamlQuote,
 	yamlListLines: yamlListLines,

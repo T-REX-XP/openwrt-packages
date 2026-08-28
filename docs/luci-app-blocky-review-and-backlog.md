@@ -265,7 +265,7 @@ After the program, a router admin should be able to **without SSH**:
 | C-1 | `validate_config` rpcd: run `blocky validate --config` or config syntax check | done | `luci.blocky.uc` + ACL; UI validates before write |
 | C-2 | Unified **Save / Save & apply** toolbar on Configuration | done | `applyBlockyConfigYaml()`; Save without restart |
 | C-3 | Show diff preview before overwriting `blocking:` via lists sync | done | Confirm dialog when UCI ≠ YAML before sync |
-| C-4 | Expose **upstream groups** (add/remove resolver, strategy) in structured form | todo | Matches 0.34 `upstreams.groups` in default config |
+| C-4 | Expose **upstream groups** (add/remove resolver, strategy) in structured form | done | Multi-group editor on Configuration → Upstream DNS |
 | C-5 | UCI + YAML sync indicator on Block lists tab | done | Sync pill on Block lists tab |
 | C-6 | Tests for validate + settings round-trip after C-1/C-4 | done | `blocky-sync.test.mjs` (5 tests) |
 
@@ -275,11 +275,11 @@ After the program, a router admin should be able to **without SSH**:
 
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
-| D-1 | Harden CSV parser against Blocky 0.34 CSV format (document sample) | todo | Fixture from upstream docs; parser tests 100% |
-| D-2 | Logs tab: auto-refresh toggle (30s), copy visible page, copy all (truncated) | todo | Respects 512 KiB cap; shows truncation banner |
+| D-1 | Harden CSV parser against Blocky 0.34 CSV format (document sample) | done | Header-aware parser + `query-log-tab.tsv` fixture |
+| D-2 | Logs tab: auto-refresh toggle (30s), copy visible page, copy all (truncated) | done | Query log sub-tab controls |
 | D-3 | Link query log row → DNS Query tab (prefill domain) | todo | Hash or internal tab switch |
-| D-4 | Optional: filter by blocked / cached / forwarded reason | todo | Client-side from parsed columns |
-| D-5 | Separate **Query log** vs **Service log** sub-tabs under Logs | todo | Query = CSV; Service = logread snippet |
+| D-4 | Optional: filter by blocked / cached / forwarded reason | done | Quick filter buttons on Query log |
+| D-5 | Separate **Query log** vs **Service log** sub-tabs under Logs | done | Logs tab sub-navigation |
 
 ---
 
@@ -356,11 +356,11 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 |------|-------|------|---|
 | A Test & refactor | 8 | 8 | 100% |
 | B Status & Debug | 5 | 5 | 100% |
-| C Config safety | 6 | 5 | 83% |
-| D Logs workflow | 5 | 0 | 0% |
+| C Config safety | 6 | 6 | 100% |
+| D Logs workflow | 5 | 4 | 80% |
 | E UX & 0.34 | 6 | 0 | 0% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **18** | **53%** |
+| **Total** | **34** | **23** | **68%** |
 
 Update this table as backlog items move to `done`.
 
