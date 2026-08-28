@@ -14,7 +14,7 @@ const COMMON = path.join(RES, 'blocky-common.js');
 
 const MODULES = {
 	'blocky-base.js': new Set([
-		'formatDuration', 'blockyPathFromUrl', 'blockyPill', 'blockyStatusDetail', 'blockyRpcOk', 'blockyRpcError',
+		'formatDuration', 'blockyPathFromUrl', 'blockyPill', 'blockyLegendDot', 'blockyStatusDetail', 'blockyRpcOk', 'blockyRpcError',
 		'notify', 'actionButton', 'replaceContent', 'appendContentNode', 'applyBlockyApiAccess',
 		'loadBlockyUciAccess', 'loadBlocklistCatalog', 'blockyPresetHomeUrl', 'blockyCloseModal',
 		'blockyOpenModal', 'blockyModalFooterCancel', 'blockyModalFooterSave', 'execBlockyListsSync',
@@ -37,7 +37,7 @@ const MODULES = {
 		'renderDashboardSummaryGrid', 'gatherOverviewMetrics'
 	]),
 	'blocky-tab-dashboard.js': new Set([
-		'blockyThemeRoot', 'blockyCssVar', 'blockyChartColor', 'blockyChartFill', 'blockyLegendDot',
+		'blockyThemeRoot', 'blockyCssVar', 'blockyChartColor', 'blockyChartFill',
 		'applyBlockyChartPathTheme', 'blockyAttachThemeSync', 'blockyInjectStyles',
 		'renderAdBlockerPipeline', 'buildQueriesChartUnderlay', 'buildQueriesChartAxisLabels',
 		'renderDashboardStatsZone', 'renderRealtimeMetrics', 'mountDashboardContent',

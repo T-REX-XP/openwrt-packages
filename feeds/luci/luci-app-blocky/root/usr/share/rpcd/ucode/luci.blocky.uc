@@ -14,6 +14,7 @@ const QUERY_LOG_ALLOW = '/tmp/blocky-logs';
 const VALIDATE_TMP = '/tmp/blocky-luci-validate.yml';
 const MAX_LOG_BYTES = 524288;
 const MAX_SYSLOG_BYTES = 204800;
+const MAX_HTTP_UBUS_OUT = 16384;
 const BLOCKY_LOG_PATTERN = 'blocky';
 
 function run_cmd(cmd) {
@@ -123,7 +124,7 @@ function parse_blocking_status(text) {
 	if (m)
 		auto = int(m[1]) || 0;
 
-	return { enabled, autoEnableInSec: auto };
+	return { enabled: enabled, autoEnableInSec: auto };
 }
 
 function stats_state(text) {
@@ -234,10 +235,15 @@ const methods = {
 				run_args.push(args[2]);
 
 			let res = run_bin(HTTP, run_args);
+			let stdout = res.ok ? res.output : '';
+
+			if (length(stdout) > MAX_HTTP_UBUS_OUT)
+				stdout = substr(stdout, 0, MAX_HTTP_UBUS_OUT);
+
 			return {
 				ok: res.ok,
 				code: res.code,
-				stdout: res.ok ? res.output : '',
+				stdout: stdout,
 				stderr: res.ok ? '' : res.output
 			};
 		}
@@ -308,7 +314,6 @@ const methods = {
 			let blocking = parse_blocking_status(blocking_raw.ok ? blocking_raw.output : '');
 			let stats_raw = run_bin(HTTP, [ 'GET', 'api/stats' ]);
 			let stats = stats_state(stats_raw.ok ? stats_raw.output : stats_raw.output);
-			let metrics = run_bin(HTTP, [ 'GET', 'metrics' ]);
 			let version_res = run_bin(BLOCKY_BIN, [ 'version' ]);
 			let version = trim(split(version_res.output, '\n')[0] || '');
 			let log_level = parse_log_level(yaml);
@@ -318,7 +323,7 @@ const methods = {
 				service_running: service_running(),
 				dnsmasq_forward: dnsmasq_forward,
 				blocking: blocking,
-				api_ok: metrics.ok && length(metrics.output) > 0,
+				api_ok: blocking_raw.ok && length(blocking_raw.output) > 0,
 				stats_ok: stats.ok,
 				stats_disabled: stats.disabled,
 				stats_json: stats.json || '',

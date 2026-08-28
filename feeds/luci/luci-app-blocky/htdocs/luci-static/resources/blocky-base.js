@@ -97,6 +97,10 @@ function blockyPill(kind, label) {
 	return E('span', { 'class': cls }, [ label ]);
 }
 
+function blockyLegendDot(tone) {
+	return E('span', { 'class': 'blocky-legend-dot blocky-legend-dot--' + tone });
+}
+
 function blockyStatusDetail(text) {
 	return E('span', { 'class': 'blocky-pill-note' }, [ text ]);
 }
@@ -847,6 +851,7 @@ return baseclass.extend({
 	formatDuration: formatDuration,
 	blockyPathFromUrl: blockyPathFromUrl,
 	blockyPill: blockyPill,
+	blockyLegendDot: blockyLegendDot,
 	blockyStatusDetail: blockyStatusDetail,
 	blockyRpcOk: blockyRpcOk,
 	blockyRpcError: blockyRpcError,
