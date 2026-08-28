@@ -800,38 +800,279 @@ int mcudd_metrics_clients(const struct mcudd_config *cfg, char *buf, size_t len)
 	return 0;
 }
 
-int mcudd_metrics_storage(const struct mcudd_config *cfg, char *buf, size_t len)
+static void human_bytes(unsigned long long bytes, char *buf, size_t len)
+{
+	if (!buf || !len)
+		return;
+	if (bytes >= (100ULL << 30))
+		snprintf(buf, len, "%lluG", bytes >> 30);
+	else if (bytes >= (1ULL << 30))
+		snprintf(buf, len, "%.1fG",
+			 bytes / (1024.0 * 1024.0 * 1024.0));
+	else if (bytes >= (1ULL << 20))
+		snprintf(buf, len, "%lluM", (bytes + (1ULL << 19)) >> 20);
+	else
+		snprintf(buf, len, "%lluK", (bytes + 512ULL) >> 10);
+}
+
+static void short_dev(const char *dev, char *out, size_t len)
+{
+	const char *p;
+
+	if (!out || !len)
+		return;
+	out[0] = '\0';
+	if (!dev || !dev[0])
+		return;
+	p = strrchr(dev, '/');
+	p = p ? p + 1 : dev;
+	snprintf(out, len, "%.23s", p);
+}
+
+static int vfs_usage(const char *path, unsigned *pct_out, char *usage,
+		     size_t usage_len, unsigned long long *total_out,
+		     unsigned long long *free_out)
 {
 	struct statvfs st;
-	unsigned long long total, free_b;
-	unsigned root_pct = 0;
-	char root_usage[24];
+	unsigned long long total, free_b, used;
+	char used_s[16], total_s[16];
+	unsigned pct = 0;
+
+	if (!path || !pct_out || !usage || !usage_len)
+		return -1;
+	if (statvfs(path, &st) != 0)
+		return -1;
+	total = (unsigned long long)st.f_blocks * (unsigned long long)st.f_frsize;
+	free_b = (unsigned long long)st.f_bavail * (unsigned long long)st.f_frsize;
+	if (total == 0)
+		return -1;
+	used = total > free_b ? total - free_b : 0;
+	pct = (unsigned)((100ULL * used) / total);
+	if (pct > 100)
+		pct = 100;
+	human_bytes(used, used_s, sizeof(used_s));
+	human_bytes(total, total_s, sizeof(total_s));
+	snprintf(usage, usage_len, "%s/%s", used_s, total_s);
+	*pct_out = pct;
+	if (total_out)
+		*total_out = total;
+	if (free_out)
+		*free_out = free_b;
+	return 0;
+}
+
+static int fs_ignored(const char *fstype)
+{
+	if (!fstype || !fstype[0])
+		return 1;
+	return !strcmp(fstype, "tmpfs") || !strcmp(fstype, "proc") ||
+	       !strcmp(fstype, "sysfs") || !strcmp(fstype, "devpts") ||
+	       !strcmp(fstype, "cgroup") || !strcmp(fstype, "cgroup2") ||
+	       !strcmp(fstype, "debugfs") || !strcmp(fstype, "bpf") ||
+	       !strcmp(fstype, "pstore") || !strcmp(fstype, "ramfs") ||
+	       !strcmp(fstype, "devtmpfs");
+}
+
+static int read_swap(char *usage, size_t usage_len, unsigned *pct_out)
+{
+	FILE *f;
+	char line[128], key[32];
+	unsigned long total_kb = 0, free_kb = 0, val;
+	unsigned long long total_b, used_b;
+	char used_s[16], total_s[16];
+	unsigned pct = 0;
+
+	if (!usage || !usage_len || !pct_out)
+		return -1;
+	snprintf(usage, usage_len, "off");
+	*pct_out = 0;
+
+	f = fopen_sys("/proc/meminfo", "r");
+	if (!f)
+		return -1;
+	while (fgets(line, sizeof(line), f)) {
+		if (sscanf(line, "%31s %lu", key, &val) != 2)
+			continue;
+		if (!strcmp(key, "SwapTotal:"))
+			total_kb = val;
+		else if (!strcmp(key, "SwapFree:"))
+			free_kb = val;
+	}
+	fclose(f);
+
+	if (total_kb == 0)
+		return 0;
+	if (free_kb > total_kb)
+		free_kb = total_kb;
+	total_b = (unsigned long long)total_kb * 1024ULL;
+	used_b = (unsigned long long)(total_kb - free_kb) * 1024ULL;
+	pct = (unsigned)((100ULL * used_b) / total_b);
+	if (pct > 100)
+		pct = 100;
+	human_bytes(used_b, used_s, sizeof(used_s));
+	human_bytes(total_b, total_s, sizeof(total_s));
+	snprintf(usage, usage_len, "%s/%s", used_s, total_s);
+	*pct_out = pct;
+	return 0;
+}
+
+/*
+ * Prefer OpenWrt /overlay (or extroot), else largest non-root block mount
+ * (typically eMMC on CM5 at /mnt/mmcblk0p1).
+ */
+static int find_data_mount(char *mp_out, size_t mp_len, char *kind_out,
+			   size_t kind_len, char *dev_out, size_t dev_len)
+{
+	FILE *f;
+	char line[512], dev[128], mp[160], fstype[64], opts[256];
+	char root_dev[128] = "";
+	char best_mp[160] = "";
+	char best_dev[128] = "";
+	char best_kind[16] = "data";
+	int best_score = -1;
+	unsigned long long best_total = 0;
+
+	if (!mp_out || !mp_len || !kind_out || !kind_len || !dev_out ||
+	    !dev_len)
+		return -1;
+	mp_out[0] = '\0';
+	dev_out[0] = '\0';
+	/* Leave kind_out unchanged on failure (caller default is "none"). */
+
+	f = fopen_sys("/proc/mounts", "r");
+	if (!f)
+		return -1;
+
+	while (fgets(line, sizeof(line), f)) {
+		if (sscanf(line, "%127s %159s %63s %255s", dev, mp, fstype,
+			   opts) < 3)
+			continue;
+		if (!strcmp(mp, "/"))
+			snprintf(root_dev, sizeof(root_dev), "%s", dev);
+	}
+	rewind(f);
+
+	while (fgets(line, sizeof(line), f)) {
+		unsigned long long total = 0;
+		unsigned pct = 0;
+		char usage[32];
+		const char *kind = "data";
+		int score = 0;
+
+		if (sscanf(line, "%127s %159s %63s %255s", dev, mp, fstype,
+			   opts) < 3)
+			continue;
+		if (!strcmp(mp, "/"))
+			continue;
+		if (fs_ignored(fstype) || !strcmp(fstype, "overlay"))
+			continue;
+		if (root_dev[0] && !strcmp(dev, root_dev))
+			continue;
+		if (vfs_usage(mp, &pct, usage, sizeof(usage), &total, NULL) != 0)
+			continue;
+		if (total < (8ULL << 20))
+			continue;
+
+		if (!strcmp(mp, "/overlay") || !strncmp(mp, "/overlay/", 9)) {
+			kind = strstr(opts, "extroot") ? "extroot" : "overlay";
+			score = 400;
+		} else if (strstr(mp, "extroot") || strstr(opts, "extroot")) {
+			kind = "extroot";
+			score = 380;
+		} else if (strstr(dev, "mmcblk0")) {
+			kind = "emmc";
+			score = 200;
+		} else if (strstr(dev, "mmcblk")) {
+			kind = "sd";
+			score = 150;
+		} else if (strstr(dev, "sd") || strstr(dev, "nvme") ||
+			   strstr(dev, "vd") || strstr(dev, "hd")) {
+			kind = "disk";
+			score = 120;
+		} else {
+			continue;
+		}
+
+		if (score > best_score ||
+		    (score == best_score && total > best_total)) {
+			best_score = score;
+			best_total = total;
+			snprintf(best_mp, sizeof(best_mp), "%s", mp);
+			snprintf(best_dev, sizeof(best_dev), "%s", dev);
+			snprintf(best_kind, sizeof(best_kind), "%s", kind);
+		}
+	}
+	fclose(f);
+
+	if (!best_mp[0])
+		return -1;
+	snprintf(mp_out, mp_len, "%s", best_mp);
+	snprintf(kind_out, kind_len, "%s", best_kind);
+	short_dev(best_dev, dev_out, dev_len);
+	return 0;
+}
+
+int mcudd_metrics_storage(const struct mcudd_config *cfg, char *buf, size_t len)
+{
+	unsigned root_pct = 0, data_pct = 0, swap_pct = 0;
+	unsigned long long root_free = 0;
+	char root_usage[32] = "n/a";
+	char data_usage[32] = "none";
+	char swap_usage[36] = "off";
+	char data_kind[16] = "none";
+	char overlay_dev[32] = "";
+	char data_mp[160] = "";
+	char root_dev[32] = "";
 
 	(void)cfg;
 
 	if (!buf || !len)
 		return -1;
 
-	if (statvfs("/", &st) != 0) {
-		snprintf(buf, len,
-			 "{\"root_usage\":\"n/a\",\"root_pct\":0,\"data_usage\":\"n/a\","
-			 "\"data_pct\":0,\"swap_usage\":\"0\",\"storage\":[]}");
-		return 0;
+	if (vfs_usage("/", &root_pct, root_usage, sizeof(root_usage), NULL,
+		      &root_free) != 0) {
+		snprintf(root_usage, sizeof(root_usage), "n/a");
+		root_pct = 0;
+	} else {
+		FILE *mf = fopen_sys("/proc/mounts", "r");
+		if (mf) {
+			char line[512], dev[128], mp[160];
+
+			while (fgets(line, sizeof(line), mf)) {
+				if (sscanf(line, "%127s %159s", dev, mp) == 2 &&
+				    !strcmp(mp, "/")) {
+					short_dev(dev, root_dev,
+						  sizeof(root_dev));
+					break;
+				}
+			}
+			fclose(mf);
+		}
 	}
 
-	total = (unsigned long long)st.f_blocks * st.f_frsize;
-	free_b = (unsigned long long)st.f_bavail * st.f_frsize;
-	if (total > 0)
-		root_pct = (unsigned)(100ULL * (total - free_b) / total);
-	snprintf(root_usage, sizeof(root_usage), "%u%%", root_pct);
+	if (find_data_mount(data_mp, sizeof(data_mp), data_kind,
+			    sizeof(data_kind), overlay_dev,
+			    sizeof(overlay_dev)) == 0) {
+		if (vfs_usage(data_mp, &data_pct, data_usage, sizeof(data_usage),
+			      NULL, NULL) != 0) {
+			snprintf(data_usage, sizeof(data_usage), "n/a");
+			data_pct = 0;
+			snprintf(data_kind, sizeof(data_kind), "none");
+			overlay_dev[0] = '\0';
+		}
+	}
+
+	read_swap(swap_usage, sizeof(swap_usage), &swap_pct);
 
 	snprintf(buf, len,
-		 "{\"root_usage\":\"%s\",\"root_pct\":%u,\"data_usage\":\"--\","
-		 "\"data_pct\":0,\"swap_usage\":\"0\","
+		 "{\"root_usage\":\"%s\",\"root_pct\":%u,\"root_dev\":\"%s\","
+		 "\"data_usage\":\"%s\",\"data_pct\":%u,\"data_kind\":\"%s\","
+		 "\"overlay_dev\":\"%s\",\"swap_usage\":\"%s\",\"swap_pct\":%u,"
 		 "\"storage\":[{\"mountpoint\":\"/\",\"used_percent\":\"%u\","
 		 "\"free_gb\":\"%.2f\"}]}",
-		 root_usage, root_pct, root_pct,
-		 free_b / (1024.0 * 1024.0 * 1024.0));
+		 root_usage, root_pct, root_dev, data_usage, data_pct, data_kind,
+		 overlay_dev, swap_usage, swap_pct, root_pct,
+		 root_free / (1024.0 * 1024.0 * 1024.0));
 	return 0;
 }
 

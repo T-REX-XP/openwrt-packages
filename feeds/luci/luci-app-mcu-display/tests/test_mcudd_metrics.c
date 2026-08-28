@@ -210,6 +210,31 @@ static void test_network_rates_ports_ping(void)
 	expect(strstr(buf, "/s\"") != NULL, "rate includes /s");
 }
 
+static void test_storage_swap_and_root(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[768];
+
+	setup_base_proc();
+	write_file("/proc/meminfo",
+		   "MemTotal:        8192000 kB\n"
+		   "MemAvailable:    4096000 kB\n"
+		   "SwapTotal:        524288 kB\n"
+		   "SwapFree:         262144 kB\n");
+	/* No mounts fixture → data_kind none; root from live /. */
+	mkdir_p("/proc");
+	write_file("/proc/mounts",
+		   "/dev/root / ext4 rw 0 0\n"
+		   "tmpfs /tmp tmpfs rw 0 0\n");
+
+	expect(mcudd_metrics_storage(&cfg, buf, sizeof(buf)) == 0, "storage ok");
+	expect(strstr(buf, "\"root_pct\":") != NULL, "root_pct present");
+	expect(strstr(buf, "\"root_usage\":\"") != NULL, "root_usage present");
+	expect(strstr(buf, "\"swap_usage\":\"off\"") == NULL, "swap not off");
+	expect(strstr(buf, "\"swap_pct\":50") != NULL, "swap half used");
+	expect(strstr(buf, "\"data_kind\":\"none\"") != NULL, "no data mount");
+}
+
 int main(void)
 {
 	char cmd[512];
@@ -226,6 +251,7 @@ int main(void)
 	test_tsadc_hwmon_fallback();
 	test_temp_missing();
 	test_network_rates_ports_ping();
+	test_storage_swap_and_root();
 
 	mcudd_metrics_set_sysroot(NULL);
 	snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", g_root);
