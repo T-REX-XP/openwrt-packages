@@ -1,5 +1,17 @@
 # luci-app-mcu-display CHANGELOG
 
+## 43 (2026-08-28)
+
+### Changed
+
+- Version lockstep with ESP32 firmware UI (dark theme, scoped refresh, stale metrics, `ROUTER_BTN_BOOT_GPIO`).
+
+## 42 (2026-08-28)
+
+### Added
+
+- **Security scope** — firewall4 zone summary from UCI (`lan ok · wan Rj/drop`), Blocky 24h blocked via `/api/stats`, banIP `element_count` when installed, VPN tunnel count (`wg` / `awg` / tailscale Running).
+
 ## 41 (2026-08-28)
 
 ### Fixed

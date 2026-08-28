@@ -394,6 +394,37 @@ static void test_wifi_qr_escapes_ssid(void)
 	expect(strstr(buf, "P:p\\\\:ass") != NULL, "key colon escaped");
 }
 
+static void test_security_firewall_blocky_vpn(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[512];
+
+	mkdir_p("/etc/config");
+	write_file("/etc/config/firewall",
+		   "config zone\n"
+		   "\toption name 'lan'\n"
+		   "\toption input 'ACCEPT'\n"
+		   "\toption forward 'ACCEPT'\n"
+		   "config zone\n"
+		   "\toption name 'wan'\n"
+		   "\toption input 'REJECT'\n"
+		   "\toption forward 'DROP'\n");
+	write_file("/tmp/blocky.blocked", "42\n");
+	write_file("/tmp/banip.blocked", "138\n");
+	write_file("/tmp/vpn.wg", "1\n");
+	write_file("/tmp/vpn.awg", "0\n");
+	write_file("/tmp/vpn.tailscale", "Running\n");
+
+	expect(mcudd_metrics_security(&cfg, buf, sizeof(buf)) == 0, "security ok");
+	expect(strstr(buf, "\"firewall_state\":\"lan ok · wan Rj/drop\"") != NULL,
+	       "firewall zone summary");
+	expect(strstr(buf, "\"blocked_24h\":\"42+138\"") != NULL,
+	       "blocky+banip blocked");
+	expect(strstr(buf, "\"blocky_blocked\":42") != NULL, "blocky count");
+	expect(strstr(buf, "\"vpn_tunnels\":\"2 (wg+ts)\"") != NULL,
+	       "vpn wg+tailscale");
+}
+
 int main(void)
 {
 	char cmd[512];
@@ -412,6 +443,7 @@ int main(void)
 	test_network_rates_ports_ping();
 	test_storage_swap_and_root();
 	test_clients_dhcp_pool_and_summary();
+	test_security_firewall_blocky_vpn();
 	test_wifi_ap_psk2_up();
 	test_wifi_skips_sta_and_disabled();
 	test_wifi_open_and_sae();

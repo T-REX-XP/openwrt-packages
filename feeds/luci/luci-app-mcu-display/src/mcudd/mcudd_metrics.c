@@ -1271,6 +1271,301 @@ static int parse_wireless_file(struct wifi_ap *ap, char *radio_disabled,
 	return have_ap ? 0 : -1;
 }
 
+static const char *policy_short(const char *policy)
+{
+	if (!policy || !policy[0])
+		return "?";
+	if (!strcasecmp(policy, "ACCEPT"))
+		return "ok";
+	if (!strcasecmp(policy, "REJECT"))
+		return "Rj";
+	if (!strcasecmp(policy, "DROP"))
+		return "drop";
+	return policy;
+}
+
+static void append_zone_part(char *buf, size_t len, const char *name,
+			     const char *input, const char *forward)
+{
+	char part[32];
+	const char *in = policy_short(input);
+	const char *fwd = forward && forward[0] ? policy_short(forward) : NULL;
+
+	if (!name || !name[0])
+		return;
+	if (fwd && strcmp(in, fwd) != 0)
+		snprintf(part, sizeof(part), "%s %s/%s", name, in, fwd);
+	else
+		snprintf(part, sizeof(part), "%s %s", name, in);
+
+	if (!buf[0])
+		snprintf(buf, len, "%s", part);
+	else
+		snprintf(buf + strlen(buf), len - strlen(buf), " · %s", part);
+}
+
+static void read_firewall_zone_summary(char *buf, size_t len)
+{
+	FILE *f;
+	char line[320];
+	char stype[32], sname[32], opt[32], val[96];
+	char zname[24] = "";
+	char zinput[16] = "";
+	char zforward[16] = "";
+	int in_zone = 0;
+
+	if (!buf || !len)
+		return;
+	buf[0] = '\0';
+
+	f = fopen_sys("/etc/config/firewall", "r");
+	if (!f) {
+		snprintf(buf, len, "fw4 ?");
+		return;
+	}
+
+	while (fgets(line, sizeof(line), f)) {
+		char *s = ltrim(line);
+
+		rstrip_line(s);
+		if (!s[0] || s[0] == '#')
+			continue;
+		if (!strncmp(s, "config ", 7)) {
+			if (in_zone && zname[0])
+				append_zone_part(buf, len, zname, zinput,
+						 zforward);
+			in_zone = 0;
+			zname[0] = zinput[0] = zforward[0] = '\0';
+			if (parse_uci_config(ltrim(s + 7), stype, sizeof(stype),
+					     sname, sizeof(sname)) != 0)
+				continue;
+			if (!strcmp(stype, "zone"))
+				in_zone = 1;
+			continue;
+		}
+		if (!in_zone || strncmp(s, "option ", 7) != 0)
+			continue;
+		if (parse_uci_option(ltrim(s + 7), opt, sizeof(opt), val,
+				     sizeof(val)) != 0)
+			continue;
+		if (!strcmp(opt, "name"))
+			snprintf(zname, sizeof(zname), "%s", val);
+		else if (!strcmp(opt, "input"))
+			snprintf(zinput, sizeof(zinput), "%s", val);
+		else if (!strcmp(opt, "forward"))
+			snprintf(zforward, sizeof(zforward), "%s", val);
+	}
+	if (in_zone && zname[0])
+		append_zone_part(buf, len, zname, zinput, zforward);
+	fclose(f);
+
+	if (!buf[0])
+		snprintf(buf, len, "fw4 off");
+}
+
+static int parse_json_uint_field(const char *json, const char *key,
+				 unsigned *out)
+{
+	char pat[48];
+	const char *p;
+	unsigned v;
+
+	if (!json || !key || !out)
+		return -1;
+	snprintf(pat, sizeof(pat), "\"%s\":", key);
+	p = strstr(json, pat);
+	if (!p)
+		return -1;
+	p += strlen(pat);
+	while (*p == ' ' || *p == '\t')
+		p++;
+	v = (unsigned)strtoul(p, NULL, 10);
+	*out = v;
+	return 0;
+}
+
+static int read_blocky_blocked_24h(unsigned *blocked_out)
+{
+	char json[4096] = "";
+	FILE *f;
+
+	if (!blocked_out)
+		return -1;
+	*blocked_out = 0;
+
+	if (g_sysroot[0]) {
+		f = fopen_sys("/tmp/blocky.blocked", "r");
+		if (f) {
+			if (fgets(json, sizeof(json), f))
+				*blocked_out = (unsigned)strtoul(json, NULL, 10);
+			fclose(f);
+		}
+		return 0;
+	}
+
+	if (run_shell("/usr/sbin/blocky-http-api GET api/stats 2>/dev/null",
+		      json, sizeof(json)) != 0 &&
+	    run_shell("wget -qO- http://127.0.0.1:4000/api/stats 2>/dev/null",
+		      json, sizeof(json)) != 0)
+		return -1;
+
+	if (parse_json_uint_field(json, "blocked", blocked_out) != 0) {
+		const char *sum = strstr(json, "\"summary\"");
+		if (sum)
+			parse_json_uint_field(sum, "blocked", blocked_out);
+	}
+	return 0;
+}
+
+static int read_banip_blocked(unsigned *blocked_out)
+{
+	char line[256] = "";
+	unsigned n = 0;
+
+	if (!blocked_out)
+		return -1;
+	*blocked_out = 0;
+
+	if (g_sysroot[0]) {
+		FILE *f = fopen_sys("/tmp/banip.blocked", "r");
+		if (!f)
+			return 0;
+		if (fgets(line, sizeof(line), f))
+			*blocked_out = (unsigned)strtoul(line, NULL, 10);
+		fclose(f);
+		return 1;
+	}
+
+	if (access("/etc/init.d/banip", X_OK) != 0)
+		return 0;
+
+	if (run_shell("/etc/init.d/banip status 2>/dev/null | "
+		      "sed -n 's/.*element_count[^0-9]*\\([0-9][0-9 ]*\\).*/\\1/p' | "
+		      "head -1 | tr -d ' '",
+		      line, sizeof(line)) == 0 && line[0]) {
+		n = (unsigned)strtoul(line, NULL, 10);
+		*blocked_out = n;
+		return 1;
+	}
+
+	if (run_shell("nft list set inet banIP 2>/dev/null | "
+		      "grep -c 'elements ='",
+		      line, sizeof(line)) == 0 && line[0])
+		*blocked_out = (unsigned)strtoul(line, NULL, 10);
+	return 1;
+}
+
+static int vpn_iface_up(const char *prefix)
+{
+	char cmd[160], out[16] = "";
+
+	if (!prefix || g_sysroot[0])
+		return 0;
+	snprintf(cmd, sizeof(cmd),
+		 "ip -o link show 2>/dev/null | grep -E '%s' | "
+		 "grep -c 'state UP'",
+		 prefix);
+	if (run_shell(cmd, out, sizeof(out)) != 0)
+		return 0;
+	return atoi(out) > 0;
+}
+
+static int vpn_wg_count(void)
+{
+	char out[16] = "";
+
+	if (g_sysroot[0]) {
+		FILE *f = fopen_sys("/tmp/vpn.wg", "r");
+		if (!f)
+			return 0;
+		if (fgets(out, sizeof(out), f))
+			out[strcspn(out, "\r\n")] = '\0';
+		fclose(f);
+		return atoi(out);
+	}
+	if (run_shell("wg show all 2>/dev/null | grep -c '^interface'",
+		      out, sizeof(out)) != 0)
+		return 0;
+	return atoi(out);
+}
+
+static int vpn_awg_count(void)
+{
+	char out[16] = "";
+
+	if (g_sysroot[0]) {
+		FILE *f = fopen_sys("/tmp/vpn.awg", "r");
+		if (!f)
+			return 0;
+		if (fgets(out, sizeof(out), f))
+			out[strcspn(out, "\r\n")] = '\0';
+		fclose(f);
+		return atoi(out);
+	}
+	if (run_shell("awg show interfaces 2>/dev/null | wc -w", out,
+		      sizeof(out)) != 0)
+		return 0;
+	return atoi(out);
+}
+
+static int vpn_tailscale_active(void)
+{
+	char state[32] = "";
+
+	if (g_sysroot[0]) {
+		FILE *f = fopen_sys("/tmp/vpn.tailscale", "r");
+		if (!f)
+			return 0;
+		if (fgets(state, sizeof(state), f))
+			state[strcspn(state, "\r\n")] = '\0';
+		fclose(f);
+		return !strcasecmp(state, "Running");
+	}
+	if (run_shell("ubus call tailscale status 2>/dev/null | "
+		      "sed -n 's/.*\"BackendState\": \"\\([^\"]*\\)\".*/\\1/p' | "
+		      "head -1",
+		      state, sizeof(state)) != 0)
+		return vpn_iface_up("tailscale") ? 1 : 0;
+	return !strcasecmp(state, "Running");
+}
+
+static void read_vpn_tunnel_summary(char *buf, size_t len)
+{
+	int wg, awg, ts, total;
+	char parts[32] = "";
+
+	if (!buf || !len)
+		return;
+
+	wg = vpn_wg_count();
+	awg = vpn_awg_count();
+	ts = vpn_tailscale_active() ? 1 : 0;
+	total = wg + awg + ts;
+
+	if (wg > 0) {
+		if (parts[0])
+			strncat(parts, "+", sizeof(parts) - strlen(parts) - 1);
+		strncat(parts, "wg", sizeof(parts) - strlen(parts) - 1);
+	}
+	if (awg > 0) {
+		if (parts[0])
+			strncat(parts, "+", sizeof(parts) - strlen(parts) - 1);
+		strncat(parts, "awg", sizeof(parts) - strlen(parts) - 1);
+	}
+	if (ts > 0) {
+		if (parts[0])
+			strncat(parts, "+", sizeof(parts) - strlen(parts) - 1);
+		strncat(parts, "ts", sizeof(parts) - strlen(parts) - 1);
+	}
+
+	if (total == 0)
+		snprintf(buf, len, "0");
+	else if (parts[0])
+		snprintf(buf, len, "%d (%s)", total, parts);
+	else
+		snprintf(buf, len, "%d", total);
+}
+
 static int wifi_live_opt(const char *opt, char *out, size_t len)
 {
 	char cmd[192];
@@ -1695,16 +1990,32 @@ int mcudd_metrics_wifi(const struct mcudd_config *cfg, char *buf, size_t len)
 
 int mcudd_metrics_security(const struct mcudd_config *cfg, char *buf, size_t len)
 {
-	char fw[16] = "off";
+	char fw[64];
+	char blocked[32];
+	char vpn[48];
+	unsigned blocky_n = 0, banip_n = 0;
+	int banip_ok = 0;
 
 	(void)cfg;
-	if (run_shell("uci -q get firewall.@defaults[0].syn_flood 2>/dev/null", fw,
-		      sizeof(fw)) != 0)
-		snprintf(fw, sizeof(fw), "on");
+	if (!buf || !len)
+		return -1;
+
+	read_firewall_zone_summary(fw, sizeof(fw));
+	read_blocky_blocked_24h(&blocky_n);
+	banip_ok = read_banip_blocked(&banip_n);
+	read_vpn_tunnel_summary(vpn, sizeof(vpn));
+
+	if (banip_ok)
+		snprintf(blocked, sizeof(blocked), "%u+%u",
+			 blocky_n, banip_n);
+	else
+		snprintf(blocked, sizeof(blocked), "%u", blocky_n);
 
 	snprintf(buf, len,
-		 "{\"firewall_state\":\"%s\",\"blocked_24h\":\"0\",\"vpn_tunnels\":\"0\"}",
-		 fw);
+		 "{\"firewall_state\":\"%s\",\"blocked_24h\":\"%s\","
+		 "\"vpn_tunnels\":\"%s\",\"blocky_blocked\":%u,"
+		 "\"banip_blocked\":%u}",
+		 fw, blocked, vpn, blocky_n, banip_n);
 	return 0;
 }
 
