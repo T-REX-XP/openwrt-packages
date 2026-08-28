@@ -30,13 +30,41 @@ mcud_instance() {
 	procd_set_param stdout 1
 	procd_set_param respawn 3600 5 0
 	procd_close_instance
+	MCUD_STARTED=1
+}
+
+mcud_wait_ready() {
+	(
+		local retries=0 fifo=""
+
+		while [ "$retries" -lt 30 ]; do
+			pidof mcudd >/dev/null 2>&1 || {
+				retries=$((retries + 1))
+				sleep 1
+				continue
+			}
+			for fifo in /var/run/mcudd.fifo /tmp/mcudd.fifo; do
+				[ -p "$fifo" ] && break
+			done
+			[ -p "$fifo" ] || {
+				retries=$((retries + 1))
+				sleep 1
+				continue
+			}
+			[ -x "$BOOT_STATE" ] && "$BOOT_STATE" ready "System ready" 100
+			exit 0
+		done
+		logger -t mcudd-boot "timeout waiting for mcudd ready"
+	) &
 }
 
 start_service() {
+	MCUD_STARTED=0
 	[ -x /usr/lib/mcud/mcud-autodiscover.sh ] && /usr/lib/mcud/mcud-autodiscover.sh --apply
 	[ -x "$BOOT_STATE" ] && "$BOOT_STATE" boot "Starting mcudd..." 15
 	config_load mcud
 	config_foreach mcud_instance mcud
+	[ "$MCUD_STARTED" = 1 ] && mcud_wait_ready
 }
 
 stop_service() {

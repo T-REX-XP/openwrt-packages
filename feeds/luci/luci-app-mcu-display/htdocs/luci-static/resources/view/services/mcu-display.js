@@ -245,6 +245,39 @@ function pick(cfg, key) {
 	return cfg[key] != null && cfg[key] !== '' ? String(cfg[key]) : String(FORM_DEFAULTS[key] || '');
 }
 
+function mcuBadge(kind, label) {
+	var cls = 'mcu-badge mcu-badge--' + (kind || 'muted');
+	return E('span', { 'class': cls }, [ label ]);
+}
+
+function mcuStatusRow(label, value) {
+	return E('div', { 'class': 'mcu-status-row' }, [
+		E('span', { 'class': 'mcu-status-label' }, label),
+		E('span', { 'class': 'mcu-status-value' }, value)
+	]);
+}
+
+function mcuYesNoBadge(ok, yesLabel, noLabel) {
+	return mcuBadge(ok ? 'yes' : 'no', ok ? yesLabel : noLabel);
+}
+
+function mcuBootBadge(status) {
+	var stage = status.boot_stage || '';
+	var message = status.boot_message || '';
+
+	if (stage === 'ready')
+		return mcuBadge('yes', message || _('Ready'));
+	if (stage === 'network')
+		return mcuBadge('warn', message || _('Network up'));
+	if (stage === 'boot')
+		return mcuBadge('warn', message || _('Starting mcudd…'));
+	if (stage === 'preinit')
+		return mcuBadge('muted', message || _('Pre-init'));
+	if (stage)
+		return mcuBadge('muted', message ? stage + ' — ' + message : stage);
+	return mcuBadge('muted', _('Unknown'));
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -305,43 +338,25 @@ return view.extend({
 			}, _(action)));
 		});
 
-		var bootLine = status.boot_stage ?
-			_('Boot: %s — %s').format(status.boot_stage, status.boot_message || '') :
-			_('Boot stage unknown');
+		var bootBadge = mcuBootBadge(status);
+		var screenLabel = status.page_title || status.active_screen || '—';
 
 		return E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') }, [
 			cbiSection(_('Daemon status'), [], [
-				E('ul', {}, [
-					E('li', {}, [
-						_('Daemon: '),
-						E('span', { 'class': running ? 'mcu-status-ok' : 'mcu-status-bad' },
-							running ? _('running') : _('stopped'))
-					]),
-					E('li', {}, [
-						_('Serial device: '),
-						E('span', { 'class': 'mcu-mono' }, cfg.path || '—')
-					]),
-					E('li', {}, [
-						_('Device present: '),
-						E('span', { 'class': portOk ? 'mcu-status-ok' : 'mcu-status-bad' },
-							portOk ? _('yes') : _('no'))
-					]),
-					E('li', {}, [
-						_('UCI complete: '),
-						E('span', { 'class': cfgOk ? 'mcu-status-ok' : 'mcu-status-bad' },
-							cfgOk ? _('yes') : _('no'))
-					]),
-					E('li', {}, [
-						_('Command FIFO: '),
-						E('span', { 'class': status.fifo_ok ? 'mcu-status-ok' : 'mcu-status-bad' },
-							status.fifo_ok ? _('ready') : _('not available'))
-					]),
-					E('li', {}, bootLine),
-					E('li', {}, [
-						_('Active screen: '),
-						E('span', { 'class': 'mcu-mono' },
-							status.page_title || status.active_screen || '—')
-					])
+				E('div', { 'class': 'mcu-status-grid' }, [
+					mcuStatusRow(_('Daemon'),
+						mcuYesNoBadge(running, _('running'), _('stopped'))),
+					mcuStatusRow(_('Serial device'),
+						mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
+					mcuStatusRow(_('Device present'),
+						mcuYesNoBadge(portOk, _('yes'), _('no'))),
+					mcuStatusRow(_('UCI complete'),
+						mcuYesNoBadge(cfgOk, _('yes'), _('no'))),
+					mcuStatusRow(_('Command FIFO'),
+						mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
+					mcuStatusRow(_('Boot'), bootBadge),
+					mcuStatusRow(_('Active screen'),
+						mcuBadge('info', E('span', { 'class': 'mcu-mono' }, screenLabel)))
 				])
 			]),
 			cbiSection(_('Service control'), [], [ btns ])
