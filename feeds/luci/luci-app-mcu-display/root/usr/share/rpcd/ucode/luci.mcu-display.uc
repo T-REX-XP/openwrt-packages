@@ -379,8 +379,8 @@ const methods = {
 	pageControl: {
 		args: { action: 'action', page_id: 'page_id' },
 		call: function(req) {
-			let action = req.args?.action;
-			if (type(action) != 'string')
+			let action = req.args?.action ?? req?.action ?? req?.[0] ?? '';
+			if (type(action) != 'string' || !length(action))
 				return { error: 'invalid_action' };
 
 			if (!file_test('-x', MCUD_EVENT_SH))
@@ -392,7 +392,7 @@ const methods = {
 			}
 
 			if (action == 'goto') {
-				let page_id = trim(`${req.args?.page_id || ''}`);
+				let page_id = trim(`${req.args?.page_id ?? req?.page_id ?? req?.[1] ?? ''}`);
 				if (!length(page_id))
 					return { error: 'missing_page_id' };
 				run_cmd(`${MCUD_EVENT_SH} screen ${shell_quote(page_id)}`);
@@ -454,7 +454,9 @@ const methods = {
 				limit = 200;
 			if (limit > 2000)
 				limit = 2000;
-			let res = run_cmd(`${logread} -l ${limit} -e ${shell_quote(MCUDD_LOG_PATTERN)}`);
+			/* Filter first, then tail: logread -l applies to the whole ring buffer,
+			 * so -l N -e pattern often returns nothing when mcudd is quiet. */
+			let res = run_cmd(`${logread} -e ${shell_quote(MCUDD_LOG_PATTERN)} | tail -n ${limit}`);
 			return {
 				ok: true,
 				limit,

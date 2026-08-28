@@ -271,6 +271,9 @@ return view.extend({
 		]);
 
 		ui.tabs.initTabGroup(tabHost.childNodes);
+		setTimeout(function() {
+			self.refreshLogs();
+		}, 50);
 		return root;
 	},
 
@@ -366,13 +369,17 @@ return view.extend({
 				E('div', { 'class': 'mcu-page-controls' }, [
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, 'handlePageControl', 'prev'),
+						click: ui.createHandlerFn(self, function() {
+							return self.handlePageControl('prev');
+						}),
 						disabled: disableIf(blocked)
 					}, _('Previous page')),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, 'handlePageControl', 'next'),
+						click: ui.createHandlerFn(self, function() {
+							return self.handlePageControl('next');
+						}),
 						disabled: disableIf(blocked)
 					}, _('Next page')),
 					' ',
@@ -389,7 +396,9 @@ return view.extend({
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-neutral',
-						click: ui.createHandlerFn(self, 'handlePageControl', 'boot'),
+						click: ui.createHandlerFn(self, function() {
+							return self.handlePageControl('boot');
+						}),
 						disabled: disableIf(blocked)
 					}, _('Show boot screen'))
 				])
@@ -477,13 +486,17 @@ return view.extend({
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', {
 					'class': 'btn cbi-button-save',
-					click: ui.createHandlerFn(self, 'handleSave', false),
+					click: ui.createHandlerFn(self, function() {
+						return self.handleMcuSave(false);
+					}),
 					disabled: isReadonly
 				}, _('Save')),
 				' ',
 				E('button', {
 					'class': 'btn cbi-button-apply',
-					click: ui.createHandlerFn(self, 'handleSave', true),
+					click: ui.createHandlerFn(self, function() {
+						return self.handleMcuSave(true);
+					}),
 					disabled: isReadonly
 				}, _('Save & Apply'))
 			])
@@ -491,6 +504,7 @@ return view.extend({
 	},
 
 	buildDebugTab: function() {
+		var self = this;
 		return E('div', { 'data-tab': 'debug', 'data-tab-title': _('Debug') }, [
 			cbiSection(_('Debug logs'), [
 				_('Recent syslog lines tagged mcudd.')
@@ -504,12 +518,16 @@ return view.extend({
 				E('div', { 'class': 'mcu-log-toolbar' }, [
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(this, 'refreshLogs')
+						click: ui.createHandlerFn(self, function() {
+							return self.refreshLogs();
+						})
 					}, _('Refresh')),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-neutral',
-						click: ui.createHandlerFn(this, 'copyLogs')
+						click: ui.createHandlerFn(self, function() {
+							return self.copyLogs();
+						})
 					}, _('Copy to clipboard'))
 				]),
 				E('textarea', {
@@ -523,7 +541,7 @@ return view.extend({
 		]);
 	},
 
-	handleSave: function(restart) {
+	handleMcuSave: function(restart) {
 		if (isReadonly)
 			return Promise.resolve();
 		return callSetConfig(readFormConfig(), restart ? '1' : '0').then(function(r) {
