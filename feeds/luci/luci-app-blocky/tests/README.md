@@ -21,9 +21,13 @@ cd feeds/luci/luci-app-blocky/tests
 
 ## Modules under test
 
-- `htdocs/luci-static/resources/blocky-parse-core.js` — metrics, ports, CSV, validation helpers
-- `htdocs/luci-static/resources/blocky-config-core.js` — settings YAML parse/build/patch
-- `htdocs/luci-static/resources/blocky-common.js` — requires cores; DOM/LuCI views not covered here
+- `blocky-parse-core.js` — metrics, ports, CSV, validation helpers (100% pure-logic target)
+- `blocky-config-core.js` — settings YAML parse/build/patch
+- `blocky-base.js` — shared RPC, fetch, tabs, page bootstrap
+- `blocky-tab-*.js` — per-tab UI (dashboard, stats, blocklists, config, controls, query, logs)
+- `blocky-common.js` — thin view shell (~170 lines); DOM/LuCI views not unit-tested here
+
+`run-tests.sh` also runs `node --check` on every `blocky*.js` resource.
 
 Load helpers: `load-core.mjs` evaluates LuCI core modules via `new Function` (same pattern as `luci-app-oled/tests`).
 

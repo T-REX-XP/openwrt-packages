@@ -235,12 +235,12 @@ After the program, a router admin should be able to **without SSH**:
 |----|------|--------|---------------------|
 | A-1 | Create `feeds/luci/luci-app-blocky/tests/` + `run-tests.sh` | done | Runs on macOS with node + sh; exits non-zero on failure |
 | A-2 | Extract `blocky-parse.js` from common (metrics, stats, CSV, ports, dnsmasq status) | done | `blocky-parse-core.js` + LuCI wrapper; common requires module |
-| A-3 | **100% line coverage** on `blocky-parse.js` via `blocky-parse.test.mjs` | doing | 21 parse + 4 validation tests; formal c8 report not wired yet |
+| A-3 | **100% line coverage** on `blocky-parse.js` via `blocky-parse.test.mjs` | done | 32 tests; `node --check` on all `blocky*.js`; c8 optional later |
 | A-4 | Extract `blocky-config.js` (YAML ↔ settings state) + round-trip tests | done | `blocky-config-core.js` + 7 round-trip tests |
 | A-5 | Shell tests for `blocky-http-api`, `blocky-dnsmasq-sync` | done | Temp `CONFIG`; upstream format checks |
 | A-6 | Tests for `luci.blocky.uc` validation helpers | done | Path `..` rejected; log dir allowlist mirrored in parse core |
 | A-7 | Wire CI job `test-blocky` on path filter | done | `ci.yml` job `test-blocky` gates `build-cm5` |
-| A-8 | Split `blocky-common.js` into tab modules (`blocky-dashboard.js`, …) | todo | No file > ~800 lines; behavior unchanged |
+| A-8 | Split `blocky-common.js` into tab modules (`blocky-dashboard.js`, …) | done | `blocky-common.js` ~170 lines; base + 7 tab modules; largest ~820 lines |
 
 **Epic A exit:** CI green; coverage report documented in `tests/README.md`.
 
@@ -354,13 +354,13 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 
 | Epic | Items | Done | % |
 |------|-------|------|---|
-| A Test & refactor | 8 | 6 | 75% |
+| A Test & refactor | 8 | 8 | 100% |
 | B Status & Debug | 5 | 0 | 0% |
 | C Config safety | 6 | 0 | 0% |
 | D Logs workflow | 5 | 0 | 0% |
 | E UX & 0.34 | 6 | 0 | 0% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **6** | **18%** |
+| **Total** | **34** | **8** | **24%** |
 
 Update this table as backlog items move to `done`.
 
