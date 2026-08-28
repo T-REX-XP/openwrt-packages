@@ -12,7 +12,7 @@ CURSOR_MCP="${ROOT}/.cursor/mcp.json"
 
 OPENWRT_HOST="${OPENWRT_HOST:-192.168.8.1}"
 OPENWRT_USER="${OPENWRT_USER:-root}"
-OPENWRT_KEY_PATH="${OPENWRT_KEY_PATH:-${HOME}/.ssh/id_ed25519}"
+OPENWRT_KEY_PATH="${OPENWRT_KEY_PATH:-${HOME}/.ssh/id_ed25519_openwrt_mcp}"
 
 if [ ! -d "${REPO_DIR}/.git" ]; then
 	echo "Cloning openwrt-mcp-server into ${REPO_DIR} ..."
