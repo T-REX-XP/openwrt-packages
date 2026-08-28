@@ -6,6 +6,7 @@
 
 #include "mcudd_metrics.h"
 
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -102,6 +103,200 @@ static int read_uptime_short(char *buf, size_t len)
 	return 0;
 }
 
+/* Aggregate CPU busy % from /proc/stat deltas (not loadavg). */
+static int read_proc_stat_totals(unsigned long long *idle_all,
+				 unsigned long long *total)
+{
+	FILE *f;
+	unsigned long long user, nice, system, idle, iowait = 0;
+	unsigned long long irq = 0, softirq = 0, steal = 0;
+
+	if (!idle_all || !total)
+		return -1;
+	f = fopen("/proc/stat", "r");
+	if (!f)
+		return -1;
+	if (fscanf(f, "cpu %llu %llu %llu %llu %llu %llu %llu %llu",
+		   &user, &nice, &system, &idle, &iowait, &irq, &softirq,
+		   &steal) < 4) {
+		fclose(f);
+		return -1;
+	}
+	fclose(f);
+	*idle_all = idle + iowait;
+	*total = *idle_all + user + nice + system + irq + softirq + steal;
+	return 0;
+}
+
+static int read_cpu_pct(int *pct_out)
+{
+	static unsigned long long prev_idle, prev_total;
+	static int have_prev;
+	unsigned long long idle_all, total, didle, dtotal;
+	int pct;
+
+	if (!pct_out)
+		return -1;
+	if (read_proc_stat_totals(&idle_all, &total) != 0)
+		return -1;
+
+	if (!have_prev) {
+		prev_idle = idle_all;
+		prev_total = total;
+		have_prev = 1;
+		usleep(120000);
+		if (read_proc_stat_totals(&idle_all, &total) != 0)
+			return -1;
+	}
+
+	didle = idle_all - prev_idle;
+	dtotal = total - prev_total;
+	prev_idle = idle_all;
+	prev_total = total;
+
+	if (dtotal == 0)
+		pct = 0;
+	else if (dtotal < didle)
+		pct = 0;
+	else
+		pct = (int)((100ULL * (dtotal - didle)) / dtotal);
+	if (pct < 0)
+		pct = 0;
+	if (pct > 100)
+		pct = 100;
+	*pct_out = pct;
+	return 0;
+}
+
+static int thermal_type_score(const char *type)
+{
+	if (!type || !type[0])
+		return 0;
+	if (strstr(type, "soc") || strstr(type, "package"))
+		return 100;
+	if (strstr(type, "bigcore") || strstr(type, "cpu"))
+		return 90;
+	if (strstr(type, "little") || strstr(type, "center"))
+		return 80;
+	if (strstr(type, "gpu"))
+		return 40;
+	return 10;
+}
+
+static int read_temp_milli_file(const char *path, long *milli)
+{
+	FILE *f;
+	long v = 0;
+
+	if (!path || !milli)
+		return -1;
+	f = fopen(path, "r");
+	if (!f)
+		return -1;
+	if (fscanf(f, "%ld", &v) != 1) {
+		fclose(f);
+		return -1;
+	}
+	fclose(f);
+	/* Kernels report millidegrees; some boards report whole °C. */
+	if (v > -1000 && v < 200)
+		v *= 1000;
+	*milli = v;
+	return 0;
+}
+
+static int read_cpu_temp_c(char *buf, size_t len)
+{
+	DIR *d;
+	struct dirent *de;
+	char path[320], type[64];
+	long best_milli = 0;
+	int best_score = -1;
+	FILE *tf;
+
+	if (!buf || !len)
+		return -1;
+	buf[0] = '\0';
+
+	d = opendir("/sys/class/thermal");
+	if (d) {
+		while ((de = readdir(d)) != NULL) {
+			int score;
+			long milli = 0;
+
+			if (strncmp(de->d_name, "thermal_zone", 12) != 0)
+				continue;
+			snprintf(path, sizeof(path),
+				 "/sys/class/thermal/%s/type", de->d_name);
+			tf = fopen(path, "r");
+			type[0] = '\0';
+			if (tf) {
+				if (fgets(type, sizeof(type), tf))
+					type[strcspn(type, "\r\n")] = '\0';
+				fclose(tf);
+			}
+			score = thermal_type_score(type);
+			snprintf(path, sizeof(path),
+				 "/sys/class/thermal/%s/temp", de->d_name);
+			if (read_temp_milli_file(path, &milli) != 0)
+				continue;
+			if (milli < 0 || milli > 125000)
+				continue;
+			if (score > best_score ||
+			    (score == best_score && milli > best_milli)) {
+				best_score = score;
+				best_milli = milli;
+			}
+		}
+		closedir(d);
+	}
+
+	if (best_score < 0) {
+		d = opendir("/sys/class/hwmon");
+		if (d) {
+			while ((de = readdir(d)) != NULL) {
+				char name[64] = "";
+				int i;
+
+				if (strncmp(de->d_name, "hwmon", 5) != 0)
+					continue;
+				snprintf(path, sizeof(path),
+					 "/sys/class/hwmon/%s/name", de->d_name);
+				tf = fopen(path, "r");
+				if (tf) {
+					if (fgets(name, sizeof(name), tf))
+						name[strcspn(name, "\r\n")] = '\0';
+					fclose(tf);
+				}
+				for (i = 1; i <= 8; i++) {
+					long milli = 0;
+					int score = thermal_type_score(name);
+
+					snprintf(path, sizeof(path),
+						 "/sys/class/hwmon/%s/temp%d_input",
+						 de->d_name, i);
+					if (read_temp_milli_file(path, &milli) != 0)
+						continue;
+					if (milli < 0 || milli > 125000)
+						continue;
+					if (score > best_score ||
+					    (score == best_score &&
+					     milli > best_milli)) {
+						best_score = score;
+						best_milli = milli;
+					}
+				}
+			}
+			closedir(d);
+		}
+	}
+
+	if (best_score < 0)
+		return -1;
+	snprintf(buf, len, "%ld", best_milli / 1000);
+	return 0;
+}
+
 static int count_dhcp_leases(void)
 {
 	FILE *f;
@@ -163,15 +358,27 @@ int mcudd_metrics_system(const struct mcudd_config *cfg, char *buf, size_t len)
 	float load1 = 0.0f;
 	unsigned long mem_total = 0, mem_avail = 0;
 	unsigned ram_pct = 0;
-	int cpu_pct;
+	int cpu_pct = 0;
 	char hostname[48] = "";
 	char uptime[24] = "";
 	char ram_used[16] = "";
+	char cpu_temp[16] = "--";
 
 	if (!cfg || !buf || !len)
 		return -1;
 
 	read_proc_loadavg(&load1);
+	if (read_cpu_pct(&cpu_pct) != 0) {
+		/* Fallback if /proc/stat unavailable */
+		cpu_pct = (int)(load1 * 100.0f);
+		if (cpu_pct > 100)
+			cpu_pct = 100;
+		if (cpu_pct < 0)
+			cpu_pct = 0;
+	}
+	if (read_cpu_temp_c(cpu_temp, sizeof(cpu_temp)) != 0)
+		strncpy(cpu_temp, "--", sizeof(cpu_temp) - 1);
+
 	read_meminfo(&mem_total, &mem_avail);
 	read_uptime_short(uptime, sizeof(uptime));
 	run_shell("uci -q get system.@system[0].hostname 2>/dev/null", hostname,
@@ -183,15 +390,11 @@ int mcudd_metrics_system(const struct mcudd_config *cfg, char *buf, size_t len)
 		snprintf(ram_used, sizeof(ram_used), "%luM", used_kb / 1024UL);
 	}
 
-	cpu_pct = (int)(load1 * 100.0f);
-	if (cpu_pct > 100)
-		cpu_pct = 100;
-
 	snprintf(buf, len,
 		 "{\"hostname\":\"%s\",\"uptime_short\":\"%s\",\"cpu\":\"%d\","
-		 "\"cpu_temp\":\"--\",\"ram_pct\":%u,\"ram_used\":\"%s\","
+		 "\"cpu_temp\":\"%s\",\"ram_pct\":%u,\"ram_used\":\"%s\","
 		 "\"load_short\":\"%.2f\"}",
-		 hostname, uptime, cpu_pct, ram_pct, ram_used, load1);
+		 hostname, uptime, cpu_pct, cpu_temp, ram_pct, ram_used, load1);
 	return 0;
 }
 

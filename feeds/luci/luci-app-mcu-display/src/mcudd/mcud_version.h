@@ -4,7 +4,7 @@
 
 #define MCUD_RDCP_VERSION 1u
 #define MCUD_STACK_VERSION "1.0.0"
-#define MCUD_STACK_RELEASE 33u
+#define MCUD_STACK_RELEASE 35u
 #define MCUD_PAGES_SCHEMA 1u
 #define MCUD_COMPONENT_HOST "mcudd"
 #define MCUD_COMPONENT_FIRMWARE "esp32-router"
