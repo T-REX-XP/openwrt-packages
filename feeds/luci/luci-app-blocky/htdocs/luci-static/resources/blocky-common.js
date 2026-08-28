@@ -65,8 +65,12 @@ function createBlockyView(options) {
 			var controlsHost = E('div', {});
 			var logsHost = E('div', {});
 			var debugHost = E('div', {});
+			var queryHost = E('div', {});
 			var statusBarHost = E('div', { 'class': 'blocky-status-bar-host' });
 			var versionText = parseBlockyVersionFromMetrics(metricsPayload) || pageStatus.version || '';
+			var queryPanel = BlockyTabs.query.createQueryPanel();
+
+			queryHost.appendChild(queryPanel.node);
 
 			function jumpTab(hash) {
 				var idx = BLOCKY_TAB_HASH[hash];
@@ -78,6 +82,11 @@ function createBlockyView(options) {
 				var buttons = root ? root.querySelectorAll('.cbi-tabmenu li') : [];
 				if (buttons[idx])
 					buttons[idx].click();
+			}
+
+			function openDnsQuery(domain, recordType) {
+				jumpTab('query');
+				return queryPanel.prefillAndRun(domain, recordType);
 			}
 
 			function refreshStatusBar(freshStatus) {
@@ -112,7 +121,9 @@ function createBlockyView(options) {
 						BlockyTabs.controls.renderOperations(fresh[0], refreshPage),
 						BlockyTabs.controls.renderServiceControls(fresh[0], refreshPage)
 					);
-					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9]));
+					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9], {
+						onQueryDomain: openDnsQuery
+					}));
 					debugHost.replaceChildren(BlockyTabs.debug.renderDebugTab(fresh[9]));
 				}).catch(function(err) {
 					notify(err.message || String(err), 'danger');
@@ -126,7 +137,9 @@ function createBlockyView(options) {
 			statisticsHost.appendChild(BlockyTabs.stats.renderStatisticsTab(data, refreshPage));
 			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
 			configHost.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
-			logsHost.appendChild(BlockyTabs.logs.renderLogsTab(config, pageStatus));
+			logsHost.appendChild(BlockyTabs.logs.renderLogsTab(config, pageStatus, {
+				onQueryDomain: openDnsQuery
+			}));
 			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));
 
 			controlsHost.appendChild(BlockyTabs.controls.renderBlockingControls(status, refreshPage));
@@ -180,7 +193,7 @@ function createBlockyView(options) {
 					},
 					{
 						title: _('DNS Query'),
-						nodes: [ BlockyTabs.query.renderQuery() ]
+						nodes: [ queryHost ]
 					},
 					{
 						title: _('Logs'),

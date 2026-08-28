@@ -71,7 +71,13 @@ function renderLogsSubTabs(panels, activeIndex) {
 	return E('div', { 'class': 'blocky-logs-subtabs-wrap' }, [ nav, mainHost ]);
 }
 
-function renderQueryLogPanel(config) {
+function normalizeLogQueryDomain(question) {
+	return safeString(question).trim().replace(/\.$/, '');
+}
+
+function renderQueryLogPanel(config, options) {
+	options = options || {};
+	var onQueryDomain = options.onQueryDomain;
 	var ql = parseQueryLogConfig(config);
 	var tableHost = E('div', {});
 	var pageInfoHost = E('span', { 'class': 'blocky-note-soft' });
@@ -212,10 +218,28 @@ function renderQueryLogPanel(config) {
 				E('div', { 'class': 'td left' }, [ _('Response') ])
 			])
 		].concat(slice.map(function(row) {
+			var domain = normalizeLogQueryDomain(row.question);
+			var queryCell;
+
+			if (domain && typeof onQueryDomain === 'function') {
+				queryCell = E('button', {
+					'type': 'button',
+					'class': 'blocky-query-log-domain',
+					'title': _('Run DNS query for this domain'),
+					'click': ui.createHandlerFn(null, function(ev) {
+						ev.preventDefault();
+						return onQueryDomain(domain, row.type || 'A');
+					})
+				}, [ domain ]);
+			}
+			else {
+				queryCell = domain || row.question;
+			}
+
 			return E('div', { 'class': 'tr' }, [
 				E('div', { 'class': 'td left' }, [ row.time ]),
 				E('div', { 'class': 'td left' }, [ row.client ]),
-				E('div', { 'class': 'td left' }, [ row.question ]),
+				E('div', { 'class': 'td left' }, [ queryCell ]),
 				E('div', { 'class': 'td left' }, [ row.type ]),
 				E('div', { 'class': 'td left' }, [ row.response || row.reason ])
 			]);
@@ -495,8 +519,9 @@ function renderServiceLogPanel(pageStatus) {
 	};
 }
 
-function renderLogsTab(config, pageStatus) {
-	var queryPanel = renderQueryLogPanel(config);
+function renderLogsTab(config, pageStatus, options) {
+	options = options || {};
+	var queryPanel = renderQueryLogPanel(config, options);
 	var servicePanel = renderServiceLogPanel(pageStatus);
 
 	return E('div', { 'class': 'cbi-section blocky-logs-section' }, [

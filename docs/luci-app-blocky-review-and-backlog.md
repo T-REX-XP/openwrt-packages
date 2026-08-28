@@ -277,7 +277,7 @@ After the program, a router admin should be able to **without SSH**:
 |----|------|--------|---------------------|
 | D-1 | Harden CSV parser against Blocky 0.34 CSV format (document sample) | done | Header-aware parser + `query-log-tab.tsv` fixture |
 | D-2 | Logs tab: auto-refresh toggle (30s), copy visible page, copy all (truncated) | done | Query log sub-tab controls |
-| D-3 | Link query log row → DNS Query tab (prefill domain) | todo | Hash or internal tab switch |
+| D-3 | Link query log row → DNS Query tab (prefill domain) | done | Clickable domain → query tab + auto-run |
 | D-4 | Optional: filter by blocked / cached / forwarded reason | done | Quick filter buttons on Query log |
 | D-5 | Separate **Query log** vs **Service log** sub-tabs under Logs | done | Logs tab sub-navigation |
 
@@ -357,10 +357,10 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 | A Test & refactor | 8 | 8 | 100% |
 | B Status & Debug | 5 | 5 | 100% |
 | C Config safety | 6 | 6 | 100% |
-| D Logs workflow | 5 | 4 | 80% |
+| D Logs workflow | 5 | 5 | 100% |
 | E UX & 0.34 | 6 | 0 | 0% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **23** | **68%** |
+| **Total** | **34** | **24** | **71%** |
 
 Update this table as backlog items move to `done`.
 

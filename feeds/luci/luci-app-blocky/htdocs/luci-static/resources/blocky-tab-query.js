@@ -122,52 +122,106 @@ function renderQueryResult(result) {
 	}));
 }
 
-function renderQuery() {
+function runDnsQuery(queryInput, typeSelect, resultHost) {
+	if (!queryInput.value.trim()) {
+		notify(_('Enter a domain name first.'), 'warning');
+		return Promise.resolve();
+	}
+
+	return blockyApi('/query', 'POST', JSON.stringify({
+		query: queryInput.value.trim(),
+		type: typeSelect.value
+	})).then(function(res) {
+		replaceContent(resultHost, renderQueryResult(res));
+	}).catch(function(err) {
+		replaceContent(resultHost, E('p', { 'class': 'alert-message warning' }, [
+			err.message || String(err)
+		]));
+	});
+}
+
+function mountQueryPanel(host, options) {
+	options = options || {};
 	var query = E('input', {
 		'type': 'text',
-		'class': 'cbi-input-text',
+		'class': 'cbi-input-text blocky-query-input',
 		'placeholder': 'example.org',
 		'pattern': '^[A-Za-z0-9_.:-]+$',
 		'style': 'min-width:22em'
 	});
-	var type = E('select', { 'class': 'cbi-input-select' },
+	var type = E('select', { 'class': 'cbi-input-select blocky-query-type' },
 		RECORD_TYPES.map(function(recordType) {
 			return E('option', { 'value': recordType }, [ recordType ]);
 		}));
-	var result = E('div', {}, [ E('em', {}, [ _('No query executed yet.') ]) ]);
+	var result = E('div', { 'class': 'blocky-query-result' }, [
+		E('em', {}, [ _('No query executed yet.') ])
+	]);
 
-	return E('div', { 'class': 'cbi-section' }, [
+	function setQuery(domain, recordType) {
+		query.value = safeString(domain).trim().replace(/\.$/, '');
+
+		if (recordType && RECORD_TYPES.indexOf(recordType) >= 0)
+			type.value = recordType;
+	}
+
+	function prefillAndRun(domain, recordType) {
+		setQuery(domain, recordType);
+
+		if (query.value.trim())
+			return runDnsQuery(query, type, result);
+
+		return Promise.resolve();
+	}
+
+	host.appendChild(E('div', { 'class': 'cbi-section blocky-query-panel' }, [
 		E('h3', {}, [ _('DNS query test') ]),
-		E('p', {}, [
+		E('p', { 'class': 'blocky-query-toolbar' }, [
 			query, ' ', type, ' ',
 			E('button', {
 				'class': 'cbi-button cbi-button-action',
-				'click': ui.createHandlerFn(this, function(ev) {
+				'click': ui.createHandlerFn(null, function(ev) {
 					ev.preventDefault();
-
-					if (!query.value.trim()) {
-						notify(_('Enter a domain name first.'), 'warning');
-						return;
-					}
-
-					return blockyApi('/query', 'POST', JSON.stringify({
-						query: query.value.trim(),
-						type: type.value
-					})).then(function(res) {
-						replaceContent(result, renderQueryResult(res));
-					}).catch(function(err) {
-						replaceContent(result, E('p', { 'class': 'alert-message warning' }, [
-							err.message || String(err)
-						]));
-					});
+					return runDnsQuery(query, type, result);
 				})
 			}, [ _('Query') ])
 		]),
 		result
-	]);
+	]));
+
+	if (options.prefill)
+		setQuery(options.prefill.domain, options.prefill.type);
+
+	return {
+		setQuery: setQuery,
+		prefillAndRun: prefillAndRun,
+		runQuery: function() {
+			return runDnsQuery(query, type, result);
+		}
+	};
+}
+
+function renderQuery(options) {
+	var host = E('div', {});
+
+	mountQueryPanel(host, options || {});
+	return host.firstChild;
+}
+
+function createQueryPanel(options) {
+	var host = E('div', {});
+	var controller = mountQueryPanel(host, options || {});
+
+	return {
+		node: host.firstChild,
+		setQuery: controller.setQuery,
+		prefillAndRun: controller.prefillAndRun,
+		runQuery: controller.runQuery
+	};
 }
 
 return {
 	renderQueryResult: renderQueryResult,
-	renderQuery: renderQuery
+	mountQueryPanel: mountQueryPanel,
+	renderQuery: renderQuery,
+	createQueryPanel: createQueryPanel
 };

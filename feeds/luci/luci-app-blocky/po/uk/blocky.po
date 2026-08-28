@@ -1405,3 +1405,6 @@ msgstr "Хвіст журналу обрізано до 512 KiB. Для повн
 
 msgid "Source file: %s"
 msgstr "Файл джерела: %s"
+
+msgid "Run DNS query for this domain"
+msgstr "Виконати DNS-запит для цього домену"
