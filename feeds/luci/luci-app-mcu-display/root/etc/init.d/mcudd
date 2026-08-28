@@ -68,7 +68,7 @@ start_service() {
 }
 
 stop_service() {
-	:
+	killall mcudd 2>/dev/null
 }
 
 service_triggers() {

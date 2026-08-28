@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -24,8 +25,10 @@
 #define MCUDD_FW_VERSION_FILE "/tmp/mcud_firmware_version.json"
 #define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
 #define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
+#define MCUDD_LOCK_FILE "/var/run/mcudd.lock"
 
 static volatile sig_atomic_t g_stop;
+static int g_lock_fd = -1;
 
 static char active_screen[48] = "router_boot";
 static unsigned g_version_req_id;
@@ -65,6 +68,33 @@ static void on_signal(int sig)
 {
 	(void)sig;
 	g_stop = 1;
+}
+
+static int acquire_instance_lock(void)
+{
+	g_lock_fd = open(MCUDD_LOCK_FILE, O_CREAT | O_RDWR, 0644);
+	if (g_lock_fd < 0)
+		return -1;
+	if (flock(g_lock_fd, LOCK_EX | LOCK_NB) != 0) {
+		close(g_lock_fd);
+		g_lock_fd = -1;
+		return -1;
+	}
+	return 0;
+}
+
+static void release_instance_lock(void)
+{
+	if (g_lock_fd >= 0) {
+		flock(g_lock_fd, LOCK_UN);
+		close(g_lock_fd);
+		g_lock_fd = -1;
+	}
+}
+
+static void print_usage(const char *prog)
+{
+	printf("Usage: %s [--version|-V]\n", prog ? prog : "mcudd");
 }
 
 static int read_boot_state(char *stage, size_t stage_len, char *message, size_t msg_len)
@@ -424,12 +454,22 @@ int main(int argc, char **argv)
 		       MCUD_COMPONENT_HOST);
 		return 0;
 	}
+	if (argc >= 2 &&
+	    (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") || !strcmp(argv[1], "help"))) {
+		print_usage(argv[0]);
+		return 0;
+	}
 
 	signal(SIGTERM, on_signal);
 	signal(SIGINT, on_signal);
 
+	mcudd_log_init(NULL);
+	if (acquire_instance_lock() != 0) {
+		mcudd_log(LOG_ERR, "another mcudd instance is already running");
+		return 1;
+	}
+
 	if (mcudd_config_load(&cfg) != 0) {
-		mcudd_log_init(NULL);
 		mcudd_log(LOG_ERR, "invalid or incomplete %s", MCUDD_UCI_FILE);
 		goto out;
 	}
@@ -556,6 +596,7 @@ int main(int argc, char **argv)
 	ret = 0;
 
 out:
+	release_instance_lock();
 	if (fifo_fd >= 0)
 		close(fifo_fd);
 	unlink(MCUDD_FIFO_PATH);
