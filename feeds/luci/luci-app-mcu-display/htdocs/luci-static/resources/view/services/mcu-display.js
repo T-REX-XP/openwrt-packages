@@ -781,19 +781,20 @@ return view.extend({
 				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Page control failed.') ]), 'error');
 				return;
 			}
-			ui.addNotification(null, E('p', {}, [ _('Sent %s command to mcudd.').format(action) ]), 'info');
 			this._lastStatusFp = '';
 			return callGetStatus().then(L.bind(function(st) {
 				st = rpcData(st, {});
 				updateLiveStatus(st, this._liveCfg || {});
-				ui.addNotification(null, E('p', {}, [
-					_('Active screen: %s').format(st.page_title || st.active_screen || '—')
-				]), 'info');
 				return this.refreshLogs(true);
 			}, this));
 		}, this)).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Page control failed: %s').format(e) ]), 'error');
 		});
+	},
+
+	leave: function() {
+		this.stopLivePoll();
+		this.stopLogPoll();
 	},
 
 	handlePageGoto: function() {

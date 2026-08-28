@@ -124,19 +124,31 @@ static int send_config_push(const struct mcudd_config *cfg, int fd)
 	return send_line(cfg, fd, out);
 }
 
-static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *screen_id)
+static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
+			       const char *screen_id, const char *dir)
 {
 	char out[256];
+	int rc;
 
 	if (!screen_id || !screen_id[0])
 		return -1;
-	if (mcudd_protocol_build_cmd_screen(screen_id, out, sizeof(out)) != 0)
+	if (mcudd_protocol_build_cmd_screen_dir(screen_id, dir, out, sizeof(out)) != 0)
 		return -1;
+	rc = send_line(cfg, fd, out);
+	if (rc != 0) {
+		mcudd_log(LOG_WARNING, "cmd screen %s tx failed", screen_id);
+		return rc;
+	}
 	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
 	active_screen[sizeof(active_screen) - 1] = '\0';
 	write_active_screen(active_screen);
 	mcudd_log(LOG_INFO, "cmd screen %s", screen_id);
-	return send_line(cfg, fd, out);
+	return 0;
+}
+
+static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *screen_id)
+{
+	return send_cmd_screen_dir(cfg, fd, screen_id, "left");
 }
 
 static int boot_stage_is_ready(const char *stage)
@@ -163,17 +175,21 @@ static int leave_boot_screen(const struct mcudd_config *cfg, int fd)
 static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
 {
 	const char *next = NULL;
+	const char *anim_dir = "left";
 
 	if (!cmd)
 		return -1;
-	if (!strcmp(cmd, "next"))
+	if (!strcmp(cmd, "next")) {
 		next = mcudd_page_neighbor(active_screen, "left");
-	else if (!strcmp(cmd, "prev"))
+		anim_dir = "left";
+	} else if (!strcmp(cmd, "prev")) {
 		next = mcudd_page_neighbor(active_screen, "right");
+		anim_dir = "right";
+	}
 	if (!next)
 		return -1;
 	mcudd_log(LOG_INFO, "nav %s from %s -> %s", cmd, active_screen, next);
-	return send_cmd_screen(cfg, fd, next);
+	return send_cmd_screen_dir(cfg, fd, next, anim_dir);
 }
 
 static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -226,10 +242,10 @@ static int fifo_open(void)
 
 static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *dir)
 {
-	const char *next = page_neighbor(active_screen, dir);
+	const char *next = mcudd_page_neighbor(active_screen, dir);
 
 	mcudd_log(LOG_INFO, "gesture %s from %s -> %s", dir, active_screen, next);
-	return send_cmd_screen(cfg, fd, next);
+	return send_cmd_screen_dir(cfg, fd, next, dir);
 }
 
 static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)

@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -93,19 +94,49 @@ void mcudd_serial_close(int fd)
 		close(fd);
 }
 
+static int write_all(int fd, const void *buf, size_t len)
+{
+	const char *p = buf;
+	size_t left = len;
+	struct pollfd pfd;
+	int spins = 0;
+
+	while (left > 0) {
+		ssize_t n = write(fd, p, left);
+
+		if (n > 0) {
+			p += n;
+			left -= (size_t)n;
+			spins = 0;
+			continue;
+		}
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			if (++spins > 200)
+				return -1;
+			pfd.fd = fd;
+			pfd.events = POLLOUT;
+			if (poll(&pfd, 1, 1000) <= 0)
+				return -1;
+			continue;
+		}
+		return -1;
+	}
+
+	return 0;
+}
+
 int mcudd_serial_write_line(int fd, const char *line)
 {
-	size_t len;
-	ssize_t n;
-
 	if (fd < 0 || !line)
 		return -1;
-	len = strlen(line);
-	n = write(fd, line, len);
-	if (n < 0 || (size_t)n != len)
+	if (write_all(fd, line, strlen(line)) != 0)
 		return -1;
-	n = write(fd, "\n", 1);
-	return (n == 1) ? 0 : -1;
+	if (write_all(fd, "\n", 1) != 0)
+		return -1;
+#ifdef __linux__
+	tcdrain(fd);
+#endif
+	return 0;
 }
 
 int mcudd_serial_read_char(int fd, char *ch)

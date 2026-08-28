@@ -3,10 +3,11 @@ CC = gcc
 endif
 
 ifndef CFLAGS
-CFLAGS := -O2 -Wall -Wextra -std=c99
+CFLAGS := -O2 -Wall -Wextra -std=c99 -D_GNU_SOURCE
 endif
 
 LDFLAGS ?= -lpthread
+LDFLAGS_STATIC ?= -static
 
 MCUDD_SRCS := \
 	mcudd/mcudd.c \

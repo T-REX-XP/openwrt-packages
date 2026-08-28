@@ -221,13 +221,35 @@ mcudd_scope_t mcudd_scope_from_screen(const char *screen_id)
 
 int mcudd_protocol_build_cmd_screen(const char *screen_id, char *out, size_t out_len)
 {
+	return mcudd_protocol_build_cmd_screen_dir(screen_id, NULL, out, out_len);
+}
+
+int mcudd_protocol_build_cmd_screen_dir(const char *screen_id, const char *dir,
+					char *out, size_t out_len)
+{
 	int n;
+	const char *anim_dir = dir && dir[0] ? dir : "left";
 
 	if (!screen_id || !out || !out_len)
 		return -1;
 	n = snprintf(out, out_len,
-		     "{\"v\":1,\"t\":\"cmd\",\"op\":\"screen\",\"data\":{\"screen\":\"%s\"}}",
-		     screen_id);
+		     "{\"v\":1,\"t\":\"cmd\",\"op\":\"screen\",\"data\":{\"screen\":\"%s\",\"dir\":\"%s\"}}",
+		     screen_id, anim_dir);
+	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
+}
+
+int mcudd_protocol_build_cmd_nav(const char *dir, char *out, size_t out_len)
+{
+	int n;
+	const char *nav_dir = dir && dir[0] ? dir : "next";
+
+	if (!out || !out_len)
+		return -1;
+	if (strcmp(nav_dir, "prev") && strcmp(nav_dir, "next"))
+		return -1;
+	n = snprintf(out, out_len,
+		     "{\"v\":1,\"t\":\"cmd\",\"op\":\"nav\",\"data\":{\"dir\":\"%s\"}}",
+		     nav_dir);
 	return (n > 0 && (size_t)n < out_len) ? 0 : -1;
 }
 

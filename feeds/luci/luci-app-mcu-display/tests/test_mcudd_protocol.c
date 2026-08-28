@@ -134,7 +134,20 @@ static void test_cmd_screen_builder(void)
 	expect(mcudd_protocol_build_cmd_screen("router_wifi", out, sizeof(out)) == 0,
 	       "build cmd screen");
 	expect(strstr(out, "router_wifi") != NULL, "cmd has screen id");
+	expect(strstr(out, "\"dir\":\"left\"") != NULL, "cmd has default dir");
 	expect(strstr(out, "\"t\":\"cmd\"") != NULL, "cmd type");
+}
+
+static void test_cmd_nav_builder(void)
+{
+	char out[256];
+
+	expect(mcudd_protocol_build_cmd_nav("next", out, sizeof(out)) == 0, "build cmd nav next");
+	expect(strstr(out, "\"op\":\"nav\"") != NULL, "nav op");
+	expect(strstr(out, "\"dir\":\"next\"") != NULL, "nav dir next");
+	expect(mcudd_protocol_build_cmd_nav("prev", out, sizeof(out)) == 0, "build cmd nav prev");
+	expect(strstr(out, "\"dir\":\"prev\"") != NULL, "nav dir prev");
+	expect(mcudd_protocol_build_cmd_nav("up", out, sizeof(out)) != 0, "reject bad nav dir");
 }
 
 static void test_push_config_builder(void)
@@ -161,6 +174,7 @@ int main(void)
 	test_gesture_evt();
 	test_screen_evt();
 	test_cmd_screen_builder();
+	test_cmd_nav_builder();
 	test_push_config_builder();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
