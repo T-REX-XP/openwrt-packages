@@ -302,11 +302,8 @@ function buildStatusGrid(status, cfg) {
 			mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
 		mcuStatusRow(_('Boot'), bootBadge),
 		mcuStatusRow(_('Active screen'),
-			E('span', {
-				'id': 'mcu-live-active-screen',
-				'class': 'mcu-status-value'
-			}, [
-				mcuBadge('info', E('span', { 'class': 'mcu-mono' }, screenLabel))
+			E('span', { 'id': 'mcu-live-active-screen' }, [
+				mcuBadge('info', E('span', { 'class': 'mcu-mono', 'id': 'mcu-live-active-screen-label' }, screenLabel))
 			])),
 		mcuStatusRow(_('Page index'),
 			E('span', { 'id': 'mcu-live-page-idx' }, [
@@ -323,7 +320,8 @@ function updateLiveStatus(status, cfg) {
 	var screenLabel = status.page_title || status.active_screen || '—';
 
 	if (screenEl) {
-		var mono = screenEl.querySelector('.mcu-mono');
+		var mono = document.getElementById('mcu-live-active-screen-label') ||
+			screenEl.querySelector('.mcu-mono');
 		if (mono)
 			mono.textContent = screenLabel;
 		else
@@ -343,6 +341,25 @@ function updateLiveStatus(status, cfg) {
 	}
 
 	updatePagesLive(status);
+	updateLiveNavControls(status);
+}
+
+function updateLiveNavControls(status) {
+	var blocked = isReadonly || !status.running;
+	var controls = document.querySelector('.mcu-page-controls');
+	var jump = document.getElementById('mcu-page-jump');
+	var buttons;
+	var i;
+
+	if (!controls)
+		return;
+
+	buttons = controls.querySelectorAll('button');
+	for (i = 0; i < buttons.length; i++)
+		buttons[i].disabled = !!blocked;
+
+	if (jump)
+		jump.disabled = blocked || jump.options.length === 0;
 }
 
 function updatePagesLive(status) {
@@ -549,20 +566,18 @@ return view.extend({
 			cbiSection(_('Screen navigation'), [
 				_('Send RDCP screen commands over UART. Previous / next mirror physical button mapping (MaskROM / USERKEY on CM5).')
 			], [
-				E('div', { 'class': 'mcu-page-controls' }, [
+				E('div', { 'class': 'mcu-page-controls', 'id': 'mcu-page-controls' }, [
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, function() {
-							return self.handlePageControl('prev');
-						}),
+						'id': 'mcu-page-prev',
+						click: ui.createHandlerFn(self, 'handlePagePrev'),
 						disabled: disableIf(blocked)
 					}, _('Previous page')),
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, function() {
-							return self.handlePageControl('next');
-						}),
+						'id': 'mcu-page-next',
+						click: ui.createHandlerFn(self, 'handlePageNext'),
 						disabled: disableIf(blocked)
 					}, _('Next page')),
 					' ',
@@ -579,9 +594,8 @@ return view.extend({
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-neutral',
-						click: ui.createHandlerFn(self, function() {
-							return self.handlePageControl('boot');
-						}),
+						'id': 'mcu-page-boot',
+						click: ui.createHandlerFn(self, 'handlePageBoot'),
 						disabled: disableIf(blocked)
 					}, _('Show boot screen'))
 				])
@@ -742,10 +756,22 @@ return view.extend({
 		});
 	},
 
-	handlePageControl: function(action) {
+	handlePagePrev: function() {
+		return this.handlePageControl('prev');
+	},
+
+	handlePageNext: function() {
+		return this.handlePageControl('next');
+	},
+
+	handlePageBoot: function() {
+		return this.handlePageControl('boot');
+	},
+
+	handlePageControl: function(action, pageId) {
 		if (isReadonly)
 			return Promise.resolve();
-		return callPageControl(action, '').then(L.bind(function(r) {
+		return callPageControl(action, pageId || '').then(L.bind(function(r) {
 			r = rpcData(r, {});
 			if (r.error || r.ok === false) {
 				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Page control failed.') ]), 'error');

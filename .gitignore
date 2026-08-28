@@ -7,3 +7,6 @@ tools/openwrt-mcp-server/
 .cursor/mcp.json
 *.o
 feeds/luci/luci-app-mcu-display/**/*.o
+feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_config.o
+feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_config.o
+feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_log.o

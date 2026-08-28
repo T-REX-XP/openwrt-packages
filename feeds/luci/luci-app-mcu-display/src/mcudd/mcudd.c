@@ -104,13 +104,22 @@ static int page_index(const char *screen_id)
 {
 	int i;
 
-	if (!screen_id)
-		return 0;
+	if (!screen_id || !screen_id[0])
+		return -1;
 	for (i = 0; i < MCUDD_PAGE_COUNT; i++) {
 		if (!strcmp(PAGE_IDS[i], screen_id))
 			return i;
 	}
-	return 0;
+	return -1;
+}
+
+static int screen_id_known(const char *screen_id)
+{
+	if (!screen_id || !screen_id[0])
+		return 0;
+	if (!strcmp(screen_id, "router_boot"))
+		return 1;
+	return page_index(screen_id) >= 0;
 }
 
 static const char *page_neighbor(const char *screen_id, const char *dir)
@@ -121,6 +130,8 @@ static const char *page_neighbor(const char *screen_id, const char *dir)
 		return PAGE_IDS[0];
 
 	idx = page_index(screen_id);
+	if (idx < 0)
+		idx = 0;
 	if (!dir || !strcmp(dir, "left"))
 		return PAGE_IDS[(idx + 1) % MCUDD_PAGE_COUNT];
 	return PAGE_IDS[(idx + MCUDD_PAGE_COUNT - 1) % MCUDD_PAGE_COUNT];
@@ -170,7 +181,7 @@ static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *s
 	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
 	active_screen[sizeof(active_screen) - 1] = '\0';
 	write_active_screen(active_screen);
-	mcudd_log_proto(cfg, "cmd screen %s", screen_id);
+	mcudd_log(LOG_INFO, "cmd screen %s", screen_id);
 	return send_line(cfg, fd, out);
 }
 
@@ -226,6 +237,10 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 	if (!strncmp(line, "screen ", 7)) {
 		strncpy(screen, line + 7, sizeof(screen) - 1);
 		screen[sizeof(screen) - 1] = '\0';
+		if (!screen_id_known(screen)) {
+			mcudd_log(LOG_WARNING, "ignore fifo screen: %s", screen);
+			return -1;
+		}
 		return send_cmd_screen(cfg, fd, screen);
 	}
 	if (!strcmp(line, "net") || !strcmp(line, "refresh")) {
@@ -280,6 +295,10 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			(int)msg.type, (int)msg.scope, msg.screen);
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
+		if (!screen_id_known(msg.screen)) {
+			mcudd_log(LOG_WARNING, "ignore unknown screen evt: %s", msg.screen);
+			return 0;
+		}
 		strncpy(active_screen, msg.screen, sizeof(active_screen) - 1);
 		active_screen[sizeof(active_screen) - 1] = '\0';
 		write_active_screen(active_screen);

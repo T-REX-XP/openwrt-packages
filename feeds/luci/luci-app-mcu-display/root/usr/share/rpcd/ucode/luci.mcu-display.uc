@@ -323,6 +323,9 @@ function get_status() {
 
 	if (!length(active))
 		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
+	else if (pages_cfg && active != 'router_boot' &&
+		 page_index_by_id(pages_cfg, active) < 0)
+		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
 
 	let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
 
