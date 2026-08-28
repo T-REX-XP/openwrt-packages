@@ -5,8 +5,14 @@ private-key.pem
 public-key.pem
 tools/openwrt-mcp-server/
 .cursor/mcp.json
+
+# Local C build artifacts (compiled on host / Docker, not source)
 *.o
-feeds/luci/luci-app-mcu-display/**/*.o
-feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_config.o
-feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_config.o
-feeds/luci/luci-app-mcu-display/src/mcudd/mcudd_log.o
+*.a
+*-bin
+feeds/luci/*/src/*-bin
+feeds/luci/*/src/dump_*
+feeds/packages/*/src/*-bin
+
+# Generated from mcud-version.json
+feeds/luci/luci-app-mcu-display/src/mcudd/mcud_version.h
