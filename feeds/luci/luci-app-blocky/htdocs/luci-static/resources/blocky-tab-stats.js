@@ -4,6 +4,7 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require blocky-tab-dashboard as tabDashboard';
 'require baseclass';
 
 var safeString = Blocky.safeString,
@@ -406,9 +407,9 @@ function renderStatsHourlyChart(stats) {
 		]),
 		vBarHost,
 		E('div', { 'class': 'blocky-chart-legend' }, [
-			E('span', {}, [ BlockyTabs.dashboard.blockyLegendDot('total'), _('Total') ]),
+			E('span', {}, [ tabDashboard.blockyLegendDot('total'), _('Total') ]),
 			' ',
-			E('span', {}, [ BlockyTabs.dashboard.blockyLegendDot('blocked'), _('Blocked') ])
+			E('span', {}, [ tabDashboard.blockyLegendDot('blocked'), _('Blocked') ])
 		])
 	]);
 }

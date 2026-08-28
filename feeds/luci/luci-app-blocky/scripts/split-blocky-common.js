@@ -69,6 +69,26 @@ const TAB_KEYS = {
 	'blocky-tab-logs.js': 'logs'
 };
 
+const TAB_ALIAS = {
+	blocklists: 'tabBlocklists',
+	stats: 'tabStats',
+	dashboard: 'tabDashboard',
+	config: 'tabConfig',
+	controls: 'tabControls',
+	query: 'tabQuery',
+	logs: 'tabLogs'
+};
+
+const TAB_REQUIRE = {
+	blocklists: 'blocky-tab-blocklists as tabBlocklists',
+	stats: 'blocky-tab-stats as tabStats',
+	dashboard: 'blocky-tab-dashboard as tabDashboard',
+	config: 'blocky-tab-config as tabConfig',
+	controls: 'blocky-tab-controls as tabControls',
+	query: 'blocky-tab-query as tabQuery',
+	logs: 'blocky-tab-logs as tabLogs'
+};
+
 const COMMON_DESTRUCT = [
 	'loadBlockyPageData', 'resolveDefaultTabFromHash', 'renderBlockyVersionBadge',
 	'resolveBlockyVersion', 'parseBlockyVersionFromMetrics', 'blockyCliStdout', 'execResultStdout',
@@ -193,21 +213,26 @@ function rewriteCrossModuleCalls(body, currentModule) {
 		['blocky-tab-config.js', 'config', MODULES['blocky-tab-config.js']],
 		['blocky-tab-controls.js', 'controls', MODULES['blocky-tab-controls.js']]
 	];
+	const useBlockyTabs = currentModule === 'blocky-common.js';
 
 	for (const [mod, key, names] of groups) {
 		if (currentModule === mod)
 			continue;
+		const prefix = useBlockyTabs ? ('BlockyTabs.' + key) : TAB_ALIAS[key];
 		for (const name of names)
-			out = out.replace(new RegExp('\\b' + name + '\\(', 'g'), 'BlockyTabs.' + key + '.' + name + '(');
+			out = out.replace(new RegExp('\\b' + name + '\\(', 'g'), prefix + '.' + name + '(');
 	}
 	if (currentModule !== 'blocky-tab-query.js') {
-		out = out.replace(/\brenderQuery\(/g, 'BlockyTabs.query.renderQuery(');
-		out = out.replace(/\brenderQueryResult\(/g, 'BlockyTabs.query.renderQueryResult(');
+		const queryPrefix = useBlockyTabs ? 'BlockyTabs.query' : TAB_ALIAS.query;
+		out = out.replace(/\brenderQuery\(/g, queryPrefix + '.renderQuery(');
+		out = out.replace(/\brenderQueryResult\(/g, queryPrefix + '.renderQueryResult(');
 	}
-	if (currentModule !== 'blocky-tab-logs.js')
-		out = out.replace(/\brenderQueryLogsTab\(/g, 'BlockyTabs.logs.renderQueryLogsTab(');
+	if (currentModule !== 'blocky-tab-logs.js') {
+		const logsPrefix = useBlockyTabs ? 'BlockyTabs.logs' : TAB_ALIAS.logs;
+		out = out.replace(/\brenderQueryLogsTab\(/g, logsPrefix + '.renderQueryLogsTab(');
+	}
 
-	if (currentModule === 'blocky-common.js') {
+	if (useBlockyTabs) {
 		out = out.replace(/\bblockyInjectStyles\(/g, 'BlockyTabs.dashboard.blockyInjectStyles(');
 		for (const name of MODULES['blocky-base.js']) {
 			if (COMMON_DESTRUCT.indexOf(name) >= 0)
@@ -217,6 +242,19 @@ function rewriteCrossModuleCalls(body, currentModule) {
 	}
 
 	return out;
+}
+
+function crossTabRequires(currentModule, body) {
+	const keys = new Set();
+
+	for (const [key, alias] of Object.entries(TAB_ALIAS)) {
+		if (TAB_KEYS[currentModule] === key)
+			continue;
+		if (new RegExp('\\b' + alias + '\\.').test(body))
+			keys.add(key);
+	}
+
+	return [...keys].sort().map((key) => "'require " + TAB_REQUIRE[key] + "';").join('\n');
 }
 
 function tabDestructuring() {
@@ -322,7 +360,10 @@ function main() {
 		const list = byModule[file] || [];
 		const body = list.map((seg) => rewriteCrossModuleCalls(seg.lines.join('\n'), file)).join('\n\n');
 		const exports = list.filter((seg) => seg.type === 'function').map((seg) => seg.name);
-		const tabFile = tabRequires + '\n' + tabDestructuring() + '\n' + body + '\n\nreturn baseclass.extend({\n' +
+		const extraRequires = crossTabRequires(file, body);
+		const tabFile = tabRequires +
+			(extraRequires ? extraRequires + '\n' : '') +
+			tabDestructuring() + '\n' + body + '\n\nreturn baseclass.extend({\n' +
 			exports.map((n) => '\t' + n + ': ' + n).join(',\n') + '\n});\n';
 		fs.writeFileSync(path.join(RES, file), tabFile);
 	}

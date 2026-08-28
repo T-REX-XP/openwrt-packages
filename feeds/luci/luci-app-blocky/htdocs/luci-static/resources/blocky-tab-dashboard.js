@@ -4,6 +4,8 @@
 'require fs';
 'require poll';
 'require blocky-base as Blocky';
+'require blocky-tab-stats as tabStats';
+'require blocky-tab-controls as tabControls';
 'require baseclass';
 
 var safeString = Blocky.safeString,
@@ -353,18 +355,18 @@ function buildQueriesChartAxisLabels(series, maxY, W, H, padL, padR, padT, padB)
 }
 
 function renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage) {
-	var overview = BlockyTabs.stats.gatherOverviewMetrics(statsResult, metricsPayload);
+	var overview = tabStats.gatherOverviewMetrics(statsResult, metricsPayload);
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 	var nodes = [
-		BlockyTabs.stats.renderDashboardSummaryGrid(overview, statsResult),
+		tabStats.renderDashboardSummaryGrid(overview, statsResult),
 		E('div', { 'class': 'blocky-dash-grid' }, [
-			BlockyTabs.stats.renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage),
-			BlockyTabs.stats.renderTopClientsPanel(statsResult, 10)
+			tabStats.renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage),
+			tabStats.renderTopClientsPanel(statsResult, 10)
 		])
 	];
 
 	if (stats)
-		nodes.push(BlockyTabs.stats.renderStatsDashboard(statsResult, refreshPage));
+		nodes.push(tabStats.renderStatsDashboard(statsResult, refreshPage));
 	else
 		nodes.push(E('div', { 'class': 'alert-message warning' }, [
 			statsResult && statsResult.disabled
@@ -776,9 +778,9 @@ function mountDashboardContent(host, data, refreshPage) {
 				])
 			]),
 			E('div', { 'class': 'blocky-dash-controls-grid' }, [
-				BlockyTabs.controls.renderBlockingControls(status, refreshPage),
-				BlockyTabs.controls.renderOperations(service, refreshPage),
-				BlockyTabs.controls.renderServiceControls(service, refreshPage)
+				tabControls.renderBlockingControls(status, refreshPage),
+				tabControls.renderOperations(service, refreshPage),
+				tabControls.renderServiceControls(service, refreshPage)
 			])
 		])
 	);
