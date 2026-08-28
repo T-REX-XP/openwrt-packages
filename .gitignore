@@ -16,3 +16,4 @@ feeds/packages/*/src/*-bin
 
 # Generated from mcud-version.json
 feeds/luci/luci-app-mcu-display/src/mcudd/mcud_version.h
+feeds/packages/mcudd/coverage.out
