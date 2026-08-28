@@ -461,6 +461,8 @@ return view.extend({
 		ui.tabs.initTabGroup(tabHost.childNodes);
 		this.bindTabHooks(tabHost);
 		this.startLivePoll(cfg);
+		if (status.running)
+			this.requestFirmwareVersion(true);
 		return root;
 	},
 
@@ -546,6 +548,8 @@ return view.extend({
 						self._lastStatusFp = '';
 						return callGetStatus().then(function(st) {
 							updateLiveStatus(rpcData(st, {}), cfg);
+							if (action === 'restart' || action === 'start')
+								self.requestFirmwareVersion(true);
 						});
 					});
 				}),
@@ -558,17 +562,6 @@ return view.extend({
 				_('Updates every %d s while this page is open (LuCI poll — no WebSocket required).').format(LIVE_POLL_SEC)
 			], [
 				buildStatusGrid(status, cfg)
-			]),
-			cbiSection(_('Version check'), [
-				_('Host and ESP32 firmware share one stack version (mcud-version.json). Query the display after boot or a firmware flash.')
-			], [
-				E('div', { 'class': 'cbi-page-actions' }, [
-					E('button', {
-						'class': 'cbi-button cbi-button-action',
-						click: ui.createHandlerFn(self, 'handlePageVersion'),
-						disabled: isReadonly || !status.running
-					}, _('Query firmware version'))
-				])
 			]),
 			cbiSection(_('Service control'), [], [ btns ])
 		]);
@@ -810,8 +803,25 @@ return view.extend({
 		return this.handlePageControl('boot');
 	},
 
-	handlePageVersion: function() {
-		return this.handlePageControl('version');
+	requestFirmwareVersion: function(silent) {
+		if (isReadonly)
+			return Promise.resolve();
+		return callPageControl('version', '').then(L.bind(function(r) {
+			r = rpcData(r, {});
+			if (r.error || r.ok === false) {
+				if (!silent)
+					ui.addNotification(null, E('p', {}, [
+						r.message || r.error || _('Version query failed.')
+					]), 'error');
+				return;
+			}
+			this._lastStatusFp = '';
+		}, this)).catch(function(e) {
+			if (!silent)
+				ui.addNotification(null, E('p', {}, [
+					_('Version query failed: %s').format(e)
+				]), 'error');
+		});
 	},
 
 	handlePageControl: function(action, pageId) {
