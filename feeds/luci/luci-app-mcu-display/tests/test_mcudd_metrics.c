@@ -193,8 +193,8 @@ static void test_network_rates_ports_ping(void)
 	expect(mcudd_metrics_network(&cfg, buf, sizeof(buf)) == 0, "network first");
 	expect(strstr(buf, "\"wan_dev\":\"eth0\"") != NULL, "wan logical name resolves to eth0");
 	expect(strstr(buf, "\"eth0_role\":\"WAN\"") != NULL, "eth0 WAN label");
-	expect(strstr(buf, "\"eth1_role\":\"LAN\"") != NULL, "eth1 LAN label");
-	expect(strstr(buf, "\"eth2_role\":\"LAN\"") != NULL, "eth2 LAN label");
+	expect(strstr(buf, "\"eth1_role\":\"LAN1\"") != NULL, "eth1 LAN1 label");
+	expect(strstr(buf, "\"eth2_role\":\"LAN2\"") != NULL, "eth2 LAN2 label");
 	expect(strstr(buf, "\"eth0_up\":true") != NULL, "eth0 up");
 	expect(strstr(buf, "\"eth1_up\":true") != NULL, "eth1 up");
 	expect(strstr(buf, "\"eth2_up\":false") != NULL, "eth2 down");

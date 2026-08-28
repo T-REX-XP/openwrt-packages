@@ -746,20 +746,64 @@ static void read_link_speed(const char *ifname, char *out, size_t len)
 	fclose(f);
 }
 
+static int ubus_interface_field(const char *logical_if, const char *json_key,
+				char *out, size_t len)
+{
+	char cmd[220];
+
+	if (!logical_if || !logical_if[0] || !json_key || !json_key[0] || !out ||
+	    !len)
+		return -1;
+	snprintf(cmd, sizeof(cmd),
+		 "ubus call network.interface.%s status 2>/dev/null | "
+		 "sed -n 's/.*\"%s\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' | "
+		 "head -1",
+		 logical_if, json_key);
+	return run_shell(cmd, out, len);
+}
+
+static int ubus_interface_up(const char *logical_if)
+{
+	char up[16];
+	char cmd[160];
+
+	if (!logical_if || !logical_if[0])
+		return 0;
+	snprintf(cmd, sizeof(cmd),
+		 "ubus call network.interface.%s status 2>/dev/null | "
+		 "sed -n 's/.*\"up\"[[:space:]]*:[[:space:]]*\\(true\\|false\\).*/\\1/p' | "
+		 "head -1",
+		 logical_if);
+	if (run_shell(cmd, up, sizeof(up)) != 0)
+		return 0;
+	return !strcmp(up, "true");
+}
+
 static void resolve_wan_dev(const struct mcudd_config *cfg, char *out, size_t len)
 {
+	const char *logical = (cfg && cfg->wan_if[0]) ? cfg->wan_if : "wan";
+
 	if (!out || !len)
 		return;
 	out[0] = '\0';
+
+	/* UCI wan_if is usually logical (wan, wwan) — resolve L3 device via netifd. */
+	if (ubus_interface_field(logical, "l3_device", out, len) == 0 && out[0])
+		return;
+
+	/* Direct netdev override in UCI (e.g. eth0). */
 	if (cfg && cfg->wan_if[0] && netdev_exists(cfg->wan_if)) {
 		snprintf(out, len, "%s", cfg->wan_if);
 		return;
 	}
+
+	/* CM5 default wired WAN when netifd/ubus is unavailable (unit tests). */
 	if (netdev_exists("eth0")) {
 		snprintf(out, len, "eth0");
 		return;
 	}
-	snprintf(out, len, "%s", (cfg && cfg->wan_if[0]) ? cfg->wan_if : "eth0");
+
+	snprintf(out, len, "%s", logical);
 }
 
 static int read_dev_bytes(const char *ifname, unsigned long long *rx,
@@ -949,11 +993,13 @@ static void format_port_json(const char *ifname, const char *role,
 static int uci_wan_ip(const struct mcudd_config *cfg, char *ip, size_t len)
 {
 	char cmd[160];
+	const char *logical = (cfg && cfg->wan_if[0]) ? cfg->wan_if : "wan";
 
 	snprintf(cmd, sizeof(cmd),
 		 "ubus call network.interface.%s status 2>/dev/null | "
-		 "sed -n 's/.*\"address\":\"\\([^\"]*\\)\".*/\\1/p' | head -1",
-		 cfg->wan_if);
+		 "sed -n 's/.*\"address\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' | "
+		 "head -1",
+		 logical);
 	return run_shell(cmd, ip, len);
 }
 
@@ -977,6 +1023,18 @@ static int iface_iff_up(const char *ifname)
 	fclose(f);
 	flags = strtoul(val, NULL, 0);
 	return (flags & 1UL) != 0; /* IFF_UP — AP carrier is often 0 with no clients */
+}
+
+static int wan_link_up(const struct mcudd_config *cfg, const char *wan_dev)
+{
+	const char *logical = (cfg && cfg->wan_if[0]) ? cfg->wan_if : "wan";
+
+	if (ubus_interface_up(logical))
+		return 1;
+	if (wan_dev && wan_dev[0] &&
+	    (iface_iff_up(wan_dev) || iface_carrier(wan_dev)))
+		return 1;
+	return 0;
 }
 
 static char *ltrim(char *s)
@@ -1637,21 +1695,21 @@ int mcudd_metrics_network(const struct mcudd_config *cfg, char *buf, size_t len)
 	if (uci_wan_ip(cfg, wan_ip, sizeof(wan_ip)) != 0)
 		snprintf(wan_ip, sizeof(wan_ip), "--");
 
-	wan_up = iface_carrier(wan_dev);
+	wan_up = wan_link_up(cfg, wan_dev);
 	update_wan_rates(wan_dev);
 	read_cached_ping();
 	maybe_spawn_ping(wan_up);
 
 	format_port_json("eth0", "WAN", e0_up, sizeof(e0_up), e0_sp, sizeof(e0_sp));
-	format_port_json("eth1", "LAN", e1_up, sizeof(e1_up), e1_sp, sizeof(e1_sp));
-	format_port_json("eth2", "LAN", e2_up, sizeof(e2_up), e2_sp, sizeof(e2_sp));
+	format_port_json("eth1", "LAN1", e1_up, sizeof(e1_up), e1_sp, sizeof(e1_sp));
+	format_port_json("eth2", "LAN2", e2_up, sizeof(e2_up), e2_sp, sizeof(e2_sp));
 
 	snprintf(buf, len,
 		 "{\"wan_ip\":\"%s\",\"wan_dev\":\"%s\",\"rx_rate\":\"%s\","
 		 "\"tx_rate\":\"%s\",\"ping_ms\":%d,\"ping_ok\":%s,"
 		 "\"eth0_role\":\"WAN\",\"eth0_up\":%s,\"eth0_speed\":\"%s\","
-		 "\"eth1_role\":\"LAN\",\"eth1_up\":%s,\"eth1_speed\":\"%s\","
-		 "\"eth2_role\":\"LAN\",\"eth2_up\":%s,\"eth2_speed\":\"%s\","
+		 "\"eth1_role\":\"LAN1\",\"eth1_up\":%s,\"eth1_speed\":\"%s\","
+		 "\"eth2_role\":\"LAN2\",\"eth2_up\":%s,\"eth2_speed\":\"%s\","
 		 "\"link_ok\":%s}",
 		 wan_ip, wan_dev, g_rx_rate, g_tx_rate, g_ping_ms,
 		 g_ping_ok ? "true" : "false",
