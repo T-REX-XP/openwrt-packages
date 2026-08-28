@@ -8,7 +8,8 @@ External color LCD panel (ESP32 + LVGL) as a router status display, connected to
 |------|------|
 | `esp32-smartdisplay-demo` | LVGL UI, MCU firmware, dev Python simulators |
 | `openwrt-packages/feeds/luci/luci-app-oled` | Reference: daemon + ubus + LuCI + UCI patterns |
-| `openwrt-packages/feeds/luci/luci-app-mcu-display` | **New** — UART bridge daemon, protocol, LuCI (not yet created) |
+| `openwrt-packages/feeds/luci/luci-app-mcu-display` | UART bridge daemon, protocol, LuCI |
+| [oled-mcu-display-backlog.md](oled-mcu-display-backlog.md) | **Unified backlog + CM5 debug UART wiring design** |
 
 ---
 

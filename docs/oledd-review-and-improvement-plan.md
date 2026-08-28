@@ -2,6 +2,8 @@
 
 *Generated: 2026-06-25. Package: `luci-app-oled` r49 (`feeds/luci/luci-app-oled/`).*
 
+**Progress tracking:** see [oled-mcu-display-backlog.md](oled-mcu-display-backlog.md) (2026-08-28) for unified OLED + MCU display backlog, debug UART solution design, and sprint order.
+
 This document reviews the current **oledd** menu daemon, LuCI front-end, boot/state integration, and CM5 button chain. It maps findings to reported user pain points and proposes a phased fix plan with test coverage notes.
 
 **Related references:**
