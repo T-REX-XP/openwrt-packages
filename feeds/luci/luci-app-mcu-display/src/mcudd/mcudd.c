@@ -43,7 +43,7 @@ static void write_firmware_version(const struct mcudd_parsed_msg *msg)
 		"{\"stack\":\"%s\",\"release\":%u,\"component\":\"%s\",\"rdcp\":%u,\"synced\":%s}\n",
 		msg->version_stack, msg->version_release, msg->version_component,
 		msg->version_rdcp,
-		mcudd_version_compatible(msg->version_stack, msg->version_release,
+		mcud_version_compatible(msg->version_stack, msg->version_release,
 					 msg->version_rdcp) ? "true" : "false");
 	fclose(f);
 }
@@ -166,6 +166,24 @@ static int send_config_push(const struct mcudd_config *cfg, int fd)
 	return send_line(cfg, fd, out);
 }
 
+static int send_cmd_nav(const struct mcudd_config *cfg, int fd, const char *dir)
+{
+	char out[128];
+	int rc;
+
+	if (!dir || !dir[0])
+		return -1;
+	if (mcudd_protocol_build_cmd_nav(dir, out, sizeof(out)) != 0)
+		return -1;
+	rc = send_line(cfg, fd, out);
+	if (rc != 0) {
+		mcudd_log(LOG_WARNING, "cmd nav %s tx failed", dir);
+		return rc;
+	}
+	mcudd_log(LOG_INFO, "cmd nav %s (host page %s)", dir, active_screen);
+	return 0;
+}
+
 static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 			       const char *screen_id, const char *dir)
 {
@@ -181,9 +199,6 @@ static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 		mcudd_log(LOG_WARNING, "cmd screen %s tx failed", screen_id);
 		return rc;
 	}
-	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
-	active_screen[sizeof(active_screen) - 1] = '\0';
-	write_active_screen(active_screen);
 	mcudd_log(LOG_INFO, "cmd screen %s", screen_id);
 	return 0;
 }
@@ -216,22 +231,11 @@ static int leave_boot_screen(const struct mcudd_config *cfg, int fd)
 
 static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
 {
-	const char *next = NULL;
-	const char *anim_dir = "left";
-
 	if (!cmd)
 		return -1;
-	if (!strcmp(cmd, "next")) {
-		next = mcudd_page_neighbor(active_screen, "left");
-		anim_dir = "left";
-	} else if (!strcmp(cmd, "prev")) {
-		next = mcudd_page_neighbor(active_screen, "right");
-		anim_dir = "right";
-	}
-	if (!next)
+	if (strcmp(cmd, "next") && strcmp(cmd, "prev"))
 		return -1;
-	mcudd_log(LOG_INFO, "nav %s from %s -> %s", cmd, active_screen, next);
-	return send_cmd_screen_dir(cfg, fd, next, anim_dir);
+	return send_cmd_nav(cfg, fd, cmd);
 }
 
 static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -287,10 +291,13 @@ static int fifo_open(void)
 
 static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *dir)
 {
-	const char *next = mcudd_page_neighbor(active_screen, dir);
+	const char *nav;
 
-	mcudd_log(LOG_INFO, "gesture %s from %s -> %s", dir, active_screen, next);
-	return send_cmd_screen_dir(cfg, fd, next, dir);
+	if (!dir || !dir[0])
+		return -1;
+	nav = !strcmp(dir, "left") ? "next" : "prev";
+	mcudd_log(LOG_INFO, "gesture %s -> nav %s (host page %s)", dir, nav, active_screen);
+	return send_cmd_nav(cfg, fd, nav);
 }
 
 static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -313,7 +320,7 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 		write_firmware_version(&msg);
 		mcudd_log(LOG_INFO, "firmware version %s+%u rdcp=%u synced=%d",
 			  msg.version_stack, msg.version_release, msg.version_rdcp,
-			  mcudd_version_compatible(msg.version_stack, msg.version_release,
+			  mcud_version_compatible(msg.version_stack, msg.version_release,
 						   msg.version_rdcp));
 		return 0;
 	}
