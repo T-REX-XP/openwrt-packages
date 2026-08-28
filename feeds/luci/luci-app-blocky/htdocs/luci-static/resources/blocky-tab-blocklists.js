@@ -65,7 +65,9 @@ var safeString = Blocky.safeString,
 	applyBlocklistChanges = Blocky.applyBlocklistChanges,
 	refreshBlockyLists = Blocky.refreshBlockyLists,
 	execBlockyListsSync = Blocky.execBlockyListsSync,
+	execBlockyListsSyncConfirmed = Blocky.execBlockyListsSyncConfirmed,
 	execBlockyListsRefresh = Blocky.execBlockyListsRefresh,
+	blocklistsSyncNeeded = Blocky.blocklistsSyncNeeded,
 	loadBlocklistCatalog = Blocky.loadBlocklistCatalog,
 	loadUciBlocklists = Blocky.loadUciBlocklists,
 	blockyCloseModal = Blocky.blockyCloseModal,
@@ -100,7 +102,7 @@ var safeString = Blocky.safeString,
 	bc = Blocky.bc,
 	bp = Blocky.bp;
 
-function addBlocklistsFromPresets(presets) {
+function addBlocklistsFromPresets(presets, configYaml) {
 	if (!presets.length) {
 		notify(_('Select at least one catalog list.'), 'warning');
 		return Promise.resolve(false);
@@ -130,14 +132,14 @@ function addBlocklistsFromPresets(presets) {
 			return false;
 		}
 
-		return applyBlocklistChanges(true).then(function() {
+		return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
 			notify(_('Catalog lists added.'));
 			return true;
 		});
 	});
 }
 
-function saveCustomBlocklist(fields, existingId) {
+function saveCustomBlocklist(fields, existingId, configYaml) {
 	var name = fields.name.trim();
 	var url = fields.url.trim();
 	var id = existingId || sanitizeBlocklistId(name);
@@ -171,14 +173,14 @@ function saveCustomBlocklist(fields, existingId) {
 		uci.set('blocky', id, 'name', name);
 		uci.set('blocky', id, 'url', url);
 
-		return applyBlocklistChanges(true).then(function() {
+		return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
 			notify(existingId ? _('Block list saved.') : _('Custom block list added.'));
 			return true;
 		});
 	});
 }
 
-function openCustomBlocklistModal(refreshPage, existing) {
+function openCustomBlocklistModal(refreshPage, existing, configYaml) {
 	var nameInput = E('input', {
 		'class': 'cbi-input-text blocky-modal-input',
 		'placeholder': _('Enter name'),
@@ -207,7 +209,7 @@ function openCustomBlocklistModal(refreshPage, existing) {
 				return saveCustomBlocklist({
 					name: nameInput.value,
 					url: urlInput.value
-				}, existing ? existing.id : null).then(function(ok) {
+				}, existing ? existing.id : null, configYaml).then(function(ok) {
 					if (!ok)
 						return;
 
@@ -221,7 +223,7 @@ function openCustomBlocklistModal(refreshPage, existing) {
 	setTimeout(function() { nameInput.focus(); }, 50);
 }
 
-function openCatalogModal(refreshPage, catalogData) {
+function openCatalogModal(refreshPage, catalogData, configYaml) {
 	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 
 	if (!catalogData.presets.length) {
@@ -319,7 +321,7 @@ function openCatalogModal(refreshPage, catalogData) {
 						return row.preset;
 					});
 
-					return addBlocklistsFromPresets(selected).then(function(ok) {
+					return addBlocklistsFromPresets(selected, configYaml).then(function(ok) {
 						if (!ok)
 							return;
 
@@ -333,13 +335,13 @@ function openCatalogModal(refreshPage, catalogData) {
 	});
 }
 
-function openNewBlocklistModal(refreshPage, catalogData) {
+function openNewBlocklistModal(refreshPage, catalogData, configYaml) {
 	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 	var overlay;
 
 	if (!catalogData.presets.length) {
 		notify(_('Blocklist catalog is missing or invalid (%s).').format(BLOCKLIST_CATALOG_PATH), 'warning');
-		openCustomBlocklistModal(refreshPage);
+		openCustomBlocklistModal(refreshPage, null, configYaml);
 		return;
 	}
 
@@ -353,7 +355,7 @@ function openNewBlocklistModal(refreshPage, catalogData) {
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
 						blockyCloseModal(overlay);
-						return openCatalogModal(refreshPage, catalogData);
+						return openCatalogModal(refreshPage, catalogData, configYaml);
 					})
 				}, [ _('Choose from the list') ]),
 				E('button', {
@@ -362,7 +364,7 @@ function openNewBlocklistModal(refreshPage, catalogData) {
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
 						blockyCloseModal(overlay);
-						openCustomBlocklistModal(refreshPage);
+						openCustomBlocklistModal(refreshPage, null, configYaml);
 					})
 				}, [ _('Add a custom list') ])
 			])
@@ -392,10 +394,16 @@ function loadUciBlocklists() {
 	});
 }
 
-function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText) {
+function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText, configYaml) {
 	catalogData = catalogData || EMPTY_BLOCKLIST_CATALOG;
 	metricsText = safeString(metricsText);
+	configYaml = safeString(configYaml);
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
+	var syncHost = E('div', { 'class': 'blocky-blocklists-sync-host' });
+
+	function listApplyOptions() {
+		return { configYaml: configYaml };
+	}
 
 	function denyCountsMap() {
 		var stats = statsResult && statsResult.ok ? statsResult.data : null;
@@ -405,9 +413,19 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 		return mergeDenyCounts(fromStats, fromMetrics);
 	}
 
+	function repaintSyncPill(lists) {
+		var outOfSync = configYaml && blocklistsSyncNeeded(lists, configYaml);
+
+		replaceContent(syncHost, outOfSync
+			? blockyPill('warn', _('UCI changed — sync to config.yml'))
+			: blockyPill('yes', _('UCI and config.yml in sync')));
+	}
+
 	function repaintTable() {
 		return loadUciBlocklists().then(function(lists) {
 			var counts = denyCountsMap();
+
+			repaintSyncPill(lists);
 
 			if (!lists.length) {
 				replaceContent(tableHost, E('em', {}, [ _('No block lists configured.') ]));
@@ -436,7 +454,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 							'change': ui.createHandlerFn(this, function(ev) {
 								return uci.load('blocky').then(function() {
 									uci.set('blocky', entry.id, 'enabled', ev.target.checked ? '1' : '0');
-									return applyBlocklistChanges(true);
+									return applyBlocklistChanges(true, listApplyOptions());
 								}).then(function() {
 									notify(_('Block list updated.'));
 									return refreshPage();
@@ -462,7 +480,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 							'class': 'cbi-button cbi-button-edit',
 							'click': ui.createHandlerFn(this, function(ev) {
 								ev.preventDefault();
-								openCustomBlocklistModal(refreshPage, entry);
+								openCustomBlocklistModal(refreshPage, entry, configYaml);
 							})
 						}, [ _('Edit') ]),
 						' ',
@@ -476,7 +494,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 
 								return uci.load('blocky').then(function() {
 									uci.remove('blocky', entry.id);
-									return applyBlocklistChanges(true);
+									return applyBlocklistChanges(true, listApplyOptions());
 								}).then(function() {
 									notify(_('Block list deleted.'));
 									return refreshPage();
@@ -498,6 +516,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 		E('p', { 'class': 'cbi-section-descr' }, [
 			_('Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists.')
 		]),
+		syncHost,
 		tableHost,
 		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
 			E('div', { 'class': 'blocky-blocklists-toolbar-left' }, [
@@ -506,13 +525,13 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 					'class': 'cbi-button cbi-button-add',
 					'click': ui.createHandlerFn(this, function(ev) {
 						ev.preventDefault();
-						openNewBlocklistModal(refreshPage, catalogData);
+						openNewBlocklistModal(refreshPage, catalogData, configYaml);
 					})
 				}, [ _('Add blocklist') ])
 			]),
 			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
 				actionButton(_('Update lists now'), function() {
-					return execBlockyListsSync().then(function() {
+					return execBlockyListsSyncConfirmed(configYaml).then(function() {
 						return runInit('restart');
 					}).then(function() {
 						return execBlockyListsRefresh();
@@ -520,7 +539,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText)
 				}, 'cbi-button-action', refreshPage),
 				' ',
 				actionButton(_('Save & restart Blocky'), function() {
-					return applyBlocklistChanges(true).then(function() {
+					return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
 						notify(_('Block lists applied and Blocky restarted.'));
 						return refreshPage();
 					});

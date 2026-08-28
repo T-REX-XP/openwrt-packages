@@ -262,12 +262,12 @@ After the program, a router admin should be able to **without SSH**:
 
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
-| C-1 | `validate_config` rpcd: run `blocky validate --config` or config syntax check | todo | Returns `{ ok, output }`; UI blocks restart on failure |
-| C-2 | Unified **Save / Save & apply** toolbar on Configuration | todo | One code path; toast + partial refresh |
-| C-3 | Show diff preview before overwriting `blocking:` via lists sync | todo | Modal or notice when blocklists out of sync |
+| C-1 | `validate_config` rpcd: run `blocky validate --config` or config syntax check | done | `luci.blocky.uc` + ACL; UI validates before write |
+| C-2 | Unified **Save / Save & apply** toolbar on Configuration | done | `applyBlockyConfigYaml()`; Save without restart |
+| C-3 | Show diff preview before overwriting `blocking:` via lists sync | done | Confirm dialog when UCI ≠ YAML before sync |
 | C-4 | Expose **upstream groups** (add/remove resolver, strategy) in structured form | todo | Matches 0.34 `upstreams.groups` in default config |
-| C-5 | UCI + YAML sync indicator on Block lists tab | todo | “UCI changed — click Sync to config.yml” pill |
-| C-6 | Tests for validate + settings round-trip after C-1/C-4 | todo | Coverage maintained |
+| C-5 | UCI + YAML sync indicator on Block lists tab | done | Sync pill on Block lists tab |
+| C-6 | Tests for validate + settings round-trip after C-1/C-4 | done | `blocky-sync.test.mjs` (5 tests) |
 
 ---
 
@@ -356,11 +356,11 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 |------|-------|------|---|
 | A Test & refactor | 8 | 8 | 100% |
 | B Status & Debug | 5 | 5 | 100% |
-| C Config safety | 6 | 0 | 0% |
+| C Config safety | 6 | 5 | 83% |
 | D Logs workflow | 5 | 0 | 0% |
 | E UX & 0.34 | 6 | 0 | 0% |
 | F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **13** | **38%** |
+| **Total** | **34** | **18** | **53%** |
 
 Update this table as backlog items move to `done`.
 

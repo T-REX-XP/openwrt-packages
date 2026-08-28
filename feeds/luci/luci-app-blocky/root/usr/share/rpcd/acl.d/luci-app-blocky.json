@@ -20,7 +20,8 @@
 					"read_query_log",
 					"get_version",
 					"getStatus",
-					"getLogs"
+					"getLogs",
+					"validate_config"
 				]
 			}
 		},
@@ -42,7 +43,8 @@
 					"read_query_log",
 					"get_version",
 					"getStatus",
-					"getLogs"
+					"getLogs",
+					"validate_config"
 				]
 			}
 		}

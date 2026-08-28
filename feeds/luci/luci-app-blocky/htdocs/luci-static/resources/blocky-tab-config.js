@@ -66,6 +66,7 @@ var safeString = Blocky.safeString,
 	refreshBlockyLists = Blocky.refreshBlockyLists,
 	execBlockyListsSync = Blocky.execBlockyListsSync,
 	execBlockyListsRefresh = Blocky.execBlockyListsRefresh,
+	applyBlockyConfigYaml = Blocky.applyBlockyConfigYaml,
 	loadBlocklistCatalog = Blocky.loadBlocklistCatalog,
 	loadUciBlocklists = Blocky.loadUciBlocklists,
 	blockyCloseModal = Blocky.blockyCloseModal,
@@ -308,15 +309,14 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 
 	var yaml = bc.buildBlockySettingsYaml(fields, currentYaml);
 
-	return fs.write(CONFIG_PATH, yaml).then(function() {
-		return uci.load('blocky').then(function() {
-			uci.set('blocky', 'main', 'refresh_period', fields.listRefreshPeriod || '4h');
-			return uci.save();
-		});
-	}).then(function() {
-		return execBlockyListsSync();
-	}).then(function() {
-		return runInit('restart');
+	return applyBlockyConfigYaml(yaml, {
+		restart: restart,
+		onUciPatch: function() {
+			return uci.load('blocky').then(function() {
+				uci.set('blocky', 'main', 'refresh_period', fields.listRefreshPeriod || '4h');
+				return uci.save();
+			});
+		}
 	});
 }
 
@@ -465,9 +465,11 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 		blockingSection: parsed.blockingSection
 	};
 
-	function saveHandler() {
-		return saveBlockySettingsForm(state, configYaml, true).then(function() {
-			notify(_('Settings saved and Blocky restarted.'));
+	function saveHandler(restart) {
+		return saveBlockySettingsForm(state, configYaml, restart).then(function() {
+			notify(restart
+				? _('Settings saved and Blocky restarted.')
+				: _('Settings saved.'));
 			if (typeof refreshPage === 'function')
 				return refreshPage();
 		}).catch(function(err) {
@@ -480,7 +482,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 			'class': 'cbi-button cbi-button-save',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-				return saveHandler();
+				return saveHandler(false);
 			})
 		}, [ _('Save settings') ]),
 		' ',
@@ -488,7 +490,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 			'class': 'cbi-button cbi-button-apply',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-				return saveHandler();
+				return saveHandler(true);
 			})
 		}, [ _('Save & restart Blocky') ])
 	]);
@@ -667,26 +669,29 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 		'style': 'width:100%; min-height:22em; font-family:monospace'
 	}, [ content || '' ]);
 
+	function saveYaml(restart) {
+		if (!editor.value.trim()) {
+			notify(_('Configuration cannot be empty.'), 'danger');
+			return;
+		}
+
+		return applyBlockyConfigYaml(editor.value, { restart: restart }).then(function() {
+			notify(restart
+				? _('Configuration saved and Blocky restarted.')
+				: _('Configuration saved.'));
+			if (typeof refreshPage === 'function')
+				return refreshPage();
+		}).catch(function(err) {
+			notify(err.message || String(err), 'danger');
+		});
+	}
+
 	var buttons = E('p', {}, [
 		E('button', {
 			'class': 'cbi-button cbi-button-save',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-
-				if (!editor.value.trim()) {
-					notify(_('Configuration cannot be empty.'), 'danger');
-					return;
-				}
-
-				return fs.write(CONFIG_PATH, editor.value).then(function() {
-					return execBlockyListsSync();
-				}).then(function() {
-					notify(_('Configuration saved.'));
-					if (typeof refreshPage === 'function')
-						return refreshPage();
-				}).catch(function(err) {
-					notify(err.message || String(err), 'danger');
-				});
+				return saveYaml(false);
 			})
 		}, [ _('Save YAML') ]),
 		' ',
@@ -694,23 +699,7 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 			'class': 'cbi-button cbi-button-apply',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-
-				if (!editor.value.trim()) {
-					notify(_('Configuration cannot be empty.'), 'danger');
-					return;
-				}
-
-				return fs.write(CONFIG_PATH, editor.value).then(function() {
-					return execBlockyListsSync();
-				}).then(function() {
-					return runInit('restart');
-				}).then(function() {
-					notify(_('Configuration saved and Blocky restarted.'));
-					if (typeof refreshPage === 'function')
-						return refreshPage();
-				}).catch(function(err) {
-					notify(err.message || String(err), 'danger');
-				});
+				return saveYaml(true);
 			})
 		}, [ _('Save YAML & restart') ])
 	]);

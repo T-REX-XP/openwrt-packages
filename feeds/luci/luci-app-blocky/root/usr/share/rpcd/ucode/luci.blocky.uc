@@ -2,7 +2,7 @@
 
 'use strict';
 
-import { access, lsdir, readfile, popen } from 'fs';
+import { access, lsdir, readfile, popen, writefile, unlink } from 'fs';
 
 const SYNC = '/usr/sbin/blocky-lists-sync';
 const REFRESH = '/usr/sbin/blocky-lists-refresh';
@@ -11,6 +11,7 @@ const BLOCKY_BIN = '/usr/bin/blocky';
 const CONFIG = '/etc/blocky/config.yml';
 const DNSMASQ_SYNC = '/usr/sbin/blocky-dnsmasq-sync';
 const QUERY_LOG_ALLOW = '/tmp/blocky-logs';
+const VALIDATE_TMP = '/tmp/blocky-luci-validate.yml';
 const MAX_LOG_BYTES = 524288;
 const MAX_SYSLOG_BYTES = 204800;
 const BLOCKY_LOG_PATTERN = 'blocky';
@@ -328,6 +329,39 @@ const methods = {
 				},
 				config_present: config_present,
 				log_level: log_level
+			};
+		}
+	},
+
+	validate_config: {
+		args: { yaml: 'yaml' },
+		call: function(req) {
+			let path = CONFIG;
+			let yaml = req.args?.yaml;
+
+			if (yaml != null && length(String(yaml))) {
+				try {
+					writefile(VALIDATE_TMP, String(yaml));
+				} catch (e) {
+					return { ok: false, output: 'failed to write temporary config for validation' };
+				}
+				path = VALIDATE_TMP;
+			}
+			else if (!access(CONFIG)) {
+				return { ok: false, output: `config not found: ${CONFIG}` };
+			}
+
+			let res = run_bin(BLOCKY_BIN, [ 'validate', '--config', path ]);
+
+			if (path == VALIDATE_TMP) {
+				try {
+					unlink(VALIDATE_TMP);
+				} catch (e) {}
+			}
+
+			return {
+				ok: res.ok,
+				output: res.output
 			};
 		}
 	},

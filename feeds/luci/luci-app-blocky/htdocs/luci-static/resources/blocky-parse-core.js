@@ -822,6 +822,118 @@ function statsResultFromStatus(st) {
 	return { ok: false, disabled: false, data: null };
 }
 
+function parseYamlDenylists(yaml) {
+	var lines = safeString(yaml).split('\n');
+	var map = {};
+	var inBlocking = false;
+	var inDenylists = false;
+	var currentId = null;
+	var baseIndent = -1;
+	var i;
+	var line;
+	var m;
+	var lead;
+	var url;
+
+	for (i = 0; i < lines.length; i++) {
+		line = lines[i];
+
+		if (/^blocking:\s*$/.test(line)) {
+			inBlocking = true;
+			inDenylists = false;
+			currentId = null;
+			continue;
+		}
+
+		if (!inBlocking)
+			continue;
+
+		if (/^[a-zA-Z0-9_]+:\s*$/.test(line) && !/^blocking:/.test(line) && !/^\s/.test(line))
+			break;
+
+		if (/^\s+denylists:\s*$/.test(line)) {
+			inDenylists = true;
+			currentId = null;
+			m = line.match(/^(\s*)/);
+			baseIndent = m ? m[1].length : 2;
+			continue;
+		}
+
+		if (!inDenylists)
+			continue;
+
+		lead = line.match(/^(\s*)/);
+		if (lead && lead[1].length <= baseIndent && line.trim() !== '')
+			break;
+
+		m = line.match(/^\s+([A-Za-z0-9_]+):\s*$/);
+		if (m) {
+			currentId = m[1];
+			map[currentId] = map[currentId] || [];
+			continue;
+		}
+
+		m = line.match(/^\s+-\s+(.+)$/);
+		if (m && currentId) {
+			url = m[1].replace(/#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
+			if (url)
+				map[currentId].push(url);
+		}
+	}
+
+	return map;
+}
+
+function denylistFingerprintFromUci(entries) {
+	var lines = [];
+
+	(entries || []).forEach(function(entry) {
+		var id;
+		var url;
+
+		if (!entry || !entry.enabled || !entry.url)
+			return;
+
+		id = sanitizeBlocklistId(entry.id || entry.name || '');
+		url = safeString(entry.url).trim();
+
+		if (id && url)
+			lines.push(id + '\t' + url);
+	});
+
+	lines.sort();
+	return lines.join('\n');
+}
+
+function denylistFingerprintFromYaml(yaml) {
+	var map = parseYamlDenylists(yaml);
+	var lines = [];
+	var id;
+
+	Object.keys(map).sort().forEach(function(key) {
+		id = key;
+		(map[key] || []).forEach(function(url) {
+			url = safeString(url).trim();
+			if (url)
+				lines.push(id + '\t' + url);
+		});
+	});
+
+	lines.sort();
+	return lines.join('\n');
+}
+
+function blocklistsSyncNeeded(uciEntries, yaml) {
+	return denylistFingerprintFromUci(uciEntries) !== denylistFingerprintFromYaml(yaml);
+}
+
+function normalizeValidateResponse(res) {
+	return {
+		ok: !!(res && res.ok),
+		output: safeString(res && res.output)
+	};
+}
+
 return {
 	safeString: safeString,
 	execResultStdout: execResultStdout,
@@ -872,5 +984,10 @@ return {
 	parseBlockingStatusJson: parseBlockingStatusJson,
 	shapeBlockyStatusBar: shapeBlockyStatusBar,
 	serviceObjectFromStatus: serviceObjectFromStatus,
-	statsResultFromStatus: statsResultFromStatus
+	statsResultFromStatus: statsResultFromStatus,
+	parseYamlDenylists: parseYamlDenylists,
+	denylistFingerprintFromUci: denylistFingerprintFromUci,
+	denylistFingerprintFromYaml: denylistFingerprintFromYaml,
+	blocklistsSyncNeeded: blocklistsSyncNeeded,
+	normalizeValidateResponse: normalizeValidateResponse
 };

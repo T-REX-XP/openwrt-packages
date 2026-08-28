@@ -98,7 +98,8 @@ function createBlockyView(options) {
 						fresh[5],
 						refreshPage,
 						fresh[8],
-						unwrapFetchText(fresh[3])
+						unwrapFetchText(fresh[3]),
+						fresh[2]
 					));
 					configHost.replaceChildren(BlockyTabs.config.renderBlockySettingsPage(
 						fresh[2],
@@ -123,7 +124,7 @@ function createBlockyView(options) {
 			var mounted = BlockyTabs.dashboard.mountDashboardContent(dashboardHost, data, refreshPage);
 			BlockyTabs.dashboard.attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
 			statisticsHost.appendChild(BlockyTabs.stats.renderStatisticsTab(data, refreshPage));
-			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload));
+			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
 			configHost.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
 			logsHost.appendChild(BlockyTabs.logs.renderQueryLogsTab(config));
 			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));

@@ -50,6 +50,8 @@ var parseBlockingStatusJson = bp.parseBlockingStatusJson;
 var shapeBlockyStatusBar = bp.shapeBlockyStatusBar;
 var serviceObjectFromStatus = bp.serviceObjectFromStatus;
 var statsResultFromStatus = bp.statsResultFromStatus;
+var normalizeValidateResponse = bp.normalizeValidateResponse;
+var blocklistsSyncNeeded = bp.blocklistsSyncNeeded;
 
 var CONFIG_PATH = '/etc/blocky/config.yml';
 var blockyApiAccess = {
@@ -147,6 +149,13 @@ var callBlockyGetLogs = rpc.declare({
 	object: 'luci.blocky',
 	method: 'getLogs',
 	params: [ 'limit', 'max_bytes' ],
+	expect: { '': {} }
+});
+
+var callBlockyValidateConfig = rpc.declare({
+	object: 'luci.blocky',
+	method: 'validate_config',
+	params: [ 'yaml' ],
 	expect: { '': {} }
 });
 
@@ -381,16 +390,93 @@ function execBlockyListsRefresh() {
 	});
 }
 
-function applyBlocklistChanges(restart) {
+function execBlockyListsSyncConfirmed(configYaml) {
+	if (!configYaml)
+		return execBlockyListsSync();
+
 	return uci.load('blocky').then(function() {
-		return uci.save();
+		return confirmBlocklistsYamlSync(configYaml, uciBlocklistEntries());
+	}).then(function() {
+		return execBlockyListsSync();
+	});
+}
+
+function uciBlocklistEntries() {
+	return uci.sections('blocky', 'blocklist').map(function(section) {
+		var id = section['.name'];
+
+		return {
+			id: id,
+			name: uci.get('blocky', id, 'name') || id,
+			url: uci.get('blocky', id, 'url') || '',
+			enabled: uci.get('blocky', id, 'enabled') !== '0'
+		};
+	});
+}
+
+function confirmBlocklistsYamlSync(configYaml, entries) {
+	if (!configYaml || !blocklistsSyncNeeded(entries, configYaml))
+		return Promise.resolve(true);
+
+	var enabled = entries.filter(function(entry) {
+		return entry && entry.enabled;
+	}).length;
+
+	if (!confirm(_('UCI block lists differ from config.yml. Sync will overwrite the blocking: denylist section with %d enabled UCI list(s). Continue?').format(enabled)))
+		return Promise.reject(new Error(_('Sync cancelled.')));
+
+	return Promise.resolve(true);
+}
+
+function applyBlockyConfigYaml(yaml, options) {
+	options = options || {};
+	var restart = !!options.restart;
+
+	yaml = safeString(yaml);
+	if (!yaml.trim())
+		return Promise.reject(new Error(_('Configuration cannot be empty.')));
+
+	return callBlockyValidateConfig(yaml).then(function(res) {
+		var validated = normalizeValidateResponse(res);
+
+		if (!validated.ok)
+			throw new Error(validated.output.trim() || _('Configuration validation failed.'));
+
+		return fs.write(CONFIG_PATH, yaml);
+	}).then(function() {
+		if (typeof options.onUciPatch === 'function')
+			return options.onUciPatch();
 	}).then(function() {
 		return execBlockyListsSync();
 	}).then(function() {
 		if (restart)
-			return runInit('restart').then(refreshBlockyLists);
+			return runInit('restart');
+	});
+}
 
-		return refreshBlockyLists();
+function applyBlocklistChanges(restart, options) {
+	options = options || {};
+
+	function doApply() {
+		return uci.load('blocky').then(function() {
+			return uci.save();
+		}).then(function() {
+			return execBlockyListsSync();
+		}).then(function() {
+			if (restart)
+				return runInit('restart').then(refreshBlockyLists);
+
+			return refreshBlockyLists();
+		});
+	}
+
+	if (!options.configYaml || options.skipConfirm)
+		return doApply();
+
+	return uci.load('blocky').then(function() {
+		return confirmBlocklistsYamlSync(options.configYaml, uciBlocklistEntries());
+	}).then(function() {
+		return doApply();
 	});
 }
 
@@ -777,7 +863,10 @@ return {
 	blockyModalFooterCancel: blockyModalFooterCancel,
 	blockyModalFooterSave: blockyModalFooterSave,
 	execBlockyListsSync: execBlockyListsSync,
+	execBlockyListsSyncConfirmed: execBlockyListsSyncConfirmed,
 	execBlockyListsRefresh: execBlockyListsRefresh,
+	applyBlockyConfigYaml: applyBlockyConfigYaml,
+	confirmBlocklistsYamlSync: confirmBlocklistsYamlSync,
 	applyBlocklistChanges: applyBlocklistChanges,
 	refreshBlockyLists: refreshBlockyLists,
 	resolveDenyCount: resolveDenyCount,
@@ -803,6 +892,7 @@ return {
 	renderBlockyStatusBar: renderBlockyStatusBar,
 	callBlockyGetStatus: callBlockyGetStatus,
 	callBlockyGetLogs: callBlockyGetLogs,
+	callBlockyValidateConfig: callBlockyValidateConfig,
 	resolveBlockyVersion: resolveBlockyVersion,
 	renderBlockyVersionBadge: renderBlockyVersionBadge,
 	resolveDefaultTabFromHash: resolveDefaultTabFromHash,
@@ -864,5 +954,10 @@ return {
 	parseBlockingStatusJson: bp.parseBlockingStatusJson,
 	shapeBlockyStatusBar: bp.shapeBlockyStatusBar,
 	serviceObjectFromStatus: bp.serviceObjectFromStatus,
-	statsResultFromStatus: bp.statsResultFromStatus
+	statsResultFromStatus: bp.statsResultFromStatus,
+	parseYamlDenylists: bp.parseYamlDenylists,
+	denylistFingerprintFromUci: bp.denylistFingerprintFromUci,
+	denylistFingerprintFromYaml: bp.denylistFingerprintFromYaml,
+	blocklistsSyncNeeded: bp.blocklistsSyncNeeded,
+	normalizeValidateResponse: bp.normalizeValidateResponse
 };

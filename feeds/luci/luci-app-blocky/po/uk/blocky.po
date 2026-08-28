@@ -1321,3 +1321,18 @@ msgstr "Деталі"
 
 msgid "UDP/TCP :%d"
 msgstr "UDP/TCP :%d"
+
+msgid "Configuration validation failed."
+msgstr "Перевірка конфігурації не пройшла."
+
+msgid "UCI block lists differ from config.yml. Sync will overwrite the blocking: denylist section with %d enabled UCI list(s). Continue?"
+msgstr "UCI-списки відрізняються від config.yml. Синхронізація перезапише секцію blocking: denylist (%d увімкнених списків UCI). Продовжити?"
+
+msgid "Sync cancelled."
+msgstr "Синхронізацію скасовано."
+
+msgid "UCI changed — sync to config.yml"
+msgstr "UCI змінено — синхронізуйте з config.yml"
+
+msgid "UCI and config.yml in sync"
+msgstr "UCI і config.yml синхронізовано"

@@ -95,6 +95,10 @@
 	opacity: 0.88;
 }
 
+.blocky-blocklists-sync-host {
+	margin: 0.35em 0 0.75em;
+}
+
 .blocky-blocklists-toolbar {
 	margin: 0.85em 0 0;
 	display: flex;
