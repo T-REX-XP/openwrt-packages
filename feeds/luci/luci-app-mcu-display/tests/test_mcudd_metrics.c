@@ -425,6 +425,75 @@ static void test_security_firewall_blocky_vpn(void)
 	       "vpn wg+tailscale");
 }
 
+static void test_security_absent_services(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[512];
+	char cmd[512];
+
+	snprintf(cmd, sizeof(cmd),
+		 "rm -f \"%s/tmp/blocky.blocked\" \"%s/tmp/banip.blocked\" "
+		 "\"%s/tmp/vpn.wg\" \"%s/tmp/vpn.awg\" \"%s/tmp/vpn.tailscale\"",
+		 g_root, g_root, g_root, g_root, g_root);
+	system(cmd);
+
+	mkdir_p("/etc/config");
+	write_file("/etc/config/firewall",
+		   "config zone\n"
+		   "\toption name 'lan'\n"
+		   "\toption input 'ACCEPT'\n");
+	expect(mcudd_metrics_security(&cfg, buf, sizeof(buf)) == 0,
+	       "security minimal firewall");
+	expect(strstr(buf, "\"blocked_24h\":\"0\"") != NULL, "no counters");
+	expect(strstr(buf, "\"blocky_blocked\":0") != NULL, "blocky zero");
+	expect(strstr(buf, "\"banip_blocked\":0") != NULL, "banip zero");
+	expect(strstr(buf, "\"vpn_tunnels\":\"0\"") != NULL, "no vpn");
+}
+
+static void test_system_hostname_ram_uptime(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[512];
+
+	setup_base_proc();
+	write_file("/proc/stat", "cpu  0 0 0 100 0 0 0 0\n");
+
+	mcudd_metrics_reset();
+	expect(mcudd_metrics_system(&cfg, buf, sizeof(buf)) == 0, "system fields");
+	expect(strstr(buf, "\"uptime_short\":\"1h") != NULL, "uptime from /proc/uptime");
+	expect(strstr(buf, "\"ram_used\":\"4000M\"") != NULL, "ram used calc");
+	expect(strstr(buf, "\"ram_pct\":50") != NULL, "ram pct 50");
+	expect(strstr(buf, "\"load_short\":\"9.99\"") != NULL, "loadavg in system payload");
+}
+
+static void test_alarms_empty_and_demo(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[256];
+
+	expect(mcudd_metrics_alarms(&cfg, buf, sizeof(buf)) == 0, "alarms empty");
+	expect(strstr(buf, "\"alarms\":[]") != NULL, "empty alarms array");
+
+	cfg.demo_mode = 1;
+	expect(mcudd_metrics_alarms(&cfg, buf, sizeof(buf)) == 0, "alarms demo");
+	expect(strstr(buf, "Demo") != NULL, "demo alarm label");
+}
+
+static void test_metrics_null_guards(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[64];
+
+	expect(mcudd_metrics_system(NULL, buf, sizeof(buf)) != 0, "system null cfg");
+	expect(mcudd_metrics_system(&cfg, NULL, sizeof(buf)) != 0, "system null buf");
+	expect(mcudd_metrics_network(&cfg, NULL, 0) != 0, "network null buf");
+	expect(mcudd_metrics_storage(&cfg, buf, 0) != 0, "storage zero len");
+	expect(mcudd_metrics_wifi(&cfg, NULL, sizeof(buf)) != 0, "wifi null buf");
+	expect(mcudd_metrics_clients(&cfg, NULL, sizeof(buf)) != 0, "clients null buf");
+	expect(mcudd_metrics_security(&cfg, NULL, sizeof(buf)) != 0, "security null buf");
+	expect(mcudd_metrics_alarms(&cfg, NULL, sizeof(buf)) != 0, "alarms null buf");
+}
+
 int main(void)
 {
 	char cmd[512];
@@ -444,6 +513,10 @@ int main(void)
 	test_storage_swap_and_root();
 	test_clients_dhcp_pool_and_summary();
 	test_security_firewall_blocky_vpn();
+	test_security_absent_services();
+	test_system_hostname_ram_uptime();
+	test_alarms_empty_and_demo();
+	test_metrics_null_guards();
 	test_wifi_ap_psk2_up();
 	test_wifi_skips_sta_and_disabled();
 	test_wifi_open_and_sae();

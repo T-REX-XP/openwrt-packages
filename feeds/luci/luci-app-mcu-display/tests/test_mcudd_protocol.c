@@ -203,6 +203,59 @@ static void test_ping_pong_parse_build(void)
 	expect(!strcmp(msg.echo_text, "hello"), "echo text parsed");
 }
 
+static void test_rdcp_clients_scope(void)
+{
+	struct mcudd_parsed_msg msg;
+	char payload[768];
+	char out[1024];
+	struct mcudd_config cfg = test_cfg();
+	const char *line =
+		"{\"v\":1,\"t\":\"req\",\"id\":11,\"op\":\"metrics\",\"scope\":\"clients\"}";
+
+	expect(mcudd_protocol_parse(line, &msg) == 0, "parse clients req");
+	expect(msg.scope == MCUDD_SCOPE_CLIENTS, "clients scope");
+
+	expect(mcudd_protocol_build_scope(&cfg, msg.scope, payload, sizeof(payload)) == 0,
+	       "build clients");
+	expect(strstr(payload, "\"dhcp_summary\"") != NULL, "clients has dhcp_summary");
+	expect(mcudd_protocol_format_out(&cfg, &msg, payload, out, sizeof(out)) == 0,
+	       "format clients res");
+	expect(strstr(out, "\"t\":\"res\"") != NULL, "clients res type");
+}
+
+static void test_rdcp_security_scope(void)
+{
+	struct mcudd_parsed_msg msg;
+	char payload[512];
+	struct mcudd_config cfg = test_cfg();
+	const char *line =
+		"{\"v\":1,\"t\":\"req\",\"id\":12,\"op\":\"metrics\",\"scope\":\"security\"}";
+
+	expect(mcudd_protocol_parse(line, &msg) == 0, "parse security req");
+	expect(msg.scope == MCUDD_SCOPE_SECURITY, "security scope");
+	expect(mcudd_protocol_build_scope(&cfg, msg.scope, payload, sizeof(payload)) == 0,
+	       "build security");
+	expect(strstr(payload, "\"firewall_state\"") != NULL, "security firewall");
+	expect(strstr(payload, "\"blocked_24h\"") != NULL, "security blocked");
+}
+
+static void test_rdcp_network_scope(void)
+{
+	struct mcudd_parsed_msg msg;
+	char payload[768];
+	struct mcudd_config cfg = test_cfg();
+
+	expect(mcudd_protocol_parse(
+		       "{\"v\":1,\"t\":\"req\",\"id\":13,\"op\":\"metrics\",\"scope\":\"network\"}",
+		       &msg) == 0,
+	       "parse network req");
+	expect(msg.scope == MCUDD_SCOPE_NETWORK, "network scope");
+	expect(mcudd_protocol_build_scope(&cfg, msg.scope, payload, sizeof(payload)) == 0,
+	       "build network");
+	expect(strstr(payload, "\"wan_ip\"") != NULL, "network wan_ip");
+	expect(strstr(payload, "\"eth0_role\":\"WAN\"") != NULL, "network eth0");
+}
+
 int main(void)
 {
 	test_legacy_cpu_request();
@@ -216,6 +269,9 @@ int main(void)
 	test_rdcp_poweroff_req();
 	test_push_config_builder();
 	test_ping_pong_parse_build();
+	test_rdcp_clients_scope();
+	test_rdcp_security_scope();
+	test_rdcp_network_scope();
 
 	printf("Ran %d tests, %d failed\n", tests_run, tests_failed);
 	return tests_failed ? 1 : 0;

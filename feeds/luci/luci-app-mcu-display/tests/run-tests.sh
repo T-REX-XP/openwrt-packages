@@ -13,6 +13,10 @@ echo ">> shell: pages manifest sync"
 sh check-pages-sync.sh || FAIL=1
 
 echo ""
+echo ">> shell: mcud-version sync"
+sh check-version-sync.sh || FAIL=1
+
+echo ""
 echo ">> C: test_mcudd_version.c"
 cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_version \
 	"$SRC/mcudd/mcud_version.c" \
