@@ -89,13 +89,19 @@ const TAB_REQUIRE = {
 	logs: 'blocky-tab-logs as tabLogs'
 };
 
-/** Names defined in the same tab module — must not be pulled from Blocky (would overwrite locals). */
-const TAB_LOCAL_EXPORTS = {
-	'blocky-tab-dashboard.js': new Set([
-		'blockyThemeRoot', 'blockyCssVar', 'blockyChartColor', 'blockyChartFill',
-		'blockyLegendDot', 'applyBlockyChartPathTheme', 'blockyAttachThemeSync'
-	])
-};
+/** Skip Blocky destructuring for symbols defined in the same tab file (would overwrite locals). */
+function tabLocalExports(file, body) {
+	const manual = {
+		'blocky-tab-dashboard.js': [
+			'blockyThemeRoot', 'blockyCssVar', 'blockyChartColor', 'blockyChartFill',
+			'blockyLegendDot', 'applyBlockyChartPathTheme', 'blockyAttachThemeSync'
+		]
+	};
+	const skip = new Set(manual[file] || []);
+	for (const m of body.matchAll(/^function (\w+)/gm))
+		skip.add(m[1]);
+	return skip;
+}
 
 const COMMON_DESTRUCT = [
 	'loadBlockyPageData', 'resolveDefaultTabFromHash', 'renderBlockyVersionBadge',
@@ -265,8 +271,8 @@ function crossTabRequires(currentModule, body) {
 	return [...keys].sort().map((key) => "'require " + TAB_REQUIRE[key] + "';").join('\n');
 }
 
-function tabDestructuring(file) {
-	const skip = TAB_LOCAL_EXPORTS[file] || new Set();
+function tabDestructuring(file, body) {
+	const skip = tabLocalExports(file, body);
 	const names = [
 		'safeString', 'execResultStdout', 'blockyCliStdout', 'parseDnsForwardFlag', 'parseBlockyPortLine',
 		'parseBlockyPortValue', 'isLoopbackHost', 'blockyHttpBaseUrl', 'unwrapFsRead', 'emptyBlocklistCatalog',
@@ -372,7 +378,7 @@ function main() {
 		const extraRequires = crossTabRequires(file, body);
 		const tabFile = tabRequires +
 			(extraRequires ? extraRequires + '\n' : '') +
-			tabDestructuring(file) + '\n' + body + '\n\nreturn baseclass.extend({\n' +
+			tabDestructuring(file, body) + '\n' + body + '\n\nreturn baseclass.extend({\n' +
 			exports.map((n) => '\t' + n + ': ' + n).join(',\n') + '\n});\n';
 		fs.writeFileSync(path.join(RES, file), tabFile);
 	}
