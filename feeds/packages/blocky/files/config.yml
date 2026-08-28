@@ -1,5 +1,5 @@
 # ImmortalWrt / OpenWrt defaults — Blocky listens on localhost; dnsmasq :53 forwards here.
-# Upstream ideas: https://comfy.guide/server/blocky/ (adapted for router + Blocky 0.32.x syntax)
+# Upstream ideas: https://comfy.guide/server/blocky/ (adapted for router + Blocky 0.34.x syntax)
 
 upstreams:
   init:
