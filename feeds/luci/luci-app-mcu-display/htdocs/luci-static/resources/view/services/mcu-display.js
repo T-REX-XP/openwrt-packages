@@ -127,6 +127,34 @@ function flagInput(id, label, checked) {
 	]);
 }
 
+function serialPortOptions(cfg) {
+	cfg = cfg || {};
+	var ports = (cfg.serial_ports || []).slice();
+	var current = pick(cfg, 'path');
+	var opts = [];
+	var seen = {};
+	var i;
+
+	if (current && ports.indexOf(current) < 0)
+		ports.unshift(current);
+
+	ports.sort(function(a, b) {
+		return L.naturalCompare(a, b);
+	});
+
+	for (i = 0; i < ports.length; i++) {
+		if (!ports[i] || seen[ports[i]])
+			continue;
+		seen[ports[i]] = true;
+		opts.push([ ports[i], ports[i] ]);
+	}
+
+	if (!opts.length)
+		opts.push([ current || '/dev/ttyS2', current || '/dev/ttyS2' ]);
+
+	return opts;
+}
+
 function selectInput(id, options, current) {
 	var opts = [];
 	for (var i = 0; i < options.length; i++) {
@@ -139,14 +167,20 @@ function selectInput(id, options, current) {
 }
 
 function textInput(id, value, attrs) {
-	attrs = attrs || {};
-	return E('input', L.extend({
+	var el = {
 		'type': 'text',
 		'id': id,
 		'class': 'cbi-input-text',
 		'value': value || '',
 		'disabled': isReadonly
-	}, attrs));
+	};
+	if (attrs) {
+		for (var k in attrs) {
+			if (Object.prototype.hasOwnProperty.call(attrs, k))
+				el[k] = attrs[k];
+		}
+	}
+	return E('input', el);
 }
 
 function val(id, fallback) {
@@ -213,7 +247,7 @@ return view.extend({
 
 		var tabHost = E('div', { 'class': 'mcu-tab-host' }, [
 			this.buildStatusTab(status, cfg),
-			this.buildPagesTab(status, pages),
+			this.buildPagesTab(status, pages, cfg),
 			this.buildConfigTab(cfg),
 			this.buildDebugTab()
 		]);
@@ -290,8 +324,9 @@ return view.extend({
 		]);
 	},
 
-	buildPagesTab: function(status, pages) {
+	buildPagesTab: function(status, pages, cfg) {
 		var self = this;
+		cfg = cfg || {};
 		var pageList = pages.pages || status.pages || [];
 		var running = status.running || pages.running;
 		var blocked = isReadonly || !running;
@@ -349,7 +384,7 @@ return view.extend({
 				])
 			]),
 			cbiSection(_('Configured pages'), [
-				_('From %s').format(pick(status, 'pages') || '/etc/mcud/pages.json')
+				_('From %s').format(pick(cfg, 'pages'))
 			], [
 				pageList.length ?
 					E('table', { 'class': 'table' }, [
@@ -366,7 +401,7 @@ return view.extend({
 
 	buildConfigTab: function(cfg) {
 		var self = this;
-		var ports = (cfg.serial_ports || []).join(', ') || _('none detected');
+		var portOpts = serialPortOptions(cfg);
 		var buttonOpts = [
 			[ 'BTN_2', 'MaskROM (BTN_2)' ],
 			[ 'wps', 'USERKEY (wps)' ],
@@ -376,7 +411,8 @@ return view.extend({
 		return E('div', { 'data-tab': 'config', 'data-tab-title': _('Configuration') }, [
 			cbiSection(_('Serial & protocol'), [], [
 				fieldRow(_('Enable mcudd'), flagInput('mcu-enable', _('Run mcudd daemon'), pick(cfg, 'enable') === '1')),
-				fieldRow(_('Serial device'), textInput('mcu-path', pick(cfg, 'path')), _('CM5 debug UART: /dev/ttyS2. USB adapter: /dev/ttyUSB0.')),
+				fieldRow(_('Serial device'), selectInput('mcu-path', portOpts, pick(cfg, 'path')),
+					_('CM5 debug UART: /dev/ttyS2. USB adapter: /dev/ttyUSB0.')),
 				fieldRow(_('Baud rate'), selectInput('mcu-baud', [
 					[ '115200', '115200' ],
 					[ '230400', '230400' ],
@@ -388,8 +424,7 @@ return view.extend({
 					[ 'msgpack', 'MessagePack (Phase 2)' ]
 				], pick(cfg, 'wire_format'))),
 				fieldRow(_('Demo alarm data'), flagInput('mcu-demo-mode', _('Use demo metrics'), pick(cfg, 'demo_mode') === '1')),
-				fieldRow(_('Pages JSON path'), textInput('mcu-pages', pick(cfg, 'pages'))),
-				fieldRow(_('Detected ports'), E('span', { 'class': 'mcu-mono' }, ports))
+				fieldRow(_('Pages JSON path'), textInput('mcu-pages', pick(cfg, 'pages')))
 			]),
 			cbiSection(_('Network interfaces'), [], [
 				fieldRow(_('WAN interface'), textInput('mcu-wan-if', pick(cfg, 'wan_if'))),
