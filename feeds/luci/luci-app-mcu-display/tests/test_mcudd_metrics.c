@@ -142,6 +142,74 @@ static void test_temp_missing(void)
 	expect(strstr(buf, "\"cpu_temp\":\"--\"") != NULL, "missing thermal is --");
 }
 
+static void setup_port(const char *ifname, const char *carrier, const char *speed)
+{
+	char rel[128];
+
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s", ifname);
+	mkdir_p(rel);
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/uevent", ifname);
+	write_file(rel, "DEVTYPE=ethernet\n");
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/carrier", ifname);
+	write_file(rel, carrier);
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/speed", ifname);
+	write_file(rel, speed);
+}
+
+static void write_net_dev(unsigned long long eth0_rx, unsigned long long eth0_tx)
+{
+	char body[640];
+
+	snprintf(body, sizeof(body),
+		 "Inter-|   Receive                                                |  Transmit\n"
+		 " face |bytes    packets errs drop fifo frame compressed multicast|bytes packets\n"
+		 "  eth0: %llu 1 0 0 0 0 0 0 %llu 1 0 0 0 0 0 0\n"
+		 "  eth1: 10 0 0 0 0 0 0 0 10 0 0 0 0 0 0 0\n"
+		 "  eth2: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+		 eth0_rx, eth0_tx);
+	write_file("/proc/net/dev", body);
+}
+
+static void test_network_rates_ports_ping(void)
+{
+	struct mcudd_config cfg = dummy_cfg();
+	char buf[1024];
+
+	strncpy(cfg.wan_if, "wan", sizeof(cfg.wan_if) - 1);
+	setup_base_proc();
+	mkdir_p("/proc/net");
+	setup_port("eth0", "1\n", "2500\n");
+	setup_port("eth1", "1\n", "2500\n");
+	setup_port("eth2", "0\n", "-1\n");
+	write_net_dev(1000ULL, 2000ULL);
+	mkdir_p("/tmp");
+	write_file("/tmp/mcud_wan_ping", "12.4\n");
+	write_file("/proc/net/route",
+		   "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\n"
+		   "eth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\n");
+
+	mcudd_metrics_reset();
+	expect(mcudd_metrics_network(&cfg, buf, sizeof(buf)) == 0, "network first");
+	expect(strstr(buf, "\"wan_dev\":\"eth0\"") != NULL, "wan logical name resolves to eth0");
+	expect(strstr(buf, "\"eth0_role\":\"WAN\"") != NULL, "eth0 WAN label");
+	expect(strstr(buf, "\"eth1_role\":\"LAN\"") != NULL, "eth1 LAN label");
+	expect(strstr(buf, "\"eth2_role\":\"LAN\"") != NULL, "eth2 LAN label");
+	expect(strstr(buf, "\"eth0_up\":true") != NULL, "eth0 up");
+	expect(strstr(buf, "\"eth1_up\":true") != NULL, "eth1 up");
+	expect(strstr(buf, "\"eth2_up\":false") != NULL, "eth2 down");
+	expect(strstr(buf, "\"eth0_speed\":\"2.5G\"") != NULL, "eth0 2.5G");
+	expect(strstr(buf, "\"eth1_speed\":\"2.5G\"") != NULL, "eth1 2.5G");
+	expect(strstr(buf, "\"ping_ok\":true") != NULL, "cached ping ok");
+	expect(strstr(buf, "\"ping_ms\":12") != NULL, "cached ping 12ms");
+	expect(strstr(buf, "\"rx_rate\":\"--\"") != NULL, "first sample no rate yet");
+
+	usleep(120000);
+	write_net_dev(13000ULL, 5000ULL);
+	expect(mcudd_metrics_network(&cfg, buf, sizeof(buf)) == 0, "network second");
+	expect(strstr(buf, "\"rx_rate\":\"--\"") == NULL, "second sample has rx rate");
+	expect(strstr(buf, "/s\"") != NULL, "rate includes /s");
+}
+
 int main(void)
 {
 	char cmd[512];
@@ -157,6 +225,7 @@ int main(void)
 	test_package_thermal_preferred();
 	test_tsadc_hwmon_fallback();
 	test_temp_missing();
+	test_network_rates_ports_ping();
 
 	mcudd_metrics_set_sysroot(NULL);
 	snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", g_root);

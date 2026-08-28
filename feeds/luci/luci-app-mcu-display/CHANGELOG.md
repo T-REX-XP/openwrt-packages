@@ -1,5 +1,11 @@
 # luci-app-mcu-display CHANGELOG
 
+## 37 (2026-08-28)
+
+### Added
+
+- **Network scope** — WAN RX/TX from `/proc/net/dev` deltas, background ping (gateway or 1.1.1.1), CM5 port badges (`eth0` WAN, `eth1`/`eth2` LAN) with carrier + speed.
+
 ## 36 (2026-08-28)
 
 ### Added

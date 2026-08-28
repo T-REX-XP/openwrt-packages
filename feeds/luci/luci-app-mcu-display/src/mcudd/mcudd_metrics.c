@@ -11,12 +11,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/statvfs.h>
+#include <time.h>
 #include <unistd.h>
 
 static char g_sysroot[256];
 static unsigned long long g_prev_idle, g_prev_total;
 static int g_have_cpu_prev;
 static int g_last_cpu_pct;
+
+static unsigned long long g_rx_bytes, g_tx_bytes;
+static unsigned long g_rate_ms;
+static int g_have_rate;
+static char g_rx_rate[16] = "--";
+static char g_tx_rate[16] = "--";
+static int g_ping_ms = -1;
+static int g_ping_ok;
+static unsigned long g_ping_spawn_ms;
 
 void mcudd_metrics_set_sysroot(const char *root)
 {
@@ -45,6 +55,15 @@ void mcudd_metrics_reset(void)
 	g_prev_idle = 0;
 	g_prev_total = 0;
 	g_last_cpu_pct = 0;
+	g_have_rate = 0;
+	g_rx_bytes = 0;
+	g_tx_bytes = 0;
+	g_rate_ms = 0;
+	g_ping_ms = -1;
+	g_ping_ok = 0;
+	g_ping_spawn_ms = 0;
+	snprintf(g_rx_rate, sizeof(g_rx_rate), "--");
+	snprintf(g_tx_rate, sizeof(g_tx_rate), "--");
 }
 
 static FILE *fopen_sys(const char *rel, const char *mode)
@@ -381,14 +400,40 @@ static int count_dhcp_leases(void)
 	return n;
 }
 
+static unsigned long now_ms(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (unsigned long)ts.tv_sec * 1000UL +
+	       (unsigned long)(ts.tv_nsec / 1000000L);
+}
+
+static int netdev_exists(const char *ifname)
+{
+	char rel[160];
+	FILE *f;
+
+	if (!ifname || !ifname[0])
+		return 0;
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/uevent", ifname);
+	f = fopen_sys(rel, "r");
+	if (!f)
+		return 0;
+	fclose(f);
+	return 1;
+}
+
 static int iface_carrier(const char *ifname)
 {
-	char path[128];
+	char rel[160];
 	char val[8] = { 0 };
 	FILE *f;
 
-	snprintf(path, sizeof(path), "/sys/class/net/%s/carrier", ifname);
-	f = fopen(path, "r");
+	if (!ifname || !ifname[0])
+		return 0;
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/carrier", ifname);
+	f = fopen_sys(rel, "r");
 	if (!f)
 		return 0;
 	if (!fgets(val, sizeof(val), f)) {
@@ -397,6 +442,242 @@ static int iface_carrier(const char *ifname)
 	}
 	fclose(f);
 	return val[0] == '1';
+}
+
+static void format_link_speed(int mbps, char *out, size_t len)
+{
+	if (!out || !len)
+		return;
+	if (mbps <= 0) {
+		snprintf(out, len, "--");
+		return;
+	}
+	if (mbps >= 1000) {
+		if (mbps % 1000)
+			snprintf(out, len, "%d.%dG", mbps / 1000, (mbps % 1000) / 100);
+		else
+			snprintf(out, len, "%dG", mbps / 1000);
+		return;
+	}
+	snprintf(out, len, "%dM", mbps);
+}
+
+static void read_link_speed(const char *ifname, char *out, size_t len)
+{
+	char rel[160];
+	FILE *f;
+	int mbps = 0;
+
+	snprintf(out, len, "--");
+	if (!ifname)
+		return;
+	snprintf(rel, sizeof(rel), "/sys/class/net/%s/speed", ifname);
+	f = fopen_sys(rel, "r");
+	if (!f)
+		return;
+	if (fscanf(f, "%d", &mbps) == 1)
+		format_link_speed(mbps, out, len);
+	fclose(f);
+}
+
+static void resolve_wan_dev(const struct mcudd_config *cfg, char *out, size_t len)
+{
+	if (!out || !len)
+		return;
+	out[0] = '\0';
+	if (cfg && cfg->wan_if[0] && netdev_exists(cfg->wan_if)) {
+		snprintf(out, len, "%s", cfg->wan_if);
+		return;
+	}
+	if (netdev_exists("eth0")) {
+		snprintf(out, len, "eth0");
+		return;
+	}
+	snprintf(out, len, "%s", (cfg && cfg->wan_if[0]) ? cfg->wan_if : "eth0");
+}
+
+static int read_dev_bytes(const char *ifname, unsigned long long *rx,
+			  unsigned long long *tx)
+{
+	FILE *f;
+	char line[320];
+
+	if (!ifname || !rx || !tx)
+		return -1;
+	f = fopen_sys("/proc/net/dev", "r");
+	if (!f)
+		return -1;
+	while (fgets(line, sizeof(line), f)) {
+		char *colon, *name;
+		unsigned long long r = 0, t = 0;
+
+		colon = strchr(line, ':');
+		if (!colon)
+			continue;
+		*colon = '\0';
+		name = line;
+		while (*name == ' ' || *name == '\t')
+			name++;
+		if (strcmp(name, ifname) != 0)
+			continue;
+		if (sscanf(colon + 1,
+			   "%llu %*u %*u %*u %*u %*u %*u %*u %llu",
+			   &r, &t) != 2) {
+			fclose(f);
+			return -1;
+		}
+		*rx = r;
+		*tx = t;
+		fclose(f);
+		return 0;
+	}
+	fclose(f);
+	return -1;
+}
+
+static void format_bps(unsigned long long bps, char *out, size_t len)
+{
+	if (bps >= 1000000000ULL)
+		snprintf(out, len, "%.1fG/s", bps / 1000000000.0);
+	else if (bps >= 1000000ULL)
+		snprintf(out, len, "%.1fM/s", bps / 1000000.0);
+	else if (bps >= 1000ULL)
+		snprintf(out, len, "%.1fK/s", bps / 1000.0);
+	else
+		snprintf(out, len, "%lluB/s", bps);
+}
+
+static void update_wan_rates(const char *wan_dev)
+{
+	unsigned long long rx = 0, tx = 0, now, dt;
+	unsigned long long drx, dtx;
+
+	if (read_dev_bytes(wan_dev, &rx, &tx) != 0)
+		return;
+	now = now_ms();
+	if (!g_have_rate) {
+		g_rx_bytes = rx;
+		g_tx_bytes = tx;
+		g_rate_ms = now;
+		g_have_rate = 1;
+		return;
+	}
+	dt = now - g_rate_ms;
+	if (dt < 50)
+		return;
+	drx = (rx >= g_rx_bytes) ? (rx - g_rx_bytes) : 0;
+	dtx = (tx >= g_tx_bytes) ? (tx - g_tx_bytes) : 0;
+	format_bps((drx * 1000ULL) / dt, g_rx_rate, sizeof(g_rx_rate));
+	format_bps((dtx * 1000ULL) / dt, g_tx_rate, sizeof(g_tx_rate));
+	g_rx_bytes = rx;
+	g_tx_bytes = tx;
+	g_rate_ms = now;
+}
+
+static int read_default_gw(char *out, size_t len)
+{
+	FILE *f;
+	char line[256], iface[32], dest[16], gw[16];
+	unsigned flags = 0;
+
+	if (!out || !len)
+		return -1;
+	out[0] = '\0';
+	f = fopen_sys("/proc/net/route", "r");
+	if (!f)
+		return -1;
+	if (!fgets(line, sizeof(line), f)) {
+		fclose(f);
+		return -1;
+	}
+	while (fgets(line, sizeof(line), f)) {
+		unsigned long gwv;
+
+		if (sscanf(line, "%31s %15s %15s %x", iface, dest, gw, &flags) < 4)
+			continue;
+		if (strcmp(dest, "00000000") != 0)
+			continue;
+		if (!(flags & 0x2))
+			continue;
+		gwv = strtoul(gw, NULL, 16);
+		if (!gwv)
+			continue;
+		snprintf(out, len, "%lu.%lu.%lu.%lu",
+			 gwv & 0xffUL, (gwv >> 8) & 0xffUL,
+			 (gwv >> 16) & 0xffUL, (gwv >> 24) & 0xffUL);
+		fclose(f);
+		return 0;
+	}
+	fclose(f);
+	return -1;
+}
+
+static void read_cached_ping(void)
+{
+	FILE *f;
+	char line[64];
+	double ms = 0;
+
+	f = fopen_sys("/tmp/mcud_wan_ping", "r");
+	if (!f)
+		return;
+	if (!fgets(line, sizeof(line), f)) {
+		fclose(f);
+		return;
+	}
+	fclose(f);
+	if (!strncmp(line, "fail", 4) || line[0] == '\0') {
+		g_ping_ok = 0;
+		g_ping_ms = -1;
+		return;
+	}
+	ms = strtod(line, NULL);
+	if (ms < 0)
+		ms = 0;
+	g_ping_ms = (int)(ms + 0.5);
+	g_ping_ok = 1;
+}
+
+static void maybe_spawn_ping(int wan_up)
+{
+	char gw[32] = "";
+	char cmd[256];
+	unsigned long now;
+	const char *target = "1.1.1.1";
+
+	if (g_sysroot[0])
+		return;
+	if (!wan_up)
+		return;
+	now = now_ms();
+	if (g_ping_spawn_ms && (now - g_ping_spawn_ms) < 8000UL)
+		return;
+	if (read_default_gw(gw, sizeof(gw)) == 0 && gw[0])
+		target = gw;
+	snprintf(cmd, sizeof(cmd),
+		 "(ping -c 1 -W 1 -n %s 2>/dev/null | "
+		 "sed -n 's/.*time=\\([0-9.]*\\).*/\\1/p' | head -1 | "
+		 "tee /tmp/mcud_wan_ping >/dev/null; "
+		 "test -s /tmp/mcud_wan_ping || echo fail > /tmp/mcud_wan_ping) &",
+		 target);
+	if (system(cmd) == -1)
+		return;
+	g_ping_spawn_ms = now;
+}
+
+static void format_port_json(const char *ifname, const char *role,
+			     char *up, size_t up_len, char *speed, size_t sp_len)
+{
+	int exists = netdev_exists(ifname);
+	int upv = exists && iface_carrier(ifname);
+
+	snprintf(up, up_len, "%s", upv ? "true" : "false");
+	if (!upv) {
+		snprintf(speed, sp_len, "--");
+		return;
+	}
+	read_link_speed(ifname, speed, sp_len);
+	(void)role;
 }
 
 static int uci_wan_ip(const struct mcudd_config *cfg, char *ip, size_t len)
@@ -468,19 +749,38 @@ int mcudd_metrics_system(const struct mcudd_config *cfg, char *buf, size_t len)
 int mcudd_metrics_network(const struct mcudd_config *cfg, char *buf, size_t len)
 {
 	char wan_ip[48] = "--";
-	int link = 0;
+	char wan_dev[32] = "eth0";
+	char e0_up[8] = "false", e1_up[8] = "false", e2_up[8] = "false";
+	char e0_sp[12] = "--", e1_sp[12] = "--", e2_sp[12] = "--";
+	int wan_up;
 
 	if (!cfg || !buf || !len)
 		return -1;
 
+	resolve_wan_dev(cfg, wan_dev, sizeof(wan_dev));
 	if (uci_wan_ip(cfg, wan_ip, sizeof(wan_ip)) != 0)
 		snprintf(wan_ip, sizeof(wan_ip), "--");
-	link = iface_carrier(cfg->wan_if);
+
+	wan_up = iface_carrier(wan_dev);
+	update_wan_rates(wan_dev);
+	read_cached_ping();
+	maybe_spawn_ping(wan_up);
+
+	format_port_json("eth0", "WAN", e0_up, sizeof(e0_up), e0_sp, sizeof(e0_sp));
+	format_port_json("eth1", "LAN", e1_up, sizeof(e1_up), e1_sp, sizeof(e1_sp));
+	format_port_json("eth2", "LAN", e2_up, sizeof(e2_up), e2_sp, sizeof(e2_sp));
 
 	snprintf(buf, len,
-		 "{\"wan_ip\":\"%s\",\"rx_rate\":\"--\",\"tx_rate\":\"--\","
-		 "\"ping_ms\":0,\"link_ok\":%s}",
-		 wan_ip, link ? "true" : "false");
+		 "{\"wan_ip\":\"%s\",\"wan_dev\":\"%s\",\"rx_rate\":\"%s\","
+		 "\"tx_rate\":\"%s\",\"ping_ms\":%d,\"ping_ok\":%s,"
+		 "\"eth0_role\":\"WAN\",\"eth0_up\":%s,\"eth0_speed\":\"%s\","
+		 "\"eth1_role\":\"LAN\",\"eth1_up\":%s,\"eth1_speed\":\"%s\","
+		 "\"eth2_role\":\"LAN\",\"eth2_up\":%s,\"eth2_speed\":\"%s\","
+		 "\"link_ok\":%s}",
+		 wan_ip, wan_dev, g_rx_rate, g_tx_rate, g_ping_ms,
+		 g_ping_ok ? "true" : "false",
+		 e0_up, e0_sp, e1_up, e1_sp, e2_up, e2_sp,
+		 wan_up ? "true" : "false");
 	return 0;
 }
 
