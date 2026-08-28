@@ -9,7 +9,7 @@ const BOOT_STATE = '/tmp/mcud_state';
 const ACTIVE_SCREEN = '/tmp/mcud_active_screen';
 const MCUD_EVENT_SH = '/usr/lib/mcud/mcud-event.sh';
 
-const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps' ];
+const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps', 'path_autodiscover' ];
 const STRING_OPTS = {
 	path: /^\/dev\/[A-Za-z0-9._-]+$/,
 	pages: /^\/[ -~]+$/,
@@ -26,7 +26,7 @@ const UINT_OPTS = [ 'baud', 'interval_system', 'interval_network', 'max_line' ];
 const UINT_ZERO_OPTS = [ 'screen_timeout' ];
 
 const ALL_SET_OPTS = [
-	'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps',
+	'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps', 'path_autodiscover',
 	'path', 'pages', 'wire_format', 'wan_if', 'lan_if', 'wifi_if',
 	'baud', 'interval_system', 'interval_network', 'max_line',
 	'screen_timeout', 'screen_timeout_mode', 'log_level',
@@ -181,6 +181,27 @@ function list_serial_ports() {
 	let ports = [];
 
 	try {
+		if (file_test('-x', '/usr/lib/mcud/mcud-autodiscover.sh')) {
+			let p = popen('/usr/lib/mcud/mcud-autodiscover.sh --list 2>/dev/null', 'r');
+			if (p) {
+				let text = trim(p.read('all') || '');
+				p.close();
+				if (length(text)) {
+					let lines = split(text, '\n');
+					for (let i = 0; i < length(lines); i++) {
+						let line = trim(lines[i]);
+						if (length(line))
+							push(ports, line);
+					}
+				}
+			}
+		}
+	} catch (e) {}
+
+	if (length(ports))
+		return ports;
+
+	try {
 		let dir = lsdir('/dev');
 		for (let i = 0; i < length(dir); i++) {
 			let name = dir[i];
@@ -192,6 +213,23 @@ function list_serial_ports() {
 	} catch (e) {}
 
 	return ports;
+}
+
+function discover_serial_port() {
+	if (!file_test('-x', '/usr/lib/mcud/mcud-autodiscover.sh'))
+		return '';
+	let p = popen('/usr/lib/mcud/mcud-autodiscover.sh 2>/dev/null', 'r');
+	if (!p)
+		return '';
+	let path = trim(p.read('all') || '');
+	p.close();
+	return path;
+}
+
+function path_is_valid(path) {
+	if (!length(path))
+		return false;
+	return file_test('-c', path);
 }
 
 function get_config() {
@@ -214,7 +252,14 @@ function get_config() {
 		cfg.menu_nav_button = 'BTN_2';
 	if (!length(cfg.menu_select_button))
 		cfg.menu_select_button = 'wps';
+	cfg.path_autodiscover = uci_get('path_autodiscover');
+	if (cfg.path_autodiscover != '0')
+		cfg.path_autodiscover = '1';
 	cfg.serial_ports = list_serial_ports();
+	cfg.discovered_path = discover_serial_port();
+	cfg.path_valid = path_is_valid(cfg.path);
+	cfg.effective_path = cfg.path_valid ? cfg.path :
+		(length(cfg.discovered_path) ? cfg.discovered_path : cfg.path);
 	return cfg;
 }
 
@@ -365,7 +410,25 @@ const methods = {
 
 	listSerialPorts: {
 		call: function() {
-			return { ports: list_serial_ports() };
+			let ports = list_serial_ports();
+			let discovered = discover_serial_port();
+			return { ports, discovered, default: discovered || (length(ports) ? ports[0] : '') };
+		}
+	},
+
+	autodiscoverPort: {
+		call: function() {
+			if (!file_test('-x', '/usr/lib/mcud/mcud-autodiscover.sh'))
+				return { error: 'missing_script' };
+			run_cmd('/usr/lib/mcud/mcud-autodiscover.sh --apply');
+			let cfg = get_config();
+			return {
+				ok: true,
+				path: cfg.path,
+				discovered_path: cfg.discovered_path,
+				effective_path: cfg.effective_path,
+				path_valid: cfg.path_valid
+			};
 		}
 	},
 

@@ -1,0 +1,21 @@
+#!/bin/sh
+# Re-run UART autodiscover when a USB serial adapter appears.
+
+[ "$ACTION" = "add" ] || exit 0
+case "$PRODUCT" in
+*/tty/*|*ttyUSB*|*ttyACM*) ;;
+*) exit 0 ;;
+esac
+
+[ -x /usr/lib/mcud/mcud-autodiscover.sh ] || exit 0
+
+cur="$(uci -q get mcud.@mcud[0].path)"
+if [ -n "$cur" ] && [ -c "$cur" ]; then
+	exit 0
+fi
+
+if /usr/lib/mcud/mcud-autodiscover.sh --apply; then
+	/etc/init.d/mcudd restart 2>/dev/null || true
+fi
+
+exit 0

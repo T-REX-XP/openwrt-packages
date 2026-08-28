@@ -72,7 +72,8 @@ var FORM_DEFAULTS = {
 	debug_serial: '0',
 	menu_nav_button: 'BTN_2',
 	menu_select_button: 'wps',
-	menu_wps: '0'
+	menu_wps: '0',
+	path_autodiscover: '1'
 };
 
 function rpcData(data, fallback) {
@@ -127,10 +128,19 @@ function flagInput(id, label, checked) {
 	]);
 }
 
+function serialPortEffectivePath(cfg) {
+	cfg = cfg || {};
+	if (cfg.effective_path)
+		return cfg.effective_path;
+	if (cfg.path_valid !== false && cfg.path)
+		return cfg.path;
+	return cfg.discovered_path || pick(cfg, 'path');
+}
+
 function serialPortOptions(cfg) {
 	cfg = cfg || {};
 	var ports = (cfg.serial_ports || []).slice();
-	var current = pick(cfg, 'path');
+	var current = serialPortEffectivePath(cfg);
 	var opts = [];
 	var seen = {};
 	var i;
@@ -215,7 +225,8 @@ function readFormConfig() {
 		debug_serial: flag('mcu-debug-serial'),
 		menu_nav_button: val('mcu-menu-nav-button'),
 		menu_select_button: val('mcu-menu-select-button'),
-		menu_wps: flag('mcu-menu-wps')
+		menu_wps: flag('mcu-menu-wps'),
+		path_autodiscover: flag('mcu-path-autodiscover')
 	};
 }
 
@@ -411,8 +422,13 @@ return view.extend({
 		return E('div', { 'data-tab': 'config', 'data-tab-title': _('Configuration') }, [
 			cbiSection(_('Serial & protocol'), [], [
 				fieldRow(_('Enable mcudd'), flagInput('mcu-enable', _('Run mcudd daemon'), pick(cfg, 'enable') === '1')),
-				fieldRow(_('Serial device'), selectInput('mcu-path', portOpts, pick(cfg, 'path')),
-					_('CM5 debug UART: /dev/ttyS2. USB adapter: /dev/ttyUSB0.')),
+				fieldRow(_('Serial device'), selectInput('mcu-path', portOpts, serialPortEffectivePath(cfg)),
+					cfg.path_valid === false && cfg.discovered_path ?
+						_('Configured device missing; showing autodiscovered %s. Save to apply.').format(cfg.discovered_path) :
+						_('CM5 debug UART: /dev/ttyS2. USB adapter: /dev/ttyUSB0.')),
+				fieldRow(_('Autodiscover UART'), flagInput('mcu-path-autodiscover',
+					_('Pick the best port on boot when the configured device is missing'),
+					pick(cfg, 'path_autodiscover') === '1')),
 				fieldRow(_('Baud rate'), selectInput('mcu-baud', [
 					[ '115200', '115200' ],
 					[ '230400', '230400' ],

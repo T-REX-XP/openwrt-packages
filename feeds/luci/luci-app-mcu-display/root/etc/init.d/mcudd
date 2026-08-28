@@ -33,6 +33,7 @@ mcud_instance() {
 }
 
 start_service() {
+	[ -x /usr/lib/mcud/mcud-autodiscover.sh ] && /usr/lib/mcud/mcud-autodiscover.sh --apply
 	[ -x "$BOOT_STATE" ] && "$BOOT_STATE" boot "Starting mcudd..." 15
 	config_load mcud
 	config_foreach mcud_instance mcud

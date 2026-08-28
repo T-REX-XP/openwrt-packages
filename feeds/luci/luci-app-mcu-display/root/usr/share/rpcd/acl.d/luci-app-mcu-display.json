@@ -28,7 +28,8 @@
 				"luci.mcu-display": [
 					"setConfig",
 					"serviceControl",
-					"pageControl"
+					"pageControl",
+					"autodiscoverPort"
 				]
 			},
 			"uci": [ "mcud" ],

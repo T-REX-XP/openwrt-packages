@@ -1,0 +1,16 @@
+#!/bin/sh
+# First boot: pick a UART path when unset or the configured device is missing.
+
+[ -x /usr/lib/mcud/mcud-autodiscover.sh ] || exit 0
+[ "$(uci -q get mcud.@mcud[0].autodiscover_done)" = "1" ] && exit 0
+
+/usr/lib/mcud/mcud-autodiscover.sh --apply
+
+best="$(/usr/lib/mcud/mcud-autodiscover.sh)"
+if [ -n "$best" ]; then
+	uci -q set mcud.@mcud[0].path_autodiscover='1'
+	uci -q set mcud.@mcud[0].autodiscover_done='1'
+	uci -q commit mcud
+fi
+
+exit 0
