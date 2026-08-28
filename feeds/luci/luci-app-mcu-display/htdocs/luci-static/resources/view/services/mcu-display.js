@@ -314,10 +314,18 @@ return view.extend({
 		]);
 
 		ui.tabs.initTabGroup(tabHost.childNodes);
-		setTimeout(function() {
-			self.refreshLogs();
-		}, 50);
+		this.bindTabHooks(tabHost);
 		return root;
+	},
+
+	bindTabHooks: function(tabHost) {
+		var self = this;
+		var debugPane = tabHost.querySelector('[data-tab="debug"]');
+		if (debugPane) {
+			debugPane.addEventListener('cbi-tab-active', function() {
+				self.refreshLogs();
+			});
+		}
 	},
 
 	buildStatusTab: function(status, cfg) {
@@ -532,7 +540,7 @@ return view.extend({
 		var self = this;
 		return E('div', { 'data-tab': 'debug', 'data-tab-title': _('Debug') }, [
 			cbiSection(_('Debug logs'), [
-				_('Recent syslog lines tagged mcudd.')
+				_('Syslog from mcudd and mcud helpers (navigation, boot, UART). Page navigation lines appear after each prev/next/jump. For RDCP frame or raw UART traces, set Log level to Debug and enable the flags under Configuration → Debug & logging, then Save & Apply.')
 			], [
 				fieldRow(_('Line limit'), E('select', { 'id': 'mcu-log-limit' }, [
 					E('option', { 'value': '50' }, '50'),
@@ -596,12 +604,10 @@ return view.extend({
 			ui.addNotification(null, E('p', {}, [ _('Sent %s command to mcudd.').format(action) ]), 'info');
 			return callGetStatus().then(L.bind(function(st) {
 				st = rpcData(st, {});
-				var el = document.querySelector('.luci-app-mcu-display');
-				if (!el)
-					return;
 				ui.addNotification(null, E('p', {}, [
 					_('Active screen: %s').format(st.page_title || st.active_screen || '—')
 				]), 'info');
+				return this.refreshLogs();
 			}, this));
 		}, this)).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Page control failed: %s').format(e) ]), 'error');
@@ -614,13 +620,15 @@ return view.extend({
 			return Promise.resolve();
 		if (isReadonly)
 			return Promise.resolve();
-		return callPageControl('goto', jump.value).then(function(r) {
+		return callPageControl('goto', jump.value).then(L.bind(function(r) {
 			r = rpcData(r, {});
 			if (r.error || r.ok === false)
 				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Jump failed.') ]), 'error');
-			else
+			else {
 				ui.addNotification(null, E('p', {}, [ _('Jumped to %s').format(jump.value) ]), 'info');
-		}).catch(function(e) {
+				return this.refreshLogs();
+			}
+		}, this)).catch(function(e) {
 			ui.addNotification(null, E('p', {}, [ _('Jump failed: %s').format(e) ]), 'error');
 		});
 	},
@@ -645,6 +653,7 @@ return view.extend({
 				return;
 			}
 			ta.value = r.output && r.output.length ? r.output : _('No matching log entries.');
+			ta.scrollTop = ta.scrollHeight;
 		}, this)).catch(function(e) {
 			if (ta)
 				ta.value = _('Could not load logs: %s').format(e);

@@ -69,7 +69,7 @@ function find_logread() {
 	return '';
 }
 
-const MCUDD_LOG_PATTERN = 'mcudd';
+const MCUDD_LOG_PATTERN = 'mcud';
 
 function uci_get(option) {
 	let p = popen(`uci -q get ${MCUD_UCI}.${option} 2>/dev/null`, 'r');
