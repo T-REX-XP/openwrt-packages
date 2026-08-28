@@ -20,6 +20,16 @@
 	margin: 0.35em 0 0.5em;
 }
 
+.luci-app-mcu-display .mcu-page-controls {
+	margin: 0.5em 0 1em;
+}
+
+.luci-app-mcu-display .mcu-flag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+}
+
 .luci-app-mcu-display .mcu-log-pre {
 	display: block;
 	width: 100%;

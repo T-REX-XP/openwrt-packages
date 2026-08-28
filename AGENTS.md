@@ -35,9 +35,9 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-blocky` | luci-app-blocky | Blocky LuCI dashboard + dnsmasq integration |
 | `feeds/luci/luci-app-speedtest` | luci-app-speedtest | speedtest-go UI |
 | `feeds/luci/luci-app-security-guide` | luci-app-security-guide | Security & privacy guide |
-| `feeds/luci/luci-app-peripherals` | luci-app-peripherals | IR, PWM fan, I2C diagnostics (read-only); **not** OLED configuration |
-| `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-oled** + **cm5-button-scripts**) |
-| `feeds/luci/luci-app-oled` | luci-app-oled | SH1106/oledd menu (`/dev/i2c-7` on CM5 HAT), boot splash, button nav |
+| `feeds/luci/luci-app-peripherals` | luci-app-peripherals | IR, PWM fan, I2C diagnostics (read-only) |
+| `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-mcu-display** + **cm5-button-scripts**) |
+| `feeds/luci/luci-app-mcu-display` | luci-app-mcu-display | ESP32 UART display (`mcudd`), boot splash, button nav, page control |
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
 
 Upstream **speedtest-go** stays on the standard packages feed; this feed only ships the LuCI front-end where applicable.
@@ -51,8 +51,8 @@ Upstream **speedtest-go** stays on the standard packages feed; this feed only sh
 1. **Minimize scope** — change only the package or app being worked on; match existing Makefile and file layout.
 2. **Bump `PKG_RELEASE`** on every recipe change (packages and LuCI apps). Do not bump `PKG_VERSION` unless upgrading upstream.
 3. **LuCI theming** — each app ships its own `*-theme.css`. Use **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, `--border-color-*`, `--error-color-high`, …). Support **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight**. No shared theme library.
-4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-oled`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`.
-5. **OLED vs peripherals** — display/menu/button mapping/splash → **luci-app-oled** (`Services → OLED`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms.
+4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-mcu-display`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`.
+5. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms.
 6. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
 7. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
 8. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.
@@ -107,7 +107,7 @@ Use these Cursor skills when working in this repo:
 |-------|-------------|
 | `openwrt-feed-packages` | Adding or editing packages, Makefiles, init scripts, feed layout, blocky scripts |
 | `luci-bootstrap-theming` | LuCI views, JS dashboards, `*-theme.css`, responsive layout, tabs |
-| `oled-peripherals-cm5` | luci-app-oled, luci-app-peripherals, oledd, CM5 I2C/menu defaults, display debug |
+| `oled-peripherals-cm5` | luci-app-mcu-display, luci-app-peripherals, mcudd, CM5 UART/menu defaults, display debug |
 | `openwrt-feed-ci-release` | GitHub Actions, release tags, Pages feed, apk signing |
 | `cm5-security-stack` | IDS/IPS, banIP, blocky, Snort3 mode and CM5 recommendations |
 
@@ -115,6 +115,7 @@ Use these Cursor skills when working in this repo:
 
 - [README.md](README.md) — user-facing feed docs
 - [docs/luci-app-blocky-feature-plan.md](docs/luci-app-blocky-feature-plan.md)
-- [docs/oled-menu.md](docs/oled-menu.md) — oledd menu design and phases
+- [docs/mcu-display-migration-backlog.md](docs/mcu-display-migration-backlog.md) — MCU display plan (OLED removed)
+- [docs/oled-menu.md](docs/oled-menu.md) — archived menu design (historical)
 - [docs/cm5-waveshare-oled-hat-wiring.md](docs/cm5-waveshare-oled-hat-wiring.md) — CM5 FPC → Waveshare 1.3" HAT harness
 - [OpenWrt feeds guide](https://openwrt.org/docs/guide-developer/feeds)

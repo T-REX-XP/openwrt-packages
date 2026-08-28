@@ -1,6 +1,8 @@
 # OLED + MCU display — review, debug UART design & backlog
 
-*Created: 2026-08-28. Tracks `luci-app-oled` (r49), `luci-app-mcu-display` (r12), CM5 ImmortalWrt firmware.*
+> **Superseded (2026-08-28):** CM5 firmware no longer ships `luci-app-oled`. See **[mcu-display-migration-backlog.md](mcu-display-migration-backlog.md)** for the active plan.
+
+*Created: 2026-08-28. Was: `luci-app-oled` (r49), `luci-app-mcu-display` (r12).*
 
 **Related docs**
 

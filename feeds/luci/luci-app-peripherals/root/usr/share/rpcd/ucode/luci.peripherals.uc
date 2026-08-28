@@ -295,24 +295,6 @@ function list_i2c_devices() {
 	return devices;
 }
 
-function oled_config_present() {
-	return file_test('-f', '/etc/config/oled');
-}
-
-function oled_daemon_present() {
-	return file_test('-x', '/usr/bin/oled');
-}
-
-function oled_uci_get(option, def) {
-	if (!oled_config_present())
-		return def;
-	let p = popen(`uci -q get oled.@oled[0].${option} 2>/dev/null`, 'r');
-	let v = trim(p ? (p.read('all') || '') : '');
-	if (p)
-		p.close();
-	return length(v) ? v : def;
-}
-
 function proc_running(pattern) {
 	let p = popen(`pgrep -f ${shell_quote(pattern)} >/dev/null 2>&1; echo $?`, 'r');
 	let code = trim(p ? (p.read('all') || '1') : '1');
@@ -321,21 +303,28 @@ function proc_running(pattern) {
 	return code == '0';
 }
 
-function oled_running() {
-	let menu_mode = oled_uci_get('menu_mode', '1');
-	if (menu_mode == '1')
-		return proc_running('/usr/sbin/oledd');
-	return proc_running('/usr/bin/oled');
+function mcud_config_present() {
+	return file_test('-f', '/etc/config/mcud');
+}
+
+function mcud_uci_get(option, def) {
+	if (!mcud_config_present())
+		return def;
+	let p = popen(`uci -q get mcud.@mcud[0].${option} 2>/dev/null`, 'r');
+	let v = trim(p ? (p.read('all') || '') : '');
+	if (p)
+		p.close();
+	return length(v) ? v : def;
 }
 
 function oled_get_config() {
 	return {
-		installed: oled_daemon_present() || file_test('-x', '/usr/sbin/oledd'),
-		config_present: oled_config_present(),
-		running: oled_running(),
-		menu_mode: oled_uci_get('menu_mode', '1'),
-		enable: oled_uci_get('enable', '0'),
-		path: oled_uci_get('path', ''),
+		installed: file_test('-x', '/usr/sbin/mcudd'),
+		config_present: mcud_config_present(),
+		running: proc_running('mcudd'),
+		menu_mode: '1',
+		enable: mcud_uci_get('enable', '0'),
+		path: mcud_uci_get('path', ''),
 		i2c_devices: list_i2c_devices()
 	};
 }
@@ -517,7 +506,7 @@ function debug_report() {
 
 	append_block(lines, 'I2C buses', run_cmd('ls -l /dev/i2c-* 2>/dev/null || echo "no /dev/i2c-*"'));
 	append_block(lines, 'I2C scan (detected buses)', run_cmd('for b in /dev/i2c-*; do [ -c "$b" ] || continue; n=${b#/dev/i2c-}; echo "--- i2cdetect -y $n"; i2cdetect -y "$n" 2>&1 || true; done'));
-	append_block(lines, 'OLED UCI and service', run_cmd('uci -q show oled 2>/dev/null; pgrep -af oledd 2>/dev/null || true; pgrep -af "/usr/bin/oled" 2>/dev/null || true; /etc/init.d/oledd status 2>&1 || true; /etc/init.d/oled status 2>&1 || true'));
+	append_block(lines, 'MCU display UCI and service', run_cmd('uci -q show mcud 2>/dev/null; pgrep -af mcudd 2>/dev/null || true; /etc/init.d/mcudd status 2>&1 || true'));
 
 	append_block(lines, 'Relevant kernel log', run_cmd("dmesg | grep -Ei 'pwm|fan|thermal|gpio|button|keys|ir|rc-core|r8125|eth|gmac|i2c|ssd1306|oled' | tail -n 100"));
 	append_block(lines, 'Relevant system log', run_cmd("logread 2>/dev/null | grep -Ei 'button|gpio|fan|pwm|thermal|ir|rc-core|peripheral' | tail -n 100 || true"));

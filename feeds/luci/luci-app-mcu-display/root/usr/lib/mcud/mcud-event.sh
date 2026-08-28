@@ -1,9 +1,21 @@
 #!/bin/sh
-# Hotplug helper — log interface events for mcudd (push in Phase 2).
+# Write navigation / control events to the mcudd FIFO.
+# Usage: mcud-event.sh <prev|next|net|refresh|boot|screen> [screen_id]
 
-ACTION="${ACTION:-}"
-DEVICE="${DEVICE:-}"
-INTERFACE="${INTERFACE:-}"
+event="${1:-}"
+screen_id="${2:-}"
 
-logger -t mcudd "net event action=${ACTION} dev=${DEVICE} if=${INTERFACE}"
+fifo="/var/run/mcudd.fifo"
+[ -p "$fifo" ] || fifo="/tmp/mcudd.fifo"
+[ -p "$fifo" ] || exit 0
+
+case "$event" in
+prev|next|net|refresh|boot)
+	printf '%s\n' "$event" >"$fifo" 2>/dev/null || true
+	;;
+screen)
+	[ -n "$screen_id" ] && printf 'screen %s\n' "$screen_id" >"$fifo" 2>/dev/null || true
+	;;
+esac
+
 exit 0

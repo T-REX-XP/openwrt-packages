@@ -2,18 +2,21 @@
 
 state="/var/run/button-${BUTTON}.state"
 log="/var/log/button-events.log"
+menu_wps="$(uci -q get mcud.@mcud[0].menu_wps)"
 
 case "$ACTION" in
 pressed)
 	echo pressed > "$state"
 	logger -t button "USERKEY/WPS pressed button=$BUTTON seen=$SEEN"
-	for dir in /var/run/hostapd-*; do
-		[ -d "$dir" ] || continue
-		for iface in "$dir"/*; do
-			[ -S "$iface" ] || continue
-			hostapd_cli -p "$dir" -i "${iface##*/}" wps_pbc 2>/dev/null &
+	if [ "$menu_wps" = "1" ]; then
+		for dir in /var/run/hostapd-*; do
+			[ -d "$dir" ] || continue
+			for iface in "$dir"/*; do
+				[ -S "$iface" ] || continue
+				hostapd_cli -p "$dir" -i "${iface##*/}" wps_pbc 2>/dev/null &
+			done
 		done
-	done
+	fi
 	;;
 released)
 	echo released > "$state"
@@ -22,5 +25,5 @@ released)
 esac
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') $BUTTON $ACTION seen=${SEEN:-0}" >> "$log"
-[ -x /usr/share/cm5-button-scripts/oled-forward ] && /usr/share/cm5-button-scripts/oled-forward
+[ -x /usr/share/cm5-button-scripts/mcud-forward ] && /usr/share/cm5-button-scripts/mcud-forward
 return 0

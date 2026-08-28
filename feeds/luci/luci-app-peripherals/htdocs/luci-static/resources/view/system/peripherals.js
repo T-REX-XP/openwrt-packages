@@ -233,15 +233,15 @@ function oledMetaBlock(oled) {
 	oled = oled || {};
 	if (!oled.config_present) {
 		return E('p', { 'class': 'alert-message warning' }, [
-			_('luci-app-oled is not installed. Install luci-app-oled for SH1106 display support.')
+			_('luci-app-mcu-display is not installed. Install it for ESP32 UART display support.')
 		]);
 	}
 	if (!oled.installed) {
 		return E('p', { 'class': 'alert-message warning' }, [
-			_('/etc/config/oled exists but neither oledd nor the legacy oled binary is present. Reinstall luci-app-oled.')
+			_('/etc/config/mcud exists but mcudd is not installed. Reinstall luci-app-mcu-display.')
 		]);
 	}
-	var daemon = oled.menu_mode === '1' ? 'oledd' : 'oled';
+	var daemon = 'mcudd';
 	return E('div', { 'class': 'periph-status-grid' }, [
 		statusCard(_('Daemon'), E('span', {}, [
 			daemon,
@@ -249,7 +249,7 @@ function oledMetaBlock(oled) {
 			statusPill(oled.running, oled.running ? _('running') : _('stopped'))
 		])),
 		statusCard(_('Enabled'), oled.enable === '1' ? _('yes') : _('no')),
-		statusCard(_('I2C bus'), oled.path || '—')
+		statusCard(_('Serial port'), oled.path || '—')
 	]);
 }
 
@@ -598,16 +598,16 @@ return view.extend({
 
 		var oledAppLink = oled.config_present
 			? E('a', {
-				'href': L.url('admin/services/oled'),
+				'href': L.url('admin/services/mcu-display'),
 				'class': 'periph-crosslink'
-			}, [ _('Configure display → Services → OLED') ])
-			: E('p', { 'class': 'alert-message notice' }, [ _('Install luci-app-oled for display configuration.') ]);
+			}, [ _('Configure display → Services → MCU Display') ])
+			: E('p', { 'class': 'alert-message notice' }, [ _('Install luci-app-mcu-display for display configuration.') ]);
 
 		return E('div', { 'data-tab': 'i2c', 'data-tab-title': _('I2C') }, [
 			cbiSection(
-				_('OLED status'),
+				_('MCU display status'),
 				[
-					_('Read-only service and bus state when luci-app-oled is installed. Display settings are in the OLED app.'),
+					_('Read-only mcudd service state when luci-app-mcu-display is installed. Display settings are in the MCU Display app.'),
 					oledAppLink
 				],
 				[
@@ -829,9 +829,9 @@ return view.extend({
 			E('p', { 'class': 'cbi-map-descr' }, [
 				_('Low-level tuning for infrared, cooling fan, I2C diagnostics, and kernel modules.'),
 				' ',
-				_('Display and OLED menu button mapping:'),
+				_('Display and button mapping:'),
 				' ',
-				E('a', { 'href': L.url('admin/services/oled') }, [ _('Services → OLED') ]),
+				E('a', { 'href': L.url('admin/services/mcu-display') }, [ _('Services → MCU Display') ]),
 				'. ',
 				_('Physical button handlers (WPS, logging) ship in cm5-button-scripts under %s.').format('/etc/rc.button/')
 			]),

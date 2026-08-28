@@ -1,0 +1,35 @@
+#!/bin/sh
+# Notify mcudd of network changes; mark boot ready when netifd brings an interface up.
+
+[ -n "$DEVICE" ] || exit 0
+[ "$DEVICE" = "lo" ] && exit 0
+
+mcud_notify_net() {
+	/usr/lib/mcud/mcud-event.sh net 2>/dev/null || true
+}
+
+mcud_mark_ready() {
+	/usr/lib/mcud/mcud-boot-state.sh ready "System ready" 2>/dev/null || true
+}
+
+case "$ACTION" in
+ifup|ifupdate)
+	/usr/lib/mcud/mcud-boot-state.sh network "$ACTION $DEVICE" 2>/dev/null || true
+	case "$DEVICE" in
+	eth0|eth1|eth2|br-lan)
+		mcud_mark_ready
+		;;
+	esac
+	case "$INTERFACE" in
+	lan|wan)
+		mcud_mark_ready
+		;;
+	esac
+	mcud_notify_net
+	;;
+ifdown)
+	mcud_notify_net
+	;;
+esac
+
+exit 0

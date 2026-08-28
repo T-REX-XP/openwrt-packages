@@ -1,0 +1,22 @@
+#!/bin/sh
+# CM5 first-boot defaults for ESP32 MCU display on debug UART.
+
+. /lib/functions/system.sh
+
+[ "$(board_name)" = "xunlong,orangepi-cm5-base" ] || exit 0
+[ -c /dev/ttyS2 ] || exit 0
+[ "$(uci -q get mcud.@mcud[0].cm5_mcud_defaults)" = "1" ] && exit 0
+
+logger -t mcud-cm5-defaults "CM5 MCU display defaults (enable, ttyS2, buttons)"
+uci -q batch <<-EOF
+	set mcud.@mcud[0].enable='1'
+	set mcud.@mcud[0].path='/dev/ttyS2'
+	set mcud.@mcud[0].baud='115200'
+	set mcud.@mcud[0].menu_nav_button='BTN_2'
+	set mcud.@mcud[0].menu_select_button='wps'
+	set mcud.@mcud[0].menu_wps='0'
+	set mcud.@mcud[0].cm5_mcud_defaults='1'
+	commit mcud
+EOF
+
+exit 0

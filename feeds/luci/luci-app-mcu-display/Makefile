@@ -8,7 +8,7 @@ LUCI_PKGARCH:=$(if $(realpath src/Makefile),$(ARCH_PACKAGES),all)
 
 PKG_NAME:=luci-app-mcu-display
 PKG_VERSION:=2026.07.06
-PKG_RELEASE:=12
+PKG_RELEASE:=13
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
@@ -39,6 +39,9 @@ define Package/luci-app-mcu-display/install
 	$(INSTALL_BIN) ./root/etc/init.d/mcudd $(1)/etc/init.d/mcudd
 	$(INSTALL_BIN) ./root/usr/lib/mcud/mcud-event.sh $(1)/usr/lib/mcud/mcud-event.sh
 	$(INSTALL_BIN) ./root/usr/lib/mcud/mcud-boot-state.sh $(1)/usr/lib/mcud/mcud-boot-state.sh
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/button $(1)/etc/hotplug.d/net
+	$(INSTALL_BIN) ./root/etc/hotplug.d/button/99-mcud $(1)/etc/hotplug.d/button/99-mcud
+	$(INSTALL_BIN) ./root/etc/hotplug.d/net/99-mcud $(1)/etc/hotplug.d/net/99-mcud
 	$(INSTALL_DIR) $(1)/etc/mcud
 	$(INSTALL_DATA) ./root/etc/mcud/pages.json $(1)/etc/mcud/pages.json
 endef

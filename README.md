@@ -16,7 +16,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, I2C bus scan |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
-| `feeds/luci/luci-app-oled` | **luci-app-oled** — SH1106 `oledd` menu (CM5: `/dev/i2c-7`, MaskROM/USERKEY nav) |
+| `feeds/luci/luci-app-mcu-display` | **luci-app-mcu-display** — ESP32 UART display (`mcudd`, CM5: `/dev/ttyS2`, button nav) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.

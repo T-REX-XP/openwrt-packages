@@ -6,6 +6,7 @@
 				"luci.mcu-display": [
 					"getConfig",
 					"getStatus",
+					"getPageList",
 					"listSerialPorts",
 					"getLogs"
 				]
@@ -13,6 +14,8 @@
 			"uci": [ "mcud" ],
 			"file": {
 				"/etc/mcud/pages.json": [ "read" ],
+				"/tmp/mcud_state": [ "read" ],
+				"/tmp/mcud_active_screen": [ "read" ],
 				"/dev/ttyUSB*": [ "read" ],
 				"/dev/ttyS*": [ "read" ],
 				"/dev/ttyACM*": [ "read" ],
@@ -24,12 +27,14 @@
 			"ubus": {
 				"luci.mcu-display": [
 					"setConfig",
-					"serviceControl"
+					"serviceControl",
+					"pageControl"
 				]
 			},
 			"uci": [ "mcud" ],
 			"file": {
-				"/etc/init.d/mcudd": [ "exec" ]
+				"/etc/init.d/mcudd": [ "exec" ],
+				"/usr/lib/mcud/mcud-event.sh": [ "exec" ]
 			}
 		}
 	}

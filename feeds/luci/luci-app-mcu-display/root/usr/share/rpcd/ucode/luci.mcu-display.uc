@@ -5,8 +5,11 @@
 import { readfile, popen, lsdir } from 'fs';
 
 const MCUD_UCI = 'mcud.main';
+const BOOT_STATE = '/tmp/mcud_state';
+const ACTIVE_SCREEN = '/tmp/mcud_active_screen';
+const MCUD_EVENT_SH = '/usr/lib/mcud/mcud-event.sh';
 
-const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial' ];
+const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps' ];
 const STRING_OPTS = {
 	path: /^\/dev\/[A-Za-z0-9._-]+$/,
 	pages: /^\/[ -~]+$/,
@@ -15,16 +18,19 @@ const STRING_OPTS = {
 	lan_if: /^[A-Za-z0-9_.-]+$/,
 	wifi_if: /^[A-Za-z0-9_.-]+$/,
 	screen_timeout_mode: /^(off|dim|blank)$/,
-	log_level: /^(error|warn|info|debug)$/
+	log_level: /^(error|warn|info|debug)$/,
+	menu_nav_button: /^(BTN_2|wps|none|[A-Za-z0-9_.-]+)$/,
+	menu_select_button: /^(BTN_2|wps|none|[A-Za-z0-9_.-]+)$/
 };
 const UINT_OPTS = [ 'baud', 'interval_system', 'interval_network', 'max_line' ];
 const UINT_ZERO_OPTS = [ 'screen_timeout' ];
 
 const ALL_SET_OPTS = [
-	'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial',
+	'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps',
 	'path', 'pages', 'wire_format', 'wan_if', 'lan_if', 'wifi_if',
 	'baud', 'interval_system', 'interval_network', 'max_line',
-	'screen_timeout', 'screen_timeout_mode', 'log_level'
+	'screen_timeout', 'screen_timeout_mode', 'log_level',
+	'menu_nav_button', 'menu_select_button'
 ];
 
 function shell_quote(val) {
@@ -86,23 +92,104 @@ function uci_commit() {
 	run_cmd('uci commit mcud');
 }
 
+function read_boot_state() {
+	let out = { stage: '', message: '', pct: null };
+	try {
+		let text = readfile(BOOT_STATE);
+		let lines = split(text, '\n');
+		for (let i = 0; i < length(lines); i++) {
+			let line = lines[i];
+			let eq = index(line, '=');
+			if (eq < 0)
+				continue;
+			let key = substr(line, 0, eq);
+			let val = replace(substr(line, eq + 1), /[\r\n]+$/, '');
+			if (key == 'stage')
+				out.stage = val;
+			else if (key == 'message')
+				out.message = val;
+			else if (key == 'pct')
+				out.pct = int(val);
+		}
+	} catch (e) {}
+	return out;
+}
+
+function read_active_screen() {
+	try {
+		return trim(readfile(ACTIVE_SCREEN) || '');
+	} catch (e) {
+		return '';
+	}
+}
+
+function load_pages_config() {
+	let path = uci_get('pages') || '/etc/mcud/pages.json';
+	if (!file_test('-f', path))
+		return null;
+	try {
+		return json(readfile(path));
+	} catch (e) {
+		return null;
+	}
+}
+
+function enabled_pages(cfg) {
+	let out = [];
+	if (!cfg || type(cfg.screens) != 'array')
+		return out;
+	for (let i = 0; i < length(cfg.screens); i++) {
+		let p = cfg.screens[i];
+		if (p && p.enabled != false)
+			push(out, p);
+	}
+	return out;
+}
+
+function page_index_by_id(cfg, id) {
+	let pages = enabled_pages(cfg);
+	for (let i = 0; i < length(pages); i++) {
+		if (pages[i].id == id)
+			return i;
+	}
+	return -1;
+}
+
+function page_title_for_id(cfg, id) {
+	let pages = enabled_pages(cfg);
+	for (let i = 0; i < length(pages); i++) {
+		if (pages[i].id == id)
+			return pages[i].title || pages[i].id;
+	}
+	return id;
+}
+
+function page_summary_list(cfg) {
+	let pages = enabled_pages(cfg);
+	let out = [];
+	for (let i = 0; i < length(pages); i++) {
+		push(out, {
+			id: pages[i].id,
+			title: pages[i].title || pages[i].id,
+			scope: pages[i].scope || ''
+		});
+	}
+	return out;
+}
+
 function list_serial_ports() {
 	let ports = [];
-	let patterns = [ '/dev/ttyUSB', '/dev/ttyACM', '/dev/ttyS' ];
 
-	for (let p = 0; p < length(patterns); p++) {
-		let prefix = patterns[p];
-		try {
-			let dir = lsdir('/dev');
-			for (let i = 0; i < length(dir); i++) {
-				let name = dir[i];
-				if (match(name, /^ttyUSB[0-9]+$/) ||
-				    match(name, /^ttyACM[0-9]+$/) ||
-				    match(name, /^ttyS[0-9]+$/))
-					push(ports, `/dev/${name}`);
-			}
-		} catch (e) {}
-	}
+	try {
+		let dir = lsdir('/dev');
+		for (let i = 0; i < length(dir); i++) {
+			let name = dir[i];
+			if (match(name, /^ttyUSB[0-9]+$/) ||
+			    match(name, /^ttyACM[0-9]+$/) ||
+			    match(name, /^ttyS[0-9]+$/))
+				push(ports, `/dev/${name}`);
+		}
+	} catch (e) {}
 
 	return ports;
 }
@@ -123,6 +210,10 @@ function get_config() {
 		let k = UINT_ZERO_OPTS[i];
 		cfg[k] = uci_get(k);
 	}
+	if (!length(cfg.menu_nav_button))
+		cfg.menu_nav_button = 'BTN_2';
+	if (!length(cfg.menu_select_button))
+		cfg.menu_select_button = 'wps';
 	cfg.serial_ports = list_serial_ports();
 	return cfg;
 }
@@ -154,19 +245,39 @@ function validate_set(config) {
 
 function get_status() {
 	let cfg = get_config();
+	let boot = read_boot_state();
+	let pages_cfg = load_pages_config();
+	let active = read_active_screen();
 	let running = run_cmd('pidof mcudd').code == 0;
 	let port_exists = false;
+	let fifo_ok = file_test('-p', '/var/run/mcudd.fifo') ||
+		file_test('-p', '/tmp/mcudd.fifo');
 
 	if (length(cfg.path)) {
 		let t = run_cmd(`test -c ${shell_quote(cfg.path)} && echo yes`);
 		port_exists = t.output == 'yes';
 	}
 
+	if (!length(active))
+		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
+
+	let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
+
 	return {
 		running,
 		port_exists,
+		fifo_ok,
 		config_complete: length(cfg.path) > 0 && length(cfg.baud) > 0 &&
-			length(cfg.wire_format) > 0 && length(cfg.pages) > 0
+			length(cfg.wire_format) > 0 && length(cfg.pages) > 0,
+		active_screen: active,
+		page_id: active,
+		page_idx: page_idx >= 0 ? page_idx : null,
+		page_title: pages_cfg ? page_title_for_id(pages_cfg, active) : active,
+		page_count: pages_cfg ? length(enabled_pages(pages_cfg)) : 0,
+		pages: pages_cfg ? page_summary_list(pages_cfg) : [],
+		boot_stage: boot.stage,
+		boot_message: boot.message,
+		boot_pct: boot.pct
 	};
 }
 
@@ -200,6 +311,55 @@ const methods = {
 	getStatus: {
 		call: function() {
 			return get_status();
+		}
+	},
+
+	getPageList: {
+		call: function() {
+			let st = get_status();
+			return {
+				ok: true,
+				running: st.running,
+				pages: st.pages,
+				page_id: st.page_id,
+				page_idx: st.page_idx,
+				page_title: st.page_title,
+				page_count: st.page_count,
+				boot_stage: st.boot_stage,
+				boot_message: st.boot_message
+			};
+		}
+	},
+
+	pageControl: {
+		args: { action: 'action', page_id: 'page_id' },
+		call: function(req) {
+			let action = req.args?.action;
+			if (type(action) != 'string')
+				return { error: 'invalid_action' };
+
+			if (!file_test('-x', MCUD_EVENT_SH))
+				return { error: 'event_script_missing', message: 'mcud-event.sh not installed' };
+
+			if (action == 'prev' || action == 'next') {
+				run_cmd(`${MCUD_EVENT_SH} ${shell_quote(action)}`);
+				return { ok: true, action, via: 'fifo' };
+			}
+
+			if (action == 'goto') {
+				let page_id = trim(`${req.args?.page_id || ''}`);
+				if (!length(page_id))
+					return { error: 'missing_page_id' };
+				run_cmd(`${MCUD_EVENT_SH} screen ${shell_quote(page_id)}`);
+				return { ok: true, action, page_id, via: 'fifo' };
+			}
+
+			if (action == 'boot') {
+				run_cmd(`${MCUD_EVENT_SH} boot`);
+				return { ok: true, action, via: 'fifo' };
+			}
+
+			return { error: 'invalid_action' };
 		}
 	},
 

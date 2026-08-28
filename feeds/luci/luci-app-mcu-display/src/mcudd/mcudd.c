@@ -3,11 +3,13 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "mcudd_config.h"
@@ -16,6 +18,9 @@
 #include "mcudd_serial.h"
 
 #define MCUDD_STATE_FILE "/tmp/mcud_state"
+#define MCUDD_ACTIVE_FILE "/tmp/mcud_active_screen"
+#define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
+#define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
 #define MCUDD_PAGE_COUNT 6
 
 static volatile sig_atomic_t g_stop;
@@ -30,6 +35,19 @@ static const char *const PAGE_IDS[MCUDD_PAGE_COUNT] = {
 };
 
 static char active_screen[48] = "router_boot";
+
+static void write_active_screen(const char *screen_id)
+{
+	FILE *f;
+
+	if (!screen_id || !screen_id[0])
+		return;
+	f = fopen(MCUDD_ACTIVE_FILE, "w");
+	if (!f)
+		return;
+	fprintf(f, "%s\n", screen_id);
+	fclose(f);
+}
 
 static void on_signal(int sig)
 {
@@ -141,8 +159,65 @@ static int send_cmd_screen(const struct mcudd_config *cfg, int fd, const char *s
 	if (mcudd_protocol_build_cmd_screen(screen_id, out, sizeof(out)) != 0)
 		return -1;
 	strncpy(active_screen, screen_id, sizeof(active_screen) - 1);
+	active_screen[sizeof(active_screen) - 1] = '\0';
+	write_active_screen(active_screen);
 	mcudd_log_proto(cfg, "cmd screen %s", screen_id);
 	return send_line(cfg, fd, out);
+}
+
+static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
+{
+	const char *next = NULL;
+
+	if (!cmd)
+		return -1;
+	if (!strcmp(cmd, "next"))
+		next = page_neighbor(active_screen, "left");
+	else if (!strcmp(cmd, "prev"))
+		next = page_neighbor(active_screen, "right");
+	if (!next)
+		return -1;
+	mcudd_log(LOG_INFO, "nav %s from %s -> %s", cmd, active_screen, next);
+	return send_cmd_screen(cfg, fd, next);
+}
+
+static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *line)
+{
+	char screen[48];
+
+	if (!line || !line[0])
+		return 0;
+	if (!strcmp(line, "prev") || !strcmp(line, "next"))
+		return handle_nav(cfg, fd, line);
+	if (!strcmp(line, "boot"))
+		return send_boot_push(cfg, fd);
+	if (!strncmp(line, "screen ", 7)) {
+		strncpy(screen, line + 7, sizeof(screen) - 1);
+		screen[sizeof(screen) - 1] = '\0';
+		return send_cmd_screen(cfg, fd, screen);
+	}
+	if (!strcmp(line, "net") || !strcmp(line, "refresh"))
+		return send_cmd_screen(cfg, fd, active_screen);
+	mcudd_log(LOG_DEBUG, "ignored fifo: %s", line);
+	return 0;
+}
+
+static int fifo_open(void)
+{
+	const char *path = MCUDD_FIFO_PATH;
+	int fifo_fd;
+
+	unlink(MCUDD_FIFO_FALLBACK);
+	if (mkfifo(path, 0600) != 0 && errno != EEXIST) {
+		path = MCUDD_FIFO_FALLBACK;
+		if (mkfifo(path, 0600) != 0 && errno != EEXIST)
+			return -1;
+	}
+	fifo_fd = open(path, O_RDONLY | O_NONBLOCK);
+	if (fifo_fd < 0)
+		return -1;
+	mcudd_log(LOG_INFO, "command FIFO %s", path);
+	return fifo_fd;
 }
 
 static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *dir)
@@ -171,6 +246,8 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
 		strncpy(active_screen, msg.screen, sizeof(active_screen) - 1);
+		active_screen[sizeof(active_screen) - 1] = '\0';
+		write_active_screen(active_screen);
 		mcudd_log(LOG_INFO, "screen: %s", msg.screen);
 		if (!strcmp(msg.screen, "router_boot"))
 			return send_boot_push(cfg, fd);
@@ -229,6 +306,9 @@ int main(int argc, char **argv)
 	char *line_buf = NULL;
 	size_t line_len = 0;
 	int fd = -1;
+	int fifo_fd = -1;
+	char fifo_buf[128];
+	size_t fifo_len = 0;
 	int ret = 1;
 
 	(void)argc;
@@ -267,6 +347,9 @@ int main(int argc, char **argv)
 	}
 	mcudd_log(LOG_INFO, "UART open on %s", cfg.path);
 
+	fifo_fd = fifo_open();
+	write_active_screen(active_screen);
+
 	if (send_boot_push(&cfg, fd) != 0)
 		mcudd_log(LOG_WARNING, "initial boot push failed");
 
@@ -277,11 +360,20 @@ int main(int argc, char **argv)
 			  cfg.screen_timeout, cfg.screen_timeout_mode);
 
 	while (!g_stop) {
-		struct pollfd pfd = { .fd = fd, .events = POLLIN };
+		struct pollfd pfds[2];
+		int nfds = 1;
 		char ch;
 		int pr, rr;
 
-		pr = poll(&pfd, 1, 500);
+		pfds[0].fd = fd;
+		pfds[0].events = POLLIN;
+		if (fifo_fd >= 0) {
+			pfds[1].fd = fifo_fd;
+			pfds[1].events = POLLIN;
+			nfds = 2;
+		}
+
+		pr = poll(pfds, nfds, 500);
 		if (pr < 0) {
 			if (errno == EINTR)
 				continue;
@@ -289,6 +381,26 @@ int main(int argc, char **argv)
 			break;
 		}
 		if (pr == 0)
+			continue;
+
+		if (fifo_fd >= 0 && (pfds[1].revents & POLLIN)) {
+			char fch;
+
+			while (read(fifo_fd, &fch, 1) == 1) {
+				if (fch == '\n' || fch == '\r') {
+					if (fifo_len > 0) {
+						fifo_buf[fifo_len] = '\0';
+						handle_fifo_line(&cfg, fd, fifo_buf);
+						fifo_len = 0;
+					}
+					continue;
+				}
+				if (fifo_len < sizeof(fifo_buf) - 1)
+					fifo_buf[fifo_len++] = fch;
+			}
+		}
+
+		if (!(pfds[0].revents & POLLIN))
 			continue;
 
 		rr = mcudd_serial_read_char(fd, &ch);
@@ -324,6 +436,10 @@ int main(int argc, char **argv)
 	ret = 0;
 
 out:
+	if (fifo_fd >= 0)
+		close(fifo_fd);
+	unlink(MCUDD_FIFO_PATH);
+	unlink(MCUDD_FIFO_FALLBACK);
 	if (fd >= 0) {
 		mcudd_log(LOG_INFO, "closing UART");
 		mcudd_serial_close(fd);
