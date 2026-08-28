@@ -9,8 +9,8 @@ FAIL=0
 
 sh "$DIR/../scripts/gen-mcud-version.sh" "$DIR/../mcud-version.json" "$SRC/mcudd/mcud_version.h"
 
-echo ">> shell: version manifest sync"
-sh check-version-sync.sh || FAIL=1
+echo ">> shell: pages manifest sync"
+sh check-pages-sync.sh || FAIL=1
 
 echo ""
 echo ">> C: test_mcudd_version.c"
