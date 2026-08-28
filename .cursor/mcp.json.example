@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "openwrt": {
+      "command": "node",
+      "args": ["ABSOLUTE_PATH/openwrt-packages/tools/openwrt-mcp-server/packages/openwrt-mcp-server/dist/bin/openwrt-mcp.js"],
+      "env": {
+        "OPENWRT_TRANSPORT": "ssh",
+        "OPENWRT_HOST": "192.168.8.1",
+        "OPENWRT_USER": "root",
+        "OPENWRT_KEY_PATH": "/Users/YOU/.ssh/id_ed25519",
+        "OPENWRT_TIMEOUT_MS": "15000"
+      }
+    }
+  }
+}

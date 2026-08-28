@@ -10,6 +10,8 @@ feeds/
   luci/<luci-app-*>/Makefile           # LuCI front-ends
   luci/<luci-app-*>/htdocs/...         # JS, CSS, views
 docs/                                  # CI plans, feature plans, research
+scripts/setup-openwrt-mcp.sh           # Host MCP for Cursor (SSH to router)
+.cursor/mcp.json                       # Cursor MCP config (run setup script)
 .github/workflows/                     # ci.yml (PR/push), build-packages.yml (reusable), release.yml
 ```
 
@@ -39,6 +41,10 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
 
 Upstream **speedtest-go** stays on the standard packages feed; this feed only ships the LuCI front-end where applicable.
+
+## Host MCP (not in feed index)
+
+**[openwrt-mcp-server](https://github.com/T-REX-XP/openwrt-mcp-server)** — SSH MCP for ImmortalWrt 25.x (UCI, APK, firewall4). Runs on the **developer machine**, not on-router. Setup: `./scripts/setup-openwrt-mcp.sh` → see `docs/openwrt-mcp-server.md`. Default CM5 host: `192.168.8.1`.
 
 ## Development rules
 

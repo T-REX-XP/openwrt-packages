@@ -3,3 +3,5 @@
 .DS_Store
 private-key.pem
 public-key.pem
+tools/openwrt-mcp-server/
+.cursor/mcp.json

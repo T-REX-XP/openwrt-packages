@@ -25,6 +25,23 @@ Each LuCI app ships its own `*-theme.css` using **luci-theme-bootstrap** CSS var
 
 **Third-party feed note:** packages here are **not** on the official ImmortalWrt index (`immortalwrt.org`). Use compile-time linking (options A–C below) or the published GitHub Pages / Release feed (option D) to install `.apk` files on a running router.
 
+## OpenWrt MCP Server (Cursor / Claude — host-side)
+
+Not a router package — runs on your Mac/PC and manages the CM5 over SSH via [Model Context Protocol](https://modelcontextprotocol.io/).
+
+| Item | Location |
+|------|----------|
+| Upstream | [T-REX-XP/openwrt-mcp-server](https://github.com/T-REX-XP/openwrt-mcp-server/tree/main/packages/openwrt-mcp-server) |
+| Setup script | `./scripts/setup-openwrt-mcp.sh` |
+| Cursor config | `.cursor/mcp.json` (generated; see `.cursor/mcp.json.example`) |
+| Docs | [docs/openwrt-mcp-server.md](docs/openwrt-mcp-server.md) |
+
+```sh
+./scripts/setup-openwrt-mcp.sh   # clone, npm build, write .cursor/mcp.json
+```
+
+Restart Cursor after setup. Requires SSH to the router (`ssh root@192.168.8.1`).
+
 ## IDS & traffic analysis (Orange Pi CM5)
 
 OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for Suricata status, Snort3 modes, NPU limits, and mirror-to-Docker patterns.
