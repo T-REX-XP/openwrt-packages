@@ -28,6 +28,16 @@ if [ "$FAIL" -eq 0 ]; then
 fi
 
 echo ""
+echo ">> C: test_mcudd_pages.c"
+cc -std=c99 -Wall -Wextra -I"$SRC/mcudd" -o test_mcudd_pages \
+	"$SRC/mcudd/mcudd_pages.c" \
+	test_mcudd_pages.c || FAIL=1
+if [ "$FAIL" -eq 0 ]; then
+	./test_mcudd_pages || FAIL=1
+	rm -f test_mcudd_pages
+fi
+
+echo ""
 echo ">> shell: init.d syntax"
 sh -n ../root/etc/init.d/mcudd || FAIL=1
 sh -n ../root/usr/lib/mcud/mcud-event.sh || FAIL=1
@@ -41,6 +51,8 @@ echo ""
 echo ">> node: mcu-display.js syntax"
 if command -v node >/dev/null 2>&1; then
 	node --check ../htdocs/luci-static/resources/view/services/mcu-display.js || FAIL=1
+	node --check ../htdocs/luci-static/resources/mcu-display-core.js || FAIL=1
+	node test-poll-handlers.mjs || FAIL=1
 else
 	echo "SKIP: node not found"
 	FAIL=1

@@ -14,6 +14,7 @@
 
 #include "mcudd_config.h"
 #include "mcudd_log.h"
+#include "mcudd_pages.h"
 #include "mcudd_protocol.h"
 #include "mcudd_serial.h"
 
@@ -21,18 +22,8 @@
 #define MCUDD_ACTIVE_FILE "/tmp/mcud_active_screen"
 #define MCUDD_FIFO_PATH "/var/run/mcudd.fifo"
 #define MCUDD_FIFO_FALLBACK "/tmp/mcudd.fifo"
-#define MCUDD_PAGE_COUNT 6
 
 static volatile sig_atomic_t g_stop;
-
-static const char *const PAGE_IDS[MCUDD_PAGE_COUNT] = {
-	"router_system",
-	"router_network",
-	"router_clients",
-	"router_storage",
-	"router_wifi",
-	"router_security",
-};
 
 static char active_screen[48] = "router_boot";
 
@@ -98,43 +89,6 @@ static int read_boot_state(char *stage, size_t stage_len, char *message, size_t 
 	if (message && msg_len && !message[0])
 		strncpy(message, "Booting...", msg_len - 1);
 	return pct > 100 ? 100 : (pct < 0 ? 0 : pct);
-}
-
-static int page_index(const char *screen_id)
-{
-	int i;
-
-	if (!screen_id || !screen_id[0])
-		return -1;
-	for (i = 0; i < MCUDD_PAGE_COUNT; i++) {
-		if (!strcmp(PAGE_IDS[i], screen_id))
-			return i;
-	}
-	return -1;
-}
-
-static int screen_id_known(const char *screen_id)
-{
-	if (!screen_id || !screen_id[0])
-		return 0;
-	if (!strcmp(screen_id, "router_boot"))
-		return 1;
-	return page_index(screen_id) >= 0;
-}
-
-static const char *page_neighbor(const char *screen_id, const char *dir)
-{
-	int idx;
-
-	if (!screen_id || !strcmp(screen_id, "router_boot"))
-		return PAGE_IDS[0];
-
-	idx = page_index(screen_id);
-	if (idx < 0)
-		idx = 0;
-	if (!dir || !strcmp(dir, "left"))
-		return PAGE_IDS[(idx + 1) % MCUDD_PAGE_COUNT];
-	return PAGE_IDS[(idx + MCUDD_PAGE_COUNT - 1) % MCUDD_PAGE_COUNT];
 }
 
 static int send_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -213,9 +167,9 @@ static int handle_nav(const struct mcudd_config *cfg, int fd, const char *cmd)
 	if (!cmd)
 		return -1;
 	if (!strcmp(cmd, "next"))
-		next = page_neighbor(active_screen, "left");
+		next = mcudd_page_neighbor(active_screen, "left");
 	else if (!strcmp(cmd, "prev"))
-		next = page_neighbor(active_screen, "right");
+		next = mcudd_page_neighbor(active_screen, "right");
 	if (!next)
 		return -1;
 	mcudd_log(LOG_INFO, "nav %s from %s -> %s", cmd, active_screen, next);
@@ -237,7 +191,7 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 	if (!strncmp(line, "screen ", 7)) {
 		strncpy(screen, line + 7, sizeof(screen) - 1);
 		screen[sizeof(screen) - 1] = '\0';
-		if (!screen_id_known(screen)) {
+		if (!mcudd_screen_id_known(screen)) {
 			mcudd_log(LOG_WARNING, "ignore fifo screen: %s", screen);
 			return -1;
 		}
@@ -295,7 +249,7 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			(int)msg.type, (int)msg.scope, msg.screen);
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
-		if (!screen_id_known(msg.screen)) {
+		if (!mcudd_screen_id_known(msg.screen)) {
 			mcudd_log(LOG_WARNING, "ignore unknown screen evt: %s", msg.screen);
 			return 0;
 		}

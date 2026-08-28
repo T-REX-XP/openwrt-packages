@@ -5,8 +5,8 @@
 event="${1:-}"
 screen_id="${2:-}"
 
-fifo="/var/run/mcudd.fifo"
-[ -p "$fifo" ] || fifo="/tmp/mcudd.fifo"
+fifo="${MCUDD_FIFO:-/var/run/mcudd.fifo}"
+[ -p "$fifo" ] || fifo="${MCUDD_FIFO_FALLBACK:-/tmp/mcudd.fifo}"
 [ -p "$fifo" ] || exit 0
 
 case "$event" in

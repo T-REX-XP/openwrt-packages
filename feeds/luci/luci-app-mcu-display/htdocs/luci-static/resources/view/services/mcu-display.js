@@ -437,10 +437,12 @@ return view.extend({
 		this._liveCfg = cfg || {};
 		this._lastStatusFp = '';
 
-		if (this._livePollId != null)
-			poll.remove(this._livePollId);
+		if (this._livePollFn) {
+			poll.remove(this._livePollFn);
+			this._livePollFn = null;
+		}
 
-		this._livePollId = poll.add(function() {
+		this._livePollFn = function() {
 			return callGetStatus().then(function(st) {
 				st = rpcData(st, {});
 				var fp = [
@@ -452,28 +454,30 @@ return view.extend({
 				self._lastStatusFp = fp;
 				updateLiveStatus(st, self._liveCfg);
 			});
-		}, LIVE_POLL_SEC);
+		};
+		poll.add(this._livePollFn, LIVE_POLL_SEC);
 	},
 
 	stopLivePoll: function() {
-		if (this._livePollId != null) {
-			poll.remove(this._livePollId);
-			this._livePollId = null;
+		if (this._livePollFn) {
+			poll.remove(this._livePollFn);
+			this._livePollFn = null;
 		}
 	},
 
 	startLogPoll: function() {
 		var self = this;
 		this.stopLogPoll();
-		this._logPollId = poll.add(function() {
+		this._logPollFn = function() {
 			return self.refreshLogs(true);
-		}, LOG_POLL_SEC);
+		};
+		poll.add(this._logPollFn, LOG_POLL_SEC);
 	},
 
 	stopLogPoll: function() {
-		if (this._logPollId != null) {
-			poll.remove(this._logPollId);
-			this._logPollId = null;
+		if (this._logPollFn) {
+			poll.remove(this._logPollFn);
+			this._logPollFn = null;
 		}
 	},
 

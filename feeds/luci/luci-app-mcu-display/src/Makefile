@@ -10,6 +10,7 @@ LDFLAGS ?= -lpthread
 
 MCUDD_SRCS := \
 	mcudd/mcudd.c \
+	mcudd/mcudd_pages.c \
 	mcudd/mcudd_config.c \
 	mcudd/mcudd_log.c \
 	mcudd/mcudd_serial.c \
