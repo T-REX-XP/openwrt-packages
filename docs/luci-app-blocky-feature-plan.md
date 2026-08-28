@@ -1,16 +1,27 @@
 # luci-app-blocky — feature analysis & implementation plan
 
-*Orange Pi CM5 / ImmortalWrt feed · Last updated: 2026-06-21.*
+*Orange Pi CM5 / ImmortalWrt feed · **Historical reference** — see [luci-app-blocky-review-and-backlog.md](luci-app-blocky-review-and-backlog.md) for the active backlog (2026-08).*
 
 This document compares three surfaces:
 
 | Surface | Role |
 |---------|------|
-| **[luci-app-blocky](../feeds/luci/luci-app-blocky/)** | LuCI app shipped in this feed (Services + Status views) |
-| **[Blocky REST API](https://github.com/0xERR0R/blocky/blob/main/docs/api/openapi.yaml)** | Upstream control plane (`http://127.0.0.1:4000/api`, default) |
-| **[blocky-ui](https://github.com/GabeDuarteM/blocky-ui)** | Standalone Next.js dashboard (reference UX, v1.9.x) |
+| **[luci-app-blocky](../feeds/luci/luci-app-blocky/)** | LuCI app (Services → Blocky) |
+| **[Blocky REST API](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)** | Upstream control plane (`http://127.0.0.1:4000/api`, default) |
+| **[blocky-ui](https://github.com/GabeDuarteM/blocky-ui)** | Standalone Next.js dashboard (reference UX) |
 
-Target Blocky version in feed: **v0.32.1** ([release notes](https://github.com/0xERR0R/blocky/releases/tag/v0.32.1)).
+Target Blocky version in feed: **v0.34.0** ([release notes](https://github.com/0xERR0R/blocky/releases/tag/v0.34.0)). LuCI **PKG_RELEASE 49+**.
+
+### 2026-08 update (vs original 2026-06 plan)
+
+| Area | Then | Now |
+|------|------|-----|
+| JS layout | Monolithic `blocky-common.js` (~4.6k lines) | Split modules: `blocky-base.js`, `blocky-tab-*.js`, `blocky-parse-core.js`, `blocky-config-core.js` |
+| Tabs | 7 incl. separate **Controls** | **7 tabs:** Dashboard (incl. controls), Statistics, Block lists, Configuration, DNS Query, Logs (query + service), Debug |
+| rpcd | sync, refresh, http, read_query_log, get_version | + **`getStatus`**, **`getLogs`**, **`validate_config`** |
+| Config UX | Structured form + raw YAML | + validate before save, upstream groups editor, sync indicators |
+| Tests | None | Host-side suite (`run-tests.sh`) + CI gate |
+| Daily ops | — | [blocky-daily-ops.md](blocky-daily-ops.md) |
 
 ---
 
@@ -109,9 +120,9 @@ UCI `/etc/config/blocky`: `main.dnsmasq_forward`, `main.refresh_period`, `blockl
 
 ---
 
-## 2. Blocky REST API (v0.32.x)
+## 2. Blocky REST API (v0.34.x)
 
-OpenAPI: [docs/api/openapi.yaml](https://github.com/0xERR0R/blocky/blob/main/docs/api/openapi.yaml)  
+OpenAPI: [docs/api/openapi.yaml](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)  
 Base path: **`/api`** on the HTTP port (default **4000**).
 
 ### 2.1 Endpoints
@@ -125,20 +136,23 @@ Base path: **`/api`** on the HTTP port (default **4000**).
 | `POST` | `/lists/refresh` | Reload allow/deny lists | Yes |
 | `POST` | `/query` | `{ query, type }` → resolution result | Yes |
 | `GET` | `/stats` | Rolling **24h** in-memory statistics | Yes (primary dashboard source) |
-| — | `GET /metrics` | Prometheus text exposition | Yes (LuCI only) |
+| — | `GET /metrics` | Prometheus text exposition | Yes (LuCI live charts) |
+| — | `blocky validate --config` | CLI config validation | Yes (rpcd `validate_config`) |
 
-### 2.2 `GET /api/stats` payload (high level)
+### 2.2 `GET /api/stats` payload (Blocky 0.34)
 
-Returns **`503`** if `statistics` disabled in config.
+Returns **`503`** if `statistics` disabled. Timestamps **`start`**, **`end`**, and **`perHour[].hour`** are UTC (RFC 3339).
 
 | Section | Content |
 |---------|---------|
-| `summary` | `queries`, `blocked`, `cached`, `forwarded`, `local`, `dropped`, `errors`, `avgResponseMs`, `cacheHitRate` |
-| `perHour[]` | `{ hour, queries, blocked }` — UTC hourly buckets |
+| `summary` | `queries`, `cached`, `forwarded`, `blocked`, **`filtered`**, `local`, `dropped`, `errors`, `avgResponseMs`, `cacheHitRate` — curated categories (blocked ≠ filtered) |
+| `perHour[]` | `{ hour, queries, blocked, filtered }` |
 | `topDomains`, `topBlockedDomains`, `topClients` | `[{ name, count }]` |
 | `byQueryType`, `byResponseType`, `byResponseCode` | Count maps |
 | `lists` | Per-group allow/deny list entry counts |
 | `cache` | `{ entries }` current cache size |
+
+LuCI **Statistics** tab shows **Query outcome breakdown** from `summary.*` (0.34+).
 
 Independent of Prometheus; ideal for LuCI on a router (no extra DB).
 

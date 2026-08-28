@@ -120,6 +120,17 @@ test('parseDenylistGroupCounts', () => {
 	assert.equal(bp.mergeDenyCounts({ a: 5 }, { a: 2 }).a, 5);
 });
 
+test('normalizeStatsSummary maps Blocky 0.34 fields', () => {
+	const stats = JSON.parse(readFixture('stats.json'));
+	const s = bp.normalizeStatsSummary(stats.summary);
+	assert.equal(s.queries, 1000);
+	assert.equal(s.cached, 420);
+	assert.equal(s.filtered, 45);
+	assert.equal(s.errors, 15);
+	assert.equal(s.avgResponseMs, 12);
+	assert.equal(s.cacheHitRate, 42.5);
+});
+
 test('parseBlockyStatsResponse', () => {
 	const ok = bp.parseBlockyStatsResponse({
 		ok: true,

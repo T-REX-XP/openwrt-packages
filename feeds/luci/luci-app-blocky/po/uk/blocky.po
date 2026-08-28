@@ -1409,6 +1409,36 @@ msgstr "Файл джерела: %s"
 msgid "Run DNS query for this domain"
 msgstr "Виконати DNS-запит для цього домену"
 
+msgid "Query outcome breakdown"
+msgstr "Розподіл результатів запитів"
+
+msgid "UTC window: %s → %s"
+msgstr "UTC вікно: %s → %s"
+
+msgid "Rolling 24-hour window (Blocky 0.34+ curated summary categories)."
+msgstr "Ковзне 24-годинне вікно (категорії summary Blocky 0.34+)."
+
+msgid "Cached responses"
+msgstr "Кешовані відповіді"
+
+msgid "Forwarded to upstream"
+msgstr "Передано upstream"
+
+msgid "Blocked (denylist / rebind)"
+msgstr "Заблоковано (denylist / rebind)"
+
+msgid "Filtered (query type / NOTFQDN)"
+msgstr "Відфільтровано (тип запиту / NOTFQDN)"
+
+msgid "Local / authoritative"
+msgstr "Локальні / authoritative"
+
+msgid "Dropped"
+msgstr "Відкинуто"
+
+msgid "Resolver / DNSSEC errors"
+msgstr "Помилки resolver / DNSSEC"
+
 msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Dashboard."
 msgstr "Після зміни DNS-порту в YAML збережіть і перезапустіть Blocky, потім знову перемкніть це, щоб dnsmasq відповідав. Оновлення списків — Refresh lists на Dashboard."
 

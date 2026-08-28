@@ -202,7 +202,13 @@ jobs:
           feed_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/packages.adb"
           index_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/"
           key_url="${base}public-key.pem"
-          apk_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/blocky-0.32.1-r2.apk"
+          sample_apk="$(find "public/${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}" -maxdepth 1 -name '*.apk' -print | head -1)"
+          if [[ -n "$sample_apk" ]]; then
+            apk_name="$(basename "$sample_apk")"
+            apk_url="${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/$apk_name"
+          else
+            apk_url=""
+          fi
           echo "Checking $feed_url"
           for attempt in 1 2 3 4 5 6; do
             if curl -fsI "$feed_url" | head -1 | grep -q '200'; then
@@ -210,13 +216,10 @@ jobs:
               curl -fsI "$index_url" | head -1 | grep -q '200' && echo "Feed index: $index_url"
               curl -fsI "$key_url" | head -1 | grep -q '200' && echo "Public key: $key_url" || \
                 echo "::warning::public-key.pem not reachable (set PUBLIC_KEY or PRIVATE_KEY secret)"
-              if curl -fsI "$apk_url" | head -1 | grep -q '200'; then
+              if [[ -n "$apk_url" ]] && curl -fsI "$apk_url" | head -1 | grep -q '200'; then
                 echo "Sample package: $apk_url"
-              else
-                first_apk="$(curl -fs "$index_url" | grep -oE 'href="[^"]+\.apk"' | head -1 | sed 's/href="//;s/"//')"
-                if [[ -n "$first_apk" ]]; then
-                  curl -fsI "${base}${{ env.FEED_CHANNEL }}/${{ env.PKG_ARCH }}/$first_apk" | head -1
-                fi
+              elif [[ -n "$apk_url" ]]; then
+                echo "::warning::Sample .apk not reachable: $apk_url"
               fi
               exit 0
             fi

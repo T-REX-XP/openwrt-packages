@@ -205,7 +205,9 @@ Add `private-key.pem` to GitHub **Settings → Secrets → Actions** as `PRIVATE
 - [OpenWrt feeds](https://openwrt.org/docs/guide-developer/feeds)
 - [CI plan](docs/ci-github-actions-plan.md)
 - [CI/CD optimization report](docs/ci-github-actions-optimization.md)
-- [luci-app-blocky feature plan](docs/luci-app-blocky-feature-plan.md)
+- [luci-app-blocky feature plan](docs/luci-app-blocky-feature-plan.md) — API parity history
+- [luci-app-blocky review & backlog](docs/luci-app-blocky-review-and-backlog.md) — active work tracker
+- [Blocky daily operations](docs/blocky-daily-ops.md) — router admin quick reference
 - [SSD1306 OLED research](docs/ssd1306-oled-openwrt-research.md)
 - [CM5 + Waveshare 1.3" OLED HAT wiring](docs/cm5-waveshare-oled-hat-wiring.md)
 - [oledd lifecycle, events, and boot stages](docs/oledd-lifecycle-and-events.md)

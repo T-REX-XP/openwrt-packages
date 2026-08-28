@@ -2,18 +2,16 @@
 
 **Date:** 2026-08-28  
 **Scope:** `feeds/luci/luci-app-blocky/` + `feeds/packages/blocky/`  
-**Target Blocky:** **v0.34.0** (feed) · LuCI **PKG_RELEASE 41**  
+**Target Blocky:** **v0.34.0** (feed) · LuCI **PKG_RELEASE 49**  
 **Supersedes:** [luci-app-blocky-feature-plan.md](luci-app-blocky-feature-plan.md) for active backlog (that doc remains useful as API/history reference).
 
 ---
 
 ## Executive summary
 
-**luci-app-blocky is feature-rich but monolithic and untested.** The prior feature plan (2026-06-21) marked most blocky-ui parity items as *Done*, yet the codebase has grown into a **~4,650-line** single module (`blocky-common.js`) with **zero automated tests** and **no CI test step**. Blocky upstream is now **0.34.x**; the old plan still references **0.32.1**.
+**luci-app-blocky backlog program complete (33/34 items; F-5 deferred).** The monolithic `blocky-common.js` was split into tab modules + parse/config cores; **45 automated tests** run in CI (`test-blocky`). Blocky upstream is **0.34.x**; the LuCI app exposes validate-before-apply config, sticky status bar, Debug tab, merged Dashboard controls, query-log → DNS Query workflow, and 0.34 stats outcome breakdown.
 
-For **daily use on a router**, admins need: reliable service status, syslog/debug visibility, safe config apply, clear dnsmasq integration, query log review, and quick blocking operations — without full page reloads or YAML expertise. Much of this exists, but gaps remain (especially **service logs**, **config validation**, **test coverage**, and **maintainability**).
-
-**Recommendation:** Treat this as a **quality + daily-ops hardening** program in 6 epics (~8–12 PRs), with **100% unit coverage on all pure logic** (JS helpers, shell helpers, rpcd ucode) before large UI additions.
+**Remaining:** optional CM5 image inclusion (F-5) only if Blocky returns to default `DEVICE_PACKAGES`.
 
 ---
 
@@ -24,16 +22,20 @@ For **daily use on a router**, admins need: reliable service status, syslog/debu
 ```text
 feeds/luci/luci-app-blocky/
   htdocs/luci-static/resources/
-    blocky-common.js          # ~4648 lines — API, parsers, all tabs, config form
-    blocky-theme.css          # ~1319 lines — Bootstrap vars, charts, dark mode
-    view/services/blocky.js   # thin wrapper → createBlockyView()
-    view/status/blocky.js     # redirect → #statistics
-  root/usr/share/rpcd/ucode/luci.blocky.uc   # sync, refresh, http_request, read_query_log, get_version
+    blocky-common.js          # thin LuCI loader (~170 lines)
+    blocky-base.js              # RPC, shared helpers, apply flow
+    blocky-parse-core.js        # metrics, stats, CSV, ports (testable)
+    blocky-config-core.js       # YAML ↔ settings (testable)
+    blocky-tab-*.js             # Dashboard, Statistics, Block lists, Config, Query, Logs, Debug
+    blocky-theme.css            # Bootstrap vars, charts, dark mode
+    view/services/blocky.js     # thin wrapper → createBlockyView()
+    view/status/blocky.js       # redirect → #statistics
+  root/usr/share/rpcd/ucode/luci.blocky.uc   # sync, refresh, http_request, validate, getStatus, getLogs
   root/usr/share/rpcd/acl.d/luci-app-blocky.json
   root/usr/share/luci/menu.d/luci-app-blocky.json
   root/usr/share/luci-app-blocky/blocklist-catalog.json
   po/en/blocky.po, po/uk/blocky.po
-  tests/                      # ❌ missing
+  tests/                        # run-tests.sh (45 tests, macOS + CI)
 
 feeds/packages/blocky/
   files/config.yml              # 0.34.x defaults (localhost :5353 / :4000, CSV query log)
@@ -46,13 +48,13 @@ feeds/packages/blocky/
 
 | Tab | Purpose | Daily-use fit |
 |-----|---------|---------------|
-| **Dashboard** | `/api/stats` cards, pause controls, ad-blocker pipeline, live Prometheus charts | Good |
-| **Statistics** | 24h `/api/stats` detail (tops, breakdown, list inventory, cache) | Good |
-| **Block lists** | UCI blocklists, catalog presets, sync vs refresh | Confusing labels |
-| **Configuration** | Structured settings + Advanced YAML; dnsmasq forward | Good but needs validation |
-| **Controls** | Blocking, operations, init.d enable/start/stop | Overlaps Dashboard |
+| **Dashboard** | Stats cards, pause controls, operations, ad-blocker pipeline, live charts | Good |
+| **Statistics** | 24h `/api/stats` detail + query outcome breakdown (0.34) | Good |
+| **Block lists** | UCI blocklists, catalog presets, sync vs refresh, sync pill | Good |
+| **Configuration** | Structured settings + Advanced YAML; validate before apply | Good |
 | **DNS Query** | POST `/api/query` | Good |
-| **Logs** | CSV query log via rpcd (512 KiB cap, filters, pagination) | Partial — not service syslog |
+| **Logs** | Query log CSV + service log sub-tabs; filters, copy, domain → query | Good |
+| **Debug** | `logread -e blocky`, copy bundle | Good |
 
 ### 1.3 Data paths
 
@@ -253,7 +255,7 @@ After the program, a router admin should be able to **without SSH**:
 | B-1 | Add `getStatus` rpcd: service running, blocking status, dnsmasq forward, ports, stats ok, version | done | `getStatus` RPC; `loadBlockyPageData` uses it |
 | B-2 | Add `getLogs` rpcd: `logread -e blocky` (line cap, e.g. 200 KiB) | done | ACL + logread exec; 200 KiB cap |
 | B-3 | Add **Debug** tab: refresh, copy, auto-load, log level hint | done | `blocky-tab-debug.js`; auto-load on open |
-| B-4 | Sticky **status bar** (service, blocking, dnsmasq, API reachability) | done | Above tabs; links to Controls/Config/Debug |
+| B-4 | Sticky **status bar** (service, blocking, dnsmasq, API reachability) | done | Above tabs; links to Dashboard/Config/Debug |
 | B-5 | Unit tests for `getStatus` response shaping (mock popen) | done | `blocky-status.test.mjs` (4 tests) |
 
 ---
@@ -288,11 +290,11 @@ After the program, a router admin should be able to **without SSH**:
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
 | E-1 | Merge **Controls** into **Dashboard** (remove duplicate tab) | done | `#controls` → dashboard; controls grid on Dashboard |
-| E-2 | Refresh `luci-app-blocky-feature-plan.md` API table for 0.34 | todo | Version numbers aligned |
-| E-3 | Audit new `/api/stats` fields in 0.34; add widgets if useful | todo | Changelog note in PKG_RELEASE |
+| E-2 | Refresh `luci-app-blocky-feature-plan.md` API table for 0.34 | done | v0.34 OpenAPI + 2026-08 architecture note |
+| E-3 | Audit new `/api/stats` fields in 0.34; add widgets if useful | done | Query outcome breakdown panel + `normalizeStatsSummary` |
 | E-4 | `disableIf` / `optionSelected` audit on all dynamic selects | done | N/A — JS views only; no CBI disableIf usage |
 | E-5 | Mobile pass: charts + tables scroll; tab menu wraps | done | Tab menu wrap + controls grid stacks ≤1200px |
-| E-6 | Update `po/uk/blocky.po` for new strings | done | en/uk updated with Epic C–E strings |
+| E-6 | Update `po/en/blocky.po` and `po/uk/blocky.po` for new strings | done | en/uk updated with Epic C–E strings |
 
 ---
 
@@ -300,10 +302,10 @@ After the program, a router admin should be able to **without SSH**:
 
 | ID | Task | Status | Acceptance criteria |
 |----|------|--------|---------------------|
-| F-1 | Bump `luci-app-blocky` PKG_RELEASE on each epic merge | todo | Per AGENTS.md |
-| F-2 | Fix `release.yml` hardcoded `blocky-0.32.1-r2.apk` example | todo | Dynamic or version-agnostic doc |
-| F-3 | Update [README.md](../README.md) Blocky section + CM5 optional install | todo | Points to this backlog |
-| F-4 | Add `docs/blocky-daily-ops.md` user guide (screenshots optional) | todo | dnsmasq forward, lists, debug |
+| F-1 | Bump `luci-app-blocky` PKG_RELEASE on each epic merge | done | Per AGENTS.md (PKG_RELEASE 49) |
+| F-2 | Fix `release.yml` hardcoded `blocky-0.32.1-r2.apk` example | done | Dynamic first `.apk` in feed tree |
+| F-3 | Update [README.md](../README.md) Blocky section + CM5 optional install | done | Links to backlog + daily-ops |
+| F-4 | Add `docs/blocky-daily-ops.md` user guide (screenshots optional) | done | First-boot, daily checks, troubleshooting |
 | F-5 | Optional: `luci-app-blocky` in `IMMORTALWRT_EXPECT_PACKAGES` when Blocky enabled on CM5 | defer | Only if Blocky returns to CM5 image |
 
 ---
@@ -358,9 +360,9 @@ Each PR: bump `PKG_RELEASE`, `node --check` on JS, `run-tests.sh` green.
 | B Status & Debug | 5 | 5 | 100% |
 | C Config safety | 6 | 6 | 100% |
 | D Logs workflow | 5 | 5 | 100% |
-| E UX & 0.34 | 6 | 4 | 67% |
-| F Docs & release | 4 | 0 | 0% |
-| **Total** | **34** | **28** | **82%** |
+| E UX & 0.34 | 6 | 6 | 100% |
+| F Docs & release | 4 | 4 | 100% |
+| **Total** | **34** | **33** | **97%** |
 
 Update this table as backlog items move to `done`.
 

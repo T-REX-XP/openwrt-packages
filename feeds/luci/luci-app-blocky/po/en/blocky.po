@@ -1416,3 +1416,36 @@ msgstr "Start Blocky from the Dashboard controls below or reboot."
 
 msgid "Blocking, list maintenance, cache flush, and OpenWrt service actions."
 msgstr "Blocking, list maintenance, cache flush, and OpenWrt service actions."
+
+msgid "Run DNS query for this domain"
+msgstr "Run DNS query for this domain"
+
+msgid "Query outcome breakdown"
+msgstr "Query outcome breakdown"
+
+msgid "UTC window: %s → %s"
+msgstr "UTC window: %s → %s"
+
+msgid "Rolling 24-hour window (Blocky 0.34+ curated summary categories)."
+msgstr "Rolling 24-hour window (Blocky 0.34+ curated summary categories)."
+
+msgid "Cached responses"
+msgstr "Cached responses"
+
+msgid "Forwarded to upstream"
+msgstr "Forwarded to upstream"
+
+msgid "Blocked (denylist / rebind)"
+msgstr "Blocked (denylist / rebind)"
+
+msgid "Filtered (query type / NOTFQDN)"
+msgstr "Filtered (query type / NOTFQDN)"
+
+msgid "Local / authoritative"
+msgstr "Local / authoritative"
+
+msgid "Dropped"
+msgstr "Dropped"
+
+msgid "Resolver / DNSSEC errors"
+msgstr "Resolver / DNSSEC errors"

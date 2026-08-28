@@ -925,6 +925,25 @@ function statsResultFromStatus(st) {
 	return { ok: false, disabled: false, data: null };
 }
 
+function normalizeStatsSummary(summary) {
+	summary = summary && typeof summary === 'object' ? summary : {};
+
+	return {
+		queries: Number(summary.queries) || 0,
+		cached: Number(summary.cached) || 0,
+		forwarded: Number(summary.forwarded) || 0,
+		blocked: Number(summary.blocked) || 0,
+		filtered: Number(summary.filtered) || 0,
+		local: Number(summary.local) || 0,
+		dropped: Number(summary.dropped) || 0,
+		errors: Number(summary.errors) || 0,
+		avgResponseMs: summary.avgResponseMs != null && summary.avgResponseMs !== ''
+			? Number(summary.avgResponseMs)
+			: null,
+		cacheHitRate: Number(summary.cacheHitRate) || 0
+	};
+}
+
 function parseYamlDenylists(yaml) {
 	var lines = safeString(yaml).split('\n');
 	var map = {};
@@ -1081,6 +1100,7 @@ return {
 	parseCsvRows: parseCsvRows,
 	formatQueryLogRowsText: formatQueryLogRowsText,
 	parseBlockyStatsResponse: parseBlockyStatsResponse,
+	normalizeStatsSummary: normalizeStatsSummary,
 	validateHttpRequest: validateHttpRequest,
 	allowedLogDir: allowedLogDir,
 	isValidQueryLogFilename: isValidQueryLogFilename,

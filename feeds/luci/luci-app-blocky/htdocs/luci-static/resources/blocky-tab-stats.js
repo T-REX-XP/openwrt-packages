@@ -113,6 +113,7 @@ function gatherOverviewMetrics(statsResult, metricsText) {
 	var cacheHitRate = summary ? summary.cacheHitRate : promOverview.cacheHitRate;
 	var listedEntries = stats ? sumDenylistEntries(stats) : promOverview.denylistEntries;
 	var avgMs = summary ? summary.avgResponseMs : null;
+	var summaryBreakdown = stats && stats.summary ? bp.normalizeStatsSummary(stats.summary) : null;
 	var sourceDetail;
 
 	if (stats)
@@ -135,6 +136,10 @@ function gatherOverviewMetrics(statsResult, metricsText) {
 			? formatCompactNumber(listedEntries)
 			: formatNumber(listedEntries),
 		avgMs: avgMs,
+		summaryBreakdown: summaryBreakdown,
+		statsWindow: stats && stats.start && stats.end
+			? stats.start + ' — ' + stats.end
+			: '',
 		sourceDetail: sourceDetail,
 		hasStats: !!stats,
 		hasPrometheus: promOverview.hasMetrics
@@ -578,6 +583,34 @@ function renderCacheWidget(stats, onRefresh) {
 	]);
 }
 
+function renderStatsOutcomePanel(stats) {
+	var summary = bp.normalizeStatsSummary(stats && stats.summary);
+	var rows = [
+		[ _('Cached responses'), formatNumber(summary.cached) ],
+		[ _('Forwarded to upstream'), formatNumber(summary.forwarded) ],
+		[ _('Blocked (denylist / rebind)'), formatNumber(summary.blocked) ],
+		[ _('Filtered (query type / NOTFQDN)'), formatNumber(summary.filtered) ],
+		[ _('Local / authoritative'), formatNumber(summary.local) ],
+		[ _('Dropped'), formatNumber(summary.dropped) ],
+		[ _('Resolver / DNSSEC errors'), formatNumber(summary.errors) ]
+	];
+	var windowNote = stats && stats.start && stats.end
+		? _('UTC window: %s → %s').format(stats.start, stats.end)
+		: _('Rolling 24-hour window (Blocky 0.34+ curated summary categories).');
+
+	return E('div', { 'class': 'blocky-dash-panel blocky-stats-outcome-panel' }, [
+		E('div', { 'class': 'blocky-dash-panel-head' }, [
+			E('div', {}, [
+				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Query outcome breakdown') ]),
+				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [ windowNote ])
+			])
+		]),
+		E('div', { 'class': 'blocky-stat-table' }, rows.map(function(row) {
+			return renderStatRow(row[0], row[1]);
+		}))
+	]);
+}
+
 function renderStatsDashboard(statsResult, onRefresh) {
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 
@@ -590,6 +623,7 @@ function renderStatsDashboard(statsResult, onRefresh) {
 	}
 
 	return E('div', { 'class': 'blocky-stats-dashboard' }, [
+		renderStatsOutcomePanel(stats),
 		E('div', { 'class': 'blocky-dash-grid' }, [
 			renderStatsHourlyChart(stats),
 			renderStatsTopLists(stats, 10)
@@ -744,6 +778,7 @@ return {
 	renderStatsTopLists: renderStatsTopLists,
 	renderMapBreakdown: renderMapBreakdown,
 	renderStatsBreakdown: renderStatsBreakdown,
+	renderStatsOutcomePanel: renderStatsOutcomePanel,
 	renderListInventory: renderListInventory,
 	renderCacheWidget: renderCacheWidget,
 	renderStatsDashboard: renderStatsDashboard,

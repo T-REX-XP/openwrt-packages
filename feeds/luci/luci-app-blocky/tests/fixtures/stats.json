@@ -1,9 +1,35 @@
 {
-  "summary": { "total": 1000 },
+  "start": "2026-01-01T10:00:00Z",
+  "end": "2026-01-02T10:00:00Z",
+  "summary": {
+    "queries": 1000,
+    "cached": 420,
+    "forwarded": 380,
+    "blocked": 120,
+    "filtered": 45,
+    "local": 15,
+    "dropped": 5,
+    "errors": 15,
+    "avgResponseMs": 12,
+    "cacheHitRate": 42.5
+  },
+  "perHour": [
+    { "hour": "2026-01-02T09:00:00Z", "queries": 500, "blocked": 60, "filtered": 20 }
+  ],
   "lists": {
     "denylist": {
       "hagezi_light": 45000,
       "urlhaus": 1200
-    }
-  }
+    },
+    "allowlist": {}
+  },
+  "cache": {
+    "entries": 128
+  },
+  "topClients": [],
+  "topDomains": [],
+  "topBlockedDomains": [],
+  "byQueryType": {},
+  "byResponseType": {},
+  "byResponseCode": {}
 }

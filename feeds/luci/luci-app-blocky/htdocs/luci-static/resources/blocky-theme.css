@@ -508,6 +508,10 @@
 	margin: 0;
 }
 
+.blocky-stats-outcome-panel {
+	margin-bottom: 1em;
+}
+
 .blocky-live-metrics-section {
 	display: flex;
 	flex-direction: column;
