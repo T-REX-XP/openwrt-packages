@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// emptyPath is the UCI file used when LoadPath("") is called (overridable in tests).
+var emptyPath = DefaultUCIPath
+
 // Load reads /etc/config/mcud, or returns Default() if the file is missing/invalid.
 func Load() Config {
 	cfg, _, err := LoadPath("")
@@ -18,10 +21,10 @@ func Load() Config {
 }
 
 // LoadPath loads an OpenWrt UCI mcud file.
-// Empty path uses DefaultUCIPath (/etc/config/mcud); if missing, returns Default().
+// Empty path uses emptyPath (/etc/config/mcud); if missing, returns Default().
 func LoadPath(path string) (Config, string, error) {
 	if path == "" {
-		path = DefaultUCIPath
+		path = emptyPath
 		if _, err := os.Stat(path); err != nil {
 			return Default(), "(defaults)", nil
 		}
@@ -85,9 +88,6 @@ func parseUCIOption(line string) (key, val string, ok bool) {
 	}
 	key = rest[:sp]
 	raw := strings.TrimSpace(rest[sp+1:])
-	if raw == "" {
-		return "", "", false
-	}
 	switch raw[0] {
 	case '\'', '"':
 		q := raw[0]

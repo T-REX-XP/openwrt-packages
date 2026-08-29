@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/daemon"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/engine"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 )
 
@@ -25,11 +25,11 @@ func openFIFO() (*os.File, string, error) {
 	return nil, "", errors.New("fifo requires linux")
 }
 
-func runPollLoop(e *daemon.Engine, tp transport.LineTransport, fifo *os.File, stop <-chan struct{}) error {
+func runPollLoop(e *engine.Engine, tp transport.LineTransport, fifo *os.File, stop <-chan struct{}) error {
 	return errors.New("poll loop requires linux")
 }
 
-func runMockLoop(e *daemon.Engine, buf *transport.Buffer, fifo *os.File, stop <-chan struct{}) error {
+func runMockLoop(e *engine.Engine, buf *transport.Buffer, fifo *os.File, stop <-chan struct{}) error {
 	for {
 		select {
 		case <-stop:

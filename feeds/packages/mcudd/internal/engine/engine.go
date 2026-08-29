@@ -1,4 +1,4 @@
-package daemon
+package engine
 
 import (
 	"fmt"
@@ -10,10 +10,13 @@ import (
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/metrics"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/nav"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/rdcp"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/proto"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/session"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/state"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 )
+
+const MaxLeaveBootAttempts = 3
 
 type Logger interface {
 	Infof(string, ...any)
@@ -21,26 +24,28 @@ type Logger interface {
 	Debugf(string, ...any)
 }
 
-// Engine orchestrates RDCP over a line transport.
-type Engine struct {
-	Cfg      config.Config
-	Transport transport.LineTransport
-	Nav      *nav.Controller
-	Metrics  metricsProvider
-	State    state.Writer
-	Log      Logger
-
-	BootStatePath string
-	VersionReqID  uint
-	PingReqID     uint
-	LastEchoSent  string
-	Link          state.LinkTest
-
-	lineBuf []byte
+type metricsProvider interface {
+	Build(scope proto.Scope) (string, error)
 }
 
-type metricsProvider interface {
-	Build(scope rdcp.Scope) (string, error)
+// Engine orchestrates RDCP over a line transport.
+type Engine struct {
+	Cfg       config.Config
+	Transport transport.LineTransport
+	Nav       *nav.Controller
+	Metrics   metricsProvider
+	State     state.Writer
+	Log       Logger
+	Session   session.Session
+
+	BootStatePath      string
+	VersionReqID       uint
+	PingReqID          uint
+	Link               state.LinkTest
+	LeaveBootAttempts  int
+	leaveBootGaveUp    bool
+
+	lineBuf []byte
 }
 
 func New(cfg config.Config, tp transport.LineTransport) *Engine {
@@ -69,27 +74,22 @@ func (e *Engine) send(line string) error {
 
 func (e *Engine) Startup() error {
 	bs := state.ReadBootState(e.BootStatePath)
-	out, err := rdcp.BuildPushBoot(bs.Stage, bs.Message, uint(bs.Pct))
+	out, err := proto.BuildPushBoot(bs.Stage, bs.Message, uint(bs.Pct))
 	if err != nil {
 		return err
 	}
 	if err := e.send(out); err != nil {
 		return err
 	}
-	out, err = rdcp.BuildPushConfig(e.Cfg.ScreenTimeoutSec, e.Cfg.ScreenTimeoutMode)
-	if err != nil {
-		return err
-	}
+	out, _ = proto.BuildPushConfig(e.Cfg.ScreenTimeoutSec, e.Cfg.ScreenTimeoutMode)
 	if err := e.send(out); err != nil {
 		return err
 	}
-	if err := e.send(rdcp.BuildPushHello()); err != nil {
+	if err := e.send(proto.BuildPushHello()); err != nil {
 		return err
 	}
 	e.VersionReqID++
-	if out, err = rdcp.BuildReqVersion(e.VersionReqID); err != nil {
-		return err
-	}
+	out, _ = proto.BuildReqVersion(e.VersionReqID)
 	if err := e.send(out); err != nil {
 		return err
 	}
@@ -101,17 +101,23 @@ func (e *Engine) LeaveBoot() error {
 	if !bs.Ready() || e.Nav.ActiveScreen != pages.BootScreen {
 		return nil
 	}
-	if err := e.pushBoot(); err != nil {
-		if e.Log != nil {
-			e.Log.Warnf("leave boot push failed: %v", err)
+	if e.LeaveBootAttempts >= MaxLeaveBootAttempts {
+		if e.Log != nil && !e.leaveBootGaveUp {
+			e.Log.Warnf("leave-boot capped after %d attempts", MaxLeaveBootAttempts)
+			e.leaveBootGaveUp = true
 		}
+		return nil
 	}
+	if err := e.pushBoot(); err != nil && e.Log != nil {
+		e.Log.Warnf("leave boot push failed: %v", err)
+	}
+	e.LeaveBootAttempts++
 	return e.SendScreen(pages.Ring[0], "left")
 }
 
 func (e *Engine) pushBoot() error {
 	bs := state.ReadBootState(e.BootStatePath)
-	out, err := rdcp.BuildPushBoot(bs.Stage, bs.Message, uint(bs.Pct))
+	out, err := proto.BuildPushBoot(bs.Stage, bs.Message, uint(bs.Pct))
 	if err != nil {
 		return err
 	}
@@ -131,7 +137,7 @@ func (e *Engine) SendScreen(screenID, dir string) error {
 		}
 		return nil
 	}
-	out, err := rdcp.BuildCmdScreenDir(screenID, dir)
+	out, err := proto.BuildCmdScreenDir(screenID, dir)
 	if err != nil {
 		return err
 	}
@@ -139,9 +145,6 @@ func (e *Engine) SendScreen(screenID, dir string) error {
 		return err
 	}
 	e.Nav.MarkSent(screenID, now)
-	// LuCI polls /tmp/mcud_active_screen; write on TX so the live page
-	// follows FIFO/nav immediately. evt screen still acks Nav.
-	_ = e.State.WriteActiveScreen(screenID)
 	if e.Log != nil {
 		e.Log.Infof("cmd screen %s (await screen evt)", screenID)
 	}
@@ -159,6 +162,10 @@ func (e *Engine) HandleFIFO(line string) error {
 		}
 		return nil
 	}
+	return e.handleCommand(cmd)
+}
+
+func (e *Engine) handleCommand(cmd fifo.Command) error {
 	switch cmd.Kind {
 	case fifo.KindPrev:
 		return e.navCommand("prev", "right")
@@ -177,30 +184,22 @@ func (e *Engine) HandleFIFO(line string) error {
 		return e.SendScreen(e.Nav.ActiveScreen, "left")
 	case fifo.KindVersion:
 		e.VersionReqID++
-		out, err := rdcp.BuildReqVersion(e.VersionReqID)
-		if err != nil {
-			return err
-		}
+		out, _ := proto.BuildReqVersion(e.VersionReqID)
 		return e.send(out)
 	case fifo.KindPing:
 		e.PingReqID++
+		e.Session.NotePingSent(e.PingReqID)
 		if e.Log != nil {
 			e.Log.Infof("req ping id=%d", e.PingReqID)
 		}
-		out, err := rdcp.BuildReqPing(e.PingReqID)
-		if err != nil {
-			return err
-		}
+		out, _ := proto.BuildReqPing(e.PingReqID)
 		return e.send(out)
 	case fifo.KindEcho:
-		e.LastEchoSent = cmd.Echo
+		e.Session.NoteEchoSent(cmd.Echo)
 		if e.Log != nil {
 			e.Log.Infof("cmd echo (await echo evt): %s", cmd.Echo)
 		}
-		out, err := rdcp.BuildCmdEcho(cmd.Echo)
-		if err != nil {
-			return err
-		}
+		out, _ := proto.BuildCmdEcho(cmd.Echo)
 		return e.send(out)
 	default:
 		return nil
@@ -219,7 +218,7 @@ func (e *Engine) HandleRXLine(line string) error {
 	if e.Cfg.DebugSerial && e.Log != nil {
 		e.Log.Debugf("uart rx: %s", line)
 	}
-	msg, err := rdcp.Parse(line)
+	msg, err := proto.Parse(line)
 	if err != nil {
 		if e.Log != nil {
 			e.Log.Debugf("ignored line: %v", err)
@@ -227,18 +226,30 @@ func (e *Engine) HandleRXLine(line string) error {
 		return nil
 	}
 	switch msg.Type {
-	case rdcp.MsgEvtVersion:
+	case proto.MsgEvtVersion:
 		return e.State.WriteFirmwareVersion(msg)
-	case rdcp.MsgResPing:
+	case proto.MsgResPing:
+		if !e.Session.AcceptPong(msg.ReqID) {
+			if e.Log != nil {
+				e.Log.Debugf("ignored unmatched pong id=%d", msg.ReqID)
+			}
+			return nil
+		}
 		e.Link.PingOK = true
 		e.Link.PingID = msg.ReqID
 		e.Link.UptimeMS = msg.UptimeMS
 		return e.State.WriteLinkTest(e.Link)
-	case rdcp.MsgEvtEcho:
+	case proto.MsgEvtEcho:
+		if !e.Session.AcceptEcho(msg.EchoText) {
+			if e.Log != nil {
+				e.Log.Debugf("ignored unmatched echo")
+			}
+			return nil
+		}
 		e.Link.EchoOK = true
 		e.Link.EchoText = msg.EchoText
 		return e.State.WriteLinkTest(e.Link)
-	case rdcp.MsgEvt:
+	case proto.MsgEvtScreen:
 		if !pages.Known(msg.Screen) {
 			if e.Log != nil {
 				e.Log.Warnf("unknown screen evt: %s", msg.Screen)
@@ -251,16 +262,16 @@ func (e *Engine) HandleRXLine(line string) error {
 			return e.pushBoot()
 		}
 		return nil
-	case rdcp.MsgEvtInput:
+	case proto.MsgEvtInput:
 		return e.SendScreen(pages.Neighbor(e.Nav.ActiveScreen, msg.GestureDir), msg.GestureDir)
-	case rdcp.MsgReqPoweroff:
+	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")
-	case rdcp.MsgLegacyRequest, rdcp.MsgReq:
+	case proto.MsgLegacyRequest, proto.MsgReq:
 		payload, err := e.Metrics.Build(msg.Scope)
 		if err != nil {
 			payload = `{"error":"scope_unavailable"}`
 		}
-		out, err := rdcp.FormatResponse(msg, payload)
+		out, err := proto.FormatResponse(msg, payload)
 		if err != nil {
 			return err
 		}

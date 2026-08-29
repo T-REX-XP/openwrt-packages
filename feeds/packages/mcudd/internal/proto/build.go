@@ -1,4 +1,4 @@
-package rdcp
+package proto
 
 import (
 	"encoding/json"
@@ -69,17 +69,13 @@ func BuildCmdEcho(text string) (string, error) {
 	if text == "" {
 		return "", fmt.Errorf("empty echo")
 	}
-	b, err := json.Marshal(map[string]any{
+	b, _ := json.Marshal(map[string]any{
 		"v": 1, "t": "cmd", "op": "echo",
 		"data": map[string]string{"text": text},
 	})
-	if err != nil {
-		return "", err
-	}
 	return string(b), nil
 }
 
-// FormatResponse wraps payload in RDCP res when appropriate.
 func FormatResponse(msg Message, payload string) (string, error) {
 	payload = strings.TrimSpace(payload)
 	if msg.Type == MsgReq && msg.ReqID > 0 {

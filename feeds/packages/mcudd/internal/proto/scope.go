@@ -1,6 +1,4 @@
-package rdcp
-
-import "github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
+package proto
 
 func ScopeName(s Scope) string {
 	switch s {
@@ -56,8 +54,6 @@ func ScopeFromScreen(screenID string) Scope {
 		return ScopeWiFi
 	case "router_security":
 		return ScopeSecurity
-	case pages.BootScreen, "router_system":
-		return ScopeSystem
 	default:
 		return ScopeSystem
 	}

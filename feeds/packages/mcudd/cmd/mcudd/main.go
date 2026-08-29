@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/config"
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/daemon"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/engine"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/version"
@@ -82,11 +82,16 @@ func runDaemon(cfg config.Config, configSrc string) error {
 	log.Infof("%s", cfg.Summary())
 	log.Infof("UART open on %s", cfg.Path)
 
-	engine := daemon.New(cfg, tp)
-	engine.Log = log
-	_ = engine.State.WriteActiveScreen(pages.BootScreen)
+	if err := pages.LoadFile(cfg.Pages); err != nil {
+		log.Warnf("pages %s: %v (using built-in ring)", cfg.Pages, err)
+		pages.ResetDefault()
+	}
 
-	if err := engine.Startup(); err != nil {
+	eng := engine.New(cfg, tp)
+	eng.Log = log
+	_ = eng.State.WriteActiveScreen(pages.BootScreen)
+
+	if err := eng.Startup(); err != nil {
 		return fmt.Errorf("startup: %w", err)
 	}
 
@@ -107,9 +112,9 @@ func runDaemon(cfg config.Config, configSrc string) error {
 	}()
 
 	if buf, ok := tp.(*transport.Buffer); ok {
-		return runMockLoop(engine, buf, fifo, stop)
+		return runMockLoop(eng, buf, fifo, stop)
 	}
-	return runPollLoop(engine, tp, fifo, stop)
+	return runPollLoop(eng, tp, fifo, stop)
 }
 
 func openTransport(cfg config.Config) (transport.LineTransport, error) {

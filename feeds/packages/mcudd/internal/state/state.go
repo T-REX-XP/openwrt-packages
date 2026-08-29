@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/rdcp"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/proto"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/version"
 )
 
@@ -29,7 +29,7 @@ func (w Writer) WriteActiveScreen(screenID string) error {
 	return os.WriteFile(w.path("/tmp/mcud_active_screen"), []byte(screenID+"\n"), 0o644)
 }
 
-func (w Writer) WriteFirmwareVersion(msg rdcp.Message) error {
+func (w Writer) WriteFirmwareVersion(msg proto.Message) error {
 	synced := version.Compatible(msg.VersionStack, msg.VersionRelease, msg.VersionRDCP)
 	body := fmt.Sprintf(`{"stack":"%s","release":%d,"component":"%s","rdcp":%d,"synced":%t}`+"\n",
 		msg.VersionStack, msg.VersionRelease, msg.VersionComponent, msg.VersionRDCP, synced)

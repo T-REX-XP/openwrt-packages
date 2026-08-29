@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/rdcp"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/proto"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/version"
 )
 
@@ -15,7 +15,7 @@ func TestStateFiles(t *testing.T) {
 	if err := w.WriteActiveScreen("router_system"); err != nil {
 		t.Fatal(err)
 	}
-	msg := rdcp.Message{
+	msg := proto.Message{
 		VersionStack:     version.Stack,
 		VersionRelease:   version.Release,
 		VersionRDCP:      version.RDCP,
@@ -49,6 +49,15 @@ func TestWriterDefaultPath(t *testing.T) {
 	w := Writer{}
 	if err := w.WriteActiveScreen("router_system"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReadBootStateSkipsJunk(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state")
+	_ = os.WriteFile(path, []byte("nocolon\nstage=ready\n"), 0o644)
+	bs := ReadBootState(path)
+	if !bs.Ready() {
+		t.Fatal(bs)
 	}
 }
 

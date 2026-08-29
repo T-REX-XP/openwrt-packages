@@ -1,14 +1,64 @@
 package pages
 
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
 const BootScreen = "router_boot"
 
-var Ring = []string{
+var defaultRing = []string{
 	"router_system",
 	"router_network",
 	"router_clients",
 	"router_storage",
 	"router_wifi",
 	"router_security",
+}
+
+// Ring is the active page order (boot is not included).
+var Ring = append([]string{}, defaultRing...)
+
+type pagesFile struct {
+	Screens []struct {
+		ID      string `json:"id"`
+		Enabled *bool  `json:"enabled"`
+	} `json:"screens"`
+}
+
+func ResetDefault() {
+	Ring = append([]string{}, defaultRing...)
+}
+
+func LoadFile(path string) error {
+	if path == "" {
+		ResetDefault()
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var doc pagesFile
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("pages json: %w", err)
+	}
+	var next []string
+	for _, s := range doc.Screens {
+		if s.ID == "" || s.ID == BootScreen {
+			continue
+		}
+		if s.Enabled != nil && !*s.Enabled {
+			continue
+		}
+		next = append(next, s.ID)
+	}
+	if len(next) == 0 {
+		return fmt.Errorf("pages json: no enabled screens")
+	}
+	Ring = next
+	return nil
 }
 
 func Known(screenID string) bool {

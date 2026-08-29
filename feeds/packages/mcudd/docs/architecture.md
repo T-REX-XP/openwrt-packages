@@ -26,7 +26,7 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
 └───────┬───────────────────────────────┬─────────────────────┘
         │                               │
 ┌───────▼────────┐              ┌───────▼────────┐
-│ internal/rdcp  │              │ internal/metrics│
+│ internal/proto │              │ internal/metrics│
 │ parse/build    │              │ scope providers │
 └───────┬────────┘              └────────────────┘
         │
@@ -57,15 +57,16 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
 
 | Package | Responsibility | External deps |
 |---------|----------------|-----------------|
-| `rdcp` | Frame parse/build, scope names | none |
-| `pages` | Screen IDs, neighbor ring | none |
+| `proto` | Frame parse/build, scope names | none |
+| `session` | Outstanding ping/echo IDs | none |
+| `pages` | Screen IDs, neighbor ring, pages.json | none |
 | `nav` | Pending ack, 450 ms cooldown, 2.5 s timeout | `pages` |
-| `fifo` | Parse FIFO command lines | `pages`, `nav` |
+| `fifo` | Parse FIFO command lines | `pages` |
 | `metrics` | Scope → JSON payload | `/proc`, ubus (later) |
-| `config` | UCI → struct | `uci` shell or file parse |
+| `config` | UCI → struct | file parse |
 | `transport` | `ReadLine` / `WriteLine` | `termios` on Linux |
-| `daemon` | Engine orchestration | all above |
-| `version` | Stack/release/rdcp constants | generated from `mcud-version.json` |
+| `engine` | Orchestration, capped leave-boot | all above |
+| `version` | Stack/release/rdcp constants | compile-time |
 
 ## Metrics strategy (post-POC)
 
@@ -99,7 +100,7 @@ Background ping goroutine writes `/tmp/mcud_wan_ping` (same as C).
 
 ## Testing
 
-- **Unit:** `go test ./... -cover` — 100% on POC packages; maintain ≥95% on metrics when added
+- **Unit:** `go test ./internal/... -cover` — 100% on logic packages (`scripts/run-tests.sh`)
 - **Integration:** mock transport replays RDCP lines; asserts TX frames
 - **Hardware:** `mcud-link-test.sh` on CM5 (ping + echo)
 - **CI:** `scripts/run-tests.sh` in package + reusable workflow job

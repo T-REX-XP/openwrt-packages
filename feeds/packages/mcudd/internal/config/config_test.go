@@ -252,6 +252,63 @@ func TestLoadUsesLoadHelper(t *testing.T) {
 	_ = Load()
 }
 
+func TestLoadInvalidEmptyPath(t *testing.T) {
+	prev := emptyPath
+	t.Cleanup(func() { emptyPath = prev })
+	path := filepath.Join(t.TempDir(), "bad")
+	if err := os.WriteFile(path, []byte(`{"path":"/dev/ttyS2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	emptyPath = path
+	cfg := Load()
+	if cfg.Path != Default().Path {
+		t.Fatalf("%+v", cfg)
+	}
+	if _, _, err := LoadPath(""); err == nil {
+		t.Fatal("expected invalid empty path")
+	}
+}
+
+func TestParseUCIScannerTooLong(t *testing.T) {
+	body := "option path '" + strings.Repeat("x", 70_000) + "'\n"
+	if _, err := parseUCI(body); err == nil {
+		t.Fatal("expected scanner error")
+	}
+	path := filepath.Join(t.TempDir(), "huge")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LoadPath(path); err == nil {
+		t.Fatal("expected LoadPath scanner error")
+	}
+}
+
+func TestParseUCISkipsBadOption(t *testing.T) {
+	body := `config mcud 'main'
+	option key
+	option path '/dev/ttyS2'
+	option baud '115200'
+	option wire_format 'json'
+`
+	path := filepath.Join(t.TempDir(), "mcud")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Path != "/dev/ttyS2" {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestParseUCIOptionBarePrefix(t *testing.T) {
+	if _, _, ok := parseUCIOption("option "); ok {
+		t.Fatal("expected fail")
+	}
+}
+
 func TestParseUCIOptionBad(t *testing.T) {
 	if _, _, ok := parseUCIOption("option"); ok {
 		t.Fatal("expected fail")
@@ -271,6 +328,49 @@ func TestDebugPromotesLogLevel(t *testing.T) {
 	normalize(&c)
 	if c.LogLevel != LogDebug {
 		t.Fatal(c.LogLevel)
+	}
+}
+
+func TestApplyOptionsIgnoresBadNumbers(t *testing.T) {
+	body := `config mcud 'main'
+	option enable '1'
+	option path '/dev/ttyS2'
+	option baud 'abc'
+	option max_line '10'
+	option interval_system '0'
+	option interval_network '-1'
+	option screen_timeout '-3'
+	option wire_format ''
+	option pages ''
+	option wan_if ''
+	option lan_if ''
+	option wifi_if ''
+	option log_level ''
+	option menu_nav_button ''
+	option menu_select_button ''
+	option screen_timeout_mode ''
+`
+	path := filepath.Join(t.TempDir(), "mcud")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := Default()
+	if c.Baud != d.Baud || c.MaxLine != d.MaxLine {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestParseUCIOptionEmptyAndDoubleQuote(t *testing.T) {
+	if _, _, ok := parseUCIOption("option key "); ok {
+		t.Fatal("empty value")
+	}
+	key, val, ok := parseUCIOption(`option path "/dev/ttyUSB0"`)
+	if !ok || key != "path" || val != "/dev/ttyUSB0" {
+		t.Fatalf("%q %q %v", key, val, ok)
 	}
 }
 

@@ -1,83 +1,56 @@
-# mcudd Go rewrite — backlog
+# mcudd + firmware COM rewrite — backlog
 
-Track progress here. Update status as phases land.
+Track progress here. Shared IDs with `esp32-smartdisplay-demo/docs/REWRITE_BACKLOG.md`.
 
 **Legend:** `[ ]` todo · `[~]` in progress · `[x]` done
 
 ---
 
-## Phase 0 — Slim POC (current)
-
-Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes unit tests at 100% coverage on new code.
+## R0 — Contract
 
 | ID | Task | Status |
 |----|------|--------|
-| P0-1 | Architecture doc | [x] |
-| P0-2 | Backlog tracker | [x] |
-| P0-3 | Go module + OpenWrt Makefile skeleton | [x] |
-| P0-4 | `internal/rdcp` parse + build (parity with C) | [x] |
-| P0-5 | `internal/pages` ring + boot screen | [x] |
-| P0-6 | `internal/nav` rate-limit + pending ack | [x] |
-| P0-7 | `internal/fifo` command dispatch | [x] |
-| P0-8 | `internal/metrics` stub provider (all scopes) | [x] |
-| P0-9 | `internal/daemon` engine + mock transport | [x] |
-| P0-10 | `cmd/mcudd` Linux serial transport | [x] |
-| P0-11 | Unit tests ≥95% on Phase 0 packages (100% on rdcp/pages/nav/…) | [x] |
-| P0-12 | `scripts/run-tests.sh` + coverage gate | [x] |
-| P0-13 | Hardware smoke: FIFO `next`/`screen` on CM5 | [ ] |
+| R0-1 | Golden RDCP traces (`testdata/rdcp/*.jsonl`) | [x] |
+| R0-2 | Host backlog tracker | [x] |
+| R0-3 | Firmware backlog tracker | [x] |
+| R0-4 | `check-rdcp-fixtures.sh` sibling sync | [x] |
 
 ---
 
-## Phase 1 — Metrics parity
+## R1 — Host (mcudd)
 
 | ID | Task | Status |
 |----|------|--------|
-| P1-1 | `metrics/system` — CPU, RAM, load, temp, uptime | [ ] |
-| P1-2 | `metrics/network` — WAN ubus, rates, ping, ports | [ ] |
-| P1-3 | `metrics/clients` — DHCP, Wi-Fi station counts | [ ] |
-| P1-4 | `metrics/storage` — root/overlay/emmc/swap | [ ] |
-| P1-5 | `metrics/wifi` — SSID, enc, QR string | [ ] |
-| P1-6 | `metrics/security` — firewall, blocky, VPN | [ ] |
-| P1-7 | `metrics/alarms` — demo_mode fixture | [ ] |
-| P1-8 | Legacy `{"request":"…"}` flat responses | [ ] |
-| P1-9 | Port C unit tests → Go table tests | [ ] |
+| R1-1 | `internal/proto` parse/build + golden replay | [x] |
+| R1-2 | `internal/session` ping/echo ID matching | [x] |
+| R1-3 | `internal/engine` startup, FIFO, leave-boot cap | [x] |
+| R1-4 | pages.json loader + stub metrics | [x] |
+| R1-5 | Mock COM + 100% `go test ./internal/...` | [x] |
+| R1-6 | cmd wiring (lock, FIFO, serial, signals) | [x] |
 
 ---
 
-## Phase 2 — Production cutover
+## R2 — Firmware
 
 | ID | Task | Status |
 |----|------|--------|
-| P2-1 | UCI loader (`/etc/config/mcud`) full parity | [x] |
-| P2-2 | `transport/serial` termios (DTR/RTS clear, 8N1) | [x] |
-| P2-3 | Sidecar files: active_screen, fw version, link_test | [x] |
-| P2-4 | Boot state reader + `leave_boot` idle poll | [x] |
-| P2-5 | Poweroff on RDCP req | [ ] |
-| P2-6 | LuCI package depends on Go `mcudd`; C sources in `mcudd-old` | [x] |
-| P2-7 | CI: cross-compile `aarch64` + run unit tests | [ ] |
-| P2-8 | Deploy CM5 soak 24 h; link-test in post-flash checklist | [ ] |
+| R2-1 | `src/proto` host-testable C parse/build | [x] |
+| R2-2 | `src/app` linked `evt input` policy | [x] |
+| R2-3 | Host gcc tests 100% of proto+app | [x] |
+| R2-4 | Rebind LVGL / UART2 / BOOT | [x] |
+| R2-5 | Remove txbeacon env | [x] |
 
 ---
 
-## Phase 3 — Optimizations
+## R3 — Hardware
 
 | ID | Task | Status |
 |----|------|--------|
-| P3-1 | Metrics cache + scope TTL from UCI intervals | [ ] |
-| P3-2 | ubus client (no shell) for network/Wi-Fi | [ ] |
-| P3-3 | Optional `pages.json` loader (replace hardcoded ring) | [ ] |
-| P3-4 | pprof / memory profiling on CM5 | [ ] |
-| P3-5 | MessagePack wire_format (if firmware adds support) | [ ] |
-
----
-
-## Acceptance criteria (release)
-
-- [ ] `mcud-link-test.sh` → `ping_ok` + `echo_ok`
-- [ ] LuCI page nav (prev/next/screen) works under load
-- [ ] All metric scopes match C daemon JSON shape (snapshot tests)
-- [ ] Binary ≤ 3 MiB stripped on `aarch64_generic`
-- [ ] No regression on button hotplug → FIFO
+| R3-1 | Flash `esp32-2432S022C-router` | [x] |
+| R3-2 | Deploy aarch64 `mcudd` to CM5 | [x] |
+| R3-3 | RDCP ping+echo+screen on COM (USB verify) | [x] |
+| R3-4 | FIFO `next`/`screen` on CM5 (ack pending USB unplug) | [x] |
+| R3-5 | `mcud-link-test.sh` on ttyS2 after USB unplug | [ ] |
 
 ---
 
@@ -85,6 +58,6 @@ Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes 
 
 | Date | Note |
 |------|------|
-| 2026-08-29 | UART RX debug: [tty-rx-debug-2026-08-29.md](tty-rx-debug-2026-08-29.md) — mcudd **does** read ttyS2; flashed FW is TX-beacon stub (no echo/screen evt); leave-boot storm + `ping_ok` false positive |
-| 2026-08-29 | Config: full UCI + JSON loader, `-config` / `-dump-config` |
-| 2026-08-28 | Phase 0 started: docs + Go POC scaffold |
+| 2026-08-29 | Flashed panel + deployed mcudd; USB RDCP ping/echo/screen OK; ttyS2 blocked while USB holds GPIO1/3 |
+| 2026-08-29 | Host + firmware engines rewritten; unit gates at 100% |
+| 2026-08-29 | Rewrite started: shared RDCP fixtures + dual backlogs |

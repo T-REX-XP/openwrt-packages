@@ -1,0 +1,3 @@
+# MCU pulls system metrics; host replies with the same id
+< {"v":1,"t":"req","id":3,"op":"metrics","scope":"system"}
+> {"v":1,"t":"res","id":3,"data":{"hostname":"Router","cpu":"0","ram_pct":0,"uptime_short":"--"}}

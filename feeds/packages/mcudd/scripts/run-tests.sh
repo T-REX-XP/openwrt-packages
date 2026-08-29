@@ -3,8 +3,10 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$DIR"
 
+sh scripts/check-rdcp-fixtures.sh
+
 go mod tidy
-THRESH="${MCUDD_COVERAGE_MIN:-90}"
+THRESH="${MCUDD_COVERAGE_MIN:-100}"
 
 echo ">> go test ./internal/... (min ${THRESH}%)"
 go test ./internal/... -count=1 -coverprofile=coverage.out -covermode=atomic

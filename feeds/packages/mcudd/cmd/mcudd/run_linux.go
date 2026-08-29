@@ -5,8 +5,8 @@ package main
 import (
 	"os"
 
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/daemon"
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/run"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/engine"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/fifo"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 )
 
@@ -15,21 +15,18 @@ func transportOpenSerial(path string, baud int) (transport.LineTransport, error)
 }
 
 func acquireLock() (func(), error) {
-	return run.AcquireLock()
+	return acquireInstanceLock()
 }
 
 func openFIFO() (*os.File, string, error) {
-	return run.OpenFIFO()
+	path, f, err := fifo.OpenCommandReader()
+	return f, path, err
 }
 
-func runPollLoop(e *daemon.Engine, tp transport.LineTransport, fifo *os.File, stop <-chan struct{}) error {
+func runPollLoop(e *engine.Engine, tp transport.LineTransport, fifoFile *os.File, stop <-chan struct{}) error {
 	serial, ok := tp.(transport.PollableLineTransport)
 	if !ok {
-		return runLoopUnsupported()
+		return os.ErrInvalid
 	}
-	return run.Loop(e, serial, fifo, stop)
-}
-
-func runLoopUnsupported() error {
-	return os.ErrInvalid
+	return pollLoop(e, serial, fifoFile, stop)
 }

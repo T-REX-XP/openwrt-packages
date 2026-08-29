@@ -1,0 +1,3 @@
+# Host echo must be answered with the same text
+> {"v":1,"t":"cmd","op":"echo","data":{"text":"mcud-link-test"}}
+< {"v":1,"t":"evt","op":"echo","data":{"text":"mcud-link-test"}}

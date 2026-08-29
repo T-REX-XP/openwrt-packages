@@ -15,6 +15,7 @@ func TestParse(t *testing.T) {
 		{"version", KindVersion, true},
 		{"ping", KindPing, true},
 		{"net", KindRefresh, true},
+		{"refresh", KindRefresh, true},
 		{"screen router_wifi", KindScreen, true},
 		{"echo hi", KindEcho, true},
 		{"screen bad", KindUnknown, false},

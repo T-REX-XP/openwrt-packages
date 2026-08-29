@@ -1,0 +1,6 @@
+# Host startup sequence, then MCU version ack
+> {"v":1,"t":"push","op":"boot","data":{"stage":"ready","text":"System ready","pct":100}}
+> {"v":1,"t":"push","op":"config","data":{"screen_timeout":60,"screen_timeout_mode":"off"}}
+> {"v":1,"t":"push","op":"hello","data":{"stack":"1.0.0","release":47,"component":"mcudd","rdcp":1}}
+> {"v":1,"t":"req","id":1,"op":"version"}
+< {"v":1,"t":"evt","op":"version","data":{"stack":"1.0.0","release":47,"component":"esp32-router","rdcp":1}}

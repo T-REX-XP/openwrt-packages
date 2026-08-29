@@ -1,6 +1,6 @@
 //go:build linux
 
-package run
+package main
 
 import (
 	"fmt"
@@ -10,8 +10,7 @@ import (
 
 const lockFile = "/var/run/mcudd.lock"
 
-// AcquireLock ensures a single mcudd instance.
-func AcquireLock() (release func(), err error) {
+func acquireInstanceLock() (release func(), err error) {
 	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, err
