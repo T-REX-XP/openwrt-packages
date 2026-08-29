@@ -31,7 +31,7 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 	tio.Iflag &^= unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON
 	tio.Oflag &^= unix.OPOST
 	tio.Lflag &^= unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG | unix.IEXTEN
-	tio.Cflag &^= unix.CSIZE | unix.PARENB
+	tio.Cflag &^= unix.CSIZE | unix.PARENB | unix.CRTSCTS
 	tio.Cflag |= unix.CS8 | unix.CREAD | unix.CLOCAL
 	tio.Cc[unix.VMIN] = 0
 	tio.Cc[unix.VTIME] = 1

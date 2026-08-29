@@ -121,6 +121,14 @@ func (e *Engine) pushBoot() error {
 func (e *Engine) SendScreen(screenID, dir string) error {
 	now := e.now()
 	if !e.Nav.Allow(now) {
+		if e.Log != nil {
+			reason := "interval"
+			if e.Nav.Pending {
+				age := now.Sub(e.Nav.LastTX)
+				reason = fmt.Sprintf("pending=%s age=%dms", e.Nav.PendingScreen, age.Milliseconds())
+			}
+			e.Log.Infof("rate-limit cmd screen %s (%s)", screenID, reason)
+		}
 		return nil
 	}
 	out, err := rdcp.BuildCmdScreenDir(screenID, dir)
@@ -132,16 +140,19 @@ func (e *Engine) SendScreen(screenID, dir string) error {
 	}
 	e.Nav.MarkSent(screenID, now)
 	if e.Log != nil {
-		e.Log.Infof("cmd screen %s", screenID)
+		e.Log.Infof("cmd screen %s (await screen evt)", screenID)
 	}
 	return nil
 }
 
 func (e *Engine) HandleFIFO(line string) error {
+	if e.Log != nil {
+		e.Log.Infof("fifo: %s", line)
+	}
 	cmd, ok := fifo.Parse(line)
 	if !ok {
 		if e.Log != nil {
-			e.Log.Debugf("ignored fifo: %s", line)
+			e.Log.Infof("ignored fifo: %s", line)
 		}
 		return nil
 	}
@@ -170,6 +181,9 @@ func (e *Engine) HandleFIFO(line string) error {
 		return e.send(out)
 	case fifo.KindPing:
 		e.PingReqID++
+		if e.Log != nil {
+			e.Log.Infof("req ping id=%d", e.PingReqID)
+		}
 		out, err := rdcp.BuildReqPing(e.PingReqID)
 		if err != nil {
 			return err
@@ -177,6 +191,9 @@ func (e *Engine) HandleFIFO(line string) error {
 		return e.send(out)
 	case fifo.KindEcho:
 		e.LastEchoSent = cmd.Echo
+		if e.Log != nil {
+			e.Log.Infof("cmd echo (await echo evt): %s", cmd.Echo)
+		}
 		out, err := rdcp.BuildCmdEcho(cmd.Echo)
 		if err != nil {
 			return err

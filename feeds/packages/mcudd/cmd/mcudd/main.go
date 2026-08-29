@@ -39,7 +39,7 @@ func runDaemon() error {
 	}
 	defer release()
 
-	cfg := config.Default()
+	cfg := config.Load()
 	if !cfg.Enable {
 		return nil
 	}
@@ -50,8 +50,11 @@ func runDaemon() error {
 	}
 	defer tp.Close()
 
+	log := newLogger(cfg)
+	fmt.Printf("UART open on %s\n", cfg.Path)
+
 	engine := daemon.New(cfg, tp)
-	engine.Log = stdLogger{}
+	engine.Log = log
 	_ = engine.State.WriteActiveScreen(pages.BootScreen)
 
 	if err := engine.Startup(); err != nil {
@@ -63,7 +66,7 @@ func runDaemon() error {
 		fmt.Fprintf(os.Stderr, "warn: fifo unavailable: %v\n", err)
 	} else {
 		defer fifo.Close()
-		fmt.Printf("info: command FIFO %s\n", fifoPath)
+		fmt.Printf("command FIFO %s\n", fifoPath)
 	}
 
 	stop := make(chan struct{})
@@ -79,12 +82,6 @@ func runDaemon() error {
 	}
 	return runPollLoop(engine, tp, fifo, stop)
 }
-
-type stdLogger struct{}
-
-func (stdLogger) Infof(format string, args ...any)  { fmt.Printf("info: "+format+"\n", args...) }
-func (stdLogger) Warnf(format string, args ...any)  { fmt.Fprintf(os.Stderr, "warn: "+format+"\n", args...) }
-func (stdLogger) Debugf(format string, args ...any) {}
 
 func openTransport(cfg config.Config) (transport.LineTransport, error) {
 	if os.Getenv("MCUDD_MOCK") == "1" {
