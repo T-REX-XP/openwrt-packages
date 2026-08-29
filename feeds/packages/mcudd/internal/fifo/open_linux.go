@@ -14,6 +14,10 @@ const (
 )
 
 // OpenCommandReader creates/opens the mcudd command FIFO for non-blocking reads.
+//
+// Open O_RDWR so the read end never sees EOF/POLLHUP when a writer closes.
+// With O_RDONLY, after the last writer exits Linux reports EOF and poll can
+// stall — LuCI/button events sit in the pipe until something else wakes the loop.
 func OpenCommandReader() (path string, f *os.File, err error) {
 	path = Path
 	if err := syscall.Mkfifo(path, 0o600); err != nil && !os.IsExist(err) {
@@ -23,7 +27,7 @@ func OpenCommandReader() (path string, f *os.File, err error) {
 			return "", nil, fmt.Errorf("mkfifo: %w", err2)
 		}
 	}
-	f, err = os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	f, err = os.OpenFile(path, os.O_RDWR|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return "", nil, err
 	}

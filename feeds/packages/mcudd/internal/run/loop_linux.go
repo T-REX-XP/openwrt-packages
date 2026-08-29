@@ -57,7 +57,7 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 		}
 		idlePolls = 0
 
-		if fifoIdx >= 0 && pfds[fifoIdx].Revents&unix.POLLIN != 0 {
+		if fifoIdx >= 0 && pfds[fifoIdx].Revents&(unix.POLLIN|unix.POLLERR|unix.POLLHUP) != 0 {
 			var chunk [64]byte
 			for {
 				nr, rerr := fifo.Read(chunk[:])
