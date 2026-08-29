@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -40,7 +39,9 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 	tio.Lflag &^= unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG | unix.IEXTEN
 	tio.Cflag &^= unix.CSIZE | unix.PARENB | unix.CRTSCTS | unix.CBAUD | unix.CBAUDEX
 	tio.Cflag |= unix.CS8 | unix.CREAD | unix.CLOCAL | rate
-	tio.Cc[unix.VMIN] = 0
+	// VMIN=1: blocking read waits for a byte. VMIN=0 returns 0 immediately
+	// even after SetNonblock(false), so the reader never consumes ttyS2.
+	tio.Cc[unix.VMIN] = 1
 	tio.Cc[unix.VTIME] = 0
 	tio.Ispeed = rate
 	tio.Ospeed = rate
@@ -50,13 +51,22 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 	}
 
 	// Drop DTR/RTS so USB-UART adapters do not hold ESP32 in reset (same as C).
+	// TIOCMSET takes *int — IoctlSetInt passes the value itself and is a no-op.
 	status, err := unix.IoctlGetInt(fd, unix.TIOCMGET)
 	if err == nil {
 		status &^= unix.TIOCM_DTR | unix.TIOCM_RTS
-		_ = unix.IoctlSetInt(fd, unix.TIOCMSET, status)
+		_ = unix.IoctlSetPointerInt(fd, unix.TIOCMSET, status)
 	}
 
 	_ = unix.IoctlSetInt(fd, unix.TCFLSH, unix.TCIOFLUSH)
+
+	// Blocking reads: unix.Poll on this 16550 never woke even when the kernel
+	// rx counter climbed (Go scheduler + O_NONBLOCK). A blocking Read parks
+	// an OS thread and is how C mcudd consumed ttyS2.
+	if err := unix.SetNonblock(fd, false); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("setblock %s: %w", path, err)
+	}
 	return &Serial{fd: fd}, nil
 }
 
@@ -115,17 +125,18 @@ func (s *Serial) ReadByte() (byte, error) {
 		if n == 1 {
 			return b[0], nil
 		}
-		if err == nil {
+		if errors.Is(err, unix.EINTR) {
 			continue
+		}
+		if n == 0 && err == nil {
+			return 0, os.ErrDeadlineExceeded
 		}
 		if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) {
 			return 0, os.ErrDeadlineExceeded
 		}
-		if errors.Is(err, unix.EINTR) {
-			time.Sleep(time.Millisecond)
-			continue
+		if err != nil {
+			return 0, err
 		}
-		return 0, err
 	}
 }
 

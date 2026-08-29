@@ -139,6 +139,9 @@ func (e *Engine) SendScreen(screenID, dir string) error {
 		return err
 	}
 	e.Nav.MarkSent(screenID, now)
+	// LuCI polls /tmp/mcud_active_screen; write on TX so the live page
+	// follows FIFO/nav immediately. evt screen still acks Nav.
+	_ = e.State.WriteActiveScreen(screenID)
 	if e.Log != nil {
 		e.Log.Infof("cmd screen %s (await screen evt)", screenID)
 	}

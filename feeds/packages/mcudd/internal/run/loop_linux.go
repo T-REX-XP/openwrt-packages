@@ -81,7 +81,7 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 			return nil
 		case <-bootTick.C:
 			idleBoot++
-			if idleBoot >= 1 && e.Nav.ActiveScreen == pages.BootScreen {
+			if idleBoot >= 1 && e.Nav.ActiveScreen == pages.BootScreen && e.Nav.Allow(time.Now()) {
 				idleBoot = 0
 				_ = e.LeaveBoot()
 			}
@@ -92,6 +92,9 @@ func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.Fil
 
 func readUART(e *daemon.Engine, serial transport.PollableLineTransport, lines chan<- string, errc chan<- error, stop <-chan struct{}) {
 	defer close(lines)
+	if e.Log != nil {
+		e.Log.Infof("uart reader started fd=%d", serial.Fd())
+	}
 	buf := make([]byte, 0, 512)
 	for {
 		select {
@@ -103,9 +106,8 @@ func readUART(e *daemon.Engine, serial transport.PollableLineTransport, lines ch
 		b, err := serial.ReadByte()
 		if err != nil {
 			if errors.Is(err, os.ErrDeadlineExceeded) || errors.Is(err, unix.EAGAIN) {
-				// Idle — wait for POLLIN on the UART fd.
-				pfd := []unix.PollFd{{Fd: int32(serial.Fd()), Events: unix.POLLIN}}
-				_, _ = unix.Poll(pfd, 500)
+				// Blocking fd should not return this; brief pause then retry.
+				time.Sleep(20 * time.Millisecond)
 				continue
 			}
 			if errors.Is(err, unix.EIO) {
