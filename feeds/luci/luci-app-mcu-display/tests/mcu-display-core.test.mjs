@@ -40,5 +40,12 @@ test('countLogLines ignores trailing empty', () => {
 	assert.equal(mcu.countLogLines(''), 0);
 });
 
+test('pageNeighbor walks ring from boot and mid-list', () => {
+	assert.equal(mcu.pageNeighbor('router_boot', 'left'), 'router_system');
+	assert.equal(mcu.pageNeighbor('router_wifi', 'left'), 'router_security');
+	assert.equal(mcu.pageNeighbor('router_wifi', 'right'), 'router_storage');
+	assert.equal(mcu.pageNeighbor('router_security', 'left'), 'router_system');
+});
+
 console.log(`\nResults: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

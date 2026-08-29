@@ -11,6 +11,7 @@ import (
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/config"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/fifo"
+	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/nav"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/proto"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/state"
@@ -361,6 +362,72 @@ func TestPushBootEmptyStage(t *testing.T) {
 	e.BootStatePath = p
 	if err := e.pushBoot(); err == nil {
 		t.Fatal("expected empty boot fields")
+	}
+}
+
+func TestFIFOUserNavWalksWithoutAck(t *testing.T) {
+	e, buf, _ := newTestEngine(t)
+	clk := e.Nav.Clock.(*fixedClock)
+	if err := e.HandleFIFO("next"); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_system" {
+		t.Fatal(e.Nav.Cursor())
+	}
+	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
+	if err != nil || strings.TrimSpace(string(data)) != "router_system" {
+		t.Fatalf("sidecar=%q err=%v", data, err)
+	}
+	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
+	if err := e.HandleFIFO("next"); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_network" {
+		t.Fatal(e.Nav.Cursor())
+	}
+	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
+	if err := e.HandleFIFO("prev"); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_system" {
+		t.Fatal(e.Nav.Cursor())
+	}
+	if err := e.HandleFIFO("next"); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_system" {
+		t.Fatal("interval must not advance cursor")
+	}
+	if len(buf.TX) < 3 {
+		t.Fatalf("tx=%v", buf.TX)
+	}
+}
+
+func TestSendUserScreenErrorsAndRefresh(t *testing.T) {
+	e := New(config.Default(), &failTP{err: errors.New("tx")})
+	e.Log = &memLog{}
+	if err := e.HandleFIFO("next"); err == nil {
+		t.Fatal("next tx")
+	}
+	e2, _, _ := newTestEngine(t)
+	e2.Log = nil
+	e2.Nav.MarkSent("router_system", e2.now())
+	if err := e2.SendScreen("router_wifi", "left"); err != nil {
+		t.Fatal(err)
+	}
+	e2.Nav.ClearPending()
+	e2.Nav.LastTX = time.Time{}
+	if err := e2.sendUserScreen("", "left"); err == nil {
+		t.Fatal("empty screen")
+	}
+	e2.Nav.ClearPending()
+	e2.Nav.LastTX = time.Time{}
+	e2.Nav.AckScreen("router_wifi")
+	if err := e2.HandleFIFO("refresh"); err != nil {
+		t.Fatal(err)
+	}
+	if e2.Nav.Cursor() != "router_wifi" {
+		t.Fatal(e2.Nav.Cursor())
 	}
 }
 

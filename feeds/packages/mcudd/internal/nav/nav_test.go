@@ -58,6 +58,41 @@ func TestNavController(t *testing.T) {
 	}
 }
 
+func TestCursorAndUserNav(t *testing.T) {
+	start := time.Unix(0, 0)
+	c := New()
+	if c.Cursor() != pages.BootScreen {
+		t.Fatal("cursor default")
+	}
+	c.MarkCommanded("router_wifi")
+	if c.Cursor() != "router_wifi" {
+		t.Fatal(c.Cursor())
+	}
+	c.MarkCommanded("unknown")
+	if c.Cursor() != "router_wifi" {
+		t.Fatal("unknown commanded ignored")
+	}
+	c.AckScreen("router_system")
+	if c.Cursor() != "router_system" || c.ActiveScreen != "router_system" {
+		t.Fatal("ack syncs cursor")
+	}
+	c.MarkSent("router_network", start)
+	if c.AllowUserNav(start) {
+		t.Fatal("interval blocks user nav")
+	}
+	if !c.AllowUserNav(start.Add(MinInterval + time.Millisecond)) {
+		t.Fatal("user nav ignores pending")
+	}
+	c.Pending = true
+	c.LastTX = start
+	if !c.AllowUserNav(start.Add(AckTimeout + time.Millisecond)) {
+		t.Fatal("expired pending")
+	}
+	if c.Pending {
+		t.Fatal("cleared")
+	}
+}
+
 func TestRealClock(t *testing.T) {
 	c := New()
 	_ = c.Clock.Now()

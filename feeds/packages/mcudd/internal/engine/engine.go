@@ -38,12 +38,12 @@ type Engine struct {
 	Log       Logger
 	Session   session.Session
 
-	BootStatePath      string
-	VersionReqID       uint
-	PingReqID          uint
-	Link               state.LinkTest
-	LeaveBootAttempts  int
-	leaveBootGaveUp    bool
+	BootStatePath     string
+	VersionReqID      uint
+	PingReqID         uint
+	Link              state.LinkTest
+	LeaveBootAttempts int
+	leaveBootGaveUp   bool
 
 	lineBuf []byte
 }
@@ -124,19 +124,19 @@ func (e *Engine) pushBoot() error {
 	return e.send(out)
 }
 
-func (e *Engine) SendScreen(screenID, dir string) error {
-	now := e.now()
-	if !e.Nav.Allow(now) {
-		if e.Log != nil {
-			reason := "interval"
-			if e.Nav.Pending {
-				age := now.Sub(e.Nav.LastTX)
-				reason = fmt.Sprintf("pending=%s age=%dms", e.Nav.PendingScreen, age.Milliseconds())
-			}
-			e.Log.Infof("rate-limit cmd screen %s (%s)", screenID, reason)
-		}
-		return nil
+func (e *Engine) logRateLimit(screenID string, now time.Time) {
+	if e.Log == nil {
+		return
 	}
+	reason := "interval"
+	if e.Nav.Pending {
+		age := now.Sub(e.Nav.LastTX)
+		reason = fmt.Sprintf("pending=%s age=%dms", e.Nav.PendingScreen, age.Milliseconds())
+	}
+	e.Log.Infof("rate-limit cmd screen %s (%s)", screenID, reason)
+}
+
+func (e *Engine) txScreen(screenID, dir string, now time.Time) error {
 	out, err := proto.BuildCmdScreenDir(screenID, dir)
 	if err != nil {
 		return err
@@ -148,6 +148,31 @@ func (e *Engine) SendScreen(screenID, dir string) error {
 	if e.Log != nil {
 		e.Log.Infof("cmd screen %s (await screen evt)", screenID)
 	}
+	return nil
+}
+
+func (e *Engine) SendScreen(screenID, dir string) error {
+	now := e.now()
+	if !e.Nav.Allow(now) {
+		e.logRateLimit(screenID, now)
+		return nil
+	}
+	return e.txScreen(screenID, dir, now)
+}
+
+// sendUserScreen is LuCI/FIFO next/prev/goto: walk the ring without waiting
+// for evt screen, and update the sidecar so the UI matches the command.
+func (e *Engine) sendUserScreen(screenID, dir string) error {
+	now := e.now()
+	if !e.Nav.AllowUserNav(now) {
+		e.logRateLimit(screenID, now)
+		return nil
+	}
+	if err := e.txScreen(screenID, dir, now); err != nil {
+		return err
+	}
+	e.Nav.MarkCommanded(screenID)
+	_ = e.State.WriteActiveScreen(screenID)
 	return nil
 }
 
@@ -176,12 +201,12 @@ func (e *Engine) handleCommand(cmd fifo.Command) error {
 	case fifo.KindReady:
 		return e.LeaveBoot()
 	case fifo.KindScreen:
-		return e.SendScreen(cmd.Screen, "left")
+		return e.sendUserScreen(cmd.Screen, "left")
 	case fifo.KindRefresh:
-		if e.Nav.ActiveScreen == pages.BootScreen {
+		if e.Nav.Cursor() == pages.BootScreen {
 			return e.LeaveBoot()
 		}
-		return e.SendScreen(e.Nav.ActiveScreen, "left")
+		return e.sendUserScreen(e.Nav.Cursor(), "left")
 	case fifo.KindVersion:
 		e.VersionReqID++
 		out, _ := proto.BuildReqVersion(e.VersionReqID)
@@ -207,11 +232,11 @@ func (e *Engine) handleCommand(cmd fifo.Command) error {
 }
 
 func (e *Engine) navCommand(cmd, animDir string) error {
-	target := pages.Neighbor(e.Nav.ActiveScreen, animDir)
+	target := pages.Neighbor(e.Nav.Cursor(), animDir)
 	if e.Log != nil {
 		e.Log.Infof("nav %s -> %s", cmd, target)
 	}
-	return e.SendScreen(target, animDir)
+	return e.sendUserScreen(target, animDir)
 }
 
 func (e *Engine) HandleRXLine(line string) error {
@@ -263,7 +288,7 @@ func (e *Engine) HandleRXLine(line string) error {
 		}
 		return nil
 	case proto.MsgEvtInput:
-		return e.SendScreen(pages.Neighbor(e.Nav.ActiveScreen, msg.GestureDir), msg.GestureDir)
+		return e.SendScreen(pages.Neighbor(e.Nav.Cursor(), msg.GestureDir), msg.GestureDir)
 	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")
 	case proto.MsgLegacyRequest, proto.MsgReq:

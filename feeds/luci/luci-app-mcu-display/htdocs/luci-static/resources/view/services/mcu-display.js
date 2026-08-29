@@ -768,12 +768,37 @@ return view.extend({
 		});
 	},
 
+	navPageIds: function() {
+		var rows = document.querySelectorAll('.luci-app-mcu-display tr[data-page-id]');
+		var ids = [];
+		var i;
+		for (i = 0; i < rows.length; i++)
+			ids.push(rows[i].getAttribute('data-page-id'));
+		return ids;
+	},
+
+	navCurrentScreen: function() {
+		var active;
+		if (this._navScreen)
+			return this._navScreen;
+		active = document.querySelector('.luci-app-mcu-display tr.mcu-page-row--active');
+		if (active)
+			return active.getAttribute('data-page-id') || '';
+		return '';
+	},
+
 	handlePagePrev: function() {
-		return this.handlePageControl('prev');
+		return this.navigateRing('right');
 	},
 
 	handlePageNext: function() {
-		return this.handlePageControl('next');
+		return this.navigateRing('left');
+	},
+
+	navigateRing: function(dir) {
+		var target = mcu.pageNeighbor(this.navCurrentScreen(), dir, this.navPageIds());
+		this._navScreen = target;
+		return this.handlePageControl('goto', target);
 	},
 
 	handlePageBoot: function() {
@@ -792,6 +817,12 @@ return view.extend({
 			this._lastStatusFp = '';
 			return callGetStatus().then(L.bind(function(st) {
 				st = rpcData(st, {});
+				if (this._navScreen && st.active_screen !== this._navScreen) {
+					st = Object.assign({}, st, {
+						active_screen: this._navScreen,
+						page_id: this._navScreen
+					});
+				}
 				updateLiveStatus(st, this._liveCfg || {});
 				return this.refreshLogs(true);
 			}, this));
@@ -811,6 +842,7 @@ return view.extend({
 			return Promise.resolve();
 		if (isReadonly)
 			return Promise.resolve();
+		this._navScreen = jump.value;
 		return callPageControl('goto', jump.value).then(L.bind(function(r) {
 			r = rpcData(r, {});
 			if (r.error || r.ok === false)
