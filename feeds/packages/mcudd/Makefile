@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mcudd
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=5
+PKG_RELEASE:=6
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0

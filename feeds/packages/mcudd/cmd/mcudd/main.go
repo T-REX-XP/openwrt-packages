@@ -78,9 +78,9 @@ func runDaemon(cfg config.Config, configSrc string) error {
 	defer tp.Close()
 
 	log := newLogger(cfg)
-	fmt.Printf("config %s\n", configSrc)
-	fmt.Printf("%s\n", cfg.Summary())
-	fmt.Printf("UART open on %s\n", cfg.Path)
+	log.Infof("config %s", configSrc)
+	log.Infof("%s", cfg.Summary())
+	log.Infof("UART open on %s", cfg.Path)
 
 	engine := daemon.New(cfg, tp)
 	engine.Log = log
@@ -92,10 +92,10 @@ func runDaemon(cfg config.Config, configSrc string) error {
 
 	fifo, fifoPath, err := openFIFO()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warn: fifo unavailable: %v\n", err)
+		log.Warnf("fifo unavailable: %v", err)
 	} else {
 		defer fifo.Close()
-		fmt.Printf("command FIFO %s\n", fifoPath)
+		log.Infof("command FIFO %s", fifoPath)
 	}
 
 	stop := make(chan struct{})

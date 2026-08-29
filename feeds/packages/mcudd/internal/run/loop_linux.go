@@ -15,89 +15,160 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const pollTimeoutMS = 500
+const (
+	fifoPollMS   = 200
+	bootIdleTick = 2 * time.Second
+)
 
-// Loop runs the UART + FIFO poll loop until stop is closed or an error occurs.
+// Loop runs UART RX on its own goroutine and polls the command FIFO on the
+// main goroutine. Splitting them avoids cases where FIFO/procd activity
+// prevents UART reads even though the kernel rx counter is climbing.
 func Loop(e *daemon.Engine, serial transport.PollableLineTransport, fifo *os.File, stop <-chan struct{}) error {
 	if e == nil || serial == nil {
 		return errors.New("missing engine or serial")
 	}
 
-	pfds := []unix.PollFd{{Fd: int32(serial.Fd()), Events: unix.POLLIN}}
-	fifoIdx := -1
-	if fifo != nil {
-		fifoIdx = len(pfds)
-		pfds = append(pfds, unix.PollFd{Fd: int32(fifo.Fd()), Events: unix.POLLIN})
-	}
+	lines := make(chan string, 32)
+	errc := make(chan error, 1)
+	go readUART(e, serial, lines, errc, stop)
 
-	fifoBuf := make([]byte, 0, 256)
-	idlePolls := 0
+	var fifoBuf []byte
+	if fifo != nil {
+		fifoBuf = make([]byte, 0, 256)
+	}
+	bootTick := time.NewTicker(bootIdleTick)
+	defer bootTick.Stop()
+	idleBoot := 0
 
 	for {
+		if fifo != nil {
+			pfds := []unix.PollFd{{Fd: int32(fifo.Fd()), Events: unix.POLLIN}}
+			n, err := unix.Poll(pfds, fifoPollMS)
+			if err != nil && err != unix.EINTR {
+				return err
+			}
+			if n > 0 && pfds[0].Revents&(unix.POLLIN|unix.POLLERR|unix.POLLHUP) != 0 {
+				if err := drainFIFO(e, fifo, &fifoBuf); err != nil {
+					return err
+				}
+			}
+		} else {
+			select {
+			case <-stop:
+				return nil
+			case <-time.After(time.Duration(fifoPollMS) * time.Millisecond):
+			}
+		}
+
+		// Drain any UART lines already queued.
+		for {
+			select {
+			case line := <-lines:
+				_ = e.HandleRXLine(line)
+			default:
+				goto drained
+			}
+		}
+	drained:
+
 		select {
 		case <-stop:
 			return nil
+		case err := <-errc:
+			if err != nil && !errors.Is(err, io.EOF) {
+				return err
+			}
+			return nil
+		case <-bootTick.C:
+			idleBoot++
+			if idleBoot >= 1 && e.Nav.ActiveScreen == pages.BootScreen {
+				idleBoot = 0
+				_ = e.LeaveBoot()
+			}
+		default:
+		}
+	}
+}
+
+func readUART(e *daemon.Engine, serial transport.PollableLineTransport, lines chan<- string, errc chan<- error, stop <-chan struct{}) {
+	defer close(lines)
+	buf := make([]byte, 0, 512)
+	for {
+		select {
+		case <-stop:
+			return
 		default:
 		}
 
-		n, err := unix.Poll(pfds, pollTimeoutMS)
+		b, err := serial.ReadByte()
 		if err != nil {
-			if err == unix.EINTR {
+			if errors.Is(err, os.ErrDeadlineExceeded) || errors.Is(err, unix.EAGAIN) {
+				// Idle — wait for POLLIN on the UART fd.
+				pfd := []unix.PollFd{{Fd: int32(serial.Fd()), Events: unix.POLLIN}}
+				_, _ = unix.Poll(pfd, 500)
 				continue
 			}
-			return err
+			if errors.Is(err, unix.EIO) {
+				if e.Log != nil {
+					e.Log.Warnf("uart read: %v", err)
+				}
+				time.Sleep(50 * time.Millisecond)
+				continue
+			}
+			errc <- err
+			return
 		}
-		if n == 0 {
-			idlePolls++
-			if idlePolls >= 4 && e.Nav.ActiveScreen == pages.BootScreen {
-				idlePolls = 0
-				_ = e.LeaveBoot()
+		if b == '\n' || b == '\r' {
+			if len(buf) == 0 {
+				continue
+			}
+			line := string(buf)
+			buf = buf[:0]
+			select {
+			case lines <- line:
+			case <-stop:
+				return
 			}
 			continue
 		}
-		idlePolls = 0
+		if len(buf) >= int(e.Cfg.MaxLine) {
+			buf = buf[:0]
+			if e.Log != nil {
+				e.Log.Warnf("line exceeded max_line=%d", e.Cfg.MaxLine)
+			}
+			continue
+		}
+		buf = append(buf, b)
+	}
+}
 
-		if fifoIdx >= 0 && pfds[fifoIdx].Revents&(unix.POLLIN|unix.POLLERR|unix.POLLHUP) != 0 {
-			var chunk [64]byte
-			for {
-				nr, rerr := fifo.Read(chunk[:])
-				if nr > 0 {
-					for _, b := range chunk[:nr] {
-						if b == '\n' || b == '\r' {
-							if len(fifoBuf) > 0 {
-								line := string(fifoBuf)
-								fifoBuf = fifoBuf[:0]
-								_ = e.HandleFIFO(line)
-							}
-							continue
-						}
-						if len(fifoBuf) < cap(fifoBuf)-1 {
-							fifoBuf = append(fifoBuf, b)
-						}
+func drainFIFO(e *daemon.Engine, fifo *os.File, fifoBuf *[]byte) error {
+	var chunk [64]byte
+	for {
+		nr, rerr := fifo.Read(chunk[:])
+		if nr > 0 {
+			for _, b := range chunk[:nr] {
+				if b == '\n' || b == '\r' {
+					if len(*fifoBuf) > 0 {
+						line := string(*fifoBuf)
+						*fifoBuf = (*fifoBuf)[:0]
+						_ = e.HandleFIFO(line)
 					}
+					continue
 				}
-				if rerr != nil {
-					if errors.Is(rerr, io.EOF) || errors.Is(rerr, unix.EAGAIN) {
-						break
-					}
-					return rerr
-				}
-				if nr == 0 {
-					break
+				if len(*fifoBuf) < cap(*fifoBuf)-1 {
+					*fifoBuf = append(*fifoBuf, b)
 				}
 			}
 		}
-
-		if pfds[0].Revents&unix.POLLIN != 0 {
-			for i := 0; i < 32; i++ {
-				if err := e.PollOnce(); err != nil {
-					if errors.Is(err, io.EOF) || errors.Is(err, os.ErrDeadlineExceeded) {
-						break
-					}
-					return err
-				}
-				time.Sleep(time.Millisecond)
+		if rerr != nil {
+			if errors.Is(rerr, io.EOF) || errors.Is(rerr, unix.EAGAIN) {
+				return nil
 			}
+			return rerr
+		}
+		if nr == 0 {
+			return nil
 		}
 	}
 }

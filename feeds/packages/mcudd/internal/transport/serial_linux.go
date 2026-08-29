@@ -11,23 +11,26 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Serial is a raw unix fd UART — deliberately not os.File, so the Go
+// runtime netpoller cannot steal edge/level notifications from unix.Poll.
 type Serial struct {
-	f *os.File
+	fd int
 }
 
 func OpenSerial(path string, baud int) (*Serial, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0)
+	fd, err := unix.Open(path, unix.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	tio, err := unix.IoctlGetTermios(int(f.Fd()), unix.TCGETS)
+
+	tio, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err != nil {
-		f.Close()
-		return nil, err
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("tcgets %s: %w", path, err)
 	}
 	rate, ok := baudFlag(baud)
 	if !ok {
-		f.Close()
+		_ = unix.Close(fd)
 		return nil, fmt.Errorf("unsupported baud %d", baud)
 	}
 
@@ -38,24 +41,23 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 	tio.Cflag &^= unix.CSIZE | unix.PARENB | unix.CRTSCTS | unix.CBAUD | unix.CBAUDEX
 	tio.Cflag |= unix.CS8 | unix.CREAD | unix.CLOCAL | rate
 	tio.Cc[unix.VMIN] = 0
-	tio.Cc[unix.VTIME] = 1
-	// Linux TCSETS uses c_cflag CBAUD; also set ispeed/ospeed for completeness.
+	tio.Cc[unix.VTIME] = 0
 	tio.Ispeed = rate
 	tio.Ospeed = rate
-	if err := unix.IoctlSetTermios(int(f.Fd()), unix.TCSETS, tio); err != nil {
-		f.Close()
-		return nil, err
+	if err := unix.IoctlSetTermios(fd, unix.TCSETS, tio); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("tcsets %s: %w", path, err)
 	}
 
 	// Drop DTR/RTS so USB-UART adapters do not hold ESP32 in reset (same as C).
-	status, err := unix.IoctlGetInt(int(f.Fd()), unix.TIOCMGET)
+	status, err := unix.IoctlGetInt(fd, unix.TIOCMGET)
 	if err == nil {
 		status &^= unix.TIOCM_DTR | unix.TIOCM_RTS
-		_ = unix.IoctlSetInt(int(f.Fd()), unix.TIOCMSET, status)
+		_ = unix.IoctlSetInt(fd, unix.TIOCMSET, status)
 	}
 
-	_ = unix.IoctlSetInt(int(f.Fd()), unix.TCFLSH, unix.TCIOFLUSH)
-	return &Serial{f: f}, nil
+	_ = unix.IoctlSetInt(fd, unix.TCFLSH, unix.TCIOFLUSH)
+	return &Serial{fd: fd}, nil
 }
 
 func baudFlag(baud int) (uint32, bool) {
@@ -82,9 +84,8 @@ func baudFlag(baud int) (uint32, bool) {
 }
 
 func (s *Serial) writeAll(buf []byte) error {
-	fd := int(s.f.Fd())
 	for len(buf) > 0 {
-		n, err := s.f.Write(buf)
+		n, err := unix.Write(s.fd, buf)
 		if n > 0 {
 			buf = buf[n:]
 			continue
@@ -95,7 +96,7 @@ func (s *Serial) writeAll(buf []byte) error {
 		if !errors.Is(err, unix.EAGAIN) && !errors.Is(err, unix.EWOULDBLOCK) {
 			return err
 		}
-		pfd := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLOUT}}
+		pfd := []unix.PollFd{{Fd: int32(s.fd), Events: unix.POLLOUT}}
 		if _, perr := unix.Poll(pfd, 1000); perr != nil && perr != unix.EINTR {
 			return perr
 		}
@@ -104,21 +105,20 @@ func (s *Serial) writeAll(buf []byte) error {
 }
 
 func (s *Serial) WriteLine(line string) error {
-		if err := s.writeAll(append([]byte(line), '\n')); err != nil {
-		return err
-	}
-	// Linux: TCSBRK arg 0 = BREAK; nonzero = drain (glibc/musl tcdrain).
-	return unix.IoctlSetInt(int(s.Fd()), unix.TCSBRK, 1)
+	return s.writeAll(append([]byte(line), '\n'))
 }
 
 func (s *Serial) ReadByte() (byte, error) {
 	var b [1]byte
 	for {
-		n, err := s.f.Read(b[:])
+		n, err := unix.Read(s.fd, b[:])
 		if n == 1 {
 			return b[0], nil
 		}
-		if err == nil || errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) {
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) {
 			return 0, os.ErrDeadlineExceeded
 		}
 		if errors.Is(err, unix.EINTR) {
@@ -129,6 +129,13 @@ func (s *Serial) ReadByte() (byte, error) {
 	}
 }
 
-func (s *Serial) Close() error { return s.f.Close() }
+func (s *Serial) Close() error {
+	if s.fd < 0 {
+		return nil
+	}
+	err := unix.Close(s.fd)
+	s.fd = -1
+	return err
+}
 
-func (s *Serial) Fd() int { return int(s.f.Fd()) }
+func (s *Serial) Fd() int { return s.fd }

@@ -85,5 +85,6 @@ Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes 
 
 | Date | Note |
 |------|------|
+| 2026-08-29 | UART RX debug: [tty-rx-debug-2026-08-29.md](tty-rx-debug-2026-08-29.md) — mcudd **does** read ttyS2; flashed FW is TX-beacon stub (no echo/screen evt); leave-boot storm + `ping_ok` false positive |
 | 2026-08-29 | Config: full UCI + JSON loader, `-config` / `-dump-config` |
 | 2026-08-28 | Phase 0 started: docs + Go POC scaffold |

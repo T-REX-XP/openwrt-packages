@@ -61,3 +61,4 @@ MCUDD_MOCK=1 ./mcudd -dump-config
 
 - [architecture.md](docs/architecture.md)
 - [backlog.md](docs/backlog.md)
+- [tty-rx-debug-2026-08-29.md](docs/tty-rx-debug-2026-08-29.md) — live UART RX vs TX-beacon firmware
