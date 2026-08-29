@@ -8,7 +8,7 @@ LUCI_PKGARCH:=all
 
 PKG_NAME:=luci-app-mcu-display
 PKG_VERSION:=2026.07.06
-PKG_RELEASE:=45
+PKG_RELEASE:=46
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>

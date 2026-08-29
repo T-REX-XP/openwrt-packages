@@ -3,7 +3,7 @@ package version
 import "testing"
 
 func TestVersion(t *testing.T) {
-	if String() != "1.0.0+45" {
+	if String() != "1.0.0+46" {
 		t.Fatal(String())
 	}
 	if !Compatible(Stack, Release, RDCP) {

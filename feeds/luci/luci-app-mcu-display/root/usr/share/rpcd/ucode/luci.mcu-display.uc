@@ -5,11 +5,39 @@
 import { readfile, popen, lsdir } from 'fs';
 
 const MCUD_UCI = 'mcud.main';
+const MCUD_CONFIG_PATH = '/etc/config/mcud';
 const BOOT_STATE = '/tmp/mcud_state';
 const ACTIVE_SCREEN = '/tmp/mcud_active_screen';
 const FW_VERSION_FILE = '/tmp/mcud_firmware_version.json';
 const HOST_VERSION_FILE = '/usr/share/mcud/version.json';
 const MCUD_EVENT_SH = '/usr/lib/mcud/mcud-event.sh';
+const MCUDD_BIN = '/usr/sbin/mcudd';
+
+/* Keep in sync with feeds/packages/mcudd/internal/config (Go Config / UCI). */
+const CONFIG_DEFAULTS = {
+	enable: '0',
+	path: '/dev/ttyS2',
+	baud: '115200',
+	wire_format: 'json',
+	demo_mode: '0',
+	pages: '/etc/mcud/pages.json',
+	wan_if: 'wan',
+	lan_if: 'br-lan',
+	wifi_if: 'wlan0',
+	interval_system: '1000',
+	interval_network: '2000',
+	push_alerts: '1',
+	max_line: '4096',
+	screen_timeout: '60',
+	screen_timeout_mode: 'off',
+	log_level: 'info',
+	debug: '0',
+	debug_serial: '0',
+	menu_nav_button: 'BTN_2',
+	menu_select_button: 'wps',
+	menu_wps: '0',
+	path_autodiscover: '1'
+};
 
 const FLAG_OPTS = [ 'enable', 'demo_mode', 'push_alerts', 'debug', 'debug_serial', 'menu_wps', 'path_autodiscover' ];
 const STRING_OPTS = {
@@ -309,19 +337,32 @@ function get_config() {
 		let k = UINT_ZERO_OPTS[i];
 		cfg[k] = uci_get(k);
 	}
-	if (!length(cfg.menu_nav_button))
-		cfg.menu_nav_button = 'BTN_2';
-	if (!length(cfg.menu_select_button))
-		cfg.menu_select_button = 'wps';
-	cfg.path_autodiscover = uci_get('path_autodiscover');
-	if (cfg.path_autodiscover != '0')
-		cfg.path_autodiscover = '1';
+
+	/* Fill blanks from shared defaults so LuCI and Go mcudd agree. */
+	for (let k in CONFIG_DEFAULTS) {
+		if (!length(cfg[k]))
+			cfg[k] = CONFIG_DEFAULTS[k];
+	}
+
+	cfg.path_autodiscover = cfg.path_autodiscover == '0' ? '0' : '1';
+	cfg.config_backend = 'uci';
+	cfg.config_path = MCUD_CONFIG_PATH;
 	cfg.serial_ports = list_serial_ports();
 	cfg.discovered_path = discover_serial_port();
 	cfg.path_valid = path_is_valid(cfg.path);
 	cfg.effective_path = cfg.path_valid ? cfg.path :
 		(length(cfg.discovered_path) ? cfg.discovered_path : cfg.path);
+	cfg.effective = read_effective_config();
 	return cfg;
+}
+
+function read_effective_config() {
+	if (!file_test('-x', MCUDD_BIN))
+		return '';
+	let r = run_cmd(`${MCUDD_BIN} -config ${shell_quote(MCUD_CONFIG_PATH)} -dump-config`);
+	if (r.code != 0)
+		return '';
+	return r.output || '';
 }
 
 function normalize_config(raw) {
@@ -434,8 +475,16 @@ const methods = {
 			if (err)
 				return { ok: false, error: err };
 
-			for (let k in config)
-				uci_set(k, config[k]);
+			/* Persist full schema so Go mcudd always sees a complete UCI file. */
+			for (let k in CONFIG_DEFAULTS) {
+				if (config[k] == null || config[k] === '')
+					config[k] = CONFIG_DEFAULTS[k];
+			}
+			for (let i = 0; i < length(ALL_SET_OPTS); i++) {
+				let k = ALL_SET_OPTS[i];
+				if (config[k] != null)
+					uci_set(k, config[k]);
+			}
 			uci_commit();
 
 			if (restart == '1')

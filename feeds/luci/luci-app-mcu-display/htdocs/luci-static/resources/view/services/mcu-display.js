@@ -78,7 +78,9 @@ var FORM_DEFAULTS = {
 	menu_nav_button: 'BTN_2',
 	menu_select_button: 'wps',
 	menu_wps: '0',
-	path_autodiscover: '1'
+	path_autodiscover: '1',
+	config_backend: 'uci',
+	config_path: '/etc/config/mcud'
 };
 
 function rpcData(data, fallback) {
@@ -288,6 +290,9 @@ function buildStatusGrid(status, cfg) {
 	return E('div', { 'class': 'mcu-status-grid', 'id': 'mcu-live-status-grid' }, [
 		mcuStatusRow(_('Daemon'),
 			mcuYesNoBadge(running, _('running'), _('stopped'))),
+		mcuStatusRow(_('Config file'),
+			mcuBadge('info', E('span', { 'class': 'mcu-mono' },
+				cfg.config_path || '/etc/config/mcud'))),
 		mcuStatusRow(_('Serial device'),
 			mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
 		mcuStatusRow(_('Device present'),
@@ -623,6 +628,12 @@ return view.extend({
 		];
 
 		return E('div', { 'data-tab': 'config', 'data-tab-title': _('Configuration') }, [
+			cbiSection(_('mcudd settings'), [
+				_('These options write OpenWrt UCI %s — the same file Go mcudd loads at startup. Use Save & Apply to restart the daemon.').format(pick(cfg, 'config_path') || '/etc/config/mcud')
+			], [
+				fieldRow(_('Config backend'), E('span', { 'class': 'mcu-mono' },
+					(pick(cfg, 'config_backend') || 'uci') + ' · ' + (pick(cfg, 'config_path') || '/etc/config/mcud')))
+			]),
 			cbiSection(_('Serial & protocol'), [], [
 				fieldRow(_('Enable mcudd'), flagInput('mcu-enable', _('Run mcudd daemon'), pick(cfg, 'enable') === '1')),
 				fieldRow(_('Serial device'), selectInput('mcu-path', portOpts, serialPortEffectivePath(cfg)),
@@ -640,8 +651,9 @@ return view.extend({
 				], pick(cfg, 'baud')), _('Must match ESP32 firmware.')),
 				fieldRow(_('Wire format'), selectInput('mcu-wire-format', [
 					[ 'json', 'JSON' ],
-					[ 'msgpack', 'MessagePack (Phase 2)' ]
-				], pick(cfg, 'wire_format'))),
+					[ 'msgpack', _('MessagePack (falls back to JSON)') ]
+				], pick(cfg, 'wire_format')),
+					_('RDCP framing used on the UART link. MessagePack is reserved until firmware support lands.')),
 				fieldRow(_('Demo alarm data'), flagInput('mcu-demo-mode', _('Use demo metrics'), pick(cfg, 'demo_mode') === '1')),
 				fieldRow(_('Pages JSON path'), textInput('mcu-pages', pick(cfg, 'pages')))
 			]),
@@ -677,6 +689,11 @@ return view.extend({
 				fieldRow(_('Protocol frame logging'), flagInput('mcu-debug', _('Log RDCP frames'), pick(cfg, 'debug') === '1')),
 				fieldRow(_('UART trace'), flagInput('mcu-debug-serial', _('Log raw TX/RX lines'), pick(cfg, 'debug_serial') === '1'))
 			]),
+			cfg.effective ? cbiSection(_('Effective mcudd config'), [
+				_('Output of %s -dump-config (what the daemon would load from this UCI file).').format('mcudd')
+			], [
+				E('pre', { 'class': 'mcu-log-pre', 'id': 'mcu-effective-config' }, cfg.effective)
+			]) : '',
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', {
 					'class': 'btn cbi-button-save',

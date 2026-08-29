@@ -14,6 +14,7 @@
 			"uci": [ "mcud" ],
 			"file": {
 				"/etc/mcud/pages.json": [ "read" ],
+				"/etc/config/mcud": [ "read" ],
 				"/tmp/mcud_state": [ "read" ],
 				"/tmp/mcud_active_screen": [ "read" ],
 				"/tmp/mcud_firmware_version.json": [ "read" ],
@@ -22,7 +23,8 @@
 				"/dev/ttyS*": [ "read" ],
 				"/dev/ttyACM*": [ "read" ],
 				"/sbin/logread": [ "exec" ],
-				"/bin/logread": [ "exec" ]
+				"/bin/logread": [ "exec" ],
+				"/usr/sbin/mcudd": [ "exec" ]
 			}
 		},
 		"write": {

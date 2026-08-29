@@ -23,7 +23,9 @@ var FORM_DEFAULTS = {
 	menu_nav_button: 'BTN_2',
 	menu_select_button: 'wps',
 	menu_wps: '0',
-	path_autodiscover: '1'
+	path_autodiscover: '1',
+	config_backend: 'uci',
+	config_path: '/etc/config/mcud'
 };
 
 var FLAG_OPTS = [

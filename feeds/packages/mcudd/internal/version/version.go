@@ -5,7 +5,7 @@ import "fmt"
 const (
 	RDCP         = 1
 	Stack        = "1.0.0"
-	Release      = 45
+	Release      = 46
 	PagesSchema  = 1
 	ComponentHost = "mcudd"
 	ComponentFW   = "esp32-router"

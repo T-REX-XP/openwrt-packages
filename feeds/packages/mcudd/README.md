@@ -4,17 +4,20 @@ Go rewrite of the CM5 MCU display daemon. Speaks **RDCP v1** over UART to ESP32 
 
 ## Configuration
 
-mcudd loads settings from (first match):
+mcudd and **luci-app-mcu-display** share one settings file:
 
-1. **`-config PATH`** (CLI override)
-2. **`/etc/config/mcud`** — OpenWrt UCI (owned by `luci-app-mcu-display`)
-3. **`/etc/mcudd/config.json`** — optional JSON
-4. Built-in defaults (CM5: `/dev/ttyS2` @ 115200, `wire_format=json`)
+| Layer | Path |
+|-------|------|
+| LuCI UI | Services → MCU Display → Configuration |
+| OpenWrt UCI | `/etc/config/mcud` |
+| Optional JSON | `/etc/mcudd/config.json` (CLI / no UCI) |
+
+Load order: `-config PATH` → UCI → JSON → built-in defaults.
 
 ```bash
-mcudd -dump-config                 # show effective config
-mcudd -config /etc/config/mcud     # explicit UCI file
-mcudd -config /etc/mcudd/config.json
+mcudd -dump-config
+mcudd -config /etc/config/mcud -dump-config
+uci show mcud
 ```
 
 ### Key options

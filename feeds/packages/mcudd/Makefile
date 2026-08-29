@@ -21,7 +21,7 @@ GO_PKG:=github.com/t-rex-xp/openwrt-packages/mcudd
 GO_PKG_BUILD_PKG:=./cmd/mcudd
 GO_PKG_LDFLAGS_X:= \
 	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Stack=1.0.0 \
-	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Release=45
+	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Release=46
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk

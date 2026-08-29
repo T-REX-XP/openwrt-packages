@@ -1,5 +1,12 @@
 # luci-app-mcu-display CHANGELOG
 
+## 46
+
+- **Config parity with Go mcudd** — Configuration tab edits `/etc/config/mcud` (same UCI Go loads). Shows config path, effective `mcudd -dump-config`, and fills missing options from shared defaults on save.
+- **Wire format** — MessagePack labeled as falling back to JSON until firmware support.
+
+## 45
+
 ## 43 (2026-08-28)
 
 ### Changed
