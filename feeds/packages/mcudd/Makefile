@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mcudd
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -37,11 +37,14 @@ endef
 define Package/mcudd/description
   Host-side UART bridge for ESP32 smart display panels on ImmortalWrt.
   Speaks RDCP v1 JSON over serial; replaces the legacy C mcudd binary.
+  Reads /etc/config/mcud (UCI) or optional /etc/mcudd/config.json.
 endef
 
 define Package/mcudd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/mcudd $(1)/usr/sbin/mcudd
+	$(INSTALL_DIR) $(1)/etc/mcudd
+	$(INSTALL_DATA) ./files/etc/mcudd/config.json.example $(1)/etc/mcudd/config.json.example
 endef
 
 $(eval $(call BuildPackage,mcudd))

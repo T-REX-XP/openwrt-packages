@@ -40,17 +40,18 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
 
 1. **Single instance** — `flock` on `/var/run/mcudd.lock`.
 2. **Dual input** — `poll(2)` on UART + command FIFO (`/var/run/mcudd.fifo`).
-3. **Line protocol** — newline-delimited JSON, max line from UCI `max_line` (default 4096).
-4. **Startup TX sequence** (unchanged from C):
+3. **Line protocol** — newline-delimited frames (`wire_format=json` today; `msgpack` reserved), max line from UCI `max_line` (default 4096).
+4. **Config** — `/etc/config/mcud` (UCI) or `/etc/mcudd/config.json`; CLI `-config` / `-dump-config`.
+5. **Startup TX sequence** (unchanged from C):
    - `push boot` → `push config` → `push hello` → `req version`
    - `leave_boot` if `/tmp/mcud_state` stage=`ready`
-5. **Inbound dispatch**:
+6. **Inbound dispatch**:
    - `req metrics` → scope provider → `res` with same `id`
    - `evt screen` → update active screen + sidecar
    - `evt input` → gesture nav (rate-limited)
    - `evt version` / `res pong` / `evt echo` → link-test sidecars
    - legacy `{"request":"cpu"}` → flat JSON (Phase 2 metrics)
-6. **Outbound nav** — `cmd screen {screen, dir}`; active screen updated only on `evt screen` ack.
+7. **Outbound nav** — `cmd screen {screen, dir}`; active screen updated only on `evt screen` ack.
 
 ## Package boundaries
 

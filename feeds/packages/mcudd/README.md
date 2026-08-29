@@ -1,30 +1,64 @@
 # mcudd (Go)
 
-Go rewrite of the CM5 MCU display daemon. Speaks **RDCP v1** JSON over UART to ESP32 firmware.
+Go rewrite of the CM5 MCU display daemon. Speaks **RDCP v1** over UART to ESP32 firmware.
 
-## Phase 0 (POC)
+## Configuration
 
-- RDCP parse/build (`internal/rdcp`)
-- Page ring + nav rate-limit (`internal/pages`, `internal/nav`)
-- FIFO commands: `prev`, `next`, `screen`, `ping`, `echo`, `ready`, …
-- Daemon engine with mock transport (`internal/daemon`)
-- Stub metrics for all scopes (`internal/metrics`)
-- Linux serial transport (`internal/transport`, build tag `linux`)
+mcudd loads settings from (first match):
+
+1. **`-config PATH`** (CLI override)
+2. **`/etc/config/mcud`** — OpenWrt UCI (owned by `luci-app-mcu-display`)
+3. **`/etc/mcudd/config.json`** — optional JSON
+4. Built-in defaults (CM5: `/dev/ttyS2` @ 115200, `wire_format=json`)
+
+```bash
+mcudd -dump-config                 # show effective config
+mcudd -config /etc/config/mcud     # explicit UCI file
+mcudd -config /etc/mcudd/config.json
+```
+
+### Key options
+
+| Option | Values | Purpose |
+|--------|--------|---------|
+| `enable` | `0`/`1` | Start daemon |
+| `path` | device path | UART device (`/dev/ttyS2`, `/dev/ttyUSB0`, …) |
+| `baud` | int | Baud rate (default `115200`) |
+| `wire_format` | `json` \| `msgpack` | Framing (`msgpack` accepted in config, runtime falls back to JSON until Phase 3) |
+| `max_line` | int ≥ 64 | Max RDCP line length |
+| `demo_mode` | `0`/`1` | Stub/demo metrics |
+| `screen_timeout` | seconds | Idle timeout (`0` = off via mode) |
+| `screen_timeout_mode` | `off` \| `dim` \| `blank` | Idle action |
+| `wan_if` / `lan_if` / `wifi_if` | interface names | Metrics sources |
+| `interval_system` / `interval_network` | ms | Metrics cache TTLs |
+| `log_level` | `error`\|`warn`\|`info`\|`debug` | Log verbosity |
+| `debug_serial` | `0`/`1` | Log UART TX/RX lines |
+| `pages` | path | Page ring JSON |
+
+Example JSON: `files/etc/mcudd/config.json.example`.
+
+UCI example (LuCI **Services → MCU Display** edits the same file):
+
+```text
+config mcud 'main'
+	option enable '1'
+	option path '/dev/ttyS2'
+	option baud '115200'
+	option wire_format 'json'
+	option debug_serial '1'
+```
 
 ## Dev
 
 ```bash
 cd feeds/packages/mcudd
-./scripts/run-tests.sh          # unit tests, ≥95% coverage gate
-go build -o mcudd ./cmd/mcudd   # host build (serial needs linux or MCUDD_MOCK=1)
-MCUDD_MOCK=1 ./mcudd --version
+./scripts/run-tests.sh
+go build -o mcudd ./cmd/mcudd
+MCUDD_MOCK=1 ./mcudd -version
+MCUDD_MOCK=1 ./mcudd -dump-config
 ```
 
 ## Docs
 
 - [architecture.md](docs/architecture.md)
 - [backlog.md](docs/backlog.md)
-
-## Router deploy (after OpenWrt package integration)
-
-Replace C binary from `luci-app-mcu-display` with this package’s `/usr/sbin/mcudd`. LuCI, init, FIFO, and `/tmp/mcud_*` sidecars stay unchanged.

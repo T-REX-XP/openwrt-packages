@@ -2,44 +2,90 @@ package config
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-const UCIPath = "/etc/config/mcud"
-
-// Load reads /etc/config/mcud or returns Default on missing/invalid file.
+// Load resolves configuration from the default search path:
+//  1. /etc/config/mcud (OpenWrt UCI)
+//  2. /etc/mcudd/config.json (optional JSON)
+//  3. built-in Default()
 func Load() Config {
-	cfg, err := LoadFile(UCIPath)
+	cfg, _, err := LoadPath("")
 	if err != nil {
 		return Default()
 	}
 	return cfg
 }
 
-// LoadFile parses OpenWrt UCI mcud options (first config mcud section).
-func LoadFile(path string) (Config, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return Config{}, err
+// LoadPath loads config from an explicit path.
+// Empty path uses the default search order.
+// Format is detected by extension (.json) or UCI "config "/"option " lines.
+func LoadPath(path string) (Config, string, error) {
+	if path == "" {
+		if _, err := os.Stat(DefaultUCIPath); err == nil {
+			path = DefaultUCIPath
+		} else if _, err := os.Stat(DefaultJSONPath); err == nil {
+			path = DefaultJSONPath
+		} else {
+			return Default(), "(defaults)", nil
+		}
 	}
-	defer f.Close()
 
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, "", err
+	}
+
+	var cfg Config
+	switch {
+	case strings.EqualFold(filepath.Ext(path), ".json") || looksLikeJSON(data):
+		cfg, err = parseJSON(data)
+	default:
+		cfg, err = parseUCI(string(data))
+	}
+	if err != nil {
+		return Config{}, path, err
+	}
+	if err := cfg.Validate(); err != nil {
+		return Config{}, path, err
+	}
+	return cfg, path, nil
+}
+
+func looksLikeJSON(data []byte) bool {
+	s := strings.TrimSpace(string(data))
+	return strings.HasPrefix(s, "{")
+}
+
+func parseJSON(data []byte) (Config, error) {
+	c := Default()
+	if err := json.Unmarshal(data, &c); err != nil {
+		return Config{}, fmt.Errorf("json config: %w", err)
+	}
+	normalize(&c)
+	return c, nil
+}
+
+func parseUCI(content string) (Config, error) {
 	opts := map[string]string{}
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(strings.NewReader(content))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
 		if !strings.HasPrefix(line, "option ") {
 			continue
 		}
-		fields := strings.Fields(line)
-		if len(fields) < 3 {
+		key, val, ok := parseUCIOption(line)
+		if !ok {
 			continue
 		}
-		key := fields[1]
-		val := strings.Trim(fields[2], `'"`)
 		opts[key] = val
 	}
 	if err := scanner.Err(); err != nil {
@@ -47,6 +93,40 @@ func LoadFile(path string) (Config, error) {
 	}
 
 	c := Default()
+	applyOptions(&c, opts)
+	normalize(&c)
+	return c, nil
+}
+
+// parseUCIOption parses: option key 'value' | option key "value" | option key value
+func parseUCIOption(line string) (key, val string, ok bool) {
+	rest := strings.TrimSpace(strings.TrimPrefix(line, "option "))
+	if rest == "" {
+		return "", "", false
+	}
+	sp := strings.IndexByte(rest, ' ')
+	if sp < 0 {
+		return "", "", false
+	}
+	key = rest[:sp]
+	raw := strings.TrimSpace(rest[sp+1:])
+	if raw == "" {
+		return "", "", false
+	}
+	switch raw[0] {
+	case '\'', '"':
+		q := raw[0]
+		end := strings.IndexByte(raw[1:], q)
+		if end < 0 {
+			return "", "", false
+		}
+		return key, raw[1 : 1+end], true
+	default:
+		return key, strings.Fields(raw)[0], true
+	}
+}
+
+func applyOptions(c *Config, opts map[string]string) {
 	if v, ok := opts["enable"]; ok {
 		c.Enable = truthy(v)
 	}
@@ -54,42 +134,59 @@ func LoadFile(path string) (Config, error) {
 		c.Path = v
 	}
 	if v, ok := opts["baud"]; ok {
-		n, err := strconv.Atoi(v)
-		if err != nil || n <= 0 {
-			return Config{}, fmt.Errorf("invalid baud")
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.Baud = n
 		}
-		c.Baud = n
+	}
+	if v, ok := opts["path_autodiscover"]; ok {
+		c.PathAutodiscover = truthy(v)
 	}
 	if v, ok := opts["wire_format"]; ok && v != "" {
-		if v != "json" && v != "msgpack" {
-			return Config{}, fmt.Errorf("invalid wire_format")
-		}
 		c.WireFormat = v
+	}
+	if v, ok := opts["max_line"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n >= 64 {
+			c.MaxLine = uint(n)
+		}
+	}
+	if v, ok := opts["pages"]; ok && v != "" {
+		c.Pages = v
 	}
 	if v, ok := opts["demo_mode"]; ok {
 		c.DemoMode = truthy(v)
 	}
-	if v, ok := opts["max_line"]; ok {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 64 {
-			return Config{}, fmt.Errorf("invalid max_line")
-		}
-		c.MaxLine = uint(n)
-	}
 	if v, ok := opts["screen_timeout"]; ok {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return Config{}, fmt.Errorf("invalid screen_timeout")
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			c.ScreenTimeoutSec = uint(n)
 		}
-		c.ScreenTimeoutSec = uint(n)
 	}
 	if v, ok := opts["screen_timeout_mode"]; ok && v != "" {
-		switch v {
-		case "off", "dim", "blank":
-			c.ScreenTimeoutMode = v
-		default:
-			return Config{}, fmt.Errorf("invalid screen_timeout_mode")
+		c.ScreenTimeoutMode = v
+	}
+	if v, ok := opts["push_alerts"]; ok {
+		c.PushAlerts = truthy(v)
+	}
+	if v, ok := opts["wan_if"]; ok && v != "" {
+		c.WanIf = v
+	}
+	if v, ok := opts["lan_if"]; ok && v != "" {
+		c.LanIf = v
+	}
+	if v, ok := opts["wifi_if"]; ok && v != "" {
+		c.WifiIf = v
+	}
+	if v, ok := opts["interval_system"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.IntervalSystemMs = uint(n)
 		}
+	}
+	if v, ok := opts["interval_network"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.IntervalNetworkMs = uint(n)
+		}
+	}
+	if v, ok := opts["log_level"]; ok && v != "" {
+		c.LogLevel = v
 	}
 	if v, ok := opts["debug"]; ok {
 		c.Debug = truthy(v)
@@ -97,7 +194,24 @@ func LoadFile(path string) (Config, error) {
 	if v, ok := opts["debug_serial"]; ok {
 		c.DebugSerial = truthy(v)
 	}
-	return c, nil
+	if v, ok := opts["menu_nav_button"]; ok && v != "" {
+		c.MenuNavButton = v
+	}
+	if v, ok := opts["menu_select_button"]; ok && v != "" {
+		c.MenuSelectButton = v
+	}
+	if v, ok := opts["menu_wps"]; ok {
+		c.MenuWPS = truthy(v)
+	}
+}
+
+func normalize(c *Config) {
+	c.WireFormat = strings.ToLower(strings.TrimSpace(c.WireFormat))
+	c.ScreenTimeoutMode = strings.ToLower(strings.TrimSpace(c.ScreenTimeoutMode))
+	c.LogLevel = strings.ToLower(strings.TrimSpace(c.LogLevel))
+	if c.Debug && c.LogLevel == LogInfo {
+		c.LogLevel = LogDebug
+	}
 }
 
 func truthy(v string) bool {
@@ -107,4 +221,13 @@ func truthy(v string) bool {
 	default:
 		return false
 	}
+}
+
+// Legacy aliases used by older call sites / tests.
+const UCIPath = DefaultUCIPath
+
+// LoadFile loads a UCI-format file (test/compat helper).
+func LoadFile(path string) (Config, error) {
+	cfg, _, err := LoadPath(path)
+	return cfg, err
 }

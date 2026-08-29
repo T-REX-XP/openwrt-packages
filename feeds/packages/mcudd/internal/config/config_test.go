@@ -1,10 +1,328 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const sampleUCI = `config mcud 'main'
+	option enable '1'
+	option path '/dev/ttyS2'
+	option baud '115200'
+	option wire_format 'json'
+	option demo_mode '1'
+	option pages '/etc/mcud/pages.json'
+	option wan_if 'wan'
+	option lan_if 'br-lan'
+	option wifi_if 'wlan0'
+	option interval_system '1000'
+	option interval_network '2000'
+	option push_alerts '1'
+	option max_line '4096'
+	option screen_timeout '60'
+	option screen_timeout_mode 'off'
+	option log_level 'debug'
+	option debug '1'
+	option debug_serial '1'
+	option menu_nav_button 'BTN_2'
+	option menu_select_button 'wps'
+	option menu_wps '0'
+	option path_autodiscover '1'
+`
 
 func TestDefault(t *testing.T) {
 	c := Default()
 	if c.Path != "/dev/ttyS2" || c.Baud != 115200 || c.MaxLine != 4096 {
 		t.Fatalf("%+v", c)
 	}
+	if c.WireFormat != WireJSON || c.WanIf != "wan" || c.IntervalSystemMs != 1000 {
+		t.Fatalf("%+v", c)
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
 }
+
+func TestLoadUCIFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mcud")
+	if err := os.WriteFile(path, []byte(sampleUCI), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, src, err := LoadPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src != path {
+		t.Fatal(src)
+	}
+	if !c.Enable || c.Path != "/dev/ttyS2" || c.Baud != 115200 {
+		t.Fatalf("%+v", c)
+	}
+	if !c.DemoMode || !c.Debug || !c.DebugSerial || !c.PushAlerts {
+		t.Fatalf("flags: %+v", c)
+	}
+	if c.Pages != "/etc/mcud/pages.json" || c.LanIf != "br-lan" || c.WifiIf != "wlan0" {
+		t.Fatalf("ifaces: %+v", c)
+	}
+	if c.ScreenTimeoutSec != 60 || c.LogLevel != LogDebug || c.MenuNavButton != "BTN_2" {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestLoadJSONFile(t *testing.T) {
+	body := `{
+  "enable": true,
+  "path": "/dev/ttyUSB0",
+  "baud": 230400,
+  "wire_format": "json",
+  "max_line": 2048,
+  "demo_mode": false,
+  "screen_timeout": 30,
+  "screen_timeout_mode": "dim",
+  "wan_if": "wan",
+  "lan_if": "br-lan",
+  "wifi_if": "wlan0",
+  "interval_system": 500,
+  "interval_network": 1500,
+  "log_level": "info",
+  "debug": false,
+  "debug_serial": true
+}`
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, _, err := LoadPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Path != "/dev/ttyUSB0" || c.Baud != 230400 || c.MaxLine != 2048 {
+		t.Fatalf("%+v", c)
+	}
+	if c.ScreenTimeoutMode != "dim" || !c.DebugSerial || c.IntervalSystemMs != 500 {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestLoadFileInvalidWireFormat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mcud")
+	body := "config mcud 'main'\n\toption enable '1'\n\toption path '/dev/ttyS0'\n\toption baud '115200'\n\toption wire_format 'xml'\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLoadMissingFile(t *testing.T) {
+	_, err := LoadFile(filepath.Join(t.TempDir(), "missing"))
+	if err == nil {
+		t.Fatal("expected missing file error")
+	}
+}
+
+func TestLoadPathEmptyDefaults(t *testing.T) {
+	// When neither default path exists in the test sandbox, LoadPath("") uses defaults.
+	cfg, src, err := LoadPath("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src != "(defaults)" && src != DefaultUCIPath && src != DefaultJSONPath {
+		// On a developer machine DefaultUCIPath may exist; both OK.
+		t.Log(src)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadFileDisabledAndFlags(t *testing.T) {
+	body := `config mcud 'main'
+	option enable '0'
+	option path '/dev/ttyUSB0'
+	option baud '230400'
+	option wire_format 'json'
+	option demo_mode '0'
+	option debug '0'
+	option debug_serial '0'
+`
+	path := filepath.Join(t.TempDir(), "mcud")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Enable || c.DemoMode || c.Debug || c.DebugSerial {
+		t.Fatalf("%+v", c)
+	}
+	if c.Path != "/dev/ttyUSB0" || c.Baud != 230400 {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestParseUCIOptionQuotedSpace(t *testing.T) {
+	key, val, ok := parseUCIOption(`option pages '/etc/mcud/my pages.json'`)
+	if !ok || key != "pages" || val != "/etc/mcud/my pages.json" {
+		t.Fatalf("%q %q %v", key, val, ok)
+	}
+}
+
+func TestTruthy(t *testing.T) {
+	for _, v := range []string{"1", "true", "yes", "on", "TRUE"} {
+		if !truthy(v) {
+			t.Fatal(v)
+		}
+	}
+	for _, v := range []string{"0", "false", "no", "off", ""} {
+		if truthy(v) {
+			t.Fatal(v)
+		}
+	}
+}
+
+func TestValidateAndDump(t *testing.T) {
+	c := Default()
+	c.WireFormat = "XML"
+	normalize(&c)
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected invalid wire")
+	}
+	c = Default()
+	c.WireFormat = WireMsgPack
+	if !c.MsgPackUnsupported() {
+		t.Fatal("msgpack")
+	}
+	s := c.Dump()
+	if !strings.Contains(s, "wire_format=msgpack") || !strings.Contains(s, "path=") {
+		t.Fatal(s)
+	}
+	if !strings.Contains(c.Summary(), "wire=msgpack") {
+		t.Fatal(c.Summary())
+	}
+}
+
+func TestValidateBadModes(t *testing.T) {
+	c := Default()
+	c.Path = ""
+	if err := c.Validate(); err == nil {
+		t.Fatal("empty path")
+	}
+	c = Default()
+	c.Baud = 0
+	if err := c.Validate(); err == nil {
+		t.Fatal("baud")
+	}
+	c = Default()
+	c.MaxLine = 8
+	if err := c.Validate(); err == nil {
+		t.Fatal("max_line")
+	}
+	c = Default()
+	c.ScreenTimeoutMode = "sleep"
+	if err := c.Validate(); err == nil {
+		t.Fatal("mode")
+	}
+	c = Default()
+	c.IntervalNetworkMs = 0
+	if err := c.Validate(); err == nil {
+		t.Fatal("interval")
+	}
+}
+
+func TestLoadJSONByContentWithoutExt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mcud.conf")
+	body := `{"enable":true,"path":"/dev/ttyS3","baud":9600,"wire_format":"json","max_line":512,"screen_timeout_mode":"blank","interval_system":100,"interval_network":100,"log_level":"warn"}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, _, err := LoadPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Path != "/dev/ttyS3" || c.Baud != 9600 || c.ScreenTimeoutMode != "blank" || c.LogLevel != LogWarn {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestLoadUCIUnquotedAndComments(t *testing.T) {
+	body := `# comment
+config mcud 'main'
+	option enable 1
+	option path /dev/ttyS1
+	option baud 57600
+	option wire_format json
+	option max_line 1024
+	option screen_timeout_mode blank
+	option log_level warn
+	option interval_system 250
+	option interval_network 500
+	option path_autodiscover 0
+	option push_alerts 0
+	option menu_wps 1
+	option wan_if eth0
+	option lan_if br-lan
+	option wifi_if wlan0
+	option pages /etc/mcud/pages.json
+	option menu_nav_button BTN_1
+	option menu_select_button wps
+`
+	path := filepath.Join(t.TempDir(), "mcud")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Enable || c.Path != "/dev/ttyS1" || c.Baud != 57600 {
+		t.Fatalf("%+v", c)
+	}
+	if c.PathAutodiscover || c.PushAlerts || !c.MenuWPS {
+		t.Fatalf("flags %+v", c)
+	}
+	if c.WanIf != "eth0" || c.MenuNavButton != "BTN_1" || c.MaxLine != 1024 {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestLoadInvalidJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(path, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LoadPath(path); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLoadUsesLoadHelper(t *testing.T) {
+	_ = Load() // must not panic; uses defaults or host UCI
+}
+
+func TestParseUCIOptionBad(t *testing.T) {
+	if _, _, ok := parseUCIOption("option"); ok {
+		t.Fatal("expected fail")
+	}
+	if _, _, ok := parseUCIOption("option key"); ok {
+		t.Fatal("expected fail")
+	}
+	if _, _, ok := parseUCIOption("option key 'unclosed"); ok {
+		t.Fatal("expected fail")
+	}
+}
+
+func TestDebugPromotesLogLevel(t *testing.T) {
+	c := Default()
+	c.Debug = true
+	c.LogLevel = LogInfo
+	normalize(&c)
+	if c.LogLevel != LogDebug {
+		t.Fatal(c.LogLevel)
+	}
+}
+

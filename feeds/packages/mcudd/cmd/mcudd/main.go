@@ -15,9 +15,15 @@ import (
 )
 
 func main() {
-	var showVersion bool
+	var (
+		showVersion bool
+		dumpConfig  bool
+		configPath  string
+	)
 	flag.BoolVar(&showVersion, "version", false, "print version")
 	flag.BoolVar(&showVersion, "V", false, "print version")
+	flag.BoolVar(&dumpConfig, "dump-config", false, "print effective config and exit")
+	flag.StringVar(&configPath, "config", "", "config file path (UCI /etc/config/mcud or JSON)")
 	flag.Parse()
 
 	if showVersion {
@@ -26,22 +32,37 @@ func main() {
 		return
 	}
 
-	if err := runDaemon(); err != nil {
+	cfg, src, err := config.LoadPath(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mcudd: config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if dumpConfig {
+		fmt.Printf("# source: %s\n%s", src, cfg.Dump())
+		return
+	}
+
+	if err := runDaemon(cfg, src); err != nil {
 		fmt.Fprintf(os.Stderr, "mcudd: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func runDaemon() error {
+func runDaemon(cfg config.Config, configSrc string) error {
 	release, err := acquireLock()
 	if err != nil {
 		return err
 	}
 	defer release()
 
-	cfg := config.Load()
 	if !cfg.Enable {
+		fmt.Printf("disabled in config (%s)\n", configSrc)
 		return nil
+	}
+	if cfg.MsgPackUnsupported() {
+		fmt.Fprintf(os.Stderr, "warn: wire_format=msgpack not supported yet; using JSON framing\n")
+		cfg.WireFormat = config.WireJSON
 	}
 
 	tp, err := openTransport(cfg)
@@ -51,6 +72,8 @@ func runDaemon() error {
 	defer tp.Close()
 
 	log := newLogger(cfg)
+	fmt.Printf("config %s\n", configSrc)
+	fmt.Printf("%s\n", cfg.Summary())
 	fmt.Printf("UART open on %s\n", cfg.Path)
 
 	engine := daemon.New(cfg, tp)

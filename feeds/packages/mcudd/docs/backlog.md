@@ -48,10 +48,10 @@ Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes 
 
 | ID | Task | Status |
 |----|------|--------|
-| P2-1 | UCI loader (`/etc/config/mcud`) full parity | [ ] |
-| P2-2 | `transport/serial` termios (DTR/RTS clear, 8N1) | [ ] |
-| P2-3 | Sidecar files: active_screen, fw version, link_test | [ ] |
-| P2-4 | Boot state reader + `leave_boot` idle poll | [ ] |
+| P2-1 | UCI loader (`/etc/config/mcud`) full parity | [x] |
+| P2-2 | `transport/serial` termios (DTR/RTS clear, 8N1) | [x] |
+| P2-3 | Sidecar files: active_screen, fw version, link_test | [x] |
+| P2-4 | Boot state reader + `leave_boot` idle poll | [x] |
 | P2-5 | Poweroff on RDCP req | [ ] |
 | P2-6 | LuCI package depends on Go `mcudd`; C sources in `mcudd-old` | [x] |
 | P2-7 | CI: cross-compile `aarch64` + run unit tests | [ ] |
@@ -85,4 +85,5 @@ Goal: Go binary talks RDCP over UART (or mock), switches pages via FIFO, passes 
 
 | Date | Note |
 |------|------|
+| 2026-08-29 | Config: full UCI + JSON loader, `-config` / `-dump-config` |
 | 2026-08-28 | Phase 0 started: docs + Go POC scaffold |
