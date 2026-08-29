@@ -1,5 +1,10 @@
 # luci-app-mcu-display CHANGELOG
 
+## 47
+
+- **Host version from binary** — no more `/usr/share/mcud/version.json`; LuCI calls `mcudd -version-json`.
+- **UCI-only settings** — removed optional `/etc/mcudd/config.json`.
+
 ## 46
 
 - **Config parity with Go mcudd** — Configuration tab edits `/etc/config/mcud` (same UCI Go loads). Shows config path, effective `mcudd -dump-config`, and fills missing options from shared defaults on save.

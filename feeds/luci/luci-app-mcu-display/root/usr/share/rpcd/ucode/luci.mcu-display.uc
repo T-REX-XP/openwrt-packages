@@ -9,7 +9,6 @@ const MCUD_CONFIG_PATH = '/etc/config/mcud';
 const BOOT_STATE = '/tmp/mcud_state';
 const ACTIVE_SCREEN = '/tmp/mcud_active_screen';
 const FW_VERSION_FILE = '/tmp/mcud_firmware_version.json';
-const HOST_VERSION_FILE = '/usr/share/mcud/version.json';
 const MCUD_EVENT_SH = '/usr/lib/mcud/mcud-event.sh';
 const MCUDD_BIN = '/usr/sbin/mcudd';
 
@@ -174,6 +173,19 @@ function read_active_screen() {
 		return trim(readfile(ACTIVE_SCREEN) || '');
 	} catch (e) {
 		return '';
+	}
+}
+
+function read_host_version() {
+	if (!file_test('-x', MCUDD_BIN))
+		return null;
+	let r = run_cmd(`${MCUDD_BIN} -version-json`);
+	if (r.code != 0 || !length(r.output))
+		return null;
+	try {
+		return json(trim(r.output));
+	} catch (e) {
+		return null;
 	}
 }
 
@@ -430,7 +442,7 @@ function get_status() {
 		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
 
 	let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
-	let host_version = read_version_file(HOST_VERSION_FILE);
+	let host_version = read_host_version();
 	let firmware_version = read_version_file(FW_VERSION_FILE);
 	let version_synced = versions_synced(host_version, firmware_version);
 

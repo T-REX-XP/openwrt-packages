@@ -14,8 +14,6 @@ const (
 
 	// DefaultUCIPath is the OpenWrt UCI file shipped with luci-app-mcu-display.
 	DefaultUCIPath = "/etc/config/mcud"
-	// DefaultJSONPath is an optional JSON config (used when UCI is absent).
-	DefaultJSONPath = "/etc/mcudd/config.json"
 )
 
 // Config holds all runtime settings for mcudd (UART, wire format, metrics, logging).

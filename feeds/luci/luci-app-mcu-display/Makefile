@@ -8,7 +8,7 @@ LUCI_PKGARCH:=all
 
 PKG_NAME:=luci-app-mcu-display
 PKG_VERSION:=2026.07.06
-PKG_RELEASE:=46
+PKG_RELEASE:=47
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
@@ -30,9 +30,8 @@ define Package/luci-app-mcu-display/install
 	$(INSTALL_BIN) ./root/usr/lib/mcud/mcud-autodiscover.sh $(1)/usr/lib/mcud/mcud-autodiscover.sh
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/usb
 	$(INSTALL_BIN) ./root/etc/hotplug.d/usb/99-mcud $(1)/etc/hotplug.d/usb/99-mcud
-	$(INSTALL_DIR) $(1)/etc/mcud $(1)/usr/share/mcud
+	$(INSTALL_DIR) $(1)/etc/mcud
 	$(INSTALL_DATA) ./root/etc/mcud/pages.json $(1)/etc/mcud/pages.json
-	$(INSTALL_DATA) ./mcud-version.json $(1)/usr/share/mcud/version.json
 endef
 
 # call BuildPackage

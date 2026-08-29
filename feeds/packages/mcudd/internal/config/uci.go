@@ -2,18 +2,13 @@ package config
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-// Load resolves configuration from the default search path:
-//  1. /etc/config/mcud (OpenWrt UCI)
-//  2. /etc/mcudd/config.json (optional JSON)
-//  3. built-in Default()
+// Load reads /etc/config/mcud, or returns Default() if the file is missing/invalid.
 func Load() Config {
 	cfg, _, err := LoadPath("")
 	if err != nil {
@@ -22,16 +17,12 @@ func Load() Config {
 	return cfg
 }
 
-// LoadPath loads config from an explicit path.
-// Empty path uses the default search order.
-// Format is detected by extension (.json) or UCI "config "/"option " lines.
+// LoadPath loads an OpenWrt UCI mcud file.
+// Empty path uses DefaultUCIPath (/etc/config/mcud); if missing, returns Default().
 func LoadPath(path string) (Config, string, error) {
 	if path == "" {
-		if _, err := os.Stat(DefaultUCIPath); err == nil {
-			path = DefaultUCIPath
-		} else if _, err := os.Stat(DefaultJSONPath); err == nil {
-			path = DefaultJSONPath
-		} else {
+		path = DefaultUCIPath
+		if _, err := os.Stat(path); err != nil {
 			return Default(), "(defaults)", nil
 		}
 	}
@@ -40,14 +31,12 @@ func LoadPath(path string) (Config, string, error) {
 	if err != nil {
 		return Config{}, "", err
 	}
-
-	var cfg Config
-	switch {
-	case strings.EqualFold(filepath.Ext(path), ".json") || looksLikeJSON(data):
-		cfg, err = parseJSON(data)
-	default:
-		cfg, err = parseUCI(string(data))
+	content := string(data)
+	if strings.HasPrefix(strings.TrimSpace(content), "{") {
+		return Config{}, path, fmt.Errorf("expected OpenWrt UCI config, got JSON")
 	}
+
+	cfg, err := parseUCI(content)
 	if err != nil {
 		return Config{}, path, err
 	}
@@ -55,20 +44,6 @@ func LoadPath(path string) (Config, string, error) {
 		return Config{}, path, err
 	}
 	return cfg, path, nil
-}
-
-func looksLikeJSON(data []byte) bool {
-	s := strings.TrimSpace(string(data))
-	return strings.HasPrefix(s, "{")
-}
-
-func parseJSON(data []byte) (Config, error) {
-	c := Default()
-	if err := json.Unmarshal(data, &c); err != nil {
-		return Config{}, fmt.Errorf("json config: %w", err)
-	}
-	normalize(&c)
-	return c, nil
 }
 
 func parseUCI(content string) (Config, error) {

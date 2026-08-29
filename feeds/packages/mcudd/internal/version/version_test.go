@@ -1,10 +1,16 @@
 package version
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestVersion(t *testing.T) {
-	if String() != "1.0.0+46" {
+	if String() != "1.0.0+47" {
 		t.Fatal(String())
+	}
+	if !strings.Contains(JSON(), `"release":47`) {
+		t.Fatal(JSON())
 	}
 	if !Compatible(Stack, Release, RDCP) {
 		t.Fatal("compatible")

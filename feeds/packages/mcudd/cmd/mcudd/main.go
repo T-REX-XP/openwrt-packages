@@ -16,16 +16,22 @@ import (
 
 func main() {
 	var (
-		showVersion bool
-		dumpConfig  bool
-		configPath  string
+		showVersion     bool
+		showVersionJSON bool
+		dumpConfig      bool
+		configPath      string
 	)
 	flag.BoolVar(&showVersion, "version", false, "print version")
 	flag.BoolVar(&showVersion, "V", false, "print version")
+	flag.BoolVar(&showVersionJSON, "version-json", false, "print host version as JSON")
 	flag.BoolVar(&dumpConfig, "dump-config", false, "print effective config and exit")
-	flag.StringVar(&configPath, "config", "", "config file path (UCI /etc/config/mcud or JSON)")
+	flag.StringVar(&configPath, "config", "", "UCI config path (default /etc/config/mcud)")
 	flag.Parse()
 
+	if showVersionJSON {
+		fmt.Println(version.JSON())
+		return
+	}
 	if showVersion {
 		fmt.Printf("%s rdcp=%d pages_schema=%d component=%s\n",
 			version.String(), version.RDCP, version.PagesSchema, version.ComponentHost)

@@ -71,41 +71,6 @@ func TestLoadUCIFile(t *testing.T) {
 	}
 }
 
-func TestLoadJSONFile(t *testing.T) {
-	body := `{
-  "enable": true,
-  "path": "/dev/ttyUSB0",
-  "baud": 230400,
-  "wire_format": "json",
-  "max_line": 2048,
-  "demo_mode": false,
-  "screen_timeout": 30,
-  "screen_timeout_mode": "dim",
-  "wan_if": "wan",
-  "lan_if": "br-lan",
-  "wifi_if": "wlan0",
-  "interval_system": 500,
-  "interval_network": 1500,
-  "log_level": "info",
-  "debug": false,
-  "debug_serial": true
-}`
-	path := filepath.Join(t.TempDir(), "config.json")
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	c, _, err := LoadPath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.Path != "/dev/ttyUSB0" || c.Baud != 230400 || c.MaxLine != 2048 {
-		t.Fatalf("%+v", c)
-	}
-	if c.ScreenTimeoutMode != "dim" || !c.DebugSerial || c.IntervalSystemMs != 500 {
-		t.Fatalf("%+v", c)
-	}
-}
-
 func TestLoadFileInvalidWireFormat(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mcud")
 	body := "config mcud 'main'\n\toption enable '1'\n\toption path '/dev/ttyS0'\n\toption baud '115200'\n\toption wire_format 'xml'\n"
@@ -125,13 +90,11 @@ func TestLoadMissingFile(t *testing.T) {
 }
 
 func TestLoadPathEmptyDefaults(t *testing.T) {
-	// When neither default path exists in the test sandbox, LoadPath("") uses defaults.
 	cfg, src, err := LoadPath("")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if src != "(defaults)" && src != DefaultUCIPath && src != DefaultJSONPath {
-		// On a developer machine DefaultUCIPath may exist; both OK.
+	if src != "(defaults)" && src != DefaultUCIPath {
 		t.Log(src)
 	}
 	if err := cfg.Validate(); err != nil {
@@ -234,21 +197,6 @@ func TestValidateBadModes(t *testing.T) {
 	}
 }
 
-func TestLoadJSONByContentWithoutExt(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "mcud.conf")
-	body := `{"enable":true,"path":"/dev/ttyS3","baud":9600,"wire_format":"json","max_line":512,"screen_timeout_mode":"blank","interval_system":100,"interval_network":100,"log_level":"warn"}`
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	c, _, err := LoadPath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.Path != "/dev/ttyS3" || c.Baud != 9600 || c.ScreenTimeoutMode != "blank" || c.LogLevel != LogWarn {
-		t.Fatalf("%+v", c)
-	}
-}
-
 func TestLoadUCIUnquotedAndComments(t *testing.T) {
 	body := `# comment
 config mcud 'main'
@@ -290,18 +238,18 @@ config mcud 'main'
 	}
 }
 
-func TestLoadInvalidJSON(t *testing.T) {
+func TestRejectJSONConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.json")
-	if err := os.WriteFile(path, []byte("{"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`{"path":"/dev/ttyS2"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := LoadPath(path); err == nil {
-		t.Fatal("expected error")
+		t.Fatal("expected reject JSON")
 	}
 }
 
 func TestLoadUsesLoadHelper(t *testing.T) {
-	_ = Load() // must not panic; uses defaults or host UCI
+	_ = Load()
 }
 
 func TestParseUCIOptionBad(t *testing.T) {
@@ -326,3 +274,10 @@ func TestDebugPromotesLogLevel(t *testing.T) {
 	}
 }
 
+func TestValidateBadLogLevel(t *testing.T) {
+	c := Default()
+	c.LogLevel = "trace"
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected error")
+	}
+}
