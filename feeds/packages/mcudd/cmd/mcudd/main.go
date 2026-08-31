@@ -91,10 +91,6 @@ func runDaemon(cfg config.Config, configSrc string) error {
 	eng.Log = log
 	_ = eng.State.WriteActiveScreen(pages.BootScreen)
 
-	if err := eng.Startup(); err != nil {
-		return fmt.Errorf("startup: %w", err)
-	}
-
 	fifo, fifoPath, err := openFIFO()
 	if err != nil {
 		log.Warnf("fifo unavailable: %v", err)
@@ -112,6 +108,9 @@ func runDaemon(cfg config.Config, configSrc string) error {
 	}()
 
 	if buf, ok := tp.(*transport.Buffer); ok {
+		if err := eng.Startup(); err != nil {
+			return fmt.Errorf("startup: %w", err)
+		}
 		return runMockLoop(eng, buf, fifo, stop)
 	}
 	return runPollLoop(eng, tp, fifo, stop)

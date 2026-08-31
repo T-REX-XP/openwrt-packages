@@ -63,7 +63,7 @@ grep '^2:' /proc/tty/driver/serial          # rx must climb
 /usr/lib/mcud/mcud-event.sh next            # then check sidecar + logs
 ```
 
-Stuck `router_boot` + no `uart rx:` → USB still on GPIO1/3, or tap panel RST after unplug.
+Stuck `router_boot` + no `uart rx:` → leftover `screen`/`picocom` on `ttyS2` (steals `evt screen`, LuCI goes stale), USB still on GPIO1/3, or tap panel RST after unplug. `ps w | grep ttyS2` — kill extras, keep only `mcudd`.
 
 **ESP32 USB flash:** stop mcudd first; skill `esp32-cm5-router-fw` in the firmware repo.
 

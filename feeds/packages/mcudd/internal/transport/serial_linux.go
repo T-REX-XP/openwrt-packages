@@ -60,6 +60,13 @@ func OpenSerial(path string, baud int) (*Serial, error) {
 
 	_ = unix.IoctlSetInt(fd, unix.TCFLSH, unix.TCIOFLUSH)
 
+	// Exclusive lock: a leftover `screen`/`picocom` on ttyS2 steals RX, so
+	// evt screen never reaches mcudd and LuCI stays on a stale sidecar.
+	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(unix.TIOCEXCL), 0); errno != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("tiocexcl %s: %w", path, errno)
+	}
+
 	// Blocking reads: unix.Poll on this 16550 never woke even when the kernel
 	// rx counter climbed (Go scheduler + O_NONBLOCK). A blocking Read parks
 	// an OS thread and is how C mcudd consumed ttyS2.

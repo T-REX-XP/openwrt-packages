@@ -28,6 +28,10 @@ func pollLoop(e *engine.Engine, serial transport.PollableLineTransport, fifo *os
 	lines := make(chan string, 32)
 	errc := make(chan error, 1)
 	go readUART(e, serial, lines, errc, stop)
+	time.Sleep(20 * time.Millisecond)
+	if err := e.Startup(); err != nil {
+		return err
+	}
 
 	var fifoBuf []byte
 	if fifo != nil {
