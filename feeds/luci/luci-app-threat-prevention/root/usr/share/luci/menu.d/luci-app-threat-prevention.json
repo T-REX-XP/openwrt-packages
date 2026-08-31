@@ -1,0 +1,13 @@
+{
+	"admin/services/threat-prevention": {
+		"title": "Threat Prevention",
+		"order": 55,
+		"action": {
+			"type": "view",
+			"path": "services/threat-prevention"
+		},
+		"depends": {
+			"acl": [ "luci-app-threat-prevention" ]
+		}
+	}
+}

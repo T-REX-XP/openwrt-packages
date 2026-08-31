@@ -1,0 +1,9 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Threat Prevention"
+msgstr "Threat Prevention"
+
+msgid "Suricata IDS on the LAN bridge with Emerging Threats Open. Not in the default CM5 image. Inline IPS at 2.5 GbE is not recommended."
+msgstr "Suricata IDS on the LAN bridge with Emerging Threats Open. Not in the default CM5 image. Inline IPS at 2.5 GbE is not recommended."

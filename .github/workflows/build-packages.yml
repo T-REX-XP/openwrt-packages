@@ -51,9 +51,11 @@ env:
   FEEDNAME: openwrt_packages
   FEED_DIR: ${{ github.workspace }}/feeds
   SDK_RELEASE: 25.12-SNAPSHOT
+  # Suricata 7 engine is omitted (Rust; compile in Docker builder only).
   PACKAGES: >-
     blocky yggdrasil luci-app-blocky luci-app-speedtest luci-app-security-guide
     luci-app-peripherals luci-app-buttons mcudd luci-app-mcu-display
+    suricata-etopen tp-eventd luci-app-threat-prevention
 
 jobs:
   build:

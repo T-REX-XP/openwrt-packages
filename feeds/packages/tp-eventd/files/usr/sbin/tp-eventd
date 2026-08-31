@@ -1,0 +1,27 @@
+#!/bin/sh
+# Follow Suricata eve.json and keep a SQLite ring + /tmp/tp_status.json
+
+EVE=$(uci -q get suricata.main.eve_path 2>/dev/null || echo /var/log/suricata/eve.json)
+DB=/var/lib/threat-prevention/events.sqlite
+MAX=2000
+STATUS=/tmp/tp_status.json
+INGEST=/usr/sbin/tp-eve-ingest
+
+mkdir -p "$(dirname "$DB")" /tmp
+touch "$EVE" 2>/dev/null || true
+
+write_status() {
+	n=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM events;' 2>/dev/null || echo 0)
+	last=$(sqlite3 "$DB" 'SELECT ts FROM events ORDER BY id DESC LIMIT 1;' 2>/dev/null || true)
+	et=$(cat /tmp/tp_status.json 2>/dev/null | grep etopen_mtime || true)
+	printf '{"eve":"%s","events":%s,"last_ts":"%s"}\n' "$EVE" "${n:-0}" "$last" > "$STATUS"
+}
+
+write_status
+
+# BusyBox tail -F
+tail -n 0 -F "$EVE" 2>/dev/null | while IFS= read -r line; do
+	[ -n "$line" ] || continue
+	"$INGEST" "$line" "$DB" "$MAX" || true
+	write_status
+done

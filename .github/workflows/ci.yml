@@ -61,9 +61,24 @@ jobs:
       - name: Run mcudd host tests
         run: feeds/packages/mcudd/scripts/run-tests.sh
 
+  test-threat-prevention:
+    name: threat-prevention host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install sqlite3
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+      - name: Run tp-eventd and LuCI checks
+        run: |
+          feeds/packages/tp-eventd/tests/run-tests.sh
+          feeds/luci/luci-app-threat-prevention/tests/run-tests.sh
+
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
-    needs: [test-blocky, test-mcu-display, test-mcudd]
+    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention]
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT

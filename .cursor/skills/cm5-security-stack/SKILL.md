@@ -3,7 +3,8 @@ name: cm5-security-stack
 description: >-
   Recommend and configure IDS, DNS filtering, and traffic analysis for Orange Pi
   CM5 Base on ImmortalWrt. Use when working on blocky, luci-app-snort3,
-  luci-app-security-guide, banIP integration, or CM5 network/security docs.
+  luci-app-threat-prevention, luci-app-security-guide, banIP, or CM5
+  network/security docs.
 ---
 
 # CM5 security stack (Orange Pi CM5 Base)
@@ -20,17 +21,18 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
 | Signature IDS | snort3, luci-app-snort3 | snort3: ImmortalWrt; LuCI: **this feed** | Good in **passive IDS**; IPS needs tuning |
+| | suricata, suricata-etopen, tp-eventd, luci-app-threat-prevention | **this feed** (engine: Docker, skip GitHub SDK) | Optional **IDS** on `br-lan`; **not** in CM5 image |
 | Visibility | tcpdump-mini, vnstat2, nlbwmon | ImmortalWrt | Excellent |
 | Operator guide | luci-app-security-guide | **this feed** | Optional feed install |
-| Heavy IDS/SIEM | Suricata, Zeek, Wazuh | Not in OpenWrt feed | External Docker host (not on-router) |
+| Heavy IDS/SIEM | Zeek, Wazuh, Suricata **IPS** | External Docker host | Full SIEM / inline IPS not on-router |
 
 ## Recommended tiers
 
 **Tier 1 (default):** adblock + banip + blocky + tcpdump-mini + vnstat2 + nlbwmon
 
-**Tier 2 (optional):** snort3 + luci-app-snort3 in **IDS mode** on `br-lan`, minimal rules, monitor CPU/RAM
+**Tier 2 (optional):** snort3 + luci-app-snort3 and/or **suricata** + luci-app-threat-prevention in **IDS mode** on `br-lan`, small ET profile, monitor CPU/RAM
 
-**Tier 3 (advanced):** mirror WAN/LAN to an external Docker host for Suricata/Wazuh
+**Tier 3 (advanced):** mirror WAN/LAN to an external Docker host for full Suricata IPS / Wazuh
 
 ## Not recommended on-router
 
@@ -43,6 +45,7 @@ From **this feed** (after enabling feed):
 
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
+apk add suricata-etopen tp-eventd luci-app-threat-prevention
 ```
 
 From **standard ImmortalWrt index**:

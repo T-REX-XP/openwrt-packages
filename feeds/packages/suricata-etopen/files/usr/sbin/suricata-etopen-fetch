@@ -1,0 +1,61 @@
+#!/bin/sh
+# Fetch current ET Open (Suricata 7) — not the SRM 9840 snapshot.
+
+set -e
+
+URL=$(uci -q get suricata.main.etopen_url 2>/dev/null || \
+	echo 'https://rules.emergingthreats.net/open/suricata-7.0/emerging.rules.tar.gz')
+RULE_DIR=$(uci -q get suricata.main.rule_dir 2>/dev/null || echo /etc/suricata/rules)
+STATUS=/tmp/tp_etopen.json
+STAMP=/var/lib/threat-prevention/etopen.stamp
+
+mkdir -p "$RULE_DIR" /var/lib/threat-prevention /tmp
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+if command -v uclient-fetch >/dev/null 2>&1; then
+	uclient-fetch -O "$tmp" "$URL"
+elif command -v wget >/dev/null 2>&1; then
+	wget -O "$tmp" "$URL"
+else
+	echo "no uclient-fetch/wget" >&2
+	exit 1
+fi
+
+tar -tzf "$tmp" >/dev/null
+workdir=$(mktemp -d)
+trap 'rm -rf "$tmp" "$workdir"' EXIT
+tar -xzf "$tmp" -C "$workdir"
+
+# Tarball layout is usually rules/*.rules at top or nested.
+find "$workdir" -type f -name '*.rules' -exec cp {} "$RULE_DIR/" \;
+find "$workdir" -type f -name 'classification.config' -exec cp {} /etc/suricata/classification.config \; 2>/dev/null || true
+
+mtime=$(date -Iseconds 2>/dev/null || date)
+count=$(find "$RULE_DIR" -name 'emerging-*.rules' | wc -l | tr -d ' ')
+printf '%s\n' "$mtime $URL files=$count" > "$STAMP"
+
+cat > "$STATUS" <<EOF
+{"etopen_url":"$URL","etopen_mtime":"$mtime","etopen_files":$count,"rule_dir":"$RULE_DIR"}
+EOF
+
+echo "etopen: $count emerging-*.rules in $RULE_DIR"
+
+if [ -x /usr/sbin/suricata-config-apply ]; then
+	/usr/sbin/suricata-config-apply || true
+fi
+
+if [ -x /usr/bin/suricata ]; then
+	run_yaml=$(uci -q get suricata.main.run_yaml 2>/dev/null || echo /var/run/suricata/suricata.yaml)
+	if [ -f "$run_yaml" ]; then
+		/usr/bin/suricata -T -c "$run_yaml" || {
+			echo "suricata -T failed" >&2
+			exit 1
+		}
+	fi
+fi
+
+if [ -x /etc/init.d/suricata ]; then
+	/etc/init.d/suricata enabled 2>/dev/null && /etc/init.d/suricata reload || true
+fi
+exit 0

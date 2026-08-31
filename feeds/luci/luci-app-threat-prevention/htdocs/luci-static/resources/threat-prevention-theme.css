@@ -1,0 +1,82 @@
+/*
+ * luci-app-threat-prevention — Bootstrap light / dark / system
+ */
+
+.luci-app-threat-prevention {
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-lead,
+.luci-app-threat-prevention .tp-cross,
+.luci-app-threat-prevention .tp-warn {
+	color: var(--text-color-medium);
+}
+
+.luci-app-threat-prevention .tp-warn {
+	color: var(--error-color-high, var(--text-color-high));
+}
+
+.luci-app-threat-prevention .tp-cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+@media (max-width: 768px) {
+	.luci-app-threat-prevention .tp-cards {
+		grid-template-columns: 1fr;
+	}
+}
+
+.luci-app-threat-prevention .tp-card {
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.75rem 1rem;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-card-label {
+	color: var(--text-color-medium);
+	font-size: 0.85em;
+}
+
+.luci-app-threat-prevention .tp-card-value {
+	color: var(--text-color-highest);
+	font-size: 1.1em;
+	word-break: break-word;
+}
+
+.luci-app-threat-prevention .tp-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-bottom: 0.75rem;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-field label {
+	color: var(--text-color-medium);
+}
+
+.luci-app-threat-prevention .tp-field input,
+.luci-app-threat-prevention .tp-field select {
+	max-width: 100%;
+}
+
+.luci-app-threat-prevention .tp-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.luci-app-threat-prevention table {
+	width: 100%;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention td {
+	word-break: break-word;
+}

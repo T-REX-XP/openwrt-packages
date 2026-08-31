@@ -1,0 +1,78 @@
+#!/bin/sh
+# Overlay UCI onto the packaged suricata.yaml → /var/run/suricata/suricata.yaml
+# Runs on the router (BusyBox). Default: IDS, small ET profile.
+
+set -e
+
+YAML_IN=$(uci -q get suricata.main.yaml 2>/dev/null || echo /etc/suricata/suricata.yaml)
+YAML_OUT=$(uci -q get suricata.main.run_yaml 2>/dev/null || echo /var/run/suricata/suricata.yaml)
+IFACE=$(uci -q get suricata.main.interface 2>/dev/null || echo br-lan)
+HOME_NET=$(uci -q get suricata.main.home_net 2>/dev/null || echo '[192.168.8.0/24]')
+RULE_DIR=$(uci -q get suricata.main.rule_dir 2>/dev/null || echo /etc/suricata/rules)
+PROFILE=$(uci -q get suricata.main.rule_profile 2>/dev/null || echo small)
+EVE=$(uci -q get suricata.main.eve_path 2>/dev/null || echo /var/log/suricata/eve.json)
+
+SMALL_RULES="emerging-malware.rules emerging-mobile_malware.rules emerging-trojan.rules emerging-worm.rules emerging-exploit.rules emerging-web_server.rules"
+
+if [ ! -f "$YAML_IN" ]; then
+	logger -t suricata-config-apply "missing $YAML_IN (install suricata package)"
+	exit 1
+fi
+
+mkdir -p "$(dirname "$YAML_OUT")" /var/log/suricata "$RULE_DIR"
+
+tmp=$(mktemp)
+cp "$YAML_IN" "$tmp"
+
+esc_home=$(printf '%s' "$HOME_NET" | sed 's/[|&]/\\&/g')
+sed -i "s|^[[:space:]]*HOME_NET:.*|    HOME_NET: \"$esc_home\"|" "$tmp"
+sed -i "s|^[[:space:]]*- interface: eth0|  - interface: $IFACE|" "$tmp"
+sed -i "s|^default-rule-path:.*|default-rule-path: $RULE_DIR|" "$tmp"
+eve_base=$(basename "$EVE")
+sed -i "s|^[[:space:]]*filename: eve.json|      filename: $eve_base|" "$tmp"
+
+rules_block="rule-files:"
+if [ "$PROFILE" = full ]; then
+	if [ -f "$RULE_DIR/suricata.rules" ]; then
+		rules_block="${rules_block}
+  - suricata.rules"
+	else
+		for f in "$RULE_DIR"/emerging-*.rules; do
+			[ -f "$f" ] || continue
+			rules_block="${rules_block}
+  - $(basename "$f")"
+		done
+	fi
+else
+	for name in $SMALL_RULES; do
+		[ -f "$RULE_DIR/$name" ] || continue
+		rules_block="${rules_block}
+  - $name"
+	done
+fi
+
+echo "$rules_block" | grep -q '  - ' || {
+	rules_block="rule-files:
+  - local.rules"
+	[ -f "$RULE_DIR/local.rules" ] || : > "$RULE_DIR/local.rules"
+}
+
+awk -v repl="$rules_block" '
+  BEGIN { skip=0 }
+  /^rule-files:/ {
+    print repl
+    skip=1
+    next
+  }
+  skip==1 {
+    if ($0 ~ /^[^[:space:]#]/ && $0 !~ /^rule-files:/) { skip=0 }
+    else next
+  }
+  skip==0 { print }
+' "$tmp" > "$tmp.new"
+mv "$tmp.new" "$tmp"
+
+mkdir -p "$(dirname "$EVE")"
+mv "$tmp" "$YAML_OUT"
+chmod 644 "$YAML_OUT"
+exit 0

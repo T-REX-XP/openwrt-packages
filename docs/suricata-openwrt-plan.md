@@ -1,7 +1,7 @@
 # Suricata on this feed — plan (CM5 / ImmortalWrt)
 
 **Date:** 2026-08-31  
-**Status:** Plan only — no packages and no README change until this is accepted.  
+**Status:** Accepted — P0 docs + P1–P4 recipes in-tree. Engine apk is **not** in GitHub SDK CI; first `make package/suricata/compile` is Docker (`build_immortalwrt`).  
 **Goal:** Same *product* as Synology Threat Prevention (Suricata + ET Open + class policy + event UI) on ImmortalWrt, without copying the SPK.
 
 Related:

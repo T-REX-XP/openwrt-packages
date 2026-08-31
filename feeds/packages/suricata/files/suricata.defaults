@@ -1,0 +1,6 @@
+#!/bin/sh
+# Default: IDS off until the operator enables it (RAM / overlay).
+
+[ -f /etc/config/suricata ] || exit 0
+uci -q get suricata.main.enabled >/dev/null || exit 0
+exit 0

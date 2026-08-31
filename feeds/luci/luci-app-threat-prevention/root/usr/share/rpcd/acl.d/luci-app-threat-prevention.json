@@ -1,0 +1,42 @@
+{
+	"luci-app-threat-prevention": {
+		"description": "Grant access for luci-app-threat-prevention",
+		"read": {
+			"ubus": {
+				"luci.threat-prevention": [
+					"getStatus",
+					"getEvents",
+					"getConfig"
+				]
+			},
+			"uci": [ "suricata" ],
+			"file": {
+				"/tmp/tp_status.json": [ "read" ],
+				"/tmp/tp_etopen.json": [ "read" ],
+				"/var/lib/threat-prevention/events.sqlite": [ "read" ],
+				"/usr/sbin/tp-eve-ingest": [ "exec" ],
+				"/usr/bin/suricata": [ "exec" ],
+				"/etc/init.d/suricata": [ "exec" ],
+				"/etc/init.d/tp-eventd": [ "exec" ],
+				"/usr/sbin/sqlite3": [ "exec" ],
+				"/usr/bin/sqlite3": [ "exec" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.threat-prevention": [
+					"setConfig",
+					"serviceControl",
+					"fetchRules"
+				]
+			},
+			"uci": [ "suricata" ],
+			"file": {
+				"/etc/init.d/suricata": [ "exec" ],
+				"/etc/init.d/tp-eventd": [ "exec" ],
+				"/usr/sbin/suricata-etopen-fetch": [ "exec" ],
+				"/usr/sbin/suricata-config-apply": [ "exec" ]
+			}
+		}
+	}
+}

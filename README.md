@@ -19,6 +19,10 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
 | `feeds/luci/luci-app-mcu-display` | **luci-app-mcu-display** — ESP32 UART display (`mcudd`, CM5: `/dev/ttyS2`, button nav) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
+| `feeds/packages/suricata` | **suricata** — Suricata 7 IDS (optional; not in CM5 image; compile in Docker, not GitHub SDK) |
+| `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 7) into `/etc/suricata/rules` |
+| `feeds/packages/tp-eventd` | **tp-eventd** — EVE JSON → SQLite event ring |
+| `feeds/luci/luci-app-threat-prevention` | Threat Prevention LuCI (EVE events, ET Open, class policy) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
@@ -45,9 +49,9 @@ Restart Cursor after setup. Requires SSH to the router (`ssh root@192.168.8.1`).
 
 ## IDS & traffic analysis (Orange Pi CM5)
 
-OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for Suricata status, Snort3 modes, NPU limits, and mirror-to-Docker patterns.
+OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for CPU / NPU / mirror notes, and **[docs/suricata-openwrt-plan.md](docs/suricata-openwrt-plan.md)** for the Suricata-first Threat Prevention product.
 
-**Synology-style Threat Prevention** (inline Suricata IPS + ET Open + PostgreSQL events) is **not** copied from the SRM SPK. A feed-side product plan — reuse public ET/Snort rules at runtime, Snort3 IDS + LuCI events, no vendor binaries — is in **[docs/threat-prevention-openwrt-plan.md](docs/threat-prevention-openwrt-plan.md)**. That package is **not** in the feed yet; today use `snort3` + `luci-app-snort3`.
+**Synology-style Threat Prevention** is **not** copied from the SRM SPK. On-router **Suricata IDS** (this feed, optional apk) plus live ET Open and EVE events is the target; Snort3 remains the packaged fallback until `suricata` compiles. That stack is **not** in the default CM5 image. Today you can also use `snort3` + `luci-app-snort3`.
 
 ### Recommended packages by role
 
@@ -57,18 +61,24 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
 | **Signature IDS** | `snort3`, `luci-app-snort3` | `snort3`: ImmortalWrt `packages`; LuCI: **this feed** | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
+| | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-threat-prevention` | **this feed** (engine: Docker compile) | Optional **IDS** on `br-lan`; not in CM5 image |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
 | **Operator guide** | `luci-app-security-guide` | **this feed** | Security & privacy LuCI (CM5 profile) |
-| **Heavy IDS / SIEM** | Suricata, Zeek, Wazuh | **Not** in official OpenWrt feed | Mirror to an **external** Docker host (CM5 image does not ship Docker) |
+| **Heavy IDS / SIEM** | Zeek, Wazuh, full ET Open IPS | External host | Mirror to an **external** Docker host for SIEM (CM5 image does not ship Docker) |
 
 **Not recommended on-router for CM5:** Suricata **IPS** at 2.5 GbE with large rule sets; RK3588 **NPU does not accelerate** Snort/Suricata packet paths (ML inference only).
+
+- On-router **Suricata IDS** (this feed, optional apk) for SRM-like signatures + EVE events.
+- **Not** in the default CM5 image; **not** inline IPS at 2.5 GbE with full ET Open.
+- Rules: live ET Open (Suricata 7), not Synology’s bundled 9840 snapshot.
+- External mirror host remains the path for full SIEM / Zeek / Wazuh.
 
 ### Suggested CM5 stack (tiers)
 
 **Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; **`blocky`** in CM5 image; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
-**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation. Planned **Threat Prevention** LuCI (events, class policy, live ET Open/community fetch) stays feed-optional and out of the default CM5 image — see the [plan](docs/threat-prevention-openwrt-plan.md).
+**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; and/or **`suricata`** + **`luci-app-threat-prevention`** (feed-optional, not in the default CM5 image) — see the [Suricata plan](docs/suricata-openwrt-plan.md).
 
 **Tier 3 — advanced:** mirror WAN/LAN to a **Docker** host on another machine for Suricata or Wazuh — see the research doc.
 
@@ -78,6 +88,8 @@ Packages from **this feed** (after enabling the feed — see below):
 
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
+apk add suricata-etopen tp-eventd luci-app-threat-prevention
+# suricata engine: compile in Docker first, then apk add suricata
 ```
 
 Packages from the **standard ImmortalWrt index** (built into the image or from upstream feeds):

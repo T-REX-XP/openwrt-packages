@@ -1,0 +1,91 @@
+#!/bin/sh
+# Ingest one EVE JSON line (or a file of lines) into the SQLite ring.
+# Usage: tp-eve-ingest [line|@file] [db] [max]
+# Host tests may set JSONFILTER to a jsonfilter-compatible helper.
+
+json_get() {
+	_line=$1
+	_path=$2
+	if [ -n "$JSONFILTER" ]; then
+		"$JSONFILTER" -s "$_line" -e "$_path" 2>/dev/null || true
+	elif command -v jsonfilter >/dev/null 2>&1; then
+		jsonfilter -s "$_line" -e "$_path" 2>/dev/null || true
+	else
+		LINE=$_line PATHQ=$_path python3 -c '
+import json, os, sys
+raw, path = os.environ["LINE"], os.environ["PATHQ"]
+try:
+    obj = json.loads(raw)
+except Exception:
+    sys.exit(0)
+key = path[2:] if path.startswith("@.") else path.lstrip("@.")
+cur = obj
+for part in key.split("."):
+    if not isinstance(cur, dict) or part not in cur:
+        sys.exit(0)
+    cur = cur[part]
+if cur is None:
+    sys.exit(0)
+print(cur)
+' 2>/dev/null || true
+	fi
+}
+
+sql_escape() {
+	printf '%s' "$1" | sed "s/'/''/g"
+}
+
+ingest_line() {
+	line=$1
+	db=$2
+	max=$3
+	[ -n "$line" ] || return 0
+	et=$(json_get "$line" '@.event_type')
+	[ "$et" = alert ] || return 0
+
+	ts=$(json_get "$line" '@.timestamp')
+	src=$(json_get "$line" '@.src_ip')
+	dst=$(json_get "$line" '@.dest_ip')
+	sp=$(json_get "$line" '@.src_port')
+	dp=$(json_get "$line" '@.dest_port')
+	proto=$(json_get "$line" '@.proto')
+	sid=$(json_get "$line" '@.alert.signature_id')
+	msg=$(json_get "$line" '@.alert.signature')
+	cls=$(json_get "$line" '@.alert.category')
+	sev=$(json_get "$line" '@.alert.severity')
+
+	[ -n "$sid" ] || return 0
+
+	sqlite3 "$db" <<EOF
+INSERT INTO events(ts, sid, msg, classtype, src, dst, sport, dport, proto, severity)
+VALUES('$(sql_escape "$ts")', $sid, '$(sql_escape "$msg")', '$(sql_escape "$cls")',
+  '$(sql_escape "$src")', '$(sql_escape "$dst")', '$(sql_escape "$sp")', '$(sql_escape "$dp")',
+  '$(sql_escape "$proto")', '$(sql_escape "$sev")');
+DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT $max);
+EOF
+}
+
+DB=${2:-/var/lib/threat-prevention/events.sqlite}
+MAX=${3:-2000}
+SRC=${1:-}
+
+mkdir -p "$(dirname "$DB")"
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT, sid INTEGER, msg TEXT, classtype TEXT,
+  src TEXT, dst TEXT, sport TEXT, dport TEXT, proto TEXT, severity TEXT
+);"
+
+if [ -z "$SRC" ]; then
+	while IFS= read -r line; do
+		ingest_line "$line" "$DB" "$MAX"
+	done
+elif [ "${SRC#@}" != "$SRC" ]; then
+	f=${SRC#@}
+	while IFS= read -r line; do
+		ingest_line "$line" "$DB" "$MAX"
+	done < "$f"
+else
+	ingest_line "$SRC" "$DB" "$MAX"
+fi
+exit 0

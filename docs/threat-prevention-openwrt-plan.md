@@ -15,7 +15,7 @@ A **Threat Prevention–like product** on OpenWrt is feasible as a **layered fee
 
 | Synology piece | Copy into this repo? | OpenWrt equivalent |
 |----------------|----------------------|--------------------|
-| `synosuricata` 6.0.4 + `libsynotps` | **No** (proprietary, stripped, CVE-stale) | ImmortalWrt **`snort3`** (feed) |
+| `synosuricata` 6.0.4 + `libsynotps` | **No** (proprietary, stripped, CVE-stale) | This feed **`suricata`** 7.x (IDS); ImmortalWrt **`snort3`** fallback |
 | ExtJS UI + `SYNO.TPS.*` WebAPI | **No** (proprietary) | New **JS + rpcd** LuCI app |
 | PostgreSQL `synotps` + `synodb` | **No** (too heavy; custom output) | **EVE JSON** / `alert_fast` + optional SQLite ring |
 | Bundled `emerging.rules.tar.gz` (ET Open **9840**, Suricata 5.0) | **Do not vendor from the SPK** | Fetch **live ET Open** (or Snort community) at runtime |
@@ -25,7 +25,9 @@ A **Threat Prevention–like product** on OpenWrt is feasible as a **layered fee
 | Barnyard2/ACID-style SQL schema | **GPL-2 CERT schema is public**; do not copy Synology extensions blindly | SQLite subset *or* skip SQL and parse EVE |
 | AppArmor, upstart, UDC collector, NFQUEUE 557 | **No** | procd, firewall4/`nft queue`, no telemetry |
 
-**Recommendation:** do **not** put full inline IPS + 23k ET rules in the default CM5 image. Ship a **Tier 2 optional** package: LuCI “Threat Prevention” dashboard over **Snort3 IDS** (passive) + class policy + live ET Open/community rules + alert browser. Keep **banIP** + **Blocky** as Tier 1. Mirror to an external Suricata host remains Tier 3.
+**Recommendation:** do **not** put full inline IPS + 23k ET rules in the default CM5 image. Ship a **Tier 2 optional** package: LuCI “Threat Prevention” over **Suricata IDS** (passive AF_PACKET) + class policy + live ET Open + EVE/SQLite events. **Snort3** stays until the Suricata apk is proven in Docker. Keep **banIP** + **Blocky** as Tier 1. Mirror to an external host remains Tier 3.
+
+Engine table: **Suricata is the target**; Snort3 is the packaged fallback. Details: [suricata-openwrt-plan.md](suricata-openwrt-plan.md).
 
 ---
 
