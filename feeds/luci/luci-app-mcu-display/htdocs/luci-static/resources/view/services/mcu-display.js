@@ -263,36 +263,20 @@ function mcuYesNoBadge(ok, yesLabel, noLabel) {
 	return mcuBadge(ok ? 'yes' : 'no', ok ? yesLabel : noLabel);
 }
 
-function mcuBootBadge(status) {
-	var stage = status.boot_stage || '';
-	var message = status.boot_message || '';
-
-	if (stage === 'ready')
-		return mcuBadge('yes', message || _('Ready'));
-	if (stage === 'network')
-		return mcuBadge('warn', message || _('Network up'));
-	if (stage === 'boot')
-		return mcuBadge('warn', message || _('Starting mcudd…'));
-	if (stage === 'preinit')
-		return mcuBadge('muted', message || _('Pre-init'));
-	if (stage)
-		return mcuBadge('muted', message ? stage + ' — ' + message : stage);
-	return mcuBadge('muted', _('Unknown'));
+function mcuNavIcon(dir) {
+	return E('span', {
+		'class': 'mcu-nav-icon mcu-nav-icon--' + dir,
+		'aria-hidden': 'true'
+	});
 }
 
-function buildStatusGrid(status, cfg) {
+function buildStatusGrid(status) {
 	var running = status.running;
 	var screenLabel = status.page_title || status.active_screen || '—';
-	var bootBadge = mcuBootBadge(status);
 
 	return E('div', { 'class': 'mcu-status-grid', 'id': 'mcu-live-status-grid' }, [
 		mcuStatusRow(_('Daemon'),
 			mcuYesNoBadge(running, _('running'), _('stopped'))),
-		mcuStatusRow(_('Serial device'),
-			mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
-		mcuStatusRow(_('Command FIFO'),
-			mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
-		mcuStatusRow(_('Boot'), bootBadge),
 		mcuStatusRow(_('Active screen'),
 			E('span', { 'id': 'mcu-live-active-screen' }, [
 				mcuBadge('info', E('span', { 'class': 'mcu-mono', 'id': 'mcu-live-active-screen-label' }, screenLabel))
@@ -371,12 +355,6 @@ function updatePagesLive(status) {
 			jump.options[i].selected = jump.options[i].value === activeId;
 		}
 	}
-
-	var indicator = document.getElementById('mcu-live-page-indicator');
-	if (indicator)
-		indicator.textContent = activeId ?
-			_('Live: %s').format(status.page_title || activeId) :
-			_('Live: waiting…');
 }
 
 return view.extend({
@@ -401,19 +379,14 @@ return view.extend({
 		var self = this;
 
 		var tabHost = E('div', { 'class': 'mcu-tab-host' }, [
-			this.buildStatusTab(status, cfg),
-			this.buildPagesTab(status, pages, cfg),
+			this.buildStatusTab(status, pages, cfg),
 			this.buildConfigTab(cfg),
 			this.buildDebugTab()
 		]);
 
 		var root = E('div', { 'class': 'luci-app-mcu-display' }, [
 			E('link', { rel: 'stylesheet', href: L.resource('mcu-display-theme.css') }),
-			E('h2', {}, [
-				_('MCU Display'),
-				' ',
-				E('span', { 'class': 'mcu-live-pill', 'id': 'mcu-live-pill' }, _('Live'))
-			]),
+			E('h2', {}, _('MCU Display')),
 			E('p', { 'class': 'hint' }, _('UART bridge to an ESP32 smart display. Connect the yellow ESP32 board to the CM5 debug UART (/dev/ttyS2) at 115200 8N1, or use a USB serial adapter (/dev/ttyUSB0). Physical buttons (USERKEY / MaskROM) navigate pages when mcudd is running.')),
 			tabHost
 		]);
@@ -473,8 +446,8 @@ return view.extend({
 	bindTabHooks: function(tabHost) {
 		var self = this;
 		var debugPane = tabHost.querySelector('[data-tab="debug"]');
-		var pagesPane = tabHost.querySelector('[data-tab="pages"]');
-		var statusPane = tabHost.querySelector('[data-tab="status"]');
+		var otherPanes = tabHost.querySelectorAll('[data-tab]:not([data-tab="debug"])');
+		var i;
 
 		if (debugPane) {
 			debugPane.addEventListener('cbi-tab-active', function() {
@@ -483,21 +456,28 @@ return view.extend({
 			});
 		}
 
-		[ statusPane, pagesPane ].forEach(function(pane) {
-			if (!pane)
-				return;
-			pane.addEventListener('cbi-tab-active', function() {
+		for (i = 0; i < otherPanes.length; i++) {
+			otherPanes[i].addEventListener('cbi-tab-active', function() {
 				self.stopLogPoll();
 			});
-		});
+		}
 
 		if (debugPane && debugPane.classList.contains('cbi-tab-active'))
 			self.startLogPoll();
 	},
 
-	buildStatusTab: function(status, cfg) {
+	buildStatusTab: function(status, pages, cfg) {
 		var self = this;
+		cfg = cfg || {};
+		pages = pages || {};
+		var pageList = pages.pages || status.pages || [];
+		var running = status.running || pages.running;
+		var blocked = isReadonly || !running;
+		var opts = [];
+		var rows = [];
 		var btns = E('div', { 'class': 'cbi-page-actions' });
+		var i;
+
 		[ 'start', 'stop', 'restart' ].forEach(function(action) {
 			btns.appendChild(E('button', {
 				'class': 'cbi-button cbi-button-action',
@@ -513,78 +493,57 @@ return view.extend({
 			}, _(action)));
 		});
 
-		return E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') }, [
-			cbiSection(_('Daemon status'), [
-				_('Updates every %d s while this page is open (LuCI poll — no WebSocket required).').format(LIVE_POLL_SEC)
-			], [
-				buildStatusGrid(status, cfg)
-			]),
-			cbiSection(_('Service control'), [], [ btns ])
-		]);
-	},
-
-	buildPagesTab: function(status, pages, cfg) {
-		var self = this;
-		cfg = cfg || {};
-		var pageList = pages.pages || status.pages || [];
-		var running = status.running || pages.running;
-		var blocked = isReadonly || !running;
-		var opts = [];
-
-		for (var i = 0; i < pageList.length; i++) {
+		for (i = 0; i < pageList.length; i++) {
 			opts.push(E('option', {
 				'value': pageList[i].id,
 				'selected': optionSelected(pageList[i].id, status.page_id || pages.page_id)
 			}, pageList[i].title || pageList[i].id));
 		}
 
-		var rows = [];
-		for (var j = 0; j < pageList.length; j++) {
-			var isActive = pageList[j].id === (status.page_id || status.active_screen);
+		for (i = 0; i < pageList.length; i++) {
 			rows.push(E('tr', {
-				'class': 'mcu-page-row' + (isActive ? ' mcu-page-row--active' : ''),
-				'data-page-id': pageList[j].id
+				'class': 'mcu-page-row' + (pageList[i].id === (status.page_id || status.active_screen) ? ' mcu-page-row--active' : ''),
+				'data-page-id': pageList[i].id
 			}, [
-				E('td', { 'class': 'mcu-mono' }, pageList[j].id),
-				E('td', {}, pageList[j].title || pageList[j].id),
-				E('td', { 'class': 'mcu-mono' }, pageList[j].scope || '')
+				E('td', { 'class': 'mcu-mono' }, pageList[i].id),
+				E('td', {}, pageList[i].title || pageList[i].id),
+				E('td', { 'class': 'mcu-mono' }, pageList[i].scope || '')
 			]));
 		}
 
-		return E('div', { 'data-tab': 'pages', 'data-tab-title': _('Pages') }, [
-			E('p', {
-				'id': 'mcu-live-page-indicator',
-				'class': 'mcu-live-page-indicator'
-			}, _('Live: %s').format(status.page_title || status.page_id || '—')),
+		return E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') }, [
+			cbiSection(_('Daemon status'), [
+				_('Updates every %d s while this page is open (LuCI poll — no WebSocket required).').format(LIVE_POLL_SEC)
+			], [
+				buildStatusGrid(status)
+			]),
 			cbiSection(_('Screen navigation'), [
 				_('Send RDCP screen commands over UART. Previous / next mirror physical button mapping (MaskROM / USERKEY on CM5).')
 			], [
 				E('div', { 'class': 'mcu-page-controls', 'id': 'mcu-page-controls' }, [
 					E('button', {
-						'class': 'btn cbi-button-action',
+						'class': 'btn cbi-button-action mcu-page-nav-btn',
 						'id': 'mcu-page-prev',
+						'title': _('Previous page'),
 						click: ui.createHandlerFn(self, 'handlePagePrev'),
 						disabled: disableIf(blocked)
-					}, _('Previous page')),
-					' ',
+					}, [ mcuNavIcon('prev'), ' ', _('Previous') ]),
 					E('button', {
-						'class': 'btn cbi-button-action',
+						'class': 'btn cbi-button-action mcu-page-nav-btn',
 						'id': 'mcu-page-next',
+						'title': _('Next page'),
 						click: ui.createHandlerFn(self, 'handlePageNext'),
 						disabled: disableIf(blocked)
-					}, _('Next page')),
-					' ',
+					}, [ _('Next'), ' ', mcuNavIcon('next') ]),
 					E('select', {
 						'id': 'mcu-page-jump',
 						disabled: disableIf(blocked || !pageList.length)
 					}, opts.length ? opts : [ E('option', { 'value': '' }, _('No pages')) ]),
-					' ',
 					E('button', {
 						'class': 'btn cbi-button-action',
 						click: ui.createHandlerFn(self, 'handlePageGoto'),
 						disabled: disableIf(blocked || !pageList.length)
 					}, _('Jump to page')),
-					' ',
 					E('button', {
 						'class': 'btn cbi-button-neutral',
 						'id': 'mcu-page-boot',
@@ -605,7 +564,8 @@ return view.extend({
 						])
 					].concat(rows)) :
 					E('p', {}, _('No enabled pages in pages.json.'))
-			])
+			]),
+			cbiSection(_('Service control'), [], [ btns ])
 		]);
 	},
 

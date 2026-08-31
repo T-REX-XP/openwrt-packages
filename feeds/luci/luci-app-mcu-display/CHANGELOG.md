@@ -1,5 +1,21 @@
 # luci-app-mcu-display CHANGELOG
 
+## 61
+
+- **Status tab** — Previous / Next controls show chevron icons (theme `currentColor`, light and dark).
+
+## 60
+
+- **LuCI tabs** — merge Pages into Status (navigation controls and page list live with daemon status).
+
+## 59
+
+- **Status tab** — drop Serial device, Command FIFO, and Boot rows from the live grid.
+
+## 58
+
+- **LuCI chrome** — remove the Live pill on the page title and the Pages tab “Live: …” indicator.
+
 ## 57
 
 - **Configuration tab** — drop the UCI/backend blurb and the Effective mcudd config dump.
