@@ -18,9 +18,9 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, I2C bus scan |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
 | `feeds/luci/luci-app-mcu-display` | **luci-app-mcu-display** — ESP32 UART display (`mcudd`, CM5: `/dev/ttyS2`, button nav) |
-| `feeds/packages/snort3` | **snort3** — Snort 3 IDS (optional; not in CM5 image; compile in Docker, not GitHub SDK) |
+| `feeds/packages/snort3` | **snort3** — Snort 3 IDS (in CM5 image, disabled by default; compile in Docker, not GitHub SDK) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
-| `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (optional; not in CM5 image; compile in Docker, not GitHub SDK) |
+| `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (in CM5 image, disabled by default; compile in Docker, not GitHub SDK) |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 8) into `/etc/suricata/rules` |
 | `feeds/packages/tp-eventd` | **tp-eventd** — EVE JSON → SQLite event ring |
 | `feeds/luci/luci-app-threat-prevention` | Threat Prevention LuCI (EVE events, ET Open, class policy) |
@@ -70,8 +70,8 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 **Not recommended on-router for CM5:** Suricata **IPS** at 2.5 GbE with large rule sets; RK3588 **NPU does not accelerate** Snort/Suricata packet paths (ML inference only).
 
-- On-router **Suricata IDS** (this feed, optional apk) for SRM-like signatures + EVE events.
-- **Not** in the default CM5 image; **not** inline IPS at 2.5 GbE with full ET Open.
+- On-router **Suricata IDS** + **Snort3** in the CM5 image (disabled until enabled in LuCI).
+- **Not** inline IPS at 2.5 GbE with full ET Open.
 - Rules: live ET Open (Suricata 8), not Synology’s bundled 9840 snapshot.
 - External mirror host remains the path for full SIEM / Zeek / Wazuh.
 
@@ -79,7 +79,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 **Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; **`blocky`** in CM5 image; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
-**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; and/or **`suricata`** + **`luci-app-threat-prevention`** (feed-optional, not in the default CM5 image) — see the [Suricata plan](docs/suricata-openwrt-plan.md).
+**Tier 2 — in CM5 image (disabled by default):** **`snort3`** + **`luci-app-snort3`** and **`suricata`** + **`luci-app-threat-prevention`** in **IDS** mode on `br-lan` with a **minimal** rule set — see the [Suricata plan](docs/suricata-openwrt-plan.md).
 
 **Tier 3 — advanced:** mirror WAN/LAN to a **Docker** host on another machine for Suricata or Wazuh — see the research doc.
 

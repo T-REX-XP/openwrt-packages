@@ -1,6 +1,6 @@
 #
 # snort3 — vendored from openwrt/packages net/snort3 (3.12.2.0).
-# Feed-optional; not in the CM5 image. Compile in Docker (libdaq3 + luajit);
+# In the CM5 image (IDS off by default). Compile in Docker (libdaq3 + luajit);
 # omitted from GitHub SDK CI like suricata.
 # https://github.com/openwrt/packages/tree/master/net/snort3
 #
@@ -12,7 +12,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=snort3
 PKG_VERSION:=3.12.2.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/snort3/snort3/tar.gz/$(PKG_VERSION)?
@@ -43,8 +43,8 @@ endef
 
 define Package/snort3/description
   Snort 3 IDS/IPS for ImmortalWrt. Default UCI is IDS off, AF_PACKET on
-  br-lan, HOME_NET 192.168.8.0/24 (Orange Pi CM5 LAN). Not in the default
-  CM5 image. Pair with luci-app-snort3 from this feed.
+  br-lan, HOME_NET 192.168.8.0/24 (Orange Pi CM5 LAN). Shipped in the CM5
+  image (disabled until enabled in LuCI). Pair with luci-app-snort3.
 
   Optional menuconfig: gperftools, vectorscan (not enabled by default).
 endef

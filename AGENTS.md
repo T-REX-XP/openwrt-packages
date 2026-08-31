@@ -39,9 +39,9 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-peripherals` | luci-app-peripherals | IR, PWM fan, I2C diagnostics (read-only) |
 | `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-mcu-display** + **cm5-button-scripts**) |
 | `feeds/luci/luci-app-mcu-display` | luci-app-mcu-display | ESP32 UART display (`mcudd`), boot splash, button nav, page control |
-| `feeds/packages/snort3` | snort3 | Snort 3 IDS (optional; not in CM5 image; Docker compile; shadows ImmortalWrt snort3 when this feed is linked) |
+| `feeds/packages/snort3` | snort3 | Snort 3 IDS (in CM5 image, disabled by default; Docker compile; shadows ImmortalWrt snort3 when this feed is linked) |
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
-| `feeds/packages/suricata` | suricata | Suricata 8 IDS (optional; not in CM5 image; Docker compile) |
+| `feeds/packages/suricata` | suricata | Suricata 8 IDS (in CM5 image, disabled by default; Docker compile) |
 | `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 8 |
 | `feeds/packages/tp-eventd` | tp-eventd | EVE JSON → SQLite ring |
 | `feeds/luci/luci-app-threat-prevention` | luci-app-threat-prevention | Threat Prevention LuCI (EVE, ET Open, class policy) |
@@ -109,7 +109,7 @@ Primary device: **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM).
 **Suggested security stack (tiers)** — see [README.md](README.md) and `docs/ids-traffic-analysis-openwrt-research.md`:
 
 - **Tier 1:** adblock + banip + traffic visibility (tcpdump-mini, vnstat2, nlbwmon); **blocky** in CM5 image
-- **Tier 2:** snort3 + luci-app-snort3 in **passive IDS** mode on `br-lan`
+- **Tier 2:** snort3 + luci-app-snort3 and suricata + luci-app-threat-prevention in **passive IDS** mode on `br-lan` (in CM5 image, disabled by default)
 - **Tier 3:** mirror traffic to an **external** Docker host for Suricata/Wazuh (not on-router; CM5 image no longer ships Docker)
 
 **Blocky on CM5 (default image):** `blocky` + `luci-app-blocky` in CM5 `DEVICE_PACKAGES`. Clients → dnsmasq `:53` → Blocky `127.0.0.1:5353`; LuCI/API via rpcd → `blocky-http-api` → `127.0.0.1:4000`. UCI blocklists → `blocky-lists-sync` (rewrite `config.yml`); live reload → `blocky-lists-refresh` (POST `/api/lists/refresh`). Router DNS toggle → `blocky-dnsmasq-sync`.
