@@ -1,0 +1,17 @@
+---
+description: Freeze swipe → LuCI active-page path. Do not change this logic.
+globs: feeds/packages/mcudd-old/src/mcudd/mcudd.c,feeds/luci/luci-app-mcu-display/**/*.uc,feeds/luci/luci-app-mcu-display/**/*.js
+alwaysApply: false
+---
+
+# Swipe → LuCI — do not touch
+
+Keep it untouched. Do not change this logic.
+
+Working contract:
+
+- Firmware swipe emits `evt input` then `evt screen` and applies the page locally
+- Orig C `handle_gesture` writes `/tmp/mcud_active_screen` and **must not** send `cmd screen`
+- `evt screen` still overwrites the sidecar; LuCI `getStatus` reads the file
+
+Do not restore host-driven swipe (`send_cmd_screen` on gesture). That fights the panel and hides the active page in LuCI.

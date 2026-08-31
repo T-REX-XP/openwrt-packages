@@ -9,6 +9,8 @@ description: >-
 
 # OLED & peripherals on CM5 (openwrt-packages)
 
+**MCU UART display (ESP32 / `mcudd` / LuCI active page):** use skill **`mcu-display-cm5`**, not this file.
+
 **Live router debug:** use skill **`openwrt-mcp-ssh`** for MCP (`user-openwrt`) + SSH (`mcud-link-test.sh`, `logread -e mcudd`, mcudd deploy).
 
 ## Package ownership (do not overlap)

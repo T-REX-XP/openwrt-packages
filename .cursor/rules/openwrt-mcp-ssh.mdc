@@ -33,7 +33,7 @@ ImmortalWrt 25.x uses **`apk`**. Custom feed packages may require GitHub Pages f
 
 | Need | SSH |
 |------|-----|
-| mcudd binary deploy | pipe to `/usr/sbin/mcudd` |
+| mcudd binary deploy | `ssh … 'cat > /tmp/mcudd.new'` (no `scp` / sftp) |
 | RDCP link test | `/usr/lib/mcud/mcud-link-test.sh` |
 | Local files `/tmp/mcud_*` | `cat` on router |
 | Blocky raw API | `wget -qO- http://127.0.0.1:4000/...` |
@@ -45,4 +45,5 @@ Default: `ssh root@192.168.8.1` with project SSH key.
 
 - Run firmware builds on macOS host (use `build_immortalwrt` Docker)
 - Destructive overlay/git operations without explicit user request
-- Flash ESP32 over USB while mcudd holds the same UART
+- Flash ESP32 over USB while mcudd holds the same UART (stop mcudd, flash, unplug USB-C, start mcudd)
+- Change swipe → LuCI `/tmp/mcud_active_screen` logic (frozen; skill `mcu-display-cm5`)

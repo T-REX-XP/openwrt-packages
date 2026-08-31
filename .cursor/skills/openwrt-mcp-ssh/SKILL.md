@@ -116,13 +116,15 @@ Use host **`ssh root@192.168.8.1 '…'`** (with key) when MCP has no tool or out
 | `/tmp/mcud_link_test.json` | `ping_ok` + `echo_ok` must be true |
 | `logread -e mcudd` | UART / protocol errors |
 
-**Deploy rebuilt binary** (after `make package/luci-app-mcu-display/compile` in Docker):
+**Deploy orig C `mcudd`** (live swipe→LuCI path; Alpine `linux/arm64` static `mcudd-bin`). Router has no `sftp-server` — **pipe**, do not `scp`:
 
 ```sh
-MCUDD=/path/to/feeds/packages/mcudd-old/src/mcudd-bin
-ssh root@192.168.8.1 "cat > /usr/sbin/mcudd" < "$MCUDD"
-ssh root@192.168.8.1 "chmod 755 /usr/sbin/mcudd && /etc/init.d/mcudd restart"
+ssh root@192.168.8.1 '/etc/init.d/mcudd stop'
+ssh root@192.168.8.1 'cat > /tmp/mcudd.new && chmod 755 /tmp/mcudd.new && mv /tmp/mcudd.new /usr/sbin/mcudd && /etc/init.d/mcudd start' \
+  < feeds/packages/mcudd-old/src/mcudd-bin
 ```
+
+**ESP32 USB flash:** stop mcudd first (GPIO1/3 shared with JST). Skill **`esp32-cm5-router-fw`**. After flash, unplug USB-C, then start mcudd. If `grep '^2:' /proc/tty/driver/serial` shows `rx` not climbing, tap panel RST.
 
 **Link test:**
 
@@ -153,7 +155,9 @@ ssh root@192.168.8.1 i2cdetect -y 7    # FPC I2C on CM5
 
 | Skill | Repo | Use with MCP for… |
 |-------|------|-------------------|
-| `oled-peripherals-cm5` | openwrt-packages | mcudd, peripherals, link test |
+| `oled-peripherals-cm5` | openwrt-packages | peripherals I2C/fan (not MCU UART) |
+| `mcu-display-cm5` | openwrt-packages | orig C mcudd, swipe→LuCI sidecar, link test |
+| `esp32-cm5-router-fw` | esp32-smartdisplay-demo | USB flash panel firmware |
 | `blocky-dns-cm5` | build_immortalwrt | DNS/adblock validation |
 | `cm5-base-files` | immortalwrt | Expected LAN/UCI defaults |
 | `cm5-device-image` | build_immortalwrt | Post-flash package checklist |

@@ -13,7 +13,7 @@ Run on router at **`192.168.8.1`** after flash or package change. Prefer MCP whe
 
 ## mcudd + ESP32 display stack
 
-**Preconditions:** ESP32 flashed with matching RDCP release; JST UART connected; USB serial unplugged.
+**Preconditions:** ESP32 flashed with matching RDCP release; JST UART connected; USB serial unplugged. **Swipe → LuCI active page is frozen** — do not change `handle_gesture` or sidecar reads (skill `mcu-display-cm5`).
 
 ```sh
 # SSH
