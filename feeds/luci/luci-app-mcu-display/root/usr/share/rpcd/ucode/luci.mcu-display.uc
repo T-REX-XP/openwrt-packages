@@ -582,27 +582,9 @@ const methods = {
 				return { error: 'event_script_missing', message: 'mcud-event.sh not installed' };
 			}
 
-			if (action == 'prev' || action == 'next') {
-				log_mcud_event(`luci pageControl ${action}`);
-				run_cmd(`${MCUD_EVENT_SH} ${shell_quote(action)}`);
-				return { ok: true, action, via: 'fifo' };
-			}
-
-			if (action == 'goto') {
-				let page_id = trim(`${req.args?.page_id ?? req?.page_id ?? req?.[1] ?? ''}`);
-				if (!length(page_id)) {
-					log_mcud_event('luci pageControl goto missing_page_id');
-					return { error: 'missing_page_id' };
-				}
-				log_mcud_event(`luci pageControl goto ${page_id}`);
-				run_cmd(`${MCUD_EVENT_SH} screen ${shell_quote(page_id)}`);
-				return { ok: true, action, page_id, via: 'fifo' };
-			}
-
-			if (action == 'boot') {
-				log_mcud_event('luci pageControl boot');
-				run_cmd(`${MCUD_EVENT_SH} boot`);
-				return { ok: true, action, via: 'fifo' };
+			if (action == 'prev' || action == 'next' || action == 'goto' || action == 'boot') {
+				log_mcud_event(`luci pageControl ${action} ignored (mcu owns pages)`);
+				return { ok: false, error: 'mcu_owns_pages', message: 'MCU owns paging; swipe the panel' };
 			}
 
 			if (action == 'version') {

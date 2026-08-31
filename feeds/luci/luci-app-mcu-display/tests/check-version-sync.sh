@@ -1,11 +1,10 @@
 #!/bin/sh
-# Ensure host mcud-version.json matches the ESP32 firmware copy and PKG_RELEASE.
+# Ensure host mcud-version.json matches the ESP32 firmware copy.
 set -eu
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
 JSON="$PKG/mcud-version.json"
-MAKEFILE="$PKG/Makefile"
 ESP32_ROOT="${ESP32_ROOT:-$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)}"
 ESP32_JSON="${ESP32_JSON:-$ESP32_ROOT/mcud-version.json}"
 FAIL=0
@@ -28,13 +27,6 @@ else
 fi
 
 RELEASE="$(node -e "console.log(JSON.parse(require('fs').readFileSync('$JSON','utf8')).release)")"
-PKG_RELEASE="$(grep '^PKG_RELEASE:=' "$MAKEFILE" | sed 's/.*:=//')"
-
-if [ "$RELEASE" != "$PKG_RELEASE" ]; then
-	echo "PKG_RELEASE ($PKG_RELEASE) != mcud-version.json release ($RELEASE)" >&2
-	FAIL=1
-else
-	echo "OK: PKG_RELEASE matches manifest release ($RELEASE)"
-fi
+echo "OK: RDCP stack release $RELEASE (luci PKG_RELEASE is independent)"
 
 exit "$FAIL"

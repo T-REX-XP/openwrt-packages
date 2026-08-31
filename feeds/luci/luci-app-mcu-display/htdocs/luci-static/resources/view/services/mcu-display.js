@@ -30,13 +30,6 @@ var callGetPageList = rpc.declare({
 	expect: { '': {} }
 });
 
-var callPageControl = rpc.declare({
-	object: 'luci.mcu-display',
-	method: 'pageControl',
-	params: [ 'action', 'page_id' ],
-	expect: { '': {} }
-});
-
 var callServiceControl = rpc.declare({
 	object: 'luci.mcu-display',
 	method: 'serviceControl',
@@ -111,10 +104,6 @@ function fieldRow(title, field, descr) {
 
 function optionSelected(value, current) {
 	return String(value) === String(current) ? 'selected' : null;
-}
-
-function disableIf(cond) {
-	return cond ? true : null;
 }
 
 function flagInput(id, label, checked) {
@@ -231,8 +220,8 @@ function readFormConfig() {
 		log_level: val('mcu-log-level'),
 		debug: flag('mcu-debug'),
 		debug_serial: flag('mcu-debug-serial'),
-		menu_nav_button: val('mcu-menu-nav-button'),
-		menu_select_button: val('mcu-menu-select-button'),
+		menu_nav_button: val('mcu-menu-nav-button', FORM_DEFAULTS.menu_nav_button),
+		menu_select_button: val('mcu-menu-select-button', FORM_DEFAULTS.menu_select_button),
 		menu_wps: flag('mcu-menu-wps'),
 		path_autodiscover: flag('mcu-path-autodiscover')
 	};
@@ -261,13 +250,6 @@ function mcuStatusRow(label, value) {
 
 function mcuYesNoBadge(ok, yesLabel, noLabel) {
 	return mcuBadge(ok ? 'yes' : 'no', ok ? yesLabel : noLabel);
-}
-
-function mcuNavIcon(dir) {
-	return E('span', {
-		'class': 'mcu-nav-icon mcu-nav-icon--' + dir,
-		'aria-hidden': 'true'
-	});
 }
 
 function buildStatusGrid(status) {
@@ -317,43 +299,17 @@ function updateLiveStatus(status, cfg) {
 	}
 
 	updatePagesLive(status);
-	updateLiveNavControls(status);
-}
-
-function updateLiveNavControls(status) {
-	var blocked = isReadonly || !status.running;
-	var controls = document.querySelector('.mcu-page-controls');
-	var jump = document.getElementById('mcu-page-jump');
-	var buttons;
-	var i;
-
-	if (!controls)
-		return;
-
-	buttons = controls.querySelectorAll('button');
-	for (i = 0; i < buttons.length; i++)
-		buttons[i].disabled = !!blocked;
-
-	if (jump)
-		jump.disabled = blocked || jump.options.length === 0;
 }
 
 function updatePagesLive(status) {
 	var activeId = status.page_id || status.active_screen || '';
 	var rows = document.querySelectorAll('.luci-app-mcu-display tr[data-page-id]');
-	var jump = document.getElementById('mcu-page-jump');
 	var i;
 
 	for (i = 0; i < rows.length; i++) {
 		var row = rows[i];
 		var isActive = row.getAttribute('data-page-id') === activeId;
 		row.classList.toggle('mcu-page-row--active', isActive);
-	}
-
-	if (jump && activeId) {
-		for (i = 0; i < jump.options.length; i++) {
-			jump.options[i].selected = jump.options[i].value === activeId;
-		}
 	}
 }
 
@@ -471,9 +427,6 @@ return view.extend({
 		cfg = cfg || {};
 		pages = pages || {};
 		var pageList = pages.pages || status.pages || [];
-		var running = status.running || pages.running;
-		var blocked = isReadonly || !running;
-		var opts = [];
 		var rows = [];
 		var btns = E('div', { 'class': 'cbi-page-actions' });
 		var i;
@@ -495,13 +448,6 @@ return view.extend({
 		});
 
 		for (i = 0; i < pageList.length; i++) {
-			opts.push(E('option', {
-				'value': pageList[i].id,
-				'selected': optionSelected(pageList[i].id, status.page_id || pages.page_id)
-			}, pageList[i].title || pageList[i].id));
-		}
-
-		for (i = 0; i < pageList.length; i++) {
 			rows.push(E('tr', {
 				'class': 'mcu-page-row' + (pageList[i].id === (status.page_id || status.active_screen) ? ' mcu-page-row--active' : ''),
 				'data-page-id': pageList[i].id
@@ -518,47 +464,8 @@ return view.extend({
 			], [
 				buildStatusGrid(status)
 			]),
-			cbiSection(_('Screen navigation'), [
-				_('Send RDCP screen commands over UART. Previous / next mirror physical button mapping (MaskROM / USERKEY on CM5).')
-			], [
-				E('div', { 'class': 'mcu-page-controls', 'id': 'mcu-page-controls' }, [
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-action mcu-page-nav-btn',
-						'id': 'mcu-page-prev',
-						'title': _('Previous page'),
-						click: ui.createHandlerFn(self, 'handlePagePrev'),
-						disabled: disableIf(blocked)
-					}, [ mcuNavIcon('prev'), ' ', _('Previous') ]),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-action mcu-page-nav-btn',
-						'id': 'mcu-page-next',
-						'title': _('Next page'),
-						click: ui.createHandlerFn(self, 'handlePageNext'),
-						disabled: disableIf(blocked)
-					}, [ _('Next'), ' ', mcuNavIcon('next') ]),
-					E('select', {
-						'id': 'mcu-page-jump',
-						disabled: disableIf(blocked || !pageList.length)
-					}, opts.length ? opts : [ E('option', { 'value': '' }, _('No pages')) ]),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-action',
-						click: ui.createHandlerFn(self, 'handlePageGoto'),
-						disabled: disableIf(blocked || !pageList.length)
-					}, _('Jump to page')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-neutral',
-						'id': 'mcu-page-boot',
-						click: ui.createHandlerFn(self, 'handlePageBoot'),
-						disabled: disableIf(blocked)
-					}, _('Show boot screen'))
-				])
-			]),
-			cbiSection(_('Configured pages'), [
-				_('From %s').format(pick(cfg, 'pages'))
+			cbiSection(_('Panel pages'), [
+				_('The MCU owns paging (swipe on the panel). This list is read-only; the active page comes from the panel over UART.')
 			], [
 				pageList.length ?
 					E('table', { 'class': 'table' }, [
@@ -577,11 +484,6 @@ return view.extend({
 	buildConfigTab: function(cfg) {
 		var self = this;
 		var portOpts = serialPortOptions(cfg);
-		var buttonOpts = [
-			[ 'BTN_2', 'MaskROM (BTN_2)' ],
-			[ 'wps', 'USERKEY (wps)' ],
-			[ 'none', _('Disabled') ]
-		];
 
 		return E('div', { 'data-tab': 'config', 'data-tab-title': _('Configuration') }, [
 			cbiSection(_('Serial & protocol'), [], [
@@ -617,11 +519,9 @@ return view.extend({
 				fieldRow(_('Max UART line length'), textInput('mcu-max-line', pick(cfg, 'max_line'), { type: 'number', min: 64 }))
 			]),
 			cbiSection(_('Display & buttons'), [
-				_('Physical button mapping for CM5 Base. USERKEY is exposed as wps; MaskROM as BTN_2.')
+				_('The panel owns paging (swipe). CM5 USERKEY / MaskROM no longer switch MCU pages. WPS on USERKEY is unchanged.')
 			], [
-				fieldRow(_('Previous page button'), selectInput('mcu-menu-nav-button', buttonOpts, pick(cfg, 'menu_nav_button'))),
-				fieldRow(_('Next page button'), selectInput('mcu-menu-select-button', buttonOpts, pick(cfg, 'menu_select_button'))),
-				fieldRow(_('WPS on USERKEY'), flagInput('mcu-menu-wps', _('Also run Wi-Fi WPS push-button on USERKEY press'), pick(cfg, 'menu_wps') === '1')),
+				fieldRow(_('WPS on USERKEY'), flagInput('mcu-menu-wps', _('Run Wi-Fi WPS push-button on USERKEY press'), pick(cfg, 'menu_wps') === '1')),
 				fieldRow(_('Screen timeout (seconds)'), textInput('mcu-screen-timeout', pick(cfg, 'screen_timeout'), { type: 'number', min: 0, max: 3600 }), _('0 disables idle timeout on ESP32.')),
 				fieldRow(_('Screen timeout action'), selectInput('mcu-screen-timeout-mode', [
 					[ 'off', _('Backlight off') ],
@@ -713,64 +613,9 @@ return view.extend({
 		});
 	},
 
-	handlePagePrev: function() {
-		return this.handlePageControl('prev');
-	},
-
-	handlePageNext: function() {
-		return this.handlePageControl('next');
-	},
-
-	handlePageBoot: function() {
-		return this.handlePageControl('boot');
-	},
-
-	handlePageControl: function(action, pageId) {
-		if (isReadonly)
-			return Promise.resolve();
-		return callPageControl(action, pageId || '').then(L.bind(function(r) {
-			r = rpcData(r, {});
-			if (r.error || r.ok === false) {
-				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Page control failed.') ]), 'error');
-				return;
-			}
-			this._lastStatusFp = '';
-			return callGetStatus().then(L.bind(function(st) {
-				st = rpcData(st, {});
-				updateLiveStatus(st, this._liveCfg || {});
-				return this.refreshLogs(true);
-			}, this));
-		}, this)).catch(function(e) {
-			ui.addNotification(null, E('p', {}, [ _('Page control failed: %s').format(e) ]), 'error');
-		});
-	},
-
 	leave: function() {
 		this.stopLivePoll();
 		this.stopLogPoll();
-	},
-
-	handlePageGoto: function() {
-		var jump = document.getElementById('mcu-page-jump');
-		if (!jump || !jump.value)
-			return Promise.resolve();
-		if (isReadonly)
-			return Promise.resolve();
-		return callPageControl('goto', jump.value).then(L.bind(function(r) {
-			r = rpcData(r, {});
-			if (r.error || r.ok === false)
-				ui.addNotification(null, E('p', {}, [ r.message || r.error || _('Jump failed.') ]), 'error');
-			else {
-				ui.addNotification(null, E('p', {}, [ _('Jumped to %s').format(jump.value) ]), 'info');
-				this._lastStatusFp = '';
-				return callGetStatus().then(L.bind(function(st) {
-					updateLiveStatus(rpcData(st, {}), this._liveCfg || {});
-					return this.refreshLogs(true);
-				}, this));
-			}
-		}, this)).catch(function(e) {
-			ui.addNotification(null, E('p', {}, [ _('Jump failed: %s').format(e) ]), 'error');
-		});
 	},
 
 	logLimit: function() {

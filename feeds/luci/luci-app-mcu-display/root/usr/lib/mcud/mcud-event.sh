@@ -1,6 +1,7 @@
 #!/bin/sh
-# Write navigation / control events to the mcudd FIFO.
-# Usage: mcud-event.sh <prev|next|net|refresh|boot|ready|screen|version|ping|echo|help> [arg]
+# Write control events to the mcudd FIFO.
+# Usage: mcud-event.sh <net|refresh|boot|version|ping|echo|help> [arg]
+# Page changes (prev/next/screen/ready) are ignored by mcudd — MCU owns paging.
 # See docs/mcudd-commands.md
 
 event="${1:-}"
@@ -18,15 +19,13 @@ usage() {
 Usage: mcud-event.sh <command> [arg]
 
 Commands (written to /var/run/mcudd.fifo, fallback /tmp/mcudd.fifo):
-  prev              Previous page
-  next              Next page
-  screen <id>       Jump to page id (e.g. router_wifi)
-  refresh | net     Redraw current page
-  boot              Show boot splash
-  ready             Leave boot -> router_system
+  boot              Push boot splash text (does not change the page)
   version           Query firmware version
   ping              Link probe (req ping)
   echo <text>       Link probe (cmd echo)
+  net | refresh     Ignored (MCU owns paging)
+  prev | next | screen | ready
+                    Ignored (MCU owns paging)
   help              This text
 
 Logs: logger -t mcud-event. Daemon: logread -e mcudd

@@ -16,10 +16,7 @@ import (
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 )
 
-const (
-	MaxLeaveBootAttempts = 3
-	helloRepeat          = 2 * time.Second
-)
+const helloRepeat = 2 * time.Second
 
 type Logger interface {
 	Infof(string, ...any)
@@ -41,13 +38,11 @@ type Engine struct {
 	Log       Logger
 	Session   session.Session
 
-	BootStatePath     string
-	VersionReqID      uint
-	PingReqID         uint
-	Link              state.LinkTest
-	LeaveBootAttempts int
-	leaveBootGaveUp   bool
-	lastHello         time.Time
+	BootStatePath string
+	VersionReqID  uint
+	PingReqID     uint
+	Link          state.LinkTest
+	lastHello     time.Time
 
 	lineBuf []byte
 }
@@ -57,7 +52,7 @@ func New(cfg config.Config, tp transport.LineTransport) *Engine {
 		Cfg:           cfg,
 		Transport:     tp,
 		Nav:           nav.New(),
-		Metrics:       metrics.Provider{DemoMode: cfg.DemoMode},
+		Metrics:       metrics.New(cfg),
 		BootStatePath: "/tmp/mcud_state",
 	}
 }
@@ -77,8 +72,8 @@ func (e *Engine) send(line string) error {
 }
 
 // helloOnVersion re-sends push hello while the panel is still announcing
-// evt version (unlinked). Startup hello is easy to miss; without a retry,
-// GPIO3 never marks linked and LuCI prev/next cmd screen is ignored.
+// evt version (unlinked). Startup hello is easy to miss; without a retry
+// the MCU never marks linked and never leaves the boot splash.
 func (e *Engine) helloOnVersion() error {
 	now := e.now()
 	if !e.lastHello.IsZero() && now.Sub(e.lastHello) < helloRepeat {
@@ -110,29 +105,7 @@ func (e *Engine) Startup() error {
 	e.lastHello = e.now()
 	e.VersionReqID++
 	out, _ = proto.BuildReqVersion(e.VersionReqID)
-	if err := e.send(out); err != nil {
-		return err
-	}
-	return e.LeaveBoot()
-}
-
-func (e *Engine) LeaveBoot() error {
-	bs := state.ReadBootState(e.BootStatePath)
-	if !bs.Ready() || e.Nav.ActiveScreen != pages.BootScreen {
-		return nil
-	}
-	if e.LeaveBootAttempts >= MaxLeaveBootAttempts {
-		if e.Log != nil && !e.leaveBootGaveUp {
-			e.Log.Warnf("leave-boot capped after %d attempts", MaxLeaveBootAttempts)
-			e.leaveBootGaveUp = true
-		}
-		return nil
-	}
-	if err := e.pushBoot(); err != nil && e.Log != nil {
-		e.Log.Warnf("leave boot push failed: %v", err)
-	}
-	e.LeaveBootAttempts++
-	return e.SendScreen(pages.Ring[0], "left")
+	return e.send(out)
 }
 
 func (e *Engine) pushBoot() error {
@@ -144,55 +117,10 @@ func (e *Engine) pushBoot() error {
 	return e.send(out)
 }
 
-func (e *Engine) logRateLimit(screenID string, now time.Time) {
-	if e.Log == nil {
-		return
-	}
-	reason := "interval"
-	if e.Nav.Pending {
-		age := now.Sub(e.Nav.LastTX)
-		reason = fmt.Sprintf("pending=%s age=%dms", e.Nav.PendingScreen, age.Milliseconds())
-	}
-	e.Log.Infof("rate-limit cmd screen %s (%s)", screenID, reason)
-}
-
-func (e *Engine) txScreen(screenID, dir string, now time.Time) error {
-	out, err := proto.BuildCmdScreenDir(screenID, dir)
-	if err != nil {
-		return err
-	}
-	if err := e.send(out); err != nil {
-		return err
-	}
-	e.Nav.MarkSent(screenID, now)
+func (e *Engine) ignorePageFIFO(kind string) error {
 	if e.Log != nil {
-		e.Log.Infof("cmd screen %s (await screen evt)", screenID)
+		e.Log.Infof("ignored fifo page cmd %s (mcu owns pages)", kind)
 	}
-	return nil
-}
-
-func (e *Engine) SendScreen(screenID, dir string) error {
-	now := e.now()
-	if !e.Nav.Allow(now) {
-		e.logRateLimit(screenID, now)
-		return nil
-	}
-	return e.txScreen(screenID, dir, now)
-}
-
-// sendUserScreen is LuCI/FIFO next/prev/goto: walk the ring without waiting
-// for evt screen, and update the sidecar so the UI matches the command.
-func (e *Engine) sendUserScreen(screenID, dir string) error {
-	now := e.now()
-	if !e.Nav.AllowUserNav(now) {
-		e.logRateLimit(screenID, now)
-		return nil
-	}
-	if err := e.txScreen(screenID, dir, now); err != nil {
-		return err
-	}
-	e.Nav.MarkCommanded(screenID)
-	_ = e.State.WriteActiveScreen(screenID)
 	return nil
 }
 
@@ -213,20 +141,17 @@ func (e *Engine) HandleFIFO(line string) error {
 func (e *Engine) handleCommand(cmd fifo.Command) error {
 	switch cmd.Kind {
 	case fifo.KindPrev:
-		return e.navCommand("prev", "right")
+		return e.ignorePageFIFO("prev")
 	case fifo.KindNext:
-		return e.navCommand("next", "left")
+		return e.ignorePageFIFO("next")
+	case fifo.KindScreen:
+		return e.ignorePageFIFO("screen")
+	case fifo.KindRefresh:
+		return e.ignorePageFIFO("refresh")
+	case fifo.KindReady:
+		return e.ignorePageFIFO("ready")
 	case fifo.KindBoot:
 		return e.pushBoot()
-	case fifo.KindReady:
-		return e.LeaveBoot()
-	case fifo.KindScreen:
-		return e.sendUserScreen(cmd.Screen, "left")
-	case fifo.KindRefresh:
-		if e.Nav.Cursor() == pages.BootScreen {
-			return e.LeaveBoot()
-		}
-		return e.sendUserScreen(e.Nav.Cursor(), "left")
 	case fifo.KindVersion:
 		e.VersionReqID++
 		out, _ := proto.BuildReqVersion(e.VersionReqID)
@@ -249,14 +174,6 @@ func (e *Engine) handleCommand(cmd fifo.Command) error {
 	default:
 		return nil
 	}
-}
-
-func (e *Engine) navCommand(cmd, animDir string) error {
-	target := pages.Neighbor(e.Nav.Cursor(), animDir)
-	if e.Log != nil {
-		e.Log.Infof("nav %s -> %s", cmd, target)
-	}
-	return e.sendUserScreen(target, animDir)
 }
 
 func (e *Engine) HandleRXLine(line string) error {

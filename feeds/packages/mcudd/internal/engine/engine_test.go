@@ -11,7 +11,6 @@ import (
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/config"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/fifo"
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/nav"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/proto"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/state"
@@ -94,77 +93,20 @@ func newTestEngine(t *testing.T) (*Engine, *transport.Buffer, *memLog) {
 	return e, buf, log
 }
 
-func TestStartupAndLeaveBoot(t *testing.T) {
+func TestStartupNoScreenCmd(t *testing.T) {
 	e, buf, _ := newTestEngine(t)
 	if err := e.Startup(); err != nil {
 		t.Fatal(err)
 	}
-	if len(buf.TX) < 5 {
+	if len(buf.TX) != 4 {
 		t.Fatalf("tx=%v", buf.TX)
 	}
 	joined := strings.Join(buf.TX, "\n")
 	if !strings.Contains(joined, `"op":"boot"`) || !strings.Contains(joined, `"op":"hello"`) {
 		t.Fatal(joined)
 	}
-	if !strings.Contains(joined, `"op":"screen"`) {
-		t.Fatal("expected leave-boot screen")
-	}
-}
-
-func TestLeaveBootGuardsAndCap(t *testing.T) {
-	e, buf, log := newTestEngine(t)
-	e.BootStatePath = filepath.Join(t.TempDir(), "missing")
-	if err := e.LeaveBoot(); err != nil {
-		t.Fatal(err)
-	}
-	if len(buf.TX) != 0 {
-		t.Fatal("not ready")
-	}
-	e.BootStatePath = readyBoot(t)
-	e.Nav.ActiveScreen = "router_system"
-	if err := e.LeaveBoot(); err != nil {
-		t.Fatal(err)
-	}
-	e.Nav.ActiveScreen = pages.BootScreen
-	for i := 0; i < MaxLeaveBootAttempts+2; i++ {
-		e.Nav.ClearPending()
-		e.Nav.LastTX = time.Time{}
-		if err := e.LeaveBoot(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if e.LeaveBootAttempts != MaxLeaveBootAttempts {
-		t.Fatalf("attempts=%d", e.LeaveBootAttempts)
-	}
-	if !e.leaveBootGaveUp {
-		t.Fatal("must log give-up once")
-	}
-	_ = log
-}
-
-func TestSendScreenRateLimitAndErrors(t *testing.T) {
-	e, _, _ := newTestEngine(t)
-	if err := e.SendScreen("router_system", "left"); err != nil {
-		t.Fatal(err)
-	}
-	if err := e.SendScreen("router_network", "left"); err != nil {
-		t.Fatal(err)
-	}
-	e.Nav.ClearPending()
-	e.Nav.LastTX = e.now()
-	if err := e.SendScreen("router_wifi", "left"); err != nil {
-		t.Fatal(err)
-	}
-	e.Nav.ClearPending()
-	e.Nav.LastTX = time.Time{}
-	if err := e.SendScreen("", "left"); err == nil {
-		t.Fatal("empty screen")
-	}
-	e.Transport = &failTP{err: errors.New("tx")}
-	e.Nav.ClearPending()
-	e.Nav.LastTX = time.Time{}
-	if err := e.SendScreen("router_system", "left"); err == nil {
-		t.Fatal("send fail")
+	if strings.Contains(joined, `"op":"screen"`) {
+		t.Fatal("host must not send cmd screen")
 	}
 }
 
@@ -343,7 +285,7 @@ func (f *nthFail) Close() error            { return nil }
 
 func TestStartupSendFailures(t *testing.T) {
 	cfg := config.Default()
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= 4; i++ {
 		e := New(cfg, &nthFail{failAt: i})
 		e.BootStatePath = readyBoot(t)
 		e.Log = &memLog{}
@@ -356,8 +298,10 @@ func TestStartupSendFailures(t *testing.T) {
 	_ = e.now()
 	e2 := New(cfg, &failTP{err: errors.New("tx")})
 	e2.BootStatePath = readyBoot(t)
-	e2.Log = &memLog{}
-	_ = e2.LeaveBoot()
+	e2.Log = nil
+	if err := e2.HandleFIFO("next"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestStartupEmptyBootFields(t *testing.T) {
@@ -394,41 +338,23 @@ func TestPushBootEmptyStage(t *testing.T) {
 	}
 }
 
-func TestFIFOUserNavWalksWithoutAck(t *testing.T) {
-	e, buf, _ := newTestEngine(t)
-	clk := e.Nav.Clock.(*fixedClock)
-	if err := e.HandleFIFO("next"); err != nil {
-		t.Fatal(err)
+func TestFIFOPageCmdsIgnored(t *testing.T) {
+	e, buf, log := newTestEngine(t)
+	n := len(buf.TX)
+	for _, c := range []string{"next", "prev", "screen router_wifi", "refresh", "ready"} {
+		if err := e.HandleFIFO(c); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if e.Nav.Cursor() != "router_system" {
+	if len(buf.TX) != n {
+		t.Fatalf("page fifo must not TX: %v", buf.TX[n:])
+	}
+	if e.Nav.Cursor() != pages.BootScreen {
 		t.Fatal(e.Nav.Cursor())
 	}
-	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
-	if err != nil || strings.TrimSpace(string(data)) != "router_system" {
-		t.Fatalf("sidecar=%q err=%v", data, err)
-	}
-	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
-	if err := e.HandleFIFO("next"); err != nil {
-		t.Fatal(err)
-	}
-	if e.Nav.Cursor() != "router_network" {
-		t.Fatal(e.Nav.Cursor())
-	}
-	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
-	if err := e.HandleFIFO("prev"); err != nil {
-		t.Fatal(err)
-	}
-	if e.Nav.Cursor() != "router_system" {
-		t.Fatal(e.Nav.Cursor())
-	}
-	if err := e.HandleFIFO("next"); err != nil {
-		t.Fatal(err)
-	}
-	if e.Nav.Cursor() != "router_system" {
-		t.Fatal("interval must not advance cursor")
-	}
-	if len(buf.TX) < 3 {
-		t.Fatalf("tx=%v", buf.TX)
+	joined := strings.Join(log.lines, "\n")
+	if !strings.Contains(joined, "mcu owns pages") {
+		t.Fatal(joined)
 	}
 }
 
@@ -487,22 +413,11 @@ func TestEvtInputIgnored(t *testing.T) {
 func TestSendUserScreenErrorsAndRefresh(t *testing.T) {
 	e := New(config.Default(), &failTP{err: errors.New("tx")})
 	e.Log = &memLog{}
-	if err := e.HandleFIFO("next"); err == nil {
-		t.Fatal("next tx")
+	if err := e.HandleFIFO("next"); err != nil {
+		t.Fatal(err)
 	}
 	e2, _, _ := newTestEngine(t)
 	e2.Log = nil
-	e2.Nav.MarkSent("router_system", e2.now())
-	if err := e2.SendScreen("router_wifi", "left"); err != nil {
-		t.Fatal(err)
-	}
-	e2.Nav.ClearPending()
-	e2.Nav.LastTX = time.Time{}
-	if err := e2.sendUserScreen("", "left"); err == nil {
-		t.Fatal("empty screen")
-	}
-	e2.Nav.ClearPending()
-	e2.Nav.LastTX = time.Time{}
 	e2.Nav.AckScreen("router_wifi")
 	if err := e2.HandleFIFO("refresh"); err != nil {
 		t.Fatal(err)

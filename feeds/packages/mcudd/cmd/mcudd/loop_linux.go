@@ -10,15 +10,11 @@ import (
 	"time"
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/engine"
-	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/pages"
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 	"golang.org/x/sys/unix"
 )
 
-const (
-	fifoPollMS   = 200
-	bootIdleTick = 2 * time.Second
-)
+const fifoPollMS = 200
 
 func pollLoop(e *engine.Engine, serial transport.PollableLineTransport, fifo *os.File, stop <-chan struct{}) error {
 	if e == nil || serial == nil {
@@ -37,8 +33,6 @@ func pollLoop(e *engine.Engine, serial transport.PollableLineTransport, fifo *os
 	if fifo != nil {
 		fifoBuf = make([]byte, 0, 256)
 	}
-	bootTick := time.NewTicker(bootIdleTick)
-	defer bootTick.Stop()
 
 	for {
 		if fifo != nil {
@@ -78,10 +72,6 @@ func pollLoop(e *engine.Engine, serial transport.PollableLineTransport, fifo *os
 				return err
 			}
 			return nil
-		case <-bootTick.C:
-			if e.Nav.ActiveScreen == pages.BootScreen && e.Nav.Allow(time.Now()) {
-				_ = e.LeaveBoot()
-			}
 		default:
 		}
 	}

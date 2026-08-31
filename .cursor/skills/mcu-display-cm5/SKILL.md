@@ -12,7 +12,9 @@ Panel firmware lives in **esp32-smartdisplay-demo**. This skill is the **router*
 
 Live daemon: **Go** `feeds/packages/mcudd` installed as `/usr/sbin/mcudd`.
 
-**Page sync:** `evt screen` → `/tmp/mcud_active_screen` → LuCI. Do not restore `evt input`. Do not echo `cmd screen` on swipe. Do not change LuCI sidecar reads.
+**Page ownership:** MCU only. Swipe (and first hello while on boot) change pages. Host never sends `cmd screen` / `cmd nav`. LuCI Status is read-only (`evt screen` → `/tmp/mcud_active_screen`). Do not restore `evt input`. Do not echo `cmd screen`. Do not change LuCI sidecar reads.
+
+**Metrics:** MCU `req metrics` + `scope`; Go mcudd answers with live OpenWrt JSON (system/network/clients/storage/wifi/security). Demo UCI flag keeps stubs.
 
 ## Ownership
 
@@ -48,7 +50,7 @@ scp -i ~/.ssh/id_ed25519_openwrt_mcp mcudd-linux-arm64 root@192.168.8.1:/tmp/mcu
 ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'chmod 755 /tmp/mcudd.new && mv /tmp/mcudd.new /usr/sbin/mcudd && /etc/init.d/mcudd start'
 ```
 
-CLI: `mcudd -V` and `mcudd -version-json` (LuCI). FIFO tool: `/usr/lib/mcud/mcud-event.sh` (`help`, `prev`, `next`, `screen`, `ping`, `echo`). Tests: `feeds/packages/mcudd/scripts/run-tests.sh`.
+CLI: `mcudd -V` and `mcudd -version-json` (LuCI). FIFO tool: `/usr/lib/mcud/mcud-event.sh` (`help`, `ping`, `echo` — not prev/next). Tests: `feeds/packages/mcudd/scripts/run-tests.sh`.
 
 Command table, expected syslog, and prev/next debug recipe: **[docs/mcudd-commands.md](../../../docs/mcudd-commands.md)**.
 
@@ -56,11 +58,10 @@ Command table, expected syslog, and prev/next debug recipe: **[docs/mcudd-comman
 
 ```sh
 /usr/lib/mcud/mcud-event.sh help
-logread -e mcudd -e mcud-event | tail -40   # want: fifo:, nav, cmd screen, screen evt
+logread -e mcudd -e mcud-event | tail -40   # want: fifo:, uart rx, screen evt (not cmd screen)
 cat /tmp/mcud_active_screen
 grep '^2:' /proc/tty/driver/serial          # rx must climb
 /usr/lib/mcud/mcud-link-test.sh
-/usr/lib/mcud/mcud-event.sh next            # then check sidecar + logs
 ```
 
 Stuck `router_boot` + no `uart rx:` → leftover `screen`/`picocom` on `ttyS2` (steals `evt screen`, LuCI goes stale), USB still on GPIO1/3, or tap panel RST after unplug. `ps w | grep ttyS2` — kill extras, keep only `mcudd`.
@@ -69,6 +70,7 @@ Stuck `router_boot` + no `uart rx:` → leftover `screen`/`picocom` on `ttyS2` (
 
 ## Do not
 
-- Echo `cmd screen` from swipe handling (yanks the panel; LuCI desyncs)
+- Send `cmd screen` / `cmd nav` from host, LuCI, FIFO, or hotplug (MCU owns paging)
+- Echo `cmd screen` from swipe handling
 - Restore `evt input` (v1 has no gesture opcode)
 - Change LuCI `read_active_screen` / `get_status` page fields for this feature
