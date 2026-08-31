@@ -1,11 +1,11 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "feeds/**"
-      - ".github/**"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "feeds/**"
+  #     - ".github/**"
   pull_request:
     branches: [main]
     paths:
