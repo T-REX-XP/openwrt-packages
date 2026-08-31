@@ -65,7 +65,7 @@ ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 '
 '
 ```
 
-Expect a `t":"res"` line with the same `id` and `pong` in `data`.
+Expect a `"t":"res"` line with the same `id` and `pong` in `data`.
 
 ### Picocom (human, allocate TTY)
 
