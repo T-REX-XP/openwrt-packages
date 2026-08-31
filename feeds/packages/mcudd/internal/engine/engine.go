@@ -177,6 +177,12 @@ func (e *Engine) handleCommand(cmd fifo.Command) error {
 }
 
 func (e *Engine) HandleRXLine(line string) error {
+	line = strings.TrimSpace(line)
+	/* Firmware USB sniff copies host→MCU frames onto GPIO1 as `#rx …`
+	 * so a Mac CH340 monitor can see mcudd payloads. Skip those echoes. */
+	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
 	if e.Cfg.DebugSerial && e.Log != nil {
 		e.Log.Debugf("uart rx: %s", line)
 	}

@@ -1,8 +1,10 @@
 # mcudd command tool — FIFO, LuCI, and debug logs
 
-Operator reference for **host → panel page navigation**. Panel swipe uses the **same** inbound frame (`evt screen`) — see §7.
+Operator reference for **host → FIFO → mcudd**. The MCU owns paging (swipe). Host does **not** send `cmd screen` / `cmd nav`.
 
-Live daemon on the CM5 is Go `/usr/sbin/mcudd` (from `feeds/packages/mcudd`). The CLI that LuCI, buttons, and SSH all use is **`/usr/lib/mcud/mcud-event.sh`**.
+**UART TX proof** (is the daemon really writing `ttyS2`?): **[mcudd-uart-debug.md](mcudd-uart-debug.md)**.
+
+Live daemon on the CM5 is Go `/usr/sbin/mcudd` (from `feeds/packages/mcudd`). The CLI that LuCI, hotplug, and SSH use is **`/usr/lib/mcud/mcud-event.sh`**.
 
 **Related:** [mcu-display-migration-backlog.md](mcu-display-migration-backlog.md) · [mcu-uart-serial.md](mcu-uart-serial.md) (picocom/screen/socat on `ttyS2`) · skill `mcu-display-cm5` · skill `cm5-mcu-serial`
 
@@ -45,12 +47,8 @@ Enable UART traces in LuCI **Configuration → Debug & logging**: `log_level=deb
 
 | Command | FIFO line | mcudd action | UART (RDCP v1) |
 |---------|-----------|---------------|----------------|
-| `prev` | `prev` | neighbor of `/tmp/mcud_active_screen` with dir `right` | `cmd screen` + `"dir":"right"` |
-| `next` | `next` | neighbor with dir `left` | `cmd screen` + `"dir":"left"` |
-| `screen <id>` | `screen router_wifi` | jump if id is known | `cmd screen` |
-| `refresh` / `net` | `refresh` / `net` | re-send current screen (or leave boot) | `cmd screen` (same id) |
-| `boot` | `boot` | boot splash push | `push boot` |
-| `ready` | `ready` | leave boot if sidecar is `router_boot` | `cmd screen router_system` |
+| `prev` / `next` / `screen` / `refresh` / `net` / `ready` | same | **ignored** (MCU owns pages) | none |
+| `boot` | `boot` | splash text only | `push boot` |
 | `version` | `version` | query firmware | `req version` |
 | `ping` | `ping` | link probe | `req ping` |
 | `echo <text>` | `echo …` | link probe | `cmd echo` |

@@ -23,7 +23,7 @@ Only **one** writer may hold `ttyS2`:
 |-------|------|
 | `mcudd` | Normal: LuCI, buttons, swipe sidecar |
 | `picocom` / `screen` / `socat` | Direct COM debug |
-| Mac USB-C CH340 | Flash / host serial monitor — **unplug** before using JST/`ttyS2` |
+| Mac USB-C CH340 | Flash / receive-only `#rx` sniff — do not type; unplug for a reliable JST link |
 
 Always:
 
@@ -98,4 +98,5 @@ USB-C and JST share GPIO1/3. Stuck RX (`grep '^2:' /proc/tty/driver/serial` not 
 ## Related
 
 - [docs/mcu-uart-serial.md](../../../docs/mcu-uart-serial.md)
+- [docs/mcudd-uart-debug.md](../../../docs/mcudd-uart-debug.md) — prove `mcudd` TX on `ttyS2`
 - [docs/mcudd-commands.md](../../../docs/mcudd-commands.md) — FIFO/`mcud-event.sh` while mcudd runs

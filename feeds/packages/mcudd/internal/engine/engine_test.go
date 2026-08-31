@@ -136,6 +136,20 @@ func TestHandleFIFO(t *testing.T) {
 	_ = fifo.KindUnknown
 }
 
+func TestHandleRXLineUSBSniffComment(t *testing.T) {
+	e, buf, _ := newTestEngine(t)
+	echo := `#rx {"v":1,"t":"evt","op":"version","data":{"stack":"1.0.0","release":47,"component":"esp32-router","rdcp":1}}`
+	if err := e.HandleRXLine(echo); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.HandleRXLine(""); err != nil {
+		t.Fatal(err)
+	}
+	if len(buf.TX) != 0 {
+		t.Fatalf("USB sniff echo must not be parsed as RDCP: %v", buf.TX)
+	}
+}
+
 func TestHandleRXLine(t *testing.T) {
 	e, buf, _ := newTestEngine(t)
 	e.Nav.AckScreen("router_system")

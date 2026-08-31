@@ -2,7 +2,9 @@
 
 Talk to the ESP32 panel **directly on the COM port** from the router, bypassing `mcudd`. Firmware image packages: **`picocom`**, **`screen`**, **`socat`**.
 
-Skill: **`cm5-mcu-serial`**. While `mcudd` is running, use [mcudd-commands.md](mcudd-commands.md) instead (`mcud-event.sh`, `mcud-link-test.sh`).
+**Is `mcudd` actually writing the UART?** Do not open this port — use [mcudd-uart-debug.md](mcudd-uart-debug.md) (`uart tx:` + kernel `tx:` + link test).
+
+Skill: **`cm5-mcu-serial`**. While `mcudd` is running, use [mcudd-commands.md](mcudd-commands.md) (`mcud-event.sh`, `mcud-link-test.sh`).
 
 ## Why three tools
 
@@ -29,7 +31,7 @@ LuCI **Terminal** (`ttyd`, already on CM5) can run `picocom` in the browser afte
 CM5 ttyS2  <── 115200 8N1 ──>  ESP32 UART2 (GPIO3 RX / GPIO1 TX)
 ```
 
-USB-C CH340 and the P1 JST header **share GPIO1/3**. Unplug USB-C before using the router port. Host USB serial (`/dev/cu.usbserial-*`) is a different path — skill `esp32-cm5-router-fw`.
+USB-C CH340 and the P1 JST header **share GPIO1/3**. Unplug USB-C before using the router port for a live link. Host USB serial (`/dev/cu.usbserial-*`) can receive MCU JSON plus `#rx` copies of mcudd payloads (receive-only; firmware `docs/usb-c-rdcp-sniff.md`). Skill `esp32-cm5-router-fw`.
 
 ## Exclusive lock
 
@@ -129,7 +131,6 @@ Same frames `mcudd` sends (`feeds/packages/mcudd/internal/proto/build.go`):
 {"v":1,"t":"req","id":1,"op":"ping"}
 {"v":1,"t":"req","id":2,"op":"version"}
 {"v":1,"t":"cmd","op":"echo","data":{"text":"hi"}}
-{"v":1,"t":"cmd","op":"screen","data":{"screen":"router_system","dir":"left"}}
 ```
 
 Swipe JSON from the panel is inbound `evt screen` only. Host adopts that id into the sidecar; do not echo `cmd screen`. Skill `mcu-display-cm5`.

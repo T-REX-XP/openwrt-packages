@@ -56,12 +56,15 @@ Command table, expected syslog, and prev/next debug recipe: **[docs/mcudd-comman
 
 ## Debug
 
+UART TX/RX proof (syslog `uart tx:` + kernel `tx:` + link test): **[docs/mcudd-uart-debug.md](../../../docs/mcudd-uart-debug.md)**. Mac USB-C sniff of mcudd payloads (`#rx` lines): firmware **`esp32-cm5-router-fw`** / `docs/usb-c-rdcp-sniff.md` (receive-only; do not type).
+
 ```sh
-/usr/lib/mcud/mcud-event.sh help
-logread -e mcudd -e mcud-event | tail -40   # want: fifo:, uart rx, screen evt (not cmd screen)
-cat /tmp/mcud_active_screen
-grep '^2:' /proc/tty/driver/serial          # rx must climb
+uci set mcud.main.debug_serial=1   # required for uart tx:/uart rx: lines
+logread -e mcudd | grep 'uart tx:' | tail -20
+grep '^2:' /proc/tty/driver/serial          # tx: must climb after ping
+/usr/lib/mcud/mcud-event.sh ping
 /usr/lib/mcud/mcud-link-test.sh
+cat /tmp/mcud_active_screen
 ```
 
 Stuck `router_boot` + no `uart rx:` → leftover `screen`/`picocom` on `ttyS2` (steals `evt screen`, LuCI goes stale), USB still on GPIO1/3, or tap panel RST after unplug. `ps w | grep ttyS2` — kill extras, keep only `mcudd`.

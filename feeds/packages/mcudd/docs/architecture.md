@@ -41,15 +41,15 @@ Go `mcudd` on **aarch64** / **musl**. Speaks RDCP v1 over UART to ESP32 firmware
 2. **Dual input** — `poll(2)` on UART + command FIFO (`/var/run/mcudd.fifo`).
 3. **Line protocol** — newline-delimited frames (`wire_format=json` today; `msgpack` reserved), max line from UCI `max_line` (default 4096).
 4. **Config** — `/etc/config/mcud` (UCI only); CLI `-config` / `-dump-config`. Host version is baked into the binary (`mcudd -version-json`).
-5. **Startup TX sequence** (unchanged from C):
+5. **Startup TX sequence**:
    - `push boot` → `push config` → `push hello` → `req version`
-   - `leave_boot` if `/tmp/mcud_state` stage=`ready`
+   - MCU leaves boot on first hello while still on the splash. Host never sends `cmd screen`.
 6. **Inbound dispatch**:
-   - `req metrics` → scope provider → `res` with same `id`
-   - `evt screen` → always update active screen + sidecar (LuCI poll); pending only rate-limits outbound FIFO `cmd screen`
-   - `evt version` / `res pong` / `evt echo` → link-test sidecars
-   - legacy `{"request":"cpu"}` → flat JSON (Phase 2 metrics)
-7. **Outbound nav** — FIFO next/prev sends `cmd screen`; MCU replies `evt screen`. Swipe is MCU-local `apply_page` + the same `evt screen`. No `evt input`.
+   - `req metrics` → live OpenWrt collector → `res` with same `id`
+   - `evt screen` → sidecar `/tmp/mcud_active_screen` (LuCI poll)
+   - `evt version` → rate-limited `push hello` while unlinked
+   - `res pong` / `evt echo` → link-test sidecars
+7. **Paging** — MCU only (swipe). FIFO prev/next/screen/ready are ignored. UART TX proof: [docs/mcudd-uart-debug.md](../../../docs/mcudd-uart-debug.md).
 
 ## Package boundaries
 
