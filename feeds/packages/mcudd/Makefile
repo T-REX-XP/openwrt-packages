@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mcudd
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=14
+PKG_RELEASE:=15
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -36,8 +36,7 @@ endef
 
 define Package/mcudd/description
   Host-side UART bridge for ESP32 smart display panels on ImmortalWrt.
-  Speaks RDCP v1 JSON over serial; replaces the legacy C mcudd binary.
-  Configuration: /etc/config/mcud (UCI).
+  Speaks RDCP v1 JSON over serial. Configuration: /etc/config/mcud (UCI).
 endef
 
 # Sources live at the package root (not ./src/). OpenWrt's default Prepare

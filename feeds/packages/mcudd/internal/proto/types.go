@@ -25,7 +25,6 @@ const (
 	MsgEvtScreen
 	MsgEvtVersion
 	MsgEvtEcho
-	MsgEvtInput
 )
 
 type Message struct {
@@ -33,7 +32,6 @@ type Message struct {
 	Scope            Scope
 	ReqID            uint
 	Screen           string
-	GestureDir       string
 	EchoText         string
 	VersionStack     string
 	VersionComponent string

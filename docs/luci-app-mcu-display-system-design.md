@@ -349,7 +349,7 @@ feeds/luci/luci-app-mcu-display/
 │       ├── mcudd_serial.c       # termios, DTR/RTS, readline
 │       ├── mcudd_rdcp.c         # encode/decode, legacy shim
 │       ├── mcudd_metrics.c      # from oledd_data (+ pages tokens)
-│       ├── mcudd_pages.c        # /etc/mcud/pages.json loader
+│       ├── pages.go             # /etc/mcud/pages.json loader
 │       ├── mcudd_push.c         # alert queue, boot stage
 │       ├── mcudd_ubus.c         # client: system, network, wireless
 │       ├── mcudd_ubus_srv.c     # server: status, event, set_screen

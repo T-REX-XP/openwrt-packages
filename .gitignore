@@ -14,8 +14,7 @@ feeds/luci/*/src/*-bin
 feeds/luci/*/src/dump_*
 feeds/packages/*/src/*-bin
 
-# Generated from mcud-version.json
-feeds/packages/mcudd-old/src/mcudd/mcud_version.h
+# Generated from mcud-version.json / local Go builds
 feeds/packages/mcudd/coverage.out
 feeds/packages/mcudd/mcudd-linux-arm64
 feeds/packages/mcudd/*.out

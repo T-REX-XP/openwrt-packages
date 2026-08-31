@@ -118,11 +118,13 @@ Use host **`ssh root@192.168.8.1 '…'`** (with key) when MCP has no tool or out
 | `logread -e mcudd` | UART / protocol errors |
 | `picocom` / `screen` / `socat` | Direct `/dev/ttyS2` (stop `mcudd`; skill **`cm5-mcu-serial`**) |
 
-**Deploy orig C `mcudd`** (live swipe→LuCI path; Alpine `linux/arm64` static `mcudd-bin`). Image includes `openssh-sftp-server` — use `scp`:
+**Deploy Go `mcudd`** (`GOOS=linux GOARCH=arm64 CGO_ENABLED=0`). Image includes `openssh-sftp-server` — use `scp`:
 
 ```sh
+cd feeds/packages/mcudd
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o mcudd-linux-arm64 ./cmd/mcudd
 ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 '/etc/init.d/mcudd stop'
-scp -i ~/.ssh/id_ed25519_openwrt_mcp feeds/packages/mcudd-old/src/mcudd-bin root@192.168.8.1:/tmp/mcudd.new
+scp -i ~/.ssh/id_ed25519_openwrt_mcp mcudd-linux-arm64 root@192.168.8.1:/tmp/mcudd.new
 ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'chmod 755 /tmp/mcudd.new && mv /tmp/mcudd.new /usr/sbin/mcudd && /etc/init.d/mcudd start'
 ```
 
@@ -158,7 +160,7 @@ ssh root@192.168.8.1 i2cdetect -y 7    # FPC I2C on CM5
 | Skill | Repo | Use with MCP for… |
 |-------|------|-------------------|
 | `oled-peripherals-cm5` | openwrt-packages | peripherals I2C/fan (not MCU UART) |
-| `mcu-display-cm5` | openwrt-packages | orig C mcudd, swipe→LuCI sidecar, link test |
+| `mcu-display-cm5` | openwrt-packages | Go mcudd, swipe→LuCI sidecar, link test |
 | `cm5-mcu-serial` | openwrt-packages | picocom/screen/socat on `/dev/ttyS2` (stop mcudd) |
 | `esp32-cm5-router-fw` | esp32-smartdisplay-demo | USB flash panel firmware |
 | `blocky-dns-cm5` | build_immortalwrt | DNS/adblock validation |

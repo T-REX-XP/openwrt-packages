@@ -113,16 +113,8 @@ func TestParseEvt(t *testing.T) {
 	if err != nil || msg.EchoText != "hi" {
 		t.Fatalf("%+v %v", msg, err)
 	}
-	msg, err = Parse(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"right"}}`)
-	if err != nil || msg.GestureDir != "right" {
-		t.Fatalf("%+v %v", msg, err)
-	}
-	msg, err = Parse(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture"}}`)
-	if err != nil || msg.GestureDir != "left" {
-		t.Fatalf("default dir: %+v %v", msg, err)
-	}
-	if _, err := Parse(`{"v":1,"t":"evt","op":"input","data":{"type":"tap"}}`); err == nil {
-		t.Fatal("non-gesture")
+	if _, err := Parse(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"right"}}`); err == nil {
+		t.Fatal("v1 has no gesture evt")
 	}
 	if _, err := Parse(`{"v":1,"t":"evt","op":"nope"}`); err == nil {
 		t.Fatal("unknown evt")

@@ -251,7 +251,7 @@ func TestHandleRXLine(t *testing.T) {
 	}
 	e.Nav.ClearPending()
 	e.Nav.LastTX = time.Time{}
-	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"screen","data":{"screen":"router_system","action":"loaded"}}`); err != nil {
 		t.Fatal(err)
 	}
 	if e.Nav.Cursor() != "router_system" {
@@ -420,52 +420,41 @@ func TestEvtScreenWritesSidecar(t *testing.T) {
 	}
 }
 
-func TestEvtInputWritesSidecarWhenRateLimited(t *testing.T) {
+func TestEvtScreenAdoptsWhilePending(t *testing.T) {
 	e, buf, _ := newTestEngine(t)
 	e.Nav.AckScreen("router_wifi")
-	e.Nav.MarkSent("router_wifi", e.now())
+	e.Nav.MarkSent("router_system", e.now())
 	nTX := len(buf.TX)
-	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"screen","data":{"screen":"router_clients","action":"loaded"}}`); err != nil {
 		t.Fatal(err)
 	}
-	if e.Nav.Cursor() != "router_security" {
-		t.Fatal(e.Nav.Cursor())
+	if e.Nav.ActiveScreen != "router_clients" {
+		t.Fatal(e.Nav.ActiveScreen)
 	}
 	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
-	if err != nil || strings.TrimSpace(string(data)) != "router_security" {
+	if err != nil || strings.TrimSpace(string(data)) != "router_clients" {
 		t.Fatalf("sidecar=%q err=%v", data, err)
 	}
+	if e.Nav.Pending {
+		t.Fatal("pending must clear on any known evt screen")
+	}
 	if len(buf.TX) != nTX {
-		t.Fatalf("rate-limited gesture must not TX cmd screen: %v", buf.TX[nTX:])
+		t.Fatalf("swipe evt screen must not TX cmd: %v", buf.TX[nTX:])
 	}
 }
 
-func TestEvtInputUpdatesSidecar(t *testing.T) {
+func TestEvtInputIgnored(t *testing.T) {
 	e, buf, _ := newTestEngine(t)
-	clk := e.Nav.Clock.(*fixedClock)
 	e.Nav.AckScreen("router_wifi")
-	e.Nav.ClearPending()
-	e.Nav.LastTX = time.Time{}
+	nTX := len(buf.TX)
 	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
 		t.Fatal(err)
 	}
-	if e.Nav.Cursor() != "router_security" {
-		t.Fatal(e.Nav.Cursor())
-	}
-	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
-	if err != nil || strings.TrimSpace(string(data)) != "router_security" {
-		t.Fatalf("sidecar=%q err=%v", data, err)
-	}
-	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
-	nTX := len(buf.TX)
-	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"right"}}`); err != nil {
-		t.Fatal(err)
-	}
-	if e.Nav.Cursor() != "router_wifi" {
-		t.Fatal(e.Nav.Cursor())
+	if e.Nav.ActiveScreen != "router_wifi" {
+		t.Fatal("gesture evt must not move sidecar")
 	}
 	if len(buf.TX) != nTX {
-		t.Fatalf("gesture must not TX cmd screen: %v", buf.TX[nTX:])
+		t.Fatalf("ignored input must not TX: %v", buf.TX[nTX:])
 	}
 }
 

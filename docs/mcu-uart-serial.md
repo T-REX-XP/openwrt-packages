@@ -123,7 +123,7 @@ Agents must not start unbounded `picocom`/`screen` (no PTY / hangs the tool). Us
 
 ## Sample RDCP lines
 
-Same frames `mcudd` sends (orig C `mcudd_protocol.c` / Go `internal/proto/build.go`):
+Same frames `mcudd` sends (`feeds/packages/mcudd/internal/proto/build.go`):
 
 ```text
 {"v":1,"t":"req","id":1,"op":"ping"}
@@ -132,7 +132,7 @@ Same frames `mcudd` sends (orig C `mcudd_protocol.c` / Go `internal/proto/build.
 {"v":1,"t":"cmd","op":"screen","data":{"screen":"router_system","dir":"left"}}
 ```
 
-Gesture / swipe JSON from the panel is inbound (`evt input`, `evt screen`). Do not change host `handle_gesture` / LuCI sidecar — frozen; skill `mcu-display-cm5`.
+Swipe JSON from the panel is inbound `evt screen` only. Host adopts that id into the sidecar; do not echo `cmd screen`. Skill `mcu-display-cm5`.
 
 ## Hardware checks
 

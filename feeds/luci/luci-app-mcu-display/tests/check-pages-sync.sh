@@ -1,11 +1,11 @@
 #!/bin/sh
-# Verify page id order matches pages.json, mcudd_pages.c, and esp32 router_pages.c.
+# Verify page id order matches pages.json, Go mcudd defaultRing, and esp32 router_pages.c.
 set -eu
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
 JSON="$PKG/root/etc/mcud/pages.json"
-MCUDD="$PKG/../../packages/mcudd-old/src/mcudd/mcudd_pages.c"
+MCUDD="$PKG/../../packages/mcudd/internal/pages/pages.go"
 ESP32="${ESP32_ROOT:-$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)}"
 FW="$ESP32/src/router/router_pages.c"
 FAIL=0
@@ -22,17 +22,21 @@ extract_c_page_ids() {
 	sed -n '/PAGE_IDS\[/,/\};/p' "$1" | sed -n 's/^[[:space:]]*"\([^"]*\)",/\1/p' | tr '\n' ' '
 }
 
+extract_go_page_ids() {
+	sed -n '/defaultRing = \[\]string{/,/^}/p' "$1" | sed -n 's/^[[:space:]]*"\([^"]*\)",/\1/p' | tr '\n' ' '
+}
+
 JSON_IDS="$(extract_json_ids)"
-MCUDD_IDS="$(extract_c_page_ids "$MCUDD")"
+MCUDD_IDS="$(extract_go_page_ids "$MCUDD")"
 FW_IDS=""
 [ -f "$FW" ] && FW_IDS="$(extract_c_page_ids "$FW")"
 
 echo "pages.json:     $JSON_IDS"
-echo "mcudd_pages.c:  $MCUDD_IDS"
+echo "pages.go:       $MCUDD_IDS"
 [ -n "$FW_IDS" ] && echo "router_pages.c: $FW_IDS"
 
 if [ "$JSON_IDS" != "$MCUDD_IDS" ]; then
-	echo "pages.json != mcudd_pages.c" >&2
+	echo "pages.json != pages.go defaultRing" >&2
 	FAIL=1
 fi
 

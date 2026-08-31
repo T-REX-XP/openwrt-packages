@@ -25,7 +25,6 @@ type wireData struct {
 	Release   uint   `json:"release"`
 	RDCP      uint   `json:"rdcp"`
 	UptimeMS  uint   `json:"uptime_ms"`
-	Type      string `json:"type"`
 }
 
 type legacyRequest struct {
@@ -108,15 +107,6 @@ func Parse(line string) (Message, error) {
 		case "echo":
 			msg.Type = MsgEvtEcho
 			msg.EchoText = data.Text
-		case "input":
-			if data.Type != "gesture" {
-				return Message{}, fmt.Errorf("input without gesture")
-			}
-			msg.Type = MsgEvtInput
-			msg.GestureDir = data.Dir
-			if msg.GestureDir == "" {
-				msg.GestureDir = "left"
-			}
 		default:
 			return Message{}, fmt.Errorf("unknown evt op")
 		}

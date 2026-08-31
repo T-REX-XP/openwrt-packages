@@ -4,7 +4,6 @@ set -eu
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
-MCUDD_OLD="$PKG/../../packages/mcudd-old"
 cd "$DIR"
 FAIL=0
 
@@ -14,15 +13,6 @@ sh check-pages-sync.sh || FAIL=1
 echo ""
 echo ">> shell: mcud-version sync"
 sh check-version-sync.sh || FAIL=1
-
-echo ""
-echo ">> mcudd-old C unit tests"
-if [ -x "$MCUDD_OLD/tests/run-tests.sh" ]; then
-	sh "$MCUDD_OLD/tests/run-tests.sh" || FAIL=1
-else
-	echo "SKIP: $MCUDD_OLD/tests/run-tests.sh not found" >&2
-	FAIL=1
-fi
 
 echo ""
 echo ">> shell: init.d syntax"

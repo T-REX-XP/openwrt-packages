@@ -290,20 +290,6 @@ func (e *Engine) HandleRXLine(line string) error {
 			return e.pushBoot()
 		}
 		return nil
-	case proto.MsgEvtInput:
-		from := e.Nav.Cursor()
-		target := pages.Neighbor(from, msg.GestureDir)
-		if e.Log != nil {
-			e.Log.Infof("gesture %s: %s -> %s", msg.GestureDir, from, target)
-		}
-		// Firmware already applied the page locally and will emit evt screen.
-		// Do not echo cmd screen — a stale host cursor yanks the panel.
-		if pages.Known(target) {
-			e.Nav.MarkCommanded(target)
-			e.Nav.ClearPending()
-			_ = e.State.WriteActiveScreen(target)
-		}
-		return nil
 	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")
 	case proto.MsgLegacyRequest, proto.MsgReq:

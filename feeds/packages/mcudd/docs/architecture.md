@@ -1,6 +1,6 @@
 # mcudd (Go) — Architecture
 
-Replace the C `mcudd` daemon with a single static Go binary optimized for ImmortalWrt on **aarch64** / **musl**, keeping wire compatibility with ESP32 RDCP v1 firmware.
+Go `mcudd` on **aarch64** / **musl**. Speaks RDCP v1 over UART to ESP32 firmware.
 
 ## Goals
 
@@ -9,7 +9,6 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
 | **Small static binary** | `CGO_ENABLED=0`, `-ldflags="-s -w"`, strip debug — target &lt; 3 MiB on router |
 | **Testability** | Pure packages + interfaces; no shelling out in protocol/nav layers |
 | **Parity** | Same FIFO paths, `/tmp/mcud_*` sidecars, LuCI rpcd unchanged |
-| **Incremental cutover** | POC → metrics → procd; C binary kept until Go passes link-test + soak |
 
 ## Layer diagram
 
@@ -47,11 +46,10 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
    - `leave_boot` if `/tmp/mcud_state` stage=`ready`
 6. **Inbound dispatch**:
    - `req metrics` → scope provider → `res` with same `id`
-   - `evt screen` → update active screen + sidecar (LuCI poll)
-   - `evt input` → write sidecar immediately (LuCI follows swipe), then `cmd screen` if not rate-limited
+   - `evt screen` → always update active screen + sidecar (LuCI poll); pending only rate-limits outbound FIFO `cmd screen`
    - `evt version` / `res pong` / `evt echo` → link-test sidecars
    - legacy `{"request":"cpu"}` → flat JSON (Phase 2 metrics)
-7. **Outbound nav** — FIFO next/prev writes the sidecar immediately; swipe uses `evt input` + `evt screen`.
+7. **Outbound nav** — FIFO next/prev sends `cmd screen`; MCU replies `evt screen`. Swipe is MCU-local `apply_page` + the same `evt screen`. No `evt input`.
 
 ## Package boundaries
 

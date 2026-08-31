@@ -32,6 +32,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/packages/blocky` | blocky | DNS proxy / ad-block (Go); DNS **5353**, HTTP/API **4000** on localhost |
 | `feeds/packages/yggdrasil` | yggdrasil | Encrypted IPv6 overlay ([yggdrasil-go](https://github.com/yggdrasil-network/yggdrasil-go)); netifd proto + `luci-proto-yggdrasil` from luci feed — **not** in CM5 image; install from feed when needed |
 | `feeds/packages/cm5-button-scripts` | cm5-button-scripts | GPIO key handlers for CM5 (`/etc/rc.button/wps`, etc.) |
+| `feeds/packages/mcudd` | mcudd | ESP32 UART display daemon (Go / RDCP v1); `/usr/sbin/mcudd` |
 | `feeds/luci/luci-app-blocky` | luci-app-blocky | Blocky LuCI dashboard + dnsmasq integration |
 | `feeds/luci/luci-app-speedtest` | luci-app-speedtest | speedtest-go UI |
 | `feeds/luci/luci-app-security-guide` | luci-app-security-guide | Security & privacy guide |
@@ -62,7 +63,7 @@ Default CM5 host: `192.168.8.1`. Use MCP for UCI/apk/network; SSH fallbacks for 
 2. **Bump `PKG_RELEASE`** on every recipe change (packages and LuCI apps). Do not bump `PKG_VERSION` unless upgrading upstream.
 3. **LuCI theming** — each app ships its own `*-theme.css`. Use **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, `--border-color-*`, `--error-color-high`, …). Support **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight**. No shared theme library.
 4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-mcu-display`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`.
-5. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms. **Swipe → LuCI active page is frozen** — do not edit orig C `handle_gesture` or LuCI sidecar reads; skill **`mcu-display-cm5`**.
+5. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms. **Page sync is `evt screen` only** — do not restore `evt input` or echo `cmd screen` on swipe; skill **`mcu-display-cm5`**.
 6. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
 7. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
 8. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.
@@ -117,7 +118,7 @@ Use these Cursor skills when working in this repo:
 |-------|-------------|
 | `openwrt-feed-packages` | Adding or editing packages, Makefiles, init scripts, feed layout, blocky scripts |
 | `luci-bootstrap-theming` | LuCI views, JS dashboards, `*-theme.css`, responsive layout, tabs |
-| `mcu-display-cm5` | luci-app-mcu-display, orig C mcudd-old, ttyS2 RDCP, swipe→LuCI sidecar (frozen) |
+| `mcu-display-cm5` | luci-app-mcu-display, Go mcudd, ttyS2 RDCP, `evt screen` sidecar |
 | `cm5-mcu-serial` | Direct MCU UART from the router: picocom / screen / socat on `/dev/ttyS2` |
 | `oled-peripherals-cm5` | Historical OLED/oledd notes; peripherals I2C/fan (not MCU UART) |
 | `openwrt-feed-ci-release` | GitHub Actions, release tags, Pages feed, apk signing |

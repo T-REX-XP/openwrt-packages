@@ -1,8 +1,8 @@
 # mcudd command tool — FIFO, LuCI, and debug logs
 
-Operator reference for **host → panel page navigation**. Swipe on the ESP32 is a different path and is frozen (see §7).
+Operator reference for **host → panel page navigation**. Panel swipe uses the **same** inbound frame (`evt screen`) — see §7.
 
-Live daemon on the CM5 is orig C `/usr/sbin/mcudd` (from `feeds/packages/mcudd-old`). The CLI that LuCI, buttons, and SSH all use is **`/usr/lib/mcud/mcud-event.sh`**.
+Live daemon on the CM5 is Go `/usr/sbin/mcudd` (from `feeds/packages/mcudd`). The CLI that LuCI, buttons, and SSH all use is **`/usr/lib/mcud/mcud-event.sh`**.
 
 **Related:** [mcu-display-migration-backlog.md](mcu-display-migration-backlog.md) · [mcu-uart-serial.md](mcu-uart-serial.md) (picocom/screen/socat on `ttyS2`) · skill `mcu-display-cm5` · skill `cm5-mcu-serial`
 
@@ -43,7 +43,7 @@ Enable UART traces in LuCI **Configuration → Debug & logging**: `log_level=deb
 /usr/lib/mcud/mcud-event.sh <command> [arg]
 ```
 
-| Command | FIFO line | Orig C action | UART (RDCP v1) |
+| Command | FIFO line | mcudd action | UART (RDCP v1) |
 |---------|-----------|---------------|----------------|
 | `prev` | `prev` | neighbor of `/tmp/mcud_active_screen` with dir `right` | `cmd screen` + `"dir":"right"` |
 | `next` | `next` | neighbor with dir `left` | `cmd screen` + `"dir":"left"` |
@@ -176,25 +176,27 @@ Fail: use §4. Typical live failure is `cmd screen router_clients` followed by f
 
 ---
 
-## 6. Orig C FIFO handler (do not confuse with swipe)
+## 6. FIFO handler (do not confuse with swipe)
 
-`handle_fifo_line()` in `feeds/packages/mcudd-old/src/mcudd/mcudd.c`:
+`handleCommand()` in `feeds/packages/mcudd/internal/engine/engine.go`:
 
-- `prev` / `next` → `handle_nav()` → `send_cmd_screen_dir()` (rate-limited)
-- `screen <id>` → `send_cmd_screen()`
-- Pending id is kept until a **matching** `evt screen`, or 2.5 s timeout
-- Unlinked firmware announces the current page every 2 s; that is **not** an ack of a different pending id
+- `prev` / `next` → `navCommand()` → `cmd screen` (rate-limited)
+- `screen <id>` → `sendUserScreen()`
+- Pending id rate-limits another FIFO `cmd screen` until `evt screen` or 2.5 s timeout
+- Every known `evt screen` updates `/tmp/mcud_active_screen` (MCU is source of truth, including swipe and unlinked 2 s announce)
 
 LuCI `getStatus` reads `/tmp/mcud_active_screen` only. It does not send UART itself.
 
 ---
 
-## 7. Frozen: swipe → LuCI
+## 7. Page sync: swipe and LuCI share `evt screen`
 
-Do **not** change this:
+RDCP v1 has **no gesture command**. Both directions use the same MCU broadcast:
 
-1. Firmware swipe → `evt input` then local page change → `evt screen`
-2. Orig C `handle_gesture` writes `/tmp/mcud_active_screen` and **must not** send `cmd screen`
-3. Matching `evt screen` overwrites the sidecar
+1. Firmware swipe → local page change → `evt screen` `{screen:<id>}`
+2. LuCI / FIFO prev|next|screen → mcudd `cmd screen` → MCU `apply_page` → `evt screen`
+3. mcudd writes `/tmp/mcud_active_screen` from every known `evt screen`
 
-LuCI prev/next is the opposite direction: host `cmd screen` must be applied on the ESP32.
+Do **not** echo `cmd screen` from the host when the panel swipes. That yanks the panel.
+
+See [mcu-active-screen-protocol-review.md](mcu-active-screen-protocol-review.md).

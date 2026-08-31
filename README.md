@@ -11,6 +11,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/packages/blocky` | **blocky** — DNS proxy / ad-block (Go) |
 | `feeds/packages/yggdrasil` | **yggdrasil** — encrypted IPv6 overlay ([yggdrasil-go](https://github.com/yggdrasil-network/yggdrasil-go)); optional via feed with ImmortalWrt `luci-proto-yggdrasil` (not in CM5 image) |
 | `feeds/packages/cm5-button-scripts` | **cm5-button-scripts** — CM5 USERKEY/MaskROM hotplug (`/etc/rc.button/`; shipped on CM5 image) |
+| `feeds/packages/mcudd` | **mcudd** — ESP32 UART display daemon (Go / RDCP v1) |
 | `feeds/luci/luci-app-blocky` | **luci-app-blocky** — LuCI for Blocky |
 | `feeds/luci/luci-app-speedtest` | **luci-app-speedtest** — LuCI for speedtest-go |
 | `feeds/luci/luci-app-security-guide` | **luci-app-security-guide** — security / privacy guide |

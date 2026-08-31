@@ -326,4 +326,3 @@ cat /tmp/mcud_link_test.json /tmp/mcud_active_screen /tmp/mcud_firmware_version.
 | `feeds/packages/mcudd/internal/rdcp/parse.go` | `"pong"` substring → ping |
 | `feeds/packages/mcudd/internal/daemon/engine.go` | startup + leave-boot + RX |
 | `feeds/luci/luci-app-mcu-display/root/usr/lib/mcud/mcud-link-test.sh` | ping + echo acceptance |
-| `feeds/packages/mcudd-old/src/mcudd/mcudd_serial.c` | C reference (DTR/RTS, `tcdrain`) |

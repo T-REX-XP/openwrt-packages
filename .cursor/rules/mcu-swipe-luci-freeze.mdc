@@ -1,17 +1,17 @@
 ---
-description: Freeze swipe → LuCI active-page path. Do not change this logic.
-globs: feeds/packages/mcudd-old/src/mcudd/mcudd.c,feeds/luci/luci-app-mcu-display/**/*.uc,feeds/luci/luci-app-mcu-display/**/*.js
+description: Page-sync contract — evt screen only. Do not restore gesture handling.
+globs: feeds/packages/mcudd/internal/engine/engine.go,feeds/luci/luci-app-mcu-display/**/*.uc,feeds/luci/luci-app-mcu-display/**/*.js
 alwaysApply: false
 ---
 
-# Swipe → LuCI — do not touch
+# Page sync — evt screen only
 
-Keep it untouched. Do not change this logic.
+RDCP v1 has **no gesture opcode**. Do not restore `evt input` handling.
 
 Working contract:
 
-- Firmware swipe emits `evt input` then `evt screen` and applies the page locally
-- Orig C `handle_gesture` writes `/tmp/mcud_active_screen` and **must not** send `cmd screen`
-- `evt screen` still overwrites the sidecar; LuCI `getStatus` reads the file
+- Firmware swipe applies the page locally and emits `evt screen` with the id shown
+- Go mcudd adopts **every** known `evt screen` into `/tmp/mcud_active_screen` (pending only rate-limits outbound FIFO `cmd screen`)
+- LuCI `getStatus` reads that file — do not change `read_active_screen` / page fields for this feature
 
-Do not restore host-driven swipe (`send_cmd_screen` on gesture). That fights the panel and hides the active page in LuCI.
+Do not echo `cmd screen` on swipe. That fights the panel and hides the active page in LuCI.

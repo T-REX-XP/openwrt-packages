@@ -49,9 +49,21 @@ jobs:
       - name: Run mcu-display host tests
         run: feeds/luci/luci-app-mcu-display/tests/run-tests.sh
 
+  test-mcudd:
+    name: mcudd Go unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: feeds/packages/mcudd/go.sum
+      - name: Run mcudd host tests
+        run: feeds/packages/mcudd/scripts/run-tests.sh
+
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
-    needs: [test-blocky, test-mcu-display]
+    needs: [test-blocky, test-mcu-display, test-mcudd]
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT
