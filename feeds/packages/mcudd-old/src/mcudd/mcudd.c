@@ -34,6 +34,7 @@
 
 static volatile sig_atomic_t g_stop;
 static int g_lock_fd = -1;
+static int g_fifo_wr = -1;
 
 static char active_screen[48] = "router_boot";
 static char pending_screen[48];
@@ -463,6 +464,14 @@ static int fifo_open(void)
 	fifo_fd = open(path, O_RDONLY | O_NONBLOCK);
 	if (fifo_fd < 0)
 		return -1;
+	/*
+	 * Hold a write fd so poll() does not return POLLHUP the instant the
+	 * last writer (init/LuCI) closes. Without this the daemon busy-loops
+	 * and leave-boot / UART idle retries never run.
+	 */
+	if (g_fifo_wr >= 0)
+		close(g_fifo_wr);
+	g_fifo_wr = open(path, O_WRONLY | O_NONBLOCK);
 	mcudd_log(LOG_INFO, "command FIFO %s", path);
 	return fifo_fd;
 }
@@ -471,13 +480,26 @@ static int handle_gesture(const struct mcudd_config *cfg, int fd, const char *di
 {
 	const char *target;
 
+	(void)cfg;
+	(void)fd;
 	if (!dir || !dir[0])
 		return -1;
-	if (!screen_nav_allow("gesture"))
-		return 0;
 	target = mcudd_page_neighbor(active_screen, dir);
 	mcudd_log(LOG_INFO, "gesture %s: %s -> %s", dir, active_screen, target);
-	return send_cmd_screen_dir(cfg, fd, target, dir);
+	/*
+	 * Firmware already applied the page locally and will emit evt screen.
+	 * Do not echo cmd screen — a stale host cursor would send the wrong
+	 * id and yank the panel back, so LuCI never shows the swipe.
+	 * Write the sidecar immediately; evt screen overwrites with the
+	 * firmware's real screen id.
+	 */
+	if (mcudd_screen_id_known(target)) {
+		strncpy(active_screen, target, sizeof(active_screen) - 1);
+		active_screen[sizeof(active_screen) - 1] = '\0';
+		write_active_screen(active_screen);
+		screen_pending_clear();
+	}
+	return 0;
 }
 
 static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
@@ -610,7 +632,14 @@ int main(int argc, char **argv)
 	size_t fifo_len = 0;
 	int ret = 1;
 
-	if (argc >= 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "--version"))) {
+	if (argc >= 2 && !strcmp(argv[1], "-version-json")) {
+		printf("{\"stack\":\"%s\",\"release\":%u,\"rdcp\":%u,\"pages_schema\":%u,\"component\":\"%s\"}\n",
+		       MCUD_STACK_VERSION, MCUD_STACK_RELEASE, MCUD_RDCP_VERSION,
+		       MCUD_PAGES_SCHEMA, MCUD_COMPONENT_HOST);
+		return 0;
+	}
+	if (argc >= 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "--version") ||
+			  !strcmp(argv[1], "-version"))) {
 		printf("%s rdcp=%u pages_schema=%u component=%s\n",
 		       mcud_version_string(), MCUD_RDCP_VERSION, MCUD_PAGES_SCHEMA,
 		       MCUD_COMPONENT_HOST);
@@ -759,6 +788,10 @@ int main(int argc, char **argv)
 
 out:
 	release_instance_lock();
+	if (g_fifo_wr >= 0) {
+		close(g_fifo_wr);
+		g_fifo_wr = -1;
+	}
 	if (fifo_fd >= 0)
 		close(fifo_fd);
 	unlink(MCUDD_FIFO_PATH);
