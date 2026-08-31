@@ -103,7 +103,8 @@ Cross-link existing **Services → Snort3** until operators migrate; do not grow
 | `feeds/packages/suricata-etopen` | **suricata-etopen** | Fetch/unpack current ET Open Suricata-7 tree into `/etc/suricata/rules/` |
 | `feeds/packages/tp-eventd` | **tp-eventd** | Tail EVE → SQLite ring + `/tmp/tp_status.json` |
 | `feeds/luci/luci-app-threat-prevention` | **luci-app-threat-prevention** | Product UI (JS + rpcd + theme CSS) |
-| *(keep)* `feeds/luci/luci-app-snort3` | luci-app-snort3 | Raw Snort3 until Suricata apk exists |
+| `feeds/packages/snort3` | snort3 | Snort 3 engine (feed-optional; Docker compile) |
+| *(keep)* `feeds/luci/luci-app-snort3` | luci-app-snort3 | Raw Snort3 LuCI |
 
 **Not in CM5 image** until P4+ proven. Install:
 

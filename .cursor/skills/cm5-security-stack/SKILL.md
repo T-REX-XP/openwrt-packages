@@ -20,7 +20,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 | DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — in default CM5 image |
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
-| Signature IDS | snort3, luci-app-snort3 | snort3: ImmortalWrt; LuCI: **this feed** | Good in **passive IDS**; IPS needs tuning |
+| Signature IDS | snort3, luci-app-snort3 | **this feed** (engine: Docker, skip GitHub SDK) | Good in **passive IDS**; IPS needs tuning |
 | | suricata, suricata-etopen, tp-eventd, luci-app-threat-prevention | **this feed** (engine: Docker, skip GitHub SDK) | Optional **IDS** on `br-lan`; **not** in CM5 image |
 | Visibility | tcpdump-mini, vnstat2, nlbwmon | ImmortalWrt | Excellent |
 | Operator guide | luci-app-security-guide | **this feed** | Optional feed install |
@@ -46,12 +46,13 @@ From **this feed** (after enabling feed):
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
 apk add suricata-etopen tp-eventd luci-app-threat-prevention
+# snort3 / suricata engines: compile in Docker first
 ```
 
 From **standard ImmortalWrt index**:
 
 ```sh
-apk add banip luci-app-banip snort3 tcpdump-mini vnstat2 luci-app-vnstat2
+apk add banip luci-app-banip tcpdump-mini vnstat2 luci-app-vnstat2
 ```
 
 Enable banIP under *Services → banIP*. Run `snort-mgr check` before starting Snort IPS mode.

@@ -15,6 +15,7 @@ Workflow: `.github/workflows/ci.yml` (entry point; calls reusable `.github/workf
 - Runs on push/PR to verify packages compile
 - Uses ImmortalWrt SDK Docker image (`aarch64_generic-25.12-SNAPSHOT`)
 - **Must set:** `FEEDNAME=openwrt_packages`, `FEED_DIR=${{ github.workspace }}/feeds`
+- **Skip in SDK CI:** `suricata` and `snort3` engines (heavy; compile in `build_immortalwrt` Docker). `luci-app-snort3` and `suricata-etopen` / `tp-eventd` still build.
 
 Without `FEED_DIR`, the action mounts repo root and finds no packages.
 

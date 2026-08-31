@@ -5,7 +5,7 @@ Vendored from [dddavid51/luci-snort3-openwrt](https://github.com/dddavid51/luci-
 ## Version
 
 - **Upstream tag:** v3.6 (November 2025)
-- **Feed package:** `PKG_VERSION:=3.6`, `PKG_RELEASE:=1`
+- **Feed package:** `PKG_VERSION:=3.6`, `PKG_RELEASE:=3`
 
 ## ImmortalWrt packaging
 
@@ -32,7 +32,7 @@ scripts/vendor-luci-snort3.sh
 
 ## CM5 usage
 
-1. Install **`snort3`** and **`luci-app-snort3`** (snort3 from ImmortalWrt packages feed).
+1. Install **`snort3`** and **`luci-app-snort3`** (both from **this feed**; engine is skipped in GitHub SDK CI — compile in Docker).
 2. Open **Services → Snort IDS/IPS**.
 3. Start in **IDS** mode on **`br-lan`** with a minimal rule set; monitor CPU on 2.5 GbE.
 

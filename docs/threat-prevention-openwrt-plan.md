@@ -121,11 +121,11 @@ WAN / br-lan
 
 ## 5. Proposed packages (this feed)
 
-Do **not** add Suricata to `DEVICE_PACKAGES`. Do **not** duplicate `snort3` (ImmortalWrt `packages` already has it).
+Do **not** add Suricata or Snort3 to `DEVICE_PACKAGES`. This feed now vendors **`snort3`** (openwrt/packages + CM5 UCI); when the feed is linked it shadows ImmortalWrt’s `snort3`.
 
 | Path | Package | Role |
 |------|---------|------|
-| *(upstream)* | `snort3` + `libdaq3` + optional `kmod-nft-queue` | Engine |
+| `feeds/packages/snort3` | `snort3` (+ ImmortalWrt `libdaq3`, optional `kmod-nft-queue`) | Engine (Docker compile; skip SDK CI) |
 | *(upstream)* | `banip` + `luci-app-banip` | IP threat feeds |
 | `feeds/packages/snort-etopen` *(new, optional)* | Fetcher/unpacker for **current** ET Open **or** snort3-community into `/etc/snort/rules/` | Rules — **PKG_SOURCE from Proofpoint/Cisco, not SPK** |
 | `feeds/packages/tp-eventd` *(new, optional)* | Tiny daemon: tail EVE → SQLite ring + `/tmp/tp_status.json` | Alert store |

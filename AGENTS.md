@@ -39,6 +39,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-peripherals` | luci-app-peripherals | IR, PWM fan, I2C diagnostics (read-only) |
 | `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-mcu-display** + **cm5-button-scripts**) |
 | `feeds/luci/luci-app-mcu-display` | luci-app-mcu-display | ESP32 UART display (`mcudd`), boot splash, button nav, page control |
+| `feeds/packages/snort3` | snort3 | Snort 3 IDS (optional; not in CM5 image; Docker compile; shadows ImmortalWrt snort3 when this feed is linked) |
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
 | `feeds/packages/suricata` | suricata | Suricata 8 IDS (optional; not in CM5 image; Docker compile) |
 | `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 8 |
@@ -88,6 +89,7 @@ After linking:
 ./scripts/feeds install -p openwrt_packages -a
 make package/blocky/compile V=s
 make package/luci-app-blocky/compile V=s
+# snort3 / suricata engines: Docker builder only (skipped in GitHub SDK CI)
 ```
 
 ## CI and release

@@ -18,6 +18,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, I2C bus scan |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
 | `feeds/luci/luci-app-mcu-display` | **luci-app-mcu-display** — ESP32 UART display (`mcudd`, CM5: `/dev/ttyS2`, button nav) |
+| `feeds/packages/snort3` | **snort3** — Snort 3 IDS (optional; not in CM5 image; compile in Docker, not GitHub SDK) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
 | `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (optional; not in CM5 image; compile in Docker, not GitHub SDK) |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 8) into `/etc/suricata/rules` |
@@ -51,7 +52,7 @@ Restart Cursor after setup. Requires SSH to the router (`ssh root@192.168.8.1`).
 
 OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for CPU / NPU / mirror notes, and **[docs/suricata-openwrt-plan.md](docs/suricata-openwrt-plan.md)** for the Suricata-first Threat Prevention product.
 
-**Synology-style Threat Prevention** is **not** copied from the SRM SPK. On-router **Suricata IDS** (this feed, optional apk) plus live ET Open and EVE events is the target; Snort3 remains the packaged fallback until `suricata` compiles. That stack is **not** in the default CM5 image. Today you can also use `snort3` + `luci-app-snort3`.
+**Synology-style Threat Prevention** is **not** copied from the SRM SPK. On-router **Suricata IDS** (this feed, optional apk) plus live ET Open and EVE events is the target. **snort3** is also in this feed (vendored from openwrt/packages, CM5 UCI defaults). That stack is **not** in the default CM5 image.
 
 ### Recommended packages by role
 
@@ -60,7 +61,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 | **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — in default CM5 image |
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
-| **Signature IDS** | `snort3`, `luci-app-snort3` | `snort3`: ImmortalWrt `packages`; LuCI: **this feed** | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
+| **Signature IDS** | `snort3`, `luci-app-snort3` | **this feed** (engine: Docker compile; shadows ImmortalWrt `snort3` if both are linked) | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
 | | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-threat-prevention` | **this feed** (engine: Docker compile) | Optional **IDS** on `br-lan`; not in CM5 image |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
@@ -89,16 +90,16 @@ Packages from **this feed** (after enabling the feed — see below):
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
 apk add suricata-etopen tp-eventd luci-app-threat-prevention
-# suricata engine: compile in Docker first, then apk add suricata
+# snort3 / suricata engines: compile in Docker first, then apk add snort3 suricata
 ```
 
 Packages from the **standard ImmortalWrt index** (built into the image or from upstream feeds):
 
 ```sh
-apk add banip luci-app-banip snort3 tcpdump-mini vnstat2 luci-app-vnstat2
+apk add banip luci-app-banip tcpdump-mini vnstat2 luci-app-vnstat2
 ```
 
-(`luci-app-snort3` is in **this feed**; install it with the first `apk add` line after enabling the feed.)
+(`snort3` and `luci-app-snort3` are in **this feed**; install them after enabling the feed. `libdaq3` still comes from ImmortalWrt `packages`.)
 
 Enable **banIP** under *Services → banIP*; configure **Snort3** with `snort-mgr check` before starting IPS mode.
 
