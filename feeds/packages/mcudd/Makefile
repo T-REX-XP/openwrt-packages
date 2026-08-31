@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mcudd
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=12
+PKG_RELEASE:=13
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -18,7 +18,7 @@ PKG_BUILD_PARALLEL:=1
 PKG_USE_MIPS16:=0
 
 GO_PKG:=github.com/t-rex-xp/openwrt-packages/mcudd
-GO_PKG_BUILD_PKG:=./cmd/mcudd
+GO_PKG_BUILD_PKG:=$(GO_PKG)/cmd/mcudd
 GO_PKG_LDFLAGS_X:= \
 	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Stack=1.0.0 \
 	github.com/t-rex-xp/openwrt-packages/mcudd/internal/version.Release=47
@@ -40,9 +40,21 @@ define Package/mcudd/description
   Configuration: /etc/config/mcud (UCI).
 endef
 
+# Sources live at the package root (not ./src/). OpenWrt's default Prepare
+# only copies ./src/, which left PKG_BUILD_DIR empty and made `go` walk up
+# into the ImmortalWrt tree ("cannot find main module").
+define Build/Prepare
+	$(call Build/Prepare/Default)
+	$(INSTALL_DIR) $(PKG_BUILD_DIR)
+	$(CP) ./go.mod ./go.sum $(PKG_BUILD_DIR)/
+	$(CP) ./cmd $(PKG_BUILD_DIR)/
+	$(CP) ./internal $(PKG_BUILD_DIR)/
+endef
+
 define Package/mcudd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/mcudd $(1)/usr/sbin/mcudd
 endef
 
+$(eval $(call GoBinPackage,mcudd))
 $(eval $(call BuildPackage,mcudd))
