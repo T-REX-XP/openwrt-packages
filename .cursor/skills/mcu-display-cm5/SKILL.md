@@ -33,6 +33,8 @@ Live daemon that works with swipe → LuCI: **orig C** `feeds/packages/mcudd-old
 
 CM5 bootscript must **not** put a runtime console on `ttyS2`.
 
+Direct COM (stop `mcudd` first): **picocom** / **screen** / **socat** — skill **`cm5-mcu-serial`**, [docs/mcu-uart-serial.md](../../../docs/mcu-uart-serial.md). While `mcudd` is running, do not open `ttyS2`; use `mcud-link-test.sh` / `mcud-event.sh`.
+
 ## Deploy orig C (macOS → aarch64 musl)
 
 CM5 image includes `openssh-sftp-server` (Dropbear subsystem at `/usr/libexec/sftp-server`). Use host `scp`/`sftp`:

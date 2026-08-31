@@ -17,7 +17,8 @@ Host-side [openwrt-mcp-server](https://github.com/T-REX-XP/openwrt-mcp-server) r
 |------|--------|
 | Read/set UCI, apk install, firewall, ping, logs, reboot | **MCP** (`user-openwrt`) |
 | Deploy `mcudd-bin`, read `/tmp/mcud_*.json`, run link test script | **SSH** (no MCP tool yet) |
-| Flash ESP32 firmware, serial monitor | **Host USB** (not router SSH) |
+| Flash ESP32 firmware, host USB serial | **Host USB** (`/dev/cu.usbserial-*`) |
+| Direct RDCP on router COM (`ttyS2`) | **SSH** `picocom`/`socat` after `mcudd stop` — skill **`cm5-mcu-serial`** |
 | Build packages / firmware | **Docker build** (`build_immortalwrt`) — see other skills |
 
 ## Setup (once per machine)
@@ -115,6 +116,7 @@ Use host **`ssh root@192.168.8.1 '…'`** (with key) when MCP has no tool or out
 | `/usr/lib/mcud/mcud-link-test.sh` | Ping+echo RDCP test → `/tmp/mcud_link_test.json` |
 | `/tmp/mcud_link_test.json` | `ping_ok` + `echo_ok` must be true |
 | `logread -e mcudd` | UART / protocol errors |
+| `picocom` / `screen` / `socat` | Direct `/dev/ttyS2` (stop `mcudd`; skill **`cm5-mcu-serial`**) |
 
 **Deploy orig C `mcudd`** (live swipe→LuCI path; Alpine `linux/arm64` static `mcudd-bin`). Image includes `openssh-sftp-server` — use `scp`:
 
@@ -157,6 +159,7 @@ ssh root@192.168.8.1 i2cdetect -y 7    # FPC I2C on CM5
 |-------|------|-------------------|
 | `oled-peripherals-cm5` | openwrt-packages | peripherals I2C/fan (not MCU UART) |
 | `mcu-display-cm5` | openwrt-packages | orig C mcudd, swipe→LuCI sidecar, link test |
+| `cm5-mcu-serial` | openwrt-packages | picocom/screen/socat on `/dev/ttyS2` (stop mcudd) |
 | `esp32-cm5-router-fw` | esp32-smartdisplay-demo | USB flash panel firmware |
 | `blocky-dns-cm5` | build_immortalwrt | DNS/adblock validation |
 | `cm5-base-files` | immortalwrt | Expected LAN/UCI defaults |

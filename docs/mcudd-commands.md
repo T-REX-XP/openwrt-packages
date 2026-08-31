@@ -4,7 +4,7 @@ Operator reference for **host → panel page navigation**. Swipe on the ESP32 is
 
 Live daemon on the CM5 is orig C `/usr/sbin/mcudd` (from `feeds/packages/mcudd-old`). The CLI that LuCI, buttons, and SSH all use is **`/usr/lib/mcud/mcud-event.sh`**.
 
-**Related:** [mcu-display-migration-backlog.md](mcu-display-migration-backlog.md) · skill `mcu-display-cm5`
+**Related:** [mcu-display-migration-backlog.md](mcu-display-migration-backlog.md) · [mcu-uart-serial.md](mcu-uart-serial.md) (picocom/screen/socat on `ttyS2`) · skill `mcu-display-cm5` · skill `cm5-mcu-serial`
 
 ---
 

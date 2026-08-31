@@ -118,6 +118,7 @@ Use these Cursor skills when working in this repo:
 | `openwrt-feed-packages` | Adding or editing packages, Makefiles, init scripts, feed layout, blocky scripts |
 | `luci-bootstrap-theming` | LuCI views, JS dashboards, `*-theme.css`, responsive layout, tabs |
 | `mcu-display-cm5` | luci-app-mcu-display, orig C mcudd-old, ttyS2 RDCP, swipe→LuCI sidecar (frozen) |
+| `cm5-mcu-serial` | Direct MCU UART from the router: picocom / screen / socat on `/dev/ttyS2` |
 | `oled-peripherals-cm5` | Historical OLED/oledd notes; peripherals I2C/fan (not MCU UART) |
 | `openwrt-feed-ci-release` | GitHub Actions, release tags, Pages feed, apk signing |
 | `cm5-security-stack` | IDS/IPS, banIP, blocky, Snort3 mode and CM5 recommendations |
@@ -128,6 +129,7 @@ Use these Cursor skills when working in this repo:
 - [README.md](README.md) — user-facing feed docs
 - [docs/luci-app-blocky-feature-plan.md](docs/luci-app-blocky-feature-plan.md)
 - [docs/mcu-display-migration-backlog.md](docs/mcu-display-migration-backlog.md) — MCU display plan (OLED removed)
+- [docs/mcu-uart-serial.md](docs/mcu-uart-serial.md) — picocom/screen/socat on `/dev/ttyS2` (stop mcudd first)
 - [docs/oled-menu.md](docs/oled-menu.md) — archived menu design (historical)
 - [docs/cm5-waveshare-oled-hat-wiring.md](docs/cm5-waveshare-oled-hat-wiring.md) — CM5 FPC → Waveshare 1.3" HAT harness
 - [OpenWrt feeds guide](https://openwrt.org/docs/guide-developer/feeds)

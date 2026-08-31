@@ -34,7 +34,8 @@ ImmortalWrt 25.x uses **`apk`**. Custom feed packages may require GitHub Pages f
 | Need | SSH |
 |------|-----|
 | mcudd binary deploy | `scp … root@192.168.8.1:/tmp/mcudd.new` (`openssh-sftp-server`) |
-| RDCP link test | `/usr/lib/mcud/mcud-link-test.sh` |
+| RDCP link test | `/usr/lib/mcud/mcud-link-test.sh` (mcudd running) |
+| Direct MCU COM | stop mcudd; `picocom`/`socat` on `/dev/ttyS2` (skill `cm5-mcu-serial`) |
 | Local files `/tmp/mcud_*` | `cat` on router |
 | Blocky raw API | `wget -qO- http://127.0.0.1:4000/...` |
 | I2C / sysfs | `i2cdetect`, `/sys/...` |

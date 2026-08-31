@@ -38,6 +38,15 @@ MCP checks (no link-test tool):
 
 LuCI: **Services → MCU Display** — page sync, splash, button mapping.
 
+Direct UART (stop `mcudd` first; skill **`cm5-mcu-serial`**):
+
+```sh
+ssh -t -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'picocom -b 115200 /dev/ttyS2'
+# or one-shot:
+ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 \
+  'printf "%s\n" "{\"v\":1,\"t\":\"req\",\"id\":1,\"op\":\"ping\"}" | socat -T3 - /dev/ttyS2,b115200,raw,echo=0,igncr'
+```
+
 Physical buttons: **cm5-button-scripts** → `hotplug-call button`; cross-check with LuCI menu actions.
 
 ## Blocky / DNS (MCP + SSH)
