@@ -406,6 +406,40 @@ func TestFIFOUserNavWalksWithoutAck(t *testing.T) {
 	}
 }
 
+func TestEvtScreenWritesSidecar(t *testing.T) {
+	e, _, _ := newTestEngine(t)
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"screen","data":{"screen":"router_clients","action":"loaded"}}`); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.ActiveScreen != "router_clients" {
+		t.Fatal(e.Nav.ActiveScreen)
+	}
+	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
+	if err != nil || strings.TrimSpace(string(data)) != "router_clients" {
+		t.Fatalf("sidecar=%q err=%v", data, err)
+	}
+}
+
+func TestEvtInputWritesSidecarWhenRateLimited(t *testing.T) {
+	e, buf, _ := newTestEngine(t)
+	e.Nav.AckScreen("router_wifi")
+	e.Nav.MarkSent("router_wifi", e.now())
+	nTX := len(buf.TX)
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_security" {
+		t.Fatal(e.Nav.Cursor())
+	}
+	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
+	if err != nil || strings.TrimSpace(string(data)) != "router_security" {
+		t.Fatalf("sidecar=%q err=%v", data, err)
+	}
+	if len(buf.TX) != nTX {
+		t.Fatalf("rate-limited gesture must not TX cmd screen: %v", buf.TX[nTX:])
+	}
+}
+
 func TestEvtInputUpdatesSidecar(t *testing.T) {
 	e, _, _ := newTestEngine(t)
 	clk := e.Nav.Clock.(*fixedClock)

@@ -295,6 +295,10 @@ func (e *Engine) HandleRXLine(line string) error {
 		if e.Log != nil {
 			e.Log.Infof("input %s -> %s", msg.GestureDir, target)
 		}
+		// Write the sidecar before cmd screen. Firmware applies the page
+		// locally; LuCI must follow even when TX is rate-limited.
+		e.Nav.MarkCommanded(target)
+		_ = e.State.WriteActiveScreen(target)
 		return e.sendUserScreen(target, msg.GestureDir)
 	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")

@@ -1,4 +1,4 @@
-# Linked MCU swipe: evt input only; host replies with cmd screen
+# MCU swipe: evt input (LuCI sidecar) then local apply + evt screen
 < {"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}
 > {"v":1,"t":"cmd","op":"screen","data":{"screen":"router_system","dir":"left"}}
 < {"v":1,"t":"evt","op":"screen","data":{"screen":"router_system","action":"loaded"}}
