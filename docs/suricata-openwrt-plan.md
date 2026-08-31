@@ -21,8 +21,8 @@ Reuse the **approach**, not the SPK.
 
 | Layer | Same as SRM? | How on OpenWrt |
 |-------|----------------|----------------|
-| Engine | Yes (Suricata, not `synosuricata`) | New feed package `suricata` (7.x), IDS default |
-| Rules | Same *feed* (ET Open), not the 2021 tarball | Runtime fetch `rules.emergingthreats.net/open/suricata-7.0/` |
+| Engine | Yes (Suricata, not `synosuricata`) | New feed package `suricata` (8.x), IDS default |
+| Rules | Same *feed* (ET Open), not the 2021 tarball | Runtime fetch `rules.emergingthreats.net/open/suricata-8.0/` |
 | Class policy | Same *idea* (`signature.conf`) | UCI classtype → alert / disable / (optional) drop |
 | Alerts | Same *fields*, not PostgreSQL | Suricata **EVE JSON** → SQLite ring |
 | UI | Same *tabs*, not ExtJS | New JS+rpcd `luci-app-threat-prevention` |
@@ -41,7 +41,7 @@ Reuse the **approach**, not the SPK.
 | Source | Reuse? |
 |--------|--------|
 | SPK `emerging.rules.tar.gz` (ET Open 9840, Suricata **5.0**, dated 2021-09-09) | **No** — stale, Suricata 5 vs 7, provenance from a signed SPK |
-| Live ET Open for **Suricata 7** | **Yes** — Proofpoint public tree; same vendor SRM updates from |
+| Live ET Open for **Suricata 8** | **Yes** — Proofpoint public tree (`suricata-8.0/`); Suricata 7 is EOL |
 | `classification.config` class names | **Yes** — public Snort/ET names (`trojan-activity`, `web-application-attack`, …) |
 | `signature.conf` drop/disable classes | **Ideas only** — encode as UCI defaults; default **alert**, not drop |
 | `syno-custom-events.rules` (Google Voice pass) | **No** |
@@ -99,7 +99,7 @@ Cross-link existing **Services → Snort3** until operators migrate; do not grow
 
 | Path | Package | Role |
 |------|---------|------|
-| `feeds/packages/suricata` | **suricata** | Engine 7.x (Rust + libhtp, jansson, libpcap, libyaml, libmagic). **New.** |
+| `feeds/packages/suricata` | **suricata** | Engine 8.x (Rust + libhtp, jansson, libpcap, libyaml, libmagic). **New.** |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** | Fetch/unpack current ET Open Suricata-7 tree into `/etc/suricata/rules/` |
 | `feeds/packages/tp-eventd` | **tp-eventd** | Tail EVE → SQLite ring + `/tmp/tp_status.json` |
 | `feeds/luci/luci-app-threat-prevention` | **luci-app-threat-prevention** | Product UI (JS + rpcd + theme CSS) |
@@ -179,7 +179,7 @@ Fallback if `suricata` does not compile in a reasonable time: keep **Snort3** as
 Packages table row:
 
 ```text
-| `feeds/packages/suricata` | **suricata** — Suricata 7 IDS (optional; not in CM5 image) |
+| `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (optional; not in CM5 image) |
 | `feeds/luci/luci-app-threat-prevention` | Threat Prevention LuCI (EVE events, ET Open, class policy) |
 ```
 
@@ -187,7 +187,7 @@ IDS section: replace “Heavy IDS / SIEM = not in feed / external Docker only”
 
 - On-router **Suricata IDS** (this feed, optional apk) for SRM-like signatures + EVE events.
 - **Not** in the default CM5 image; **not** inline IPS at 2.5 GbE with full ET Open.
-- Rules: live ET Open (Suricata 7), not Synology’s bundled 9840 snapshot.
+- Rules: live ET Open (Suricata 8), not Synology’s bundled 9840 snapshot.
 - External mirror host remains the path for full SIEM / Zeek / Wazuh.
 
 ---

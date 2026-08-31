@@ -185,7 +185,7 @@ return view.extend({
 			]);
 			profile.value = c.rule_profile || 'small';
 			var url = E('input', { type: 'text', id: 'tp-url', value: val(c.etopen_url,
-				'https://rules.emergingthreats.net/open/suricata-7.0/emerging.rules.tar.gz') });
+				'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz') });
 
 			settingsBox.appendChild(E('div', {}, [
 				field('tp-enabled', _('Enable IDS'), enabled),

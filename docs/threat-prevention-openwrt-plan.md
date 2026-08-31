@@ -15,7 +15,7 @@ A **Threat Prevention–like product** on OpenWrt is feasible as a **layered fee
 
 | Synology piece | Copy into this repo? | OpenWrt equivalent |
 |----------------|----------------------|--------------------|
-| `synosuricata` 6.0.4 + `libsynotps` | **No** (proprietary, stripped, CVE-stale) | This feed **`suricata`** 7.x (IDS); ImmortalWrt **`snort3`** fallback |
+| `synosuricata` 6.0.4 + `libsynotps` | **No** (proprietary, stripped, CVE-stale) | This feed **`suricata`** 8.x (IDS); ImmortalWrt **`snort3`** fallback |
 | ExtJS UI + `SYNO.TPS.*` WebAPI | **No** (proprietary) | New **JS + rpcd** LuCI app |
 | PostgreSQL `synotps` + `synodb` | **No** (too heavy; custom output) | **EVE JSON** / `alert_fast` + optional SQLite ring |
 | Bundled `emerging.rules.tar.gz` (ET Open **9840**, Suricata 5.0) | **Do not vendor from the SPK** | Fetch **live ET Open** (or Snort community) at runtime |
@@ -60,7 +60,7 @@ Helpful properties to **imitate** (not copy):
 | What is in the SPK? | ET Open snapshot, Suricata **5.0** tree, ~59 files, ~68k rule lines, **23,028 `alert`**, **0 `drop`** in the tarball. Drops are applied later by Synology policy compile. |
 | ET Open license? | Proofpoint **Emerging Threats Open** is redistributable under their open-rules terms (typically BSD-style). The **content** is public. |
 | May we copy the file out of the SPK into `openwrt-packages`? | **Do not.** The tarball is a **vendor-packaged snapshot** inside a signed Synology payload. Mixing it into this git repo creates provenance, freshness (9840 is not current), and “derived from SPK” confusion. Engine in the SPK is Suricata 6 vs rules labelled 5.0. |
-| How should OpenWrt get ET Open? | **Download at runtime** (or image-build with an explicit `PKG_SOURCE` from Proofpoint), e.g. `https://rules.emergingthreats.net/open/suricata-7.0/` or the Snort-compatible tree that matches **snort3**. Prefer **current** folders, not `suricata-5.0`. |
+| How should OpenWrt get ET Open? | **Download at runtime** (or image-build with an explicit `PKG_SOURCE` from Proofpoint), e.g. `https://rules.emergingthreats.net/open/suricata-8.0/` or the Snort-compatible tree that matches **snort3**. Prefer **current** folders, not `suricata-5.0`. |
 | ET Pro? | Requires a paid **oinkcode**. Cypress-only in that SPK. **Do not** ship Pro rules. Optional UCI field later if the operator has a license. |
 | Snort3 vs Suricata rules? | Not drop-in. ET publishes **separate** trees. This feed already depends on **`snort3`** from ImmortalWrt. Use **Snort 3 community** and/or **ET Open for Snort 3**, not the Suricata tarball from the SPK. |
 | `classification.config` | Standard Snort/ET class names (`trojan-activity`, `web-application-attack`, …). Re-create from **public** Snort/ET classification files, not from Synology packaging. |

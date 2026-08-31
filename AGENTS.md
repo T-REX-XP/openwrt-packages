@@ -40,8 +40,8 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/luci/luci-app-buttons` | luci-app-buttons | Optional feed-only LuCI for `/etc/rc.button/` script editing (not in CM5 image; use **luci-app-mcu-display** + **cm5-button-scripts**) |
 | `feeds/luci/luci-app-mcu-display` | luci-app-mcu-display | ESP32 UART display (`mcudd`), boot splash, button nav, page control |
 | `feeds/luci/luci-app-snort3` | luci-app-snort3 | Snort3 IDS/IPS LuCI |
-| `feeds/packages/suricata` | suricata | Suricata 7 IDS (optional; not in CM5 image; Docker compile) |
-| `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 7 |
+| `feeds/packages/suricata` | suricata | Suricata 8 IDS (optional; not in CM5 image; Docker compile) |
+| `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 8 |
 | `feeds/packages/tp-eventd` | tp-eventd | EVE JSON → SQLite ring |
 | `feeds/luci/luci-app-threat-prevention` | luci-app-threat-prevention | Threat Prevention LuCI (EVE, ET Open, class policy) |
 

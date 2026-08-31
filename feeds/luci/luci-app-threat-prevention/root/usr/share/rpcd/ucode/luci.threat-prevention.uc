@@ -62,7 +62,7 @@ const const_defaults = {
 	rule_dir: '/etc/suricata/rules',
 	rule_profile: 'small',
 	fail_open: '1',
-	etopen_url: 'https://rules.emergingthreats.net/open/suricata-7.0/emerging.rules.tar.gz'
+	etopen_url: 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz'
 };
 
 const FLAG_OPTS = [ 'enabled', 'fail_open' ];

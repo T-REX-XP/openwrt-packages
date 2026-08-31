@@ -1,5 +1,5 @@
 #
-# Suricata 7 IDS for ImmortalWrt (feed-optional; not in CM5 image).
+# Suricata 8 IDS for ImmortalWrt (feed-optional; not in CM5 image).
 # First compile: macOS Docker builder (build_immortalwrt), not GitHub SDK.
 # See docs/suricata-openwrt-plan.md
 #
@@ -7,12 +7,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=suricata
-PKG_VERSION:=7.0.17
+PKG_VERSION:=8.0.6
 PKG_RELEASE:=1
 
 PKG_SOURCE:=suricata-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://www.openinfosecfoundation.org/download
-PKG_HASH:=7821194eef72e9c2511577034c41a4ee0e6748a2cfae98b6ed80f149c4497780
+PKG_HASH:=b264584edda4a3b2b462050099c7c54f4f35ac0c7164e41084be9b216c090f8c
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -37,7 +37,7 @@ define Package/suricata
 endef
 
 define Package/suricata/description
-  Suricata 7 IDS for ImmortalWrt. Default is passive AF_PACKET on br-lan
+  Suricata 8 IDS for ImmortalWrt. Default is passive AF_PACKET on br-lan
   with EVE JSON under /var/log/suricata. Not inline IPS. Not in the
   default Orange Pi CM5 image — install from this feed after compile.
 endef
