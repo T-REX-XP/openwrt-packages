@@ -35,7 +35,7 @@ CM5 bootscript must **not** put a runtime console on `ttyS2`.
 
 ## Deploy orig C (macOS → aarch64 musl)
 
-Router has no `sftp-server` — **do not `scp`**. Pipe:
+CM5 image includes `openssh-sftp-server` (Dropbear subsystem at `/usr/libexec/sftp-server`). Use host `scp`/`sftp`:
 
 ```sh
 # build
@@ -47,20 +47,24 @@ docker run --rm --platform linux/arm64 \
     mcudd/mcudd_serial.c mcudd/mcudd_protocol.c mcudd/mcudd_metrics.c mcudd/mcud_version.c \
     -static -o /src/src/mcudd-bin'
 
-ssh root@192.168.8.1 '/etc/init.d/mcudd stop'
-ssh root@192.168.8.1 'cat > /tmp/mcudd.new && chmod 755 /tmp/mcudd.new && mv /tmp/mcudd.new /usr/sbin/mcudd && /etc/init.d/mcudd start' \
-  < feeds/packages/mcudd-old/src/mcudd-bin
+ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 '/etc/init.d/mcudd stop'
+scp -i ~/.ssh/id_ed25519_openwrt_mcp feeds/packages/mcudd-old/src/mcudd-bin root@192.168.8.1:/tmp/mcudd.new
+ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'chmod 755 /tmp/mcudd.new && mv /tmp/mcudd.new /usr/sbin/mcudd && /etc/init.d/mcudd start'
 ```
 
-CLI: `mcudd -V` and `mcudd -version-json` (LuCI). Tests: `feeds/packages/mcudd-old/tests/run-tests.sh`.
+CLI: `mcudd -V` and `mcudd -version-json` (LuCI). FIFO tool: `/usr/lib/mcud/mcud-event.sh` (`help`, `prev`, `next`, `screen`, `ping`, `echo`). Tests: `feeds/packages/mcudd-old/tests/run-tests.sh`.
+
+Command table, expected syslog, and prev/next debug recipe: **[docs/mcudd-commands.md](../../../docs/mcudd-commands.md)**.
 
 ## Debug
 
 ```sh
-logread -e mcudd | tail -40          # want: uart rx:, screen evt ack, gesture
+/usr/lib/mcud/mcud-event.sh help
+logread -e mcudd -e mcud-event | tail -40   # want: fifo:, nav, cmd screen, screen evt ack
 cat /tmp/mcud_active_screen
-grep '^2:' /proc/tty/driver/serial   # rx must climb
+grep '^2:' /proc/tty/driver/serial          # rx must climb
 /usr/lib/mcud/mcud-link-test.sh
+/usr/lib/mcud/mcud-event.sh next            # then check sidecar + logs
 ```
 
 Stuck `router_boot` + no `uart rx:` → USB still on GPIO1/3, or tap panel RST after unplug.
@@ -71,4 +75,3 @@ Stuck `router_boot` + no `uart rx:` → USB still on GPIO1/3, or tap panel RST a
 
 - Echo `cmd screen` from `handle_gesture` (yanks the panel; LuCI desyncs)
 - Change LuCI `read_active_screen` / `get_status` page fields for this feature
-- Use `scp` to the CM5

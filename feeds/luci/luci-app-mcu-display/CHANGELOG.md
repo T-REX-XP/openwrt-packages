@@ -1,5 +1,11 @@
 # luci-app-mcu-display CHANGELOG
 
+## 54
+
+- **Command docs** — `docs/mcudd-commands.md`: FIFO/`mcud-event.sh`/LuCI `pageControl` table, expected syslog, prev/next debug recipe.
+- **`mcud-event.sh help`** — usage on stderr; log empty/unknown events.
+- **pageControl** — syslog on invalid action, missing script, missing page id.
+
 ## 47
 
 - **Host version from binary** — no more `/usr/share/mcud/version.json`; LuCI calls `mcudd -version-json`.

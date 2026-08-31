@@ -8,6 +8,7 @@
 
 | Doc | Role |
 |-----|------|
+| [mcudd-commands.md](mcudd-commands.md) | FIFO / LuCI `pageControl` / SSH debug logs for prev/next |
 | [luci-app-mcu-display-system-design.md](luci-app-mcu-display-system-design.md) | RDCP v1, `mcudd`, ESP32 phases |
 | [oled-mcu-display-backlog.md](oled-mcu-display-backlog.md) | Archived dual-stack backlog (historical) |
 | [oledd-review-and-improvement-plan.md](oledd-review-and-improvement-plan.md) | Archived OLED review (reference only) |

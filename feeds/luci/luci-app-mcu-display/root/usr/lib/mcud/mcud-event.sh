@@ -1,6 +1,7 @@
 #!/bin/sh
 # Write navigation / control events to the mcudd FIFO.
-# Usage: mcud-event.sh <prev|next|net|refresh|boot|ready|screen|version|ping|echo> [arg]
+# Usage: mcud-event.sh <prev|next|net|refresh|boot|ready|screen|version|ping|echo|help> [arg]
+# See docs/mcudd-commands.md
 
 event="${1:-}"
 screen_id="${2:-}"
@@ -11,6 +12,35 @@ fifo="${MCUDD_FIFO:-/var/run/mcudd.fifo}"
 log_event() {
 	logger -t mcud-event "$*"
 }
+
+usage() {
+	cat <<'EOF' >&2
+Usage: mcud-event.sh <command> [arg]
+
+Commands (written to /var/run/mcudd.fifo, fallback /tmp/mcudd.fifo):
+  prev              Previous page
+  next              Next page
+  screen <id>       Jump to page id (e.g. router_wifi)
+  refresh | net     Redraw current page
+  boot              Show boot splash
+  ready             Leave boot -> router_system
+  version           Query firmware version
+  ping              Link probe (req ping)
+  echo <text>       Link probe (cmd echo)
+  help              This text
+
+Logs: logger -t mcud-event. Daemon: logread -e mcudd
+Docs: openwrt-packages/docs/mcudd-commands.md
+EOF
+}
+
+case "$event" in
+""|-h|--help|help)
+	usage
+	[ -n "$event" ] || log_event "no command; printed usage"
+	exit 0
+	;;
+esac
 
 if [ ! -p "$fifo" ]; then
 	log_event "fifo missing, drop event=${event:-?} screen=${screen_id:-}"
@@ -57,7 +87,8 @@ screen)
 	fi
 	;;
 *)
-	[ -n "$event" ] && log_event "ignored unknown event=$event"
+	log_event "ignored unknown event=$event"
+	usage
 	;;
 esac
 

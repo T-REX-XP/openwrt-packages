@@ -533,11 +533,15 @@ const methods = {
 		args: { action: 'action', page_id: 'page_id' },
 		call: function(req) {
 			let action = req.args?.action ?? req?.action ?? req?.[0] ?? '';
-			if (type(action) != 'string' || !length(action))
+			if (type(action) != 'string' || !length(action)) {
+				log_mcud_event('luci pageControl invalid_action (empty)');
 				return { error: 'invalid_action' };
+			}
 
-			if (!file_test('-x', MCUD_EVENT_SH))
+			if (!file_test('-x', MCUD_EVENT_SH)) {
+				log_mcud_event('luci pageControl event_script_missing');
 				return { error: 'event_script_missing', message: 'mcud-event.sh not installed' };
+			}
 
 			if (action == 'prev' || action == 'next') {
 				log_mcud_event(`luci pageControl ${action}`);
@@ -547,8 +551,10 @@ const methods = {
 
 			if (action == 'goto') {
 				let page_id = trim(`${req.args?.page_id ?? req?.page_id ?? req?.[1] ?? ''}`);
-				if (!length(page_id))
+				if (!length(page_id)) {
+					log_mcud_event('luci pageControl goto missing_page_id');
 					return { error: 'missing_page_id' };
+				}
 				log_mcud_event(`luci pageControl goto ${page_id}`);
 				run_cmd(`${MCUD_EVENT_SH} screen ${shell_quote(page_id)}`);
 				return { ok: true, action, page_id, via: 'fifo' };
@@ -566,6 +572,7 @@ const methods = {
 				return { ok: true, action, via: 'fifo' };
 			}
 
+			log_mcud_event(`luci pageControl invalid_action ${action}`);
 			return { error: 'invalid_action' };
 		}
 	},

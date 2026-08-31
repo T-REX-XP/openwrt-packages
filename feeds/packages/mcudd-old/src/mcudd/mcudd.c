@@ -38,11 +38,13 @@ static int g_fifo_wr = -1;
 
 static char active_screen[48] = "router_boot";
 static char pending_screen[48];
+static char last_fw_screen[48];
 static int screen_cmd_pending;
 static unsigned long last_screen_tx_ms;
 static unsigned g_version_req_id;
 static unsigned g_ping_req_id;
 static char last_echo_sent[128];
+static unsigned long last_hello_ms;
 
 static struct {
 	int ping_ok;
@@ -61,10 +63,34 @@ static unsigned long mono_ms(void)
 	       (unsigned long)(ts.tv_nsec / 1000000L);
 }
 
+static void write_active_screen(const char *screen_id);
 static void screen_pending_clear(void)
 {
 	screen_cmd_pending = 0;
 	pending_screen[0] = '\0';
+}
+
+static void remember_fw_screen(const char *screen_id)
+{
+	if (!screen_id || !screen_id[0] || !mcudd_screen_id_known(screen_id))
+		return;
+	if (!strcmp(screen_id, "router_boot"))
+		return;
+	strncpy(last_fw_screen, screen_id, sizeof(last_fw_screen) - 1);
+	last_fw_screen[sizeof(last_fw_screen) - 1] = '\0';
+}
+
+static void adopt_fw_screen(const char *reason)
+{
+	if (!last_fw_screen[0])
+		return;
+	if (!strcmp(active_screen, last_fw_screen))
+		return;
+	mcudd_log(LOG_INFO, "%s: sidecar %s -> firmware %s",
+		  reason ? reason : "adopt", active_screen, last_fw_screen);
+	strncpy(active_screen, last_fw_screen, sizeof(active_screen) - 1);
+	active_screen[sizeof(active_screen) - 1] = '\0';
+	write_active_screen(active_screen);
 }
 
 /* True while ESP32 has not acked the last screen cmd, or within TX cool-down. */
@@ -76,8 +102,10 @@ static int screen_nav_busy(void)
 		if (last_screen_tx_ms &&
 		    (now - last_screen_tx_ms) > MCUDD_SCREEN_ACK_TIMEOUT_MS) {
 			mcudd_log(LOG_WARNING,
-				  "screen ack timeout for %s; clearing pending",
-				  pending_screen[0] ? pending_screen : "?");
+				  "screen ack timeout for %s (firmware last=%s); clearing pending",
+				  pending_screen[0] ? pending_screen : "?",
+				  last_fw_screen[0] ? last_fw_screen : "-");
+			adopt_fw_screen("ack timeout");
 			screen_pending_clear();
 		} else {
 			return 1;
@@ -189,7 +217,8 @@ static void release_instance_lock(void)
 
 static void print_usage(const char *prog)
 {
-	printf("Usage: %s [--version|-V]\n", prog ? prog : "mcudd");
+	printf("Usage: %s [--version|-V|-version-json]\n", prog ? prog : "mcudd");
+	printf("FIFO tool: /usr/lib/mcud/mcud-event.sh help\n");
 }
 
 static int read_boot_state(char *stage, size_t stage_len, char *message, size_t msg_len)
@@ -239,10 +268,15 @@ static int read_boot_state(char *stage, size_t stage_len, char *message, size_t 
 
 static int send_line(const struct mcudd_config *cfg, int fd, const char *line)
 {
+	int rc;
+
 	if (!line)
 		return -1;
 	mcudd_log_serial(cfg, "tx", line);
-	return mcudd_serial_write_line(fd, line);
+	rc = mcudd_serial_write_line(fd, line);
+	if (rc != 0)
+		mcudd_log(LOG_WARNING, "uart tx failed: %.120s", line);
+	return rc;
 }
 
 static int send_boot_push(const struct mcudd_config *cfg, int fd)
@@ -340,7 +374,9 @@ static int send_cmd_screen_dir(const struct mcudd_config *cfg, int fd,
 		screen_cmd_pending = 1;
 		last_screen_tx_ms = mono_ms();
 	}
-	mcudd_log(LOG_INFO, "cmd screen %s (await screen evt)", screen_id);
+	mcudd_log(LOG_INFO,
+		  "cmd screen %s (await screen evt) pending=%s active=%s",
+		  screen_id, pending_screen, active_screen);
 	return 0;
 }
 
@@ -379,6 +415,23 @@ static int leave_boot_screen(const struct mcudd_config *cfg, int fd)
 	read_boot_state(stage, sizeof(stage), NULL, 0);
 	if (!boot_stage_is_ready(stage))
 		return 0;
+
+	/* Firmware already showing a dashboard page (swipe or unlinked
+	 * announce). Do not cmd router_system — that pending blocks LuCI
+	 * prev/next and yanks the panel if TX later starts working. */
+	if (last_fw_screen[0]) {
+		if (strcmp(active_screen, "router_boot") == 0)
+			adopt_fw_screen("leave_boot adopt");
+		if (screen_cmd_pending) {
+			mcudd_log(LOG_INFO,
+				  "leave_boot: drop pending %s, firmware already on %s",
+				  pending_screen[0] ? pending_screen : "?",
+				  last_fw_screen);
+			screen_pending_clear();
+		}
+		return 0;
+	}
+
 	if (strcmp(active_screen, "router_boot") != 0)
 		return 0;
 
@@ -446,7 +499,7 @@ static int handle_fifo_line(const struct mcudd_config *cfg, int fd, const char *
 		return send_ping_query(cfg, fd);
 	if (!strncmp(line, "echo ", 5))
 		return send_cmd_echo(cfg, fd, line + 5);
-	mcudd_log(LOG_DEBUG, "ignored fifo: %s", line);
+	mcudd_log(LOG_INFO, "ignored unknown fifo: %s", line);
 	return 0;
 }
 
@@ -457,13 +510,18 @@ static int fifo_open(void)
 
 	unlink(MCUDD_FIFO_FALLBACK);
 	if (mkfifo(path, 0600) != 0 && errno != EEXIST) {
+		mcudd_log(LOG_WARNING, "mkfifo %s: %s", path, strerror(errno));
 		path = MCUDD_FIFO_FALLBACK;
-		if (mkfifo(path, 0600) != 0 && errno != EEXIST)
+		if (mkfifo(path, 0600) != 0 && errno != EEXIST) {
+			mcudd_log(LOG_ERR, "mkfifo %s: %s", path, strerror(errno));
 			return -1;
+		}
 	}
 	fifo_fd = open(path, O_RDONLY | O_NONBLOCK);
-	if (fifo_fd < 0)
+	if (fifo_fd < 0) {
+		mcudd_log(LOG_ERR, "open FIFO %s: %s", path, strerror(errno));
 		return -1;
+	}
 	/*
 	 * Hold a write fd so poll() does not return POLLHUP the instant the
 	 * last writer (init/LuCI) closes. Without this the daemon busy-loops
@@ -472,7 +530,10 @@ static int fifo_open(void)
 	if (g_fifo_wr >= 0)
 		close(g_fifo_wr);
 	g_fifo_wr = open(path, O_WRONLY | O_NONBLOCK);
-	mcudd_log(LOG_INFO, "command FIFO %s", path);
+	if (g_fifo_wr < 0)
+		mcudd_log(LOG_WARNING, "FIFO dummy write fd failed %s: %s",
+			  path, strerror(errno));
+	mcudd_log(LOG_INFO, "command FIFO %s (rd=%d wr=%d)", path, fifo_fd, g_fifo_wr);
 	return fifo_fd;
 }
 
@@ -519,11 +580,20 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 			(int)msg.type, (int)msg.scope, msg.screen);
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT_VERSION) {
+		unsigned long now = mono_ms();
+
 		write_firmware_version(&msg);
 		mcudd_log(LOG_INFO, "firmware version %s+%u rdcp=%u synced=%d",
 			  msg.version_stack, msg.version_release, msg.version_rdcp,
 			  mcud_version_compatible(msg.version_stack, msg.version_release,
 						   msg.version_rdcp));
+		/* Unlinked firmware announces version every 2s. Re-hello so it
+		 * can mark linked and stop fighting host cmd screen. */
+		if (!last_hello_ms || now - last_hello_ms > 5000UL) {
+			mcudd_log(LOG_INFO, "link recovery: push hello (firmware still announcing version)");
+			if (send_hello_push(cfg, fd) == 0)
+				last_hello_ms = now;
+		}
 		return 0;
 	}
 
@@ -558,15 +628,30 @@ static int handle_line(const struct mcudd_config *cfg, int fd, const char *line)
 	}
 
 	if (msg.type == MCUDD_MSG_RDCP_EVT) {
+		int matched_pending;
+
 		if (!mcudd_screen_id_known(msg.screen)) {
 			mcudd_log(LOG_WARNING, "ignore unknown screen evt: %s", msg.screen);
 			return 0;
 		}
+		remember_fw_screen(msg.screen);
+		if (screen_cmd_pending && pending_screen[0] &&
+		    strcmp(msg.screen, pending_screen) != 0) {
+			mcudd_log(LOG_WARNING,
+				  "screen evt ignore: got=%s pending=%s (not an ack)",
+				  msg.screen, pending_screen);
+			return 0;
+		}
+		matched_pending = screen_cmd_pending && pending_screen[0] &&
+				  strcmp(msg.screen, pending_screen) == 0;
 		screen_pending_clear();
 		strncpy(active_screen, msg.screen, sizeof(active_screen) - 1);
 		active_screen[sizeof(active_screen) - 1] = '\0';
 		write_active_screen(active_screen);
-		mcudd_log(LOG_INFO, "screen evt ack: %s", msg.screen);
+		if (matched_pending)
+			mcudd_log(LOG_INFO, "screen evt ack: %s (pending matched)", msg.screen);
+		else
+			mcudd_log(LOG_INFO, "screen evt ack: %s", msg.screen);
 		if (!strcmp(msg.screen, "router_boot"))
 			return send_boot_push(cfg, fd);
 		return 0;
@@ -690,6 +775,8 @@ int main(int argc, char **argv)
 	mcudd_log(LOG_INFO, "UART open on %s", cfg.path);
 
 	fifo_fd = fifo_open();
+	if (fifo_fd < 0)
+		mcudd_log(LOG_ERR, "command FIFO unavailable; LuCI/button nav will drop");
 	write_active_screen(active_screen);
 
 	if (send_boot_push(&cfg, fd) != 0)
@@ -703,6 +790,8 @@ int main(int argc, char **argv)
 
 	if (send_hello_push(&cfg, fd) != 0)
 		mcudd_log(LOG_WARNING, "initial hello push failed");
+	else
+		last_hello_ms = mono_ms();
 
 	send_version_query(&cfg, fd);
 
