@@ -441,7 +441,7 @@ func TestEvtInputWritesSidecarWhenRateLimited(t *testing.T) {
 }
 
 func TestEvtInputUpdatesSidecar(t *testing.T) {
-	e, _, _ := newTestEngine(t)
+	e, buf, _ := newTestEngine(t)
 	clk := e.Nav.Clock.(*fixedClock)
 	e.Nav.AckScreen("router_wifi")
 	e.Nav.ClearPending()
@@ -457,11 +457,15 @@ func TestEvtInputUpdatesSidecar(t *testing.T) {
 		t.Fatalf("sidecar=%q err=%v", data, err)
 	}
 	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
+	nTX := len(buf.TX)
 	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"right"}}`); err != nil {
 		t.Fatal(err)
 	}
 	if e.Nav.Cursor() != "router_wifi" {
 		t.Fatal(e.Nav.Cursor())
+	}
+	if len(buf.TX) != nTX {
+		t.Fatalf("gesture must not TX cmd screen: %v", buf.TX[nTX:])
 	}
 }
 

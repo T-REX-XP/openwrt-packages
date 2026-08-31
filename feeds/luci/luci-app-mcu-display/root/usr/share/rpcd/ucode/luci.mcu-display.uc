@@ -176,7 +176,21 @@ function read_active_screen() {
 	}
 }
 
+function read_version_file(path) {
+	try {
+		let text = readfile(path);
+		if (!length(text))
+			return null;
+		return json(text);
+	} catch (e) {
+		return null;
+	}
+}
+
 function read_host_version() {
+	let cached = read_version_file('/tmp/mcud_host_version.json');
+	if (cached)
+		return cached;
 	if (!file_test('-x', MCUDD_BIN))
 		return null;
 	let r = run_cmd(`${MCUDD_BIN} -version-json`);
@@ -184,17 +198,6 @@ function read_host_version() {
 		return null;
 	try {
 		return json(trim(r.output));
-	} catch (e) {
-		return null;
-	}
-}
-
-function read_version_file(path) {
-	try {
-		let text = readfile(path);
-		if (!length(text))
-			return null;
-		return json(text);
 	} catch (e) {
 		return null;
 	}
@@ -333,7 +336,11 @@ function path_is_valid(path) {
 	return file_test('-c', path);
 }
 
-function get_config() {
+function flag_bool(v) {
+	return v == '1' ? 'true' : 'false';
+}
+
+function read_uci_cfg() {
 	let cfg = {};
 	for (let i = 0; i < length(FLAG_OPTS); i++) {
 		let k = FLAG_OPTS[i];
@@ -357,6 +364,38 @@ function get_config() {
 	}
 
 	cfg.path_autodiscover = cfg.path_autodiscover == '0' ? '0' : '1';
+	return cfg;
+}
+
+function format_effective_config(cfg) {
+	return join('\n', [
+		`enable=${flag_bool(cfg.enable)}`,
+		`path=${cfg.path}`,
+		`baud=${cfg.baud}`,
+		`path_autodiscover=${flag_bool(cfg.path_autodiscover)}`,
+		`wire_format=${cfg.wire_format}`,
+		`max_line=${cfg.max_line}`,
+		`pages=${cfg.pages}`,
+		`demo_mode=${flag_bool(cfg.demo_mode)}`,
+		`screen_timeout=${cfg.screen_timeout}`,
+		`screen_timeout_mode=${cfg.screen_timeout_mode}`,
+		`push_alerts=${flag_bool(cfg.push_alerts)}`,
+		`wan_if=${cfg.wan_if}`,
+		`lan_if=${cfg.lan_if}`,
+		`wifi_if=${cfg.wifi_if}`,
+		`interval_system=${cfg.interval_system}`,
+		`interval_network=${cfg.interval_network}`,
+		`log_level=${cfg.log_level}`,
+		`debug=${flag_bool(cfg.debug)}`,
+		`debug_serial=${flag_bool(cfg.debug_serial)}`,
+		`menu_nav_button=${cfg.menu_nav_button}`,
+		`menu_select_button=${cfg.menu_select_button}`,
+		`menu_wps=${flag_bool(cfg.menu_wps)}`
+	]) + '\n';
+}
+
+function get_config() {
+	let cfg = read_uci_cfg();
 	cfg.config_backend = 'uci';
 	cfg.config_path = MCUD_CONFIG_PATH;
 	cfg.serial_ports = list_serial_ports();
@@ -364,17 +403,9 @@ function get_config() {
 	cfg.path_valid = path_is_valid(cfg.path);
 	cfg.effective_path = cfg.path_valid ? cfg.path :
 		(length(cfg.discovered_path) ? cfg.discovered_path : cfg.path);
-	cfg.effective = read_effective_config();
+	/* Format in ucode — exec of Go mcudd from rpcd aborts the ubus method. */
+	cfg.effective = format_effective_config(cfg);
 	return cfg;
-}
-
-function read_effective_config() {
-	if (!file_test('-x', MCUDD_BIN))
-		return '';
-	let r = run_cmd(`${MCUDD_BIN} -config ${shell_quote(MCUD_CONFIG_PATH)} -dump-config`);
-	if (r.code != 0)
-		return '';
-	return r.output || '';
 }
 
 function normalize_config(raw) {
@@ -421,54 +452,62 @@ function validate_set(config) {
 }
 
 function get_status() {
-	let cfg = get_config();
-	let boot = read_boot_state();
-	let pages_cfg = load_pages_config();
-	let active = read_active_screen();
 	let running = run_cmd('pidof mcudd').code == 0;
-	let port_exists = false;
-	let fifo_ok = file_test('-p', '/var/run/mcudd.fifo') ||
-		file_test('-p', '/tmp/mcudd.fifo');
+	try {
+		let cfg = read_uci_cfg();
+		let boot = read_boot_state();
+		let pages_cfg = load_pages_config();
+		let active = read_active_screen();
+		let port_exists = false;
+		let fifo_ok = file_test('-p', '/var/run/mcudd.fifo') ||
+			file_test('-p', '/tmp/mcudd.fifo');
 
-	if (length(cfg.path)) {
-		let t = run_cmd(`test -c ${shell_quote(cfg.path)} && echo yes`);
-		port_exists = t.output == 'yes';
+		if (length(cfg.path)) {
+			let t = run_cmd(`test -c ${shell_quote(cfg.path)} && echo yes`);
+			port_exists = t.output == 'yes';
+		}
+
+		if (!length(active))
+			active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
+		else if (pages_cfg && active != 'router_boot' &&
+			 page_index_by_id(pages_cfg, active) < 0)
+			active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
+
+		let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
+		let host_version = read_host_version();
+		let firmware_version = read_version_file(FW_VERSION_FILE);
+		let version_synced = versions_synced(host_version, firmware_version);
+
+		return {
+			running,
+			port_exists,
+			fifo_ok,
+			config_complete: length(cfg.path) > 0 && length(cfg.baud) > 0 &&
+				length(cfg.wire_format) > 0 && length(cfg.pages) > 0,
+			active_screen: active,
+			page_id: active,
+			page_idx: page_idx >= 0 ? page_idx : null,
+			page_title: pages_cfg ? page_title_for_id(pages_cfg, active) : active,
+			page_count: pages_cfg ? length(enabled_pages(pages_cfg)) : 0,
+			pages: pages_cfg ? page_summary_list(pages_cfg) : [],
+			host_version,
+			firmware_version,
+			host_version_label: version_label(host_version),
+			firmware_version_label: version_label(firmware_version),
+			version_synced,
+			rdcp_version: host_version?.rdcp ?? firmware_version?.rdcp ?? null,
+			boot_stage: boot.stage,
+			boot_message: boot.message,
+			boot_pct: boot.pct,
+			updated_at: time()
+		};
+	} catch (e) {
+		return {
+			running,
+			error: `${e}`,
+			updated_at: time()
+		};
 	}
-
-	if (!length(active))
-		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
-	else if (pages_cfg && active != 'router_boot' &&
-		 page_index_by_id(pages_cfg, active) < 0)
-		active = boot.stage == 'ready' ? 'router_system' : 'router_boot';
-
-	let page_idx = pages_cfg ? page_index_by_id(pages_cfg, active) : -1;
-	let host_version = read_host_version();
-	let firmware_version = read_version_file(FW_VERSION_FILE);
-	let version_synced = versions_synced(host_version, firmware_version);
-
-	return {
-		running,
-		port_exists,
-		fifo_ok,
-		config_complete: length(cfg.path) > 0 && length(cfg.baud) > 0 &&
-			length(cfg.wire_format) > 0 && length(cfg.pages) > 0,
-		active_screen: active,
-		page_id: active,
-		page_idx: page_idx >= 0 ? page_idx : null,
-		page_title: pages_cfg ? page_title_for_id(pages_cfg, active) : active,
-		page_count: pages_cfg ? length(enabled_pages(pages_cfg)) : 0,
-		pages: pages_cfg ? page_summary_list(pages_cfg) : [],
-		host_version,
-		firmware_version,
-		host_version_label: version_label(host_version),
-		firmware_version_label: version_label(firmware_version),
-		version_synced,
-		rdcp_version: host_version?.rdcp ?? firmware_version?.rdcp ?? null,
-		boot_stage: boot.stage,
-		boot_message: boot.message,
-		boot_pct: boot.pct,
-		updated_at: time()
-	};
 }
 
 const methods = {

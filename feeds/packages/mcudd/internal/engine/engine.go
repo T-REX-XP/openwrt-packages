@@ -291,15 +291,19 @@ func (e *Engine) HandleRXLine(line string) error {
 		}
 		return nil
 	case proto.MsgEvtInput:
-		target := pages.Neighbor(e.Nav.Cursor(), msg.GestureDir)
+		from := e.Nav.Cursor()
+		target := pages.Neighbor(from, msg.GestureDir)
 		if e.Log != nil {
-			e.Log.Infof("input %s -> %s", msg.GestureDir, target)
+			e.Log.Infof("gesture %s: %s -> %s", msg.GestureDir, from, target)
 		}
-		// Write the sidecar before cmd screen. Firmware applies the page
-		// locally; LuCI must follow even when TX is rate-limited.
-		e.Nav.MarkCommanded(target)
-		_ = e.State.WriteActiveScreen(target)
-		return e.sendUserScreen(target, msg.GestureDir)
+		// Firmware already applied the page locally and will emit evt screen.
+		// Do not echo cmd screen — a stale host cursor yanks the panel.
+		if pages.Known(target) {
+			e.Nav.MarkCommanded(target)
+			e.Nav.ClearPending()
+			_ = e.State.WriteActiveScreen(target)
+		}
+		return nil
 	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")
 	case proto.MsgLegacyRequest, proto.MsgReq:

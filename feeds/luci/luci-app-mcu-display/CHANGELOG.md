@@ -1,5 +1,9 @@
 # luci-app-mcu-display CHANGELOG
 
+## 56
+
+- **LuCI status** — do not exec Go `mcudd -dump-config` from rpcd (`getConfig`/`getStatus` aborted with ubus unknown error, badge showed **stopped**). Format effective UCI in ucode; cache `-version-json` in `/tmp/mcud_host_version.json`.
+
 ## 55
 
 - **Init/scripts executable** — `root/etc/init.d/mcudd` and helper scripts are git `100755`. luci.mk copies `root/` with preserved mode; a 644 init script left LuCI showing **stopped**.

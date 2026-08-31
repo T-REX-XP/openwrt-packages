@@ -62,6 +62,8 @@ start_service() {
 	MCUD_STARTED=0
 	[ -x /usr/lib/mcud/mcud-autodiscover.sh ] && /usr/lib/mcud/mcud-autodiscover.sh --apply
 	[ -x "$BOOT_STATE" ] && "$BOOT_STATE" boot "Starting mcudd..." 15
+	# Cache host version for LuCI — do not exec the Go binary from rpcd.
+	[ -x "$PROG" ] && "$PROG" -version-json > /tmp/mcud_host_version.json 2>/dev/null || true
 	config_load mcud
 	config_foreach mcud_instance mcud
 	[ "$MCUD_STARTED" = 1 ] && mcud_wait_ready

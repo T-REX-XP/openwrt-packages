@@ -681,7 +681,7 @@ return view.extend({
 				fieldRow(_('UART trace'), flagInput('mcu-debug-serial', _('Log raw TX/RX lines'), pick(cfg, 'debug_serial') === '1'))
 			]),
 			cfg.effective ? cbiSection(_('Effective mcudd config'), [
-				_('Output of %s -dump-config (what the daemon would load from this UCI file).').format('mcudd')
+				_('Effective settings from UCI %s (same options Go mcudd loads).').format(pick(cfg, 'config_path') || '/etc/config/mcud')
 			], [
 				E('pre', { 'class': 'mcu-log-pre', 'id': 'mcu-effective-config' }, cfg.effective)
 			]) : '',
