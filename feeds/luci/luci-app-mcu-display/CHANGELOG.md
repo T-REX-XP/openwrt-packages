@@ -1,5 +1,9 @@
 # luci-app-mcu-display CHANGELOG
 
+## 62
+
+- **Status tab** — Previous / Next / Jump / Boot are `type=button` so they do not submit the LuCI form.
+
 ## 61
 
 - **Status tab** — Previous / Next controls show chevron icons (theme `currentColor`, light and dark).

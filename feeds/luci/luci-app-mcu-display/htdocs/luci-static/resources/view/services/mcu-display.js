@@ -480,6 +480,7 @@ return view.extend({
 
 		[ 'start', 'stop', 'restart' ].forEach(function(action) {
 			btns.appendChild(E('button', {
+				'type': 'button',
 				'class': 'cbi-button cbi-button-action',
 				click: ui.createHandlerFn(self, function() {
 					return callServiceControl(action).then(function() {
@@ -522,6 +523,7 @@ return view.extend({
 			], [
 				E('div', { 'class': 'mcu-page-controls', 'id': 'mcu-page-controls' }, [
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button-action mcu-page-nav-btn',
 						'id': 'mcu-page-prev',
 						'title': _('Previous page'),
@@ -529,6 +531,7 @@ return view.extend({
 						disabled: disableIf(blocked)
 					}, [ mcuNavIcon('prev'), ' ', _('Previous') ]),
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button-action mcu-page-nav-btn',
 						'id': 'mcu-page-next',
 						'title': _('Next page'),
@@ -540,11 +543,13 @@ return view.extend({
 						disabled: disableIf(blocked || !pageList.length)
 					}, opts.length ? opts : [ E('option', { 'value': '' }, _('No pages')) ]),
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button-action',
 						click: ui.createHandlerFn(self, 'handlePageGoto'),
 						disabled: disableIf(blocked || !pageList.length)
 					}, _('Jump to page')),
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button-neutral',
 						'id': 'mcu-page-boot',
 						click: ui.createHandlerFn(self, 'handlePageBoot'),

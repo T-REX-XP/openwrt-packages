@@ -280,6 +280,32 @@ func TestHandleRXLine(t *testing.T) {
 	_ = buf
 }
 
+func TestHelloOnVersionEvt(t *testing.T) {
+	e, buf, _ := newTestEngine(t)
+	clk := e.Nav.Clock.(*fixedClock)
+	ver := `{"v":1,"t":"evt","op":"version","data":{"stack":"1.0.0","release":47,"component":"esp32-router","rdcp":1}}`
+	if err := e.HandleRXLine(ver); err != nil {
+		t.Fatal(err)
+	}
+	n := len(buf.TX)
+	if n == 0 || !strings.Contains(buf.TX[n-1], `"op":"hello"`) {
+		t.Fatalf("expected hello, tx=%v", buf.TX)
+	}
+	if err := e.HandleRXLine(ver); err != nil {
+		t.Fatal(err)
+	}
+	if len(buf.TX) != n {
+		t.Fatal("hello must rate-limit")
+	}
+	clk.t = clk.t.Add(helloRepeat)
+	if err := e.HandleRXLine(ver); err != nil {
+		t.Fatal(err)
+	}
+	if len(buf.TX) != n+1 {
+		t.Fatalf("expected retry hello, tx=%v", buf.TX)
+	}
+}
+
 func TestPollOnce(t *testing.T) {
 	e, buf, _ := newTestEngine(t)
 	if err := e.PollOnce(); !errors.Is(err, io.EOF) {

@@ -63,8 +63,11 @@ func TestBuilders(t *testing.T) {
 		t.Fatal("empty echo")
 	}
 	out, err = BuildCmdEcho(`a"b`)
-	if err != nil || !strings.Contains(out, `\u0022`) && !strings.Contains(out, `\"`) {
+	if err != nil || !strings.HasPrefix(out, `{"v":1,"t":"cmd","op":"echo"`) {
 		t.Fatal(out, err)
+	}
+	if !strings.Contains(out, `\u0022`) && !strings.Contains(out, `\"`) {
+		t.Fatal(out)
 	}
 }
 

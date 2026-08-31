@@ -16,7 +16,10 @@ import (
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/transport"
 )
 
-const MaxLeaveBootAttempts = 3
+const (
+	MaxLeaveBootAttempts = 3
+	helloRepeat          = 2 * time.Second
+)
 
 type Logger interface {
 	Infof(string, ...any)
@@ -44,6 +47,7 @@ type Engine struct {
 	Link              state.LinkTest
 	LeaveBootAttempts int
 	leaveBootGaveUp   bool
+	lastHello         time.Time
 
 	lineBuf []byte
 }
@@ -72,6 +76,21 @@ func (e *Engine) send(line string) error {
 	return e.Transport.WriteLine(line)
 }
 
+// helloOnVersion re-sends push hello while the panel is still announcing
+// evt version (unlinked). Startup hello is easy to miss; without a retry,
+// GPIO3 never marks linked and LuCI prev/next cmd screen is ignored.
+func (e *Engine) helloOnVersion() error {
+	now := e.now()
+	if !e.lastHello.IsZero() && now.Sub(e.lastHello) < helloRepeat {
+		return nil
+	}
+	e.lastHello = now
+	if e.Log != nil {
+		e.Log.Infof("hello on version evt")
+	}
+	return e.send(proto.BuildPushHello())
+}
+
 func (e *Engine) Startup() error {
 	bs := state.ReadBootState(e.BootStatePath)
 	out, err := proto.BuildPushBoot(bs.Stage, bs.Message, uint(bs.Pct))
@@ -88,6 +107,7 @@ func (e *Engine) Startup() error {
 	if err := e.send(proto.BuildPushHello()); err != nil {
 		return err
 	}
+	e.lastHello = e.now()
 	e.VersionReqID++
 	out, _ = proto.BuildReqVersion(e.VersionReqID)
 	if err := e.send(out); err != nil {
@@ -252,7 +272,8 @@ func (e *Engine) HandleRXLine(line string) error {
 	}
 	switch msg.Type {
 	case proto.MsgEvtVersion:
-		return e.State.WriteFirmwareVersion(msg)
+		_ = e.State.WriteFirmwareVersion(msg)
+		return e.helloOnVersion()
 	case proto.MsgResPing:
 		if !e.Session.AcceptPong(msg.ReqID) {
 			if e.Log != nil {

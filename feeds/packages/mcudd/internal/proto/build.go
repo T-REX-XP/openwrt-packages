@@ -69,11 +69,8 @@ func BuildCmdEcho(text string) (string, error) {
 	if text == "" {
 		return "", fmt.Errorf("empty echo")
 	}
-	b, _ := json.Marshal(map[string]any{
-		"v": 1, "t": "cmd", "op": "echo",
-		"data": map[string]string{"text": text},
-	})
-	return string(b), nil
+	b, _ := json.Marshal(text)
+	return fmt.Sprintf(`{"v":1,"t":"cmd","op":"echo","data":{"text":%s}}`, string(b)), nil
 }
 
 func FormatResponse(msg Message, payload string) (string, error) {
