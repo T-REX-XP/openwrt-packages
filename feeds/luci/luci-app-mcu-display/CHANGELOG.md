@@ -1,5 +1,9 @@
 # luci-app-mcu-display CHANGELOG
 
+## 55
+
+- **Init/scripts executable** — `root/etc/init.d/mcudd` and helper scripts are git `100755`. luci.mk copies `root/` with preserved mode; a 644 init script left LuCI showing **stopped**.
+
 ## 54
 
 - **Command docs** — `docs/mcudd-commands.md`: FIFO/`mcud-event.sh`/LuCI `pageControl` table, expected syslog, prev/next debug recipe.
