@@ -130,7 +130,7 @@ return baseclass.extend({
 	statusFingerprint: function(st) {
 		st = st || {};
 		return [
-			st.running, st.port_exists, st.fifo_ok, st.boot_stage,
+			st.running, st.fifo_ok, st.boot_stage,
 			st.page_id, st.page_idx, st.page_title
 		].join('|');
 	},

@@ -282,23 +282,14 @@ function mcuBootBadge(status) {
 
 function buildStatusGrid(status, cfg) {
 	var running = status.running;
-	var portOk = status.port_exists;
-	var cfgOk = status.config_complete;
 	var screenLabel = status.page_title || status.active_screen || '—';
 	var bootBadge = mcuBootBadge(status);
 
 	return E('div', { 'class': 'mcu-status-grid', 'id': 'mcu-live-status-grid' }, [
 		mcuStatusRow(_('Daemon'),
 			mcuYesNoBadge(running, _('running'), _('stopped'))),
-		mcuStatusRow(_('Config file'),
-			mcuBadge('info', E('span', { 'class': 'mcu-mono' },
-				cfg.config_path || '/etc/config/mcud'))),
 		mcuStatusRow(_('Serial device'),
 			mcuBadge('info', E('span', { 'class': 'mcu-mono' }, cfg.path || cfg.effective_path || '—'))),
-		mcuStatusRow(_('Device present'),
-			mcuYesNoBadge(portOk, _('yes'), _('no'))),
-		mcuStatusRow(_('UCI complete'),
-			mcuYesNoBadge(cfgOk, _('yes'), _('no'))),
 		mcuStatusRow(_('Command FIFO'),
 			mcuYesNoBadge(status.fifo_ok, _('ready'), _('not available'))),
 		mcuStatusRow(_('Boot'), bootBadge),

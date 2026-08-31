@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/t-rex-xp/openwrt-packages/mcudd/internal/engine"
@@ -83,6 +84,8 @@ func pollLoop(e *engine.Engine, serial transport.PollableLineTransport, fifo *os
 }
 
 func readUART(e *engine.Engine, serial transport.PollableLineTransport, lines chan<- string, errc chan<- error, stop <-chan struct{}) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	defer close(lines)
 	if e.Log != nil {
 		e.Log.Infof("uart reader started fd=%d", serial.Fd())

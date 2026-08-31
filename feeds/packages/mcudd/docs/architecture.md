@@ -47,11 +47,11 @@ Replace the C `mcudd` daemon with a single static Go binary optimized for Immort
    - `leave_boot` if `/tmp/mcud_state` stage=`ready`
 6. **Inbound dispatch**:
    - `req metrics` → scope provider → `res` with same `id`
-   - `evt screen` → update active screen + sidecar
-   - `evt input` → gesture nav (rate-limited)
+   - `evt screen` → update active screen + sidecar (LuCI poll)
+   - `evt input` → write sidecar immediately (LuCI follows swipe), then `cmd screen` if not rate-limited
    - `evt version` / `res pong` / `evt echo` → link-test sidecars
    - legacy `{"request":"cpu"}` → flat JSON (Phase 2 metrics)
-7. **Outbound nav** — `cmd screen {screen, dir}`; active screen updated only on `evt screen` ack.
+7. **Outbound nav** — FIFO next/prev writes the sidecar immediately; swipe uses `evt input` + `evt screen`.
 
 ## Package boundaries
 
