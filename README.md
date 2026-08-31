@@ -46,6 +46,8 @@ Restart Cursor after setup. Requires SSH to the router (`ssh root@192.168.8.1`).
 
 OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM), a **layered** stack works better than running full signature IDS inline at wire speed. See **[docs/ids-traffic-analysis-openwrt-research.md](docs/ids-traffic-analysis-openwrt-research.md)** for Suricata status, Snort3 modes, NPU limits, and mirror-to-Docker patterns.
 
+**Synology-style Threat Prevention** (inline Suricata IPS + ET Open + PostgreSQL events) is **not** copied from the SRM SPK. A feed-side product plan — reuse public ET/Snort rules at runtime, Snort3 IDS + LuCI events, no vendor binaries — is in **[docs/threat-prevention-openwrt-plan.md](docs/threat-prevention-openwrt-plan.md)**. That package is **not** in the feed yet; today use `snort3` + `luci-app-snort3`.
+
 ### Recommended packages by role
 
 | Layer | Packages | Feed | CM5 fit |
@@ -65,7 +67,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 **Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; **`blocky`** in CM5 image; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
-**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation.
+**Tier 2 — optional:** **`snort3`** + **`luci-app-snort3`** in **IDS** mode on `br-lan` with a **minimal** rule set; monitor CPU/RAM and log rotation. Planned **Threat Prevention** LuCI (events, class policy, live ET Open/community fetch) stays feed-optional and out of the default CM5 image — see the [plan](docs/threat-prevention-openwrt-plan.md).
 
 **Tier 3 — advanced:** mirror WAN/LAN to a **Docker** host on another machine for Suricata or Wazuh — see the research doc.
 
@@ -212,3 +214,4 @@ Add `private-key.pem` to GitHub **Settings → Secrets → Actions** as `PRIVATE
 - [CM5 + Waveshare 1.3" OLED HAT wiring](docs/cm5-waveshare-oled-hat-wiring.md)
 - [oledd lifecycle, events, and boot stages](docs/oledd-lifecycle-and-events.md)
 - [IDS / traffic analysis research (CM5)](docs/ids-traffic-analysis-openwrt-research.md)
+- [Threat Prevention on ImmortalWrt — mapping plan](docs/threat-prevention-openwrt-plan.md) — Synology SRM feature vs this feed (no SPK copy)

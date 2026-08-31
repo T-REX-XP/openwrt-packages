@@ -283,12 +283,19 @@ func (e *Engine) HandleRXLine(line string) error {
 		}
 		e.Nav.AckScreen(msg.Screen)
 		_ = e.State.WriteActiveScreen(msg.Screen)
+		if e.Log != nil {
+			e.Log.Infof("screen evt ack: %s", msg.Screen)
+		}
 		if msg.Screen == pages.BootScreen {
 			return e.pushBoot()
 		}
 		return nil
 	case proto.MsgEvtInput:
-		return e.SendScreen(pages.Neighbor(e.Nav.Cursor(), msg.GestureDir), msg.GestureDir)
+		target := pages.Neighbor(e.Nav.Cursor(), msg.GestureDir)
+		if e.Log != nil {
+			e.Log.Infof("input %s -> %s", msg.GestureDir, target)
+		}
+		return e.sendUserScreen(target, msg.GestureDir)
 	case proto.MsgReqPoweroff:
 		return fmt.Errorf("poweroff requested")
 	case proto.MsgLegacyRequest, proto.MsgReq:

@@ -254,6 +254,9 @@ func TestHandleRXLine(t *testing.T) {
 	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
 		t.Fatal(err)
 	}
+	if e.Nav.Cursor() != "router_system" {
+		t.Fatal(e.Nav.Cursor())
+	}
 	if err := e.HandleRXLine(`{"v":1,"t":"req","id":3,"op":"metrics","scope":"system"}`); err != nil {
 		t.Fatal(err)
 	}
@@ -400,6 +403,31 @@ func TestFIFOUserNavWalksWithoutAck(t *testing.T) {
 	}
 	if len(buf.TX) < 3 {
 		t.Fatalf("tx=%v", buf.TX)
+	}
+}
+
+func TestEvtInputUpdatesSidecar(t *testing.T) {
+	e, _, _ := newTestEngine(t)
+	clk := e.Nav.Clock.(*fixedClock)
+	e.Nav.AckScreen("router_wifi")
+	e.Nav.ClearPending()
+	e.Nav.LastTX = time.Time{}
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"left"}}`); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_security" {
+		t.Fatal(e.Nav.Cursor())
+	}
+	data, err := os.ReadFile(filepath.Join(e.State.Dir, "mcud_active_screen"))
+	if err != nil || strings.TrimSpace(string(data)) != "router_security" {
+		t.Fatalf("sidecar=%q err=%v", data, err)
+	}
+	clk.t = clk.t.Add(nav.MinInterval + time.Millisecond)
+	if err := e.HandleRXLine(`{"v":1,"t":"evt","op":"input","data":{"type":"gesture","dir":"right"}}`); err != nil {
+		t.Fatal(err)
+	}
+	if e.Nav.Cursor() != "router_wifi" {
+		t.Fatal(e.Nav.Cursor())
 	}
 }
 

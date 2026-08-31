@@ -1,6 +1,6 @@
 # IDS / Traffic Analysis on OpenWrt / ImmortalWrt — Research Report
 
-*Last updated: 2026-06-25.*
+*Last updated: 2026-08-31.*
 
 ## Summary
 
@@ -16,6 +16,8 @@ For **Orange Pi CM5 Base** (RK3588S, aarch64, dual **2.5 GbE**, ~8 GB RAM class 
 | **NPU acceleration** for packet inspection | **No practical path today** — NPU is for ML inference, not L7 IDS |
 
 **Recommended default for this project:** add **`banIP`** + **`luci-app-banip`**, keep **`adblock`**; optionally install **`blocky`** from the feed; optionally **`snort3`** in **IDS (passive)** mode with a **minimal rule set**; use an **external** Docker host for heavy Suricata/SIEM if needed.
+
+**Synology Threat Prevention (SRM SPK)** is a patched Suricata 6 IPS + ET Open + PostgreSQL events UI. Do **not** vendor that SPK. A feed mapping (public ET/Snort rules at runtime, Snort3 IDS, planned LuCI events UI) is in **[threat-prevention-openwrt-plan.md](threat-prevention-openwrt-plan.md)**.
 
 ---
 
@@ -222,6 +224,7 @@ That is a **multi-month firmware project**, not an **`opkg install`**.
 
 ## Related internal docs
 
+- `openwrt-packages/docs/threat-prevention-openwrt-plan.md` — Synology Threat Prevention → this feed
 - `openwrt-packages/docs/reticulum-nomadnet-openwrt-research.md`
 - `openwrt-packages/docs/ssd1306-oled-openwrt-research.md`
 - `immortal_opi_cm5/docs/FEATURES_AND_DEBUG.md` — CM5 **`DEVICE_PACKAGES`**, LuCI peripherals
