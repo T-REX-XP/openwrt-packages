@@ -619,12 +619,6 @@ return view.extend({
 		];
 
 		return E('div', { 'data-tab': 'config', 'data-tab-title': _('Configuration') }, [
-			cbiSection(_('mcudd settings'), [
-				_('These options write OpenWrt UCI %s — the same file Go mcudd loads at startup. Use Save & Apply to restart the daemon.').format(pick(cfg, 'config_path') || '/etc/config/mcud')
-			], [
-				fieldRow(_('Config backend'), E('span', { 'class': 'mcu-mono' },
-					(pick(cfg, 'config_backend') || 'uci') + ' · ' + (pick(cfg, 'config_path') || '/etc/config/mcud')))
-			]),
 			cbiSection(_('Serial & protocol'), [], [
 				fieldRow(_('Enable mcudd'), flagInput('mcu-enable', _('Run mcudd daemon'), pick(cfg, 'enable') === '1')),
 				fieldRow(_('Serial device'), selectInput('mcu-path', portOpts, serialPortEffectivePath(cfg)),
@@ -680,11 +674,6 @@ return view.extend({
 				fieldRow(_('Protocol frame logging'), flagInput('mcu-debug', _('Log RDCP frames'), pick(cfg, 'debug') === '1')),
 				fieldRow(_('UART trace'), flagInput('mcu-debug-serial', _('Log raw TX/RX lines'), pick(cfg, 'debug_serial') === '1'))
 			]),
-			cfg.effective ? cbiSection(_('Effective mcudd config'), [
-				_('Effective settings from UCI %s (same options Go mcudd loads).').format(pick(cfg, 'config_path') || '/etc/config/mcud')
-			], [
-				E('pre', { 'class': 'mcu-log-pre', 'id': 'mcu-effective-config' }, cfg.effective)
-			]) : '',
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', {
 					'class': 'btn cbi-button-save',

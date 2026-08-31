@@ -1,5 +1,9 @@
 # luci-app-mcu-display CHANGELOG
 
+## 57
+
+- **Configuration tab** — drop the UCI/backend blurb and the Effective mcudd config dump.
+
 ## 56
 
 - **LuCI status** — do not exec Go `mcudd -dump-config` from rpcd (`getConfig`/`getStatus` aborted with ubus unknown error, badge showed **stopped**). Format effective UCI in ucode; cache `-version-json` in `/tmp/mcud_host_version.json`.
