@@ -3,6 +3,7 @@
 'require rpc';
 'require ui';
 'require poll';
+'require snort-core as snortCore';
 
 var callGetStatus = rpc.declare({
 	object: 'luci.snort3',
@@ -55,15 +56,110 @@ var callFixRules = rpc.declare({
 	expect: { '': {} }
 });
 
+var callCleanupTemp = rpc.declare({
+	object: 'luci.snort3',
+	method: 'cleanupTemp',
+	expect: { '': {} }
+});
+
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
-function field(id, label, input) {
-	return E('div', { 'class': 'snort-field' }, [
+function field(id, label, input, help) {
+	var kids = [
 		E('label', { 'for': id }, label),
 		input
-	]);
+	];
+	if (help)
+		kids.push(E('div', { 'class': 'snort-help' }, help));
+	return E('div', { 'class': 'snort-field' }, kids);
+}
+
+function elVal(id) {
+	return document.getElementById(id);
+}
+
+function collectSnortSettings() {
+	var enabled = elVal('snort-enabled');
+	var manual = elVal('snort-manual');
+	var logging = elVal('snort-logging');
+	var openappid = elVal('snort-openappid');
+	var iface = elVal('snort-iface');
+	var home = elVal('snort-home');
+	var ext = elVal('snort-ext');
+	var mode = elVal('snort-mode');
+	var method = elVal('snort-method');
+	var action = elVal('snort-action');
+	var snaplen = elVal('snort-snaplen');
+	var oink = elVal('snort-oink');
+	var logDir = elVal('snort-logdir');
+	var cfgDir = elVal('snort-cfgdir');
+	var tmpDir = elVal('snort-tmpdir');
+
+	if (!enabled || !manual || !logging || !openappid || !iface || !home ||
+	    !ext || !mode || !method || !action || !snaplen || !logDir ||
+	    !cfgDir || !tmpDir)
+		return { error: _('Settings form is not ready.') };
+
+	return snortCore.collectSettings({
+		enabled: enabled.checked,
+		manual: manual.checked,
+		logging: logging.checked,
+		openappid: openappid.checked,
+		interface: iface.value,
+		home_net: home.value,
+		external_net: ext.value,
+		mode: mode.value,
+		method: method.value,
+		action: action.value,
+		snaplen: snaplen.value,
+		oinkcode: oink ? oink.value : '',
+		log_dir: logDir.value,
+		config_dir: cfgDir.value,
+		temp_dir: tmpDir.value
+	});
+}
+
+function rpcFail(res, fallback) {
+	if (!res)
+		return fallback || _('RPC failed');
+	if (res.error)
+		return res.error;
+	if (res.ok === false)
+		return res.output || res.message || fallback || _('RPC failed');
+	return null;
+}
+
+function saveSnortSettings(apply) {
+	var collected = collectSnortSettings();
+	if (collected.error)
+		return Promise.reject(new Error(collected.error));
+	return callSetConfig(collected.config).then(function(res) {
+		var err = rpcFail(res, _('Failed to save Snort settings'));
+		if (err)
+			return Promise.reject(new Error(err));
+		if (!apply)
+			return res;
+		return callServiceControl(collected.config.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
+			var svcErr = rpcFail(svc, _('Service control failed'));
+			if (svcErr)
+				return Promise.reject(new Error(svcErr));
+			return res;
+		});
+	});
+}
+
+function runService(action, okMsg) {
+	return callServiceControl(action).then(function(res) {
+		var err = rpcFail(res, _('Service control failed'));
+		if (err)
+			return Promise.reject(new Error(err));
+		ui.addNotification(null, E('p', {}, okMsg), 4000);
+		return res;
+	}).catch(function(e) {
+		ui.addNotification(null, E('p', {}, e.message || e), 'error');
+	});
 }
 
 return view.extend({
@@ -90,6 +186,9 @@ return view.extend({
 		var root = E('div', { 'class': 'luci-app-snort3' }, [
 			E('h2', {}, _('Snort IDS/IPS')),
 			E('p', { 'class': 'snort-lead' }, [
+				_('Snort is an open source intrusion detection and prevention system.')
+			]),
+			E('p', { 'class': 'snort-lead' }, [
 				_('Snort 3 on the LAN bridge. Keep IDS (detect only) on CM5; inline IPS at 2.5 GbE is not recommended.')
 			]),
 			E('p', { 'class': 'snort-cross' }, [
@@ -105,13 +204,34 @@ return view.extend({
 		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
 
 		function renderStatus(st) {
+			var engineLabel;
+			var memClass = snortCore.memTone(st.mem_percent);
 			statusBox.innerHTML = '';
+			if (!st.present)
+				engineLabel = _('Not installed');
+			else if (st.running)
+				engineLabel = _('Running');
+			else
+				engineLabel = _('Stopped');
 			statusBox.appendChild(E('div', { 'class': 'snort-cards' }, [
 				E('div', { 'class': 'snort-card' }, [
 					E('div', { 'class': 'snort-card-label' }, _('Engine')),
-					E('div', { 'class': 'snort-card-value' }, !st.present
-						? _('Not installed')
-						: (st.running ? _('Running') : _('Stopped')))
+					E('div', { 'class': 'snort-card-value' }, engineLabel)
+				]),
+				E('div', { 'class': 'snort-card' }, [
+					E('div', { 'class': 'snort-card-label' }, _('PID / autostart')),
+					E('div', { 'class': 'snort-card-value' },
+						val(st.pid, '—') + ' / ' + (st.enabled_boot ? _('enabled') : _('disabled')))
+				]),
+				E('div', { 'class': 'snort-card' }, [
+					E('div', { 'class': 'snort-card-label' }, _('Snort memory')),
+					E('div', { 'class': 'snort-card-value' },
+						st.running ? snortCore.formatKb(st.mem_rss_kb) : '—')
+				]),
+				E('div', { 'class': 'snort-card' }, [
+					E('div', { 'class': 'snort-card-label' }, _('System memory')),
+					E('div', { 'class': 'snort-card-value ' + memClass },
+						snortCore.formatSysMem(st.mem_used_kb, st.mem_total_kb, st.mem_percent))
 				]),
 				E('div', { 'class': 'snort-card' }, [
 					E('div', { 'class': 'snort-card-label' }, _('Mode')),
@@ -119,79 +239,115 @@ return view.extend({
 						val(st.mode, 'ids') + ' / ' + val(st.method) + ' / ' + val(st.interface))
 				]),
 				E('div', { 'class': 'snort-card' }, [
-					E('div', { 'class': 'snort-card-label' }, _('Alerts')),
+					E('div', { 'class': 'snort-card-label' }, _('Total alerts')),
 					E('div', { 'class': 'snort-card-value' }, val(st.alert_count, '0'))
-				]),
-				E('div', { 'class': 'snort-card' }, [
-					E('div', { 'class': 'snort-card-label' }, _('PID / autostart')),
-					E('div', { 'class': 'snort-card-value' },
-						val(st.pid, '—') + ' / ' + (st.enabled_boot ? _('enabled') : _('disabled')))
 				])
 			]));
 			statusBox.appendChild(E('div', { 'class': 'snort-actions' }, [
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button cbi-button-apply',
 					click: function() {
-						callServiceControl('start').then(function() {
-							ui.addNotification(null, E('p', {}, _('Snort start requested')), 4000);
-						});
+						runService('start', _('Snort started'));
 					}
 				}, _('Start')),
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button',
 					click: function() {
-						callServiceControl('stop').then(function() {
-							ui.addNotification(null, E('p', {}, _('Snort stopped')), 4000);
-						});
+						runService('stop', _('Snort stopped'));
 					}
 				}, _('Stop')),
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button',
 					click: function() {
-						callServiceControl('restart').then(function() {
-							ui.addNotification(null, E('p', {}, _('Snort restarted')), 4000);
-						});
+						runService('restart', _('Snort restarted'));
 					}
 				}, _('Restart')),
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button',
 					click: function() {
-						callServiceControl(st.enabled_boot ? 'disable' : 'enable').then(function() {
-							ui.addNotification(null, E('p', {},
-								st.enabled_boot ? _('Autostart disabled') : _('Autostart enabled')), 4000);
-						});
+						runService(st.enabled_boot ? 'disable' : 'enable',
+							st.enabled_boot ? _('Auto-start disabled') : _('Auto-start enabled'));
 					}
-				}, st.enabled_boot ? _('Disable autostart') : _('Enable autostart'))
+				}, st.enabled_boot ? _('Disable at boot') : _('Enable at boot'))
 			]));
 		}
 
 		function renderAlerts(a) {
-			alertsBox.innerHTML = '';
 			var text = (a && a.alerts) ? a.alerts : '';
-			if (!text) {
+			var logs = (a && a.logs) ? a.logs : '';
+			alertsBox.innerHTML = '';
+			alertsBox.appendChild(E('h3', {}, _('Recent alerts (50 most recent)')));
+			if (!text)
 				alertsBox.appendChild(E('p', {}, _('No alerts yet. Enable IDS and wait for traffic.')));
-			} else {
+			else
 				alertsBox.appendChild(E('pre', { 'class': 'snort-alert-box' }, text));
-			}
-			if (a && a.logs)
-				alertsBox.appendChild(E('pre', { 'class': 'snort-log-box' }, a.logs));
+			alertsBox.appendChild(E('div', { 'class': 'snort-actions' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					click: function() {
+						callGetAlerts(50).then(function(next) {
+							renderAlerts(next || {});
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Refresh'))
+			]));
+			alertsBox.appendChild(E('h3', {}, _('Snort system logs (20 most recent)')));
+			if (!logs)
+				alertsBox.appendChild(E('p', {}, _('No logs')));
+			else
+				alertsBox.appendChild(E('pre', { 'class': 'snort-log-box' }, logs));
+			alertsBox.appendChild(E('h3', {}, _('Actions')));
+			alertsBox.appendChild(E('p', { 'class': 'snort-help' },
+				_('View detailed reports via SSH with the command:')));
+			alertsBox.appendChild(E('pre', { 'class': 'snort-hint' },
+				'snort-mgr report -v (requires coreutils-sort package)'));
+			alertsBox.appendChild(E('p', { 'class': 'snort-help' }, _('Log files:')));
+			alertsBox.appendChild(E('ul', { 'class': 'snort-help' }, [
+				E('li', {}, [ E('code', {}, '/var/log/alert_fast.txt'), ' — ', _('Fast alerts') ]),
+				E('li', {}, [ E('code', {}, '/var/log/*alert_json.txt'), ' — ', _('Detailed JSON alerts') ])
+			]));
 		}
 
 		function renderSettings(c) {
 			settingsBox.innerHTML = '';
 			var enabled = E('input', { type: 'checkbox', id: 'snort-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
-			var iface = E('input', { type: 'text', id: 'snort-iface', value: val(c.interface, 'br-lan') });
-			var home = E('input', { type: 'text', id: 'snort-home', value: val(c.home_net, '192.168.8.0/24') });
-			var ext = E('input', { type: 'text', id: 'snort-ext', value: val(c.external_net, 'any') });
+			var manual = E('input', { type: 'checkbox', id: 'snort-manual' });
+			manual.checked = c.manual === '1' || c.manual === 1;
+			var logging = E('input', { type: 'checkbox', id: 'snort-logging' });
+			logging.checked = c.logging === '1' || c.logging === 1 || c.logging === undefined;
+			var openappid = E('input', { type: 'checkbox', id: 'snort-openappid' });
+			openappid.checked = c.openappid === '1' || c.openappid === 1;
+			var iface = E('input', {
+				type: 'text', id: 'snort-iface',
+				value: val(c.interface, 'br-lan'),
+				placeholder: 'br-lan'
+			});
+			var home = E('input', {
+				type: 'text', id: 'snort-home',
+				value: val(c.home_net, '192.168.8.0/24'),
+				placeholder: '192.168.8.0/24'
+			});
+			var ext = E('input', {
+				type: 'text', id: 'snort-ext',
+				value: val(c.external_net, 'any'),
+				placeholder: 'any'
+			});
 			var mode = E('select', { id: 'snort-mode' }, [
 				E('option', { value: 'ids' }, _('IDS (detection only)')),
 				E('option', { value: 'ips' }, _('IPS (prevention)'))
 			]);
 			mode.value = c.mode || 'ids';
 			var method = E('select', { id: 'snort-method' }, [
-				E('option', { value: 'afpacket' }, 'AF_PACKET'),
 				E('option', { value: 'pcap' }, 'PCAP'),
+				E('option', { value: 'afpacket' }, 'AF_PACKET'),
 				E('option', { value: 'nfq' }, 'NFQ (IPS)')
 			]);
 			method.value = c.method || 'afpacket';
@@ -203,93 +359,164 @@ return view.extend({
 				E('option', { value: 'reject' }, _('Reject'))
 			]);
 			action.value = c.action || 'alert';
-			var oink = E('input', { type: 'password', id: 'snort-oink', value: c.oinkcode || '' });
+			var snaplen = E('input', {
+				type: 'text', id: 'snort-snaplen',
+				value: val(c.snaplen, '1518'),
+				placeholder: '1518'
+			});
+			var oink = E('input', {
+				type: 'password', id: 'snort-oink',
+				value: c.oinkcode || '',
+				placeholder: _('Enter your Oinkcode if you have one')
+			});
+			var logDir = E('input', {
+				type: 'text', id: 'snort-logdir',
+				value: val(c.log_dir, '/var/log'),
+				placeholder: '/var/log'
+			});
+			var cfgDir = E('input', {
+				type: 'text', id: 'snort-cfgdir',
+				value: val(c.config_dir, '/etc/snort'),
+				placeholder: '/etc/snort'
+			});
+			var tmpDir = E('input', {
+				type: 'text', id: 'snort-tmpdir',
+				value: val(c.temp_dir, '/var/snort.d'),
+				placeholder: '/var/snort.d'
+			});
 
+			settingsBox.appendChild(E('h3', {}, _('Configuration')));
 			settingsBox.appendChild(E('div', {}, [
-				field('snort-enabled', _('Enable Snort'), enabled),
-				field('snort-iface', _('Interface'), iface),
-				field('snort-home', _('HOME_NET'), home),
-				field('snort-ext', _('EXTERNAL_NET'), ext),
-				field('snort-mode', _('Operating mode'), mode),
-				field('snort-method', _('DAQ method'), method),
-				field('snort-action', _('Rule action override'), action),
-				field('snort-oink', _('Oinkcode (optional)'), oink),
+				field('snort-enabled', _('Enable Snort'), enabled,
+					_('Enable or disable Snort service')),
+				field('snort-manual', _('Manual mode'), manual,
+					_('Use manual configuration (snort.lua)')),
+				field('snort-iface', _('Network interface'), iface,
+					_('Network interface to monitor (e.g. br-lan, eth0)')),
+				field('snort-home', _('Local network'), home,
+					_('IP address range to protect')),
+				field('snort-ext', _('External network'), ext,
+					_('External IP address range')),
+				field('snort-mode', _('Operating mode'), mode,
+					_('IDS = Detection only, IPS = Active prevention')),
+				field('snort-method', _('DAQ method'), method,
+					_('Packet acquisition method')),
+				field('snort-snaplen', _('Capture Length'), snaplen,
+					_('Maximum packet capture size')),
+				field('snort-action', _('Rule action'), action,
+					_('Default action for rules')),
+				field('snort-openappid', _('Enable OpenAppID'), openappid,
+					_('Use the OpenAppID detector package if installed'))
+			]));
+			settingsBox.appendChild(E('h3', {}, _('Logging configuration')));
+			settingsBox.appendChild(E('div', {}, [
+				field('snort-logging', _('Enable logging'), logging,
+					_('Enable event logging')),
+				field('snort-logdir', _('Log directory'), logDir,
+					_('Path where logs will be stored')),
+				field('snort-cfgdir', _('Configuration directory'), cfgDir,
+					_('Snort configuration directory path')),
+				field('snort-tmpdir', _('Temporary directory'), tmpDir,
+					_('Directory for temporary files and downloaded rules'))
+			]));
+			settingsBox.appendChild(E('h3', {}, _('Rules management')));
+			settingsBox.appendChild(E('div', {}, [
+				field('snort-oink', _('Oinkcode'), oink,
+					_('Access code to download official Snort rules (optional)')),
 				E('div', { 'class': 'snort-actions' }, [
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button cbi-button-save',
-						click: function() {
-							callSetConfig({
-								enabled: enabled.checked ? '1' : '0',
-								interface: iface.value,
-								home_net: home.value,
-								external_net: ext.value,
-								mode: mode.value,
-								method: method.value,
-								action: action.value,
-								oinkcode: oink.value,
-								manual: '0'
-							}).then(function(res) {
-								if (res && res.error)
-									ui.addNotification(null, E('p', {}, res.error), 'error');
-								else
-									ui.addNotification(null, E('p', {}, _('Saved. Restart Snort to apply.')), 4000);
+						click: function(ev) {
+							ev.preventDefault();
+							saveSnortSettings(true).then(function() {
+								ui.addNotification(null, E('p', {},
+									_('Saved. Snort will start if Enable Snort is on.')), 5000);
 							}).catch(function(e) {
 								ui.addNotification(null, E('p', {}, e.message || e), 'error');
 							});
 						}
-					}, _('Save'))
+					}, _('Save & apply'))
 				])
 			]));
 		}
 
 		function renderRules(st, u) {
-			rulesBox.innerHTML = '';
 			var r = (st && st.rules) || {};
 			var loc;
+			rulesBox.innerHTML = '';
 			if (r.symlink)
 				loc = E('p', { 'class': 'snort-rules-ok' },
-					_('Active symlink') + ': /etc/snort/rules → ' + val(r.target));
+					_('Active symbolic link') + ': /etc/snort/rules → ' + val(r.target));
 			else if (r.temp_exists)
 				loc = E('p', { 'class': 'snort-rules-warn' },
-					_('Rules are in /var/snort.d/rules. Create a symlink to /etc/snort/rules.'));
+					_('Rules are in') + ' /var/snort.d/rules. ' +
+					_('Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?'));
 			else
-				loc = E('p', { 'class': 'snort-rules-err' }, _('No rules directory found.'));
+				loc = E('p', { 'class': 'snort-rules-err' }, _('No rules directory found'));
 			rulesBox.appendChild(loc);
 			rulesBox.appendChild(E('p', { 'class': 'snort-rules-meta' },
 				_('Rule files:') + ' ' + val(r.rule_files, '0')));
 
-			var logPre = E('pre', { 'class': 'snort-log-box' }, (u && u.log) || '');
 			if (u && u.running)
-				rulesBox.appendChild(E('p', { 'class': 'snort-status-warn' }, _('Update in progress…')));
+				rulesBox.appendChild(E('p', { 'class': 'snort-status-warn' }, _('Update in progress...')));
 			else if (u && u.finished)
-				rulesBox.appendChild(E('p', { 'class': 'snort-status-ok' }, _('Last update finished.')));
-			rulesBox.appendChild(logPre);
+				rulesBox.appendChild(E('p', { 'class': 'snort-status-ok' }, _('Update completed!')));
+			else
+				rulesBox.appendChild(E('p', { 'class': 'snort-help' },
+					_('Click on "Update" to start the rules update')));
+			rulesBox.appendChild(E('pre', { 'class': 'snort-log-box' }, (u && u.log) || ''));
 
 			rulesBox.appendChild(E('div', { 'class': 'snort-actions' }, [
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button cbi-button-apply',
 					click: function() {
 						callUpdateRules().then(function(res) {
-							if (res && res.error)
-								ui.addNotification(null, E('p', {}, res.error), 'error');
+							var err = rpcFail(res, null);
+							if (err)
+								ui.addNotification(null, E('p', {}, err), 'error');
 							else
-								ui.addNotification(null, E('p', {}, _('Rule update started')), 4000);
+								ui.addNotification(null, E('p', {},
+									_('Update launched in background. Monitoring starts automatically.')), 4000);
 						}).catch(function(e) {
 							ui.addNotification(null, E('p', {}, e.message || e), 'error');
 						});
 					}
 				}, _('Update rules')),
 				E('button', {
+					'type': 'button',
 					'class': 'btn cbi-button',
 					click: function() {
+						if (!window.confirm(_('Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?')))
+							return;
 						callFixRules().then(function(res) {
-							if (res && res.ok === false)
-								ui.addNotification(null, E('p', {}, res.error || _('Failed')), 'error');
+							var err = rpcFail(res, _('Error creating symbolic link'));
+							if (err)
+								ui.addNotification(null, E('p', {}, err), 'error');
 							else
-								ui.addNotification(null, E('p', {}, _('Symlink created')), 4000);
+								ui.addNotification(null, E('p', {},
+									_('Symbolic link created successfully!')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
 						});
 					}
-				}, _('Create rules symlink'))
+				}, _('Create symbolic link')),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					click: function() {
+						callCleanupTemp().then(function(res) {
+							var err = rpcFail(res, _('Failed'));
+							if (err)
+								ui.addNotification(null, E('p', {}, err), 'error');
+							else
+								ui.addNotification(null, E('p', {}, _('Temporary files cleaned')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Clean temporary files'))
 			]));
 		}
 
@@ -313,5 +540,15 @@ return view.extend({
 		}, 8);
 
 		return E('div', {}, [ css, root ]);
-	}
+	},
+
+	handleSave: function() {
+		return saveSnortSettings(false);
+	},
+
+	handleSaveApply: function() {
+		return saveSnortSettings(true);
+	},
+
+	handleReset: null
 });

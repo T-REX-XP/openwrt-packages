@@ -39,6 +39,47 @@ function uci_get(sect, opt, fallback) {
 	return r.output;
 }
 
+function unwrap_net(val) {
+	val = trim(`${val}`);
+	while (length(val) >= 2 && substr(val, 0, 1) == '[' &&
+	       substr(val, length(val) - 1, 1) == ']')
+		val = trim(substr(val, 1, length(val) - 2));
+	return replace(val, /[ \t]+/g, '');
+}
+
+function first_pid(raw) {
+	let parts = split(trim(`${raw}`), /[ \n\t]+/);
+	let pid = parts[0] || '';
+	if (!match(pid, /^[0-9]+$/))
+		return '';
+	return pid;
+}
+
+function parse_rss_kb(pid) {
+	if (pid == '')
+		return 0;
+	let txt = readfile(`/proc/${pid}/status`) || '';
+	let m = match(txt, /VmRSS:\s+([0-9]+)/);
+	return m ? int(m[1]) : 0;
+}
+
+function parse_meminfo() {
+	let txt = readfile('/proc/meminfo') || '';
+	let tot = match(txt, /MemTotal:\s+([0-9]+)/);
+	let avail = match(txt, /MemAvailable:\s+([0-9]+)/);
+	let free = match(txt, /MemFree:\s+([0-9]+)/);
+	let total_kb = tot ? int(tot[1]) : 0;
+	let free_kb = avail ? int(avail[1]) : (free ? int(free[1]) : 0);
+	let used_kb = total_kb > free_kb ? total_kb - free_kb : 0;
+	let percent = total_kb > 0 ? int(used_kb * 100 / total_kb) : 0;
+	return {
+		mem_total_kb: total_kb,
+		mem_free_kb: free_kb,
+		mem_used_kb: used_kb,
+		mem_percent: percent
+	};
+}
+
 const FLAG_OPTS = [ 'enabled', 'manual', 'logging', 'openappid' ];
 const STRING_OPTS = {
 	interface: /^[A-Za-z0-9_.-]+$/,
@@ -54,6 +95,42 @@ const STRING_OPTS = {
 	snaplen: /^\d+$/
 };
 
+function normalize_flag(v) {
+	v = `${v}`;
+	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
+		return '1';
+	if (v == 'false' || v == '0' || v == 'off' || v == 'no' || v == '')
+		return '0';
+	return v;
+}
+
+function normalize_value(k, v) {
+	if (index(FLAG_OPTS, k) >= 0)
+		return normalize_flag(v);
+	if (k == 'home_net' || k == 'external_net')
+		return unwrap_net(v);
+	return trim(`${v}`);
+}
+
+function validate_field(k, v) {
+	v = normalize_value(k, v);
+	if (index(FLAG_OPTS, k) >= 0) {
+		if (v != '0' && v != '1')
+			return `invalid ${k}`;
+		return null;
+	}
+	if (!(k in STRING_OPTS))
+		return `invalid ${k}`;
+	if (!match(v, STRING_OPTS[k]))
+		return `invalid ${k}`;
+	if (k == 'snaplen') {
+		let n = int(v);
+		if (n < 0 || n > 65535)
+			return `invalid ${k}`;
+	}
+	return null;
+}
+
 function get_config() {
 	return {
 		enabled: uci_get('snort', 'enabled', '0'),
@@ -66,6 +143,7 @@ function get_config() {
 		action: uci_get('snort', 'action', 'alert'),
 		snaplen: uci_get('snort', 'snaplen', '1518'),
 		logging: uci_get('snort', 'logging', '1'),
+		openappid: uci_get('snort', 'openappid', '0'),
 		log_dir: uci_get('snort', 'log_dir', '/var/log'),
 		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
 		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
@@ -94,13 +172,14 @@ const methods = {
 	getStatus: {
 		call: function() {
 			let running = run_cmd('pidof snort >/dev/null && echo 1 || echo 0').output == '1';
-			let pid = running ? run_cmd('pidof snort').output : '';
+			let pid = running ? first_pid(run_cmd('pidof snort').output) : '';
 			let log_dir = uci_get('snort', 'log_dir', '/var/log');
 			let alert = `${log_dir}/alert_fast.txt`;
 			let alert_count = 0;
 			if (file_test('-f', alert))
 				alert_count = int(run_cmd(`wc -l < ${shell_quote(alert)}`).output) || 0;
 			let enabled_boot = run_cmd('/etc/init.d/snort enabled && echo 1 || echo 0').output == '1';
+			let mem = parse_meminfo();
 			return {
 				running,
 				pid,
@@ -111,6 +190,11 @@ const methods = {
 				mode: uci_get('snort', 'mode', 'ids'),
 				method: uci_get('snort', 'method', 'afpacket'),
 				enabled: uci_get('snort', 'enabled', '0'),
+				mem_rss_kb: parse_rss_kb(pid),
+				mem_total_kb: mem.mem_total_kb,
+				mem_used_kb: mem.mem_used_kb,
+				mem_free_kb: mem.mem_free_kb,
+				mem_percent: mem.mem_percent,
 				rules: rules_info()
 			};
 		}
@@ -128,18 +212,17 @@ const methods = {
 			let cfg = req.args?.config;
 			if (type(cfg) != 'object')
 				return { error: 'invalid config' };
+			let keys = [];
+			for (let k in cfg)
+				push(keys, k);
+			if (length(keys) == 0)
+				return { error: 'invalid config' };
 			run_cmd('uci -q get snort.snort >/dev/null || uci set snort.snort=snort');
 			for (let k in cfg) {
-				let v = `${cfg[k]}`;
-				if (index(FLAG_OPTS, k) >= 0) {
-					if (v != '0' && v != '1')
-						continue;
-				} else if (k in STRING_OPTS) {
-					if (!match(v, STRING_OPTS[k]))
-						continue;
-				} else {
-					continue;
-				}
+				let err = validate_field(k, cfg[k]);
+				if (err)
+					return { error: err };
+				let v = normalize_value(k, cfg[k]);
 				run_cmd(`uci set snort.snort.${k}=${shell_quote(v)}`);
 			}
 			run_cmd('uci commit snort');
@@ -154,6 +237,12 @@ const methods = {
 			if (action != 'start' && action != 'stop' && action != 'restart' &&
 			    action != 'enable' && action != 'disable')
 				return { error: 'invalid action' };
+			if ((action == 'start' || action == 'restart') &&
+			    uci_get('snort', 'enabled', '0') != '1')
+				return {
+					ok: false,
+					output: 'snort.snort.enabled is 0; enable the service in Settings first'
+				};
 			let r = run_cmd(`/etc/init.d/snort ${action}`);
 			return { ok: r.code == 0, output: r.output };
 		}
@@ -172,7 +261,7 @@ const methods = {
 			let alerts = '';
 			if (file_test('-f', alert))
 				alerts = run_cmd(`tail -n ${limit} ${shell_quote(alert)}`).output;
-			let logs = run_cmd(`logread -e snort | tail -n ${limit}`).output;
+			let logs = run_cmd(`logread -e snort | tail -n 20`).output;
 			return { alerts, logs };
 		}
 	},
@@ -182,7 +271,7 @@ const methods = {
 			if (!file_test('-x', '/usr/bin/snort-rules'))
 				return { error: 'snort-rules not installed' };
 			if (file_test('-f', '/tmp/snort_rules_update.lock'))
-				return { ok: true, running: true, message: 'update already in progress' };
+				return { ok: false, running: true, error: 'update already in progress' };
 			run_cmd('touch /tmp/snort_rules_update.lock');
 			run_cmd("( /usr/bin/snort-rules > /tmp/snort_rules_update.log 2>&1; rm -f /var/snort.d/*.tar.gz /tmp/snort*.tar.gz /var/snort.d/rules/*.tar.gz; rm -f /tmp/snort_rules_update.lock; echo FINISHED >> /tmp/snort_rules_update.log ) >/dev/null 2>&1 &");
 			return { ok: true, running: true };
@@ -214,6 +303,16 @@ const methods = {
 				run_cmd(`rm -f ${shell_quote(config_rules)}`);
 			let r = run_cmd(`ln -sf ${shell_quote(temp_rules)} ${shell_quote(config_rules)}`);
 			return { ok: r.code == 0, output: r.output, rules: rules_info() };
+		}
+	},
+
+	cleanupTemp: {
+		call: function() {
+			if (file_test('-f', '/tmp/snort_rules_update.lock'))
+				return { ok: false, error: 'update already in progress' };
+			run_cmd('rm -f /var/snort.d/*.tar.gz /tmp/snort*.tar.gz /var/snort.d/rules/*.tar.gz');
+			run_cmd('rm -f /tmp/snort_rules_update.lock');
+			return { ok: true };
 		}
 	}
 };

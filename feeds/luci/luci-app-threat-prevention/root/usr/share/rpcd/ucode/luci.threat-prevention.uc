@@ -69,7 +69,7 @@ const FLAG_OPTS = [ 'enabled', 'fail_open' ];
 const STRING_OPTS = {
 	mode: /^(ids|ips)$/,
 	interface: /^[A-Za-z0-9_.-]+$/,
-	home_net: /^\[.*\]$/,
+	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
 	eve_path: /^\/[ -~]+$/,
 	rule_dir: /^\/[ -~]+$/,
 	rule_profile: /^(small|full)$/,
@@ -177,6 +177,8 @@ const methods = {
 				if (!(k in cfg))
 					continue;
 				let v = `${cfg[k]}`;
+				if (k == 'home_net' && !match(v, /^\[/))
+					v = '[' + v + ']';
 				if (index(FLAG_OPTS, k) >= 0) {
 					if (v != '0' && v != '1')
 						continue;
@@ -207,8 +209,18 @@ const methods = {
 		call: function() {
 			if (!file_test('-x', '/usr/sbin/suricata-etopen-fetch'))
 				return { error: 'suricata-etopen not installed' };
+			let st = read_json_file('/tmp/tp_etopen.json');
+			if (st.etopen_state == 'fetching')
+				return { ok: true, started: true };
+			run_cmd('printf \'{"etopen_state":"fetching","etopen_error":""}\\n\' > /tmp/tp_etopen.json');
+			if (file_test('-x', '/etc/init.d/suricata-etopen')) {
+				let r = run_cmd('/etc/init.d/suricata-etopen start');
+				if (r.code != 0)
+					return { ok: false, error: r.output || 'failed to start ET Open fetch' };
+				return { ok: true, started: true };
+			}
 			let r = run_cmd('/usr/sbin/suricata-etopen-fetch');
-			return { ok: r.code == 0, output: r.output };
+			return { ok: r.code == 0, output: r.output, error: r.code == 0 ? '' : r.output };
 		}
 	}
 };

@@ -47,6 +47,44 @@ function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
+function collectTpSettings() {
+	var enabled = document.getElementById('tp-enabled');
+	var iface = document.getElementById('tp-iface');
+	var home = document.getElementById('tp-home');
+	var profile = document.getElementById('tp-profile');
+	var url = document.getElementById('tp-url');
+	if (!enabled || !iface || !home || !profile || !url)
+		return null;
+	var homeNet = (home.value || '').trim();
+	if (homeNet && homeNet.charAt(0) !== '[')
+		homeNet = '[' + homeNet + ']';
+	return {
+		enabled: enabled.checked ? '1' : '0',
+		interface: (iface.value || '').trim(),
+		home_net: homeNet,
+		rule_profile: profile.value,
+		etopen_url: (url.value || '').trim(),
+		mode: 'ids'
+	};
+}
+
+function saveTpSettings(apply) {
+	var payload = collectTpSettings();
+	if (!payload)
+		return Promise.reject(new Error(_('Settings form is not ready.')));
+	return callSetConfig(payload).then(function(res) {
+		if (res && res.error)
+			return Promise.reject(new Error(res.error));
+		if (!apply)
+			return res;
+		return callServiceControl(payload.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
+			if (svc && svc.ok === false)
+				return Promise.reject(new Error(svc.output || _('Service control failed')));
+			return res;
+		});
+	});
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -105,9 +143,13 @@ return view.extend({
 				]),
 				E('div', { 'class': 'tp-card' }, [
 					E('div', { 'class': 'tp-card-label' }, _('ET Open')),
-					E('div', { 'class': 'tp-card-value' }, val(st.etopen_mtime, _('Never fetched')))
+					E('div', { 'class': 'tp-card-value' }, st.etopen_state === 'fetching'
+						? _('Fetching…')
+						: val(st.etopen_mtime, _('Never fetched')))
 				])
 			]));
+			if (st.etopen_state === 'error' && st.etopen_error)
+				statusBox.appendChild(E('p', { 'class': 'tp-warn' }, st.etopen_error));
 			if (st.rule_profile === 'full')
 				statusBox.appendChild(E('p', { 'class': 'tp-warn' },
 					_('Full ET Open uses a lot of RAM. Prefer the small profile on CM5.')));
@@ -195,37 +237,67 @@ return view.extend({
 				field('tp-url', _('ET Open URL'), url),
 				E('div', { 'class': 'tp-actions' }, [
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button cbi-button-save',
-						click: function() {
-							callSetConfig({
-								enabled: enabled.checked ? '1' : '0',
-								interface: iface.value,
-								home_net: home.value,
-								rule_profile: profile.value,
-								etopen_url: url.value,
-								mode: 'ids'
-							}).then(function() {
-								ui.addNotification(null, E('p', {}, _('Saved')), 4000);
+						click: function(ev) {
+							ev.preventDefault();
+							saveTpSettings(true).then(function() {
+								ui.addNotification(null, E('p', {}, _('Saved. Suricata will start if Enable IDS is on.')), 5000);
 							}).catch(function(e) {
 								ui.addNotification(null, E('p', {}, e.message || e), 'error');
 							});
 						}
-					}, _('Save')),
+					}, _('Save & apply')),
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button',
-						click: function() {
-							callServiceControl('restart').then(function() {
-								ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
+						click: function(ev) {
+							ev.preventDefault();
+							callServiceControl('restart').then(function(res) {
+								if (res && res.ok === false)
+									ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
+								else
+									ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
+							}).catch(function(e) {
+								ui.addNotification(null, E('p', {}, e.message || e), 'error');
 							});
 						}
 					}, _('Restart Suricata')),
 					E('button', {
+						'type': 'button',
 						'class': 'btn cbi-button',
-						click: function() {
+						click: function(ev) {
+							ev.preventDefault();
 							ui.showModal(_('Fetching ET Open'), [ E('p', {}, _('Downloading rules…')) ]);
 							callFetchRules().then(function(res) {
-								ui.hideModal();
+								if (res && res.error && !res.started)
+									return Promise.reject(new Error(res.error));
 								if (res && res.ok === false)
+									return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
+								if (!res || !res.started)
+									return res;
+								var tries = 0;
+								function pollDone() {
+									tries++;
+									return callGetStatus().then(function(st) {
+										if (st && st.etopen_state === 'fetching') {
+											if (tries >= 120)
+												return Promise.reject(new Error(_('ET Open fetch timed out')));
+											return new Promise(function(resolve) {
+												window.setTimeout(function() {
+													resolve(pollDone());
+												}, 2000);
+											});
+										}
+										return st;
+									});
+								}
+								return pollDone();
+							}).then(function(res) {
+								ui.hideModal();
+								if (res && res.etopen_state === 'error')
+									ui.addNotification(null, E('p', {}, res.etopen_error || res.output || _('Fetch failed')), 'error');
+								else if (res && res.ok === false)
 									ui.addNotification(null, E('p', {}, res.error || res.output || _('Fetch failed')), 'error');
 								else
 									ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
@@ -258,5 +330,15 @@ return view.extend({
 		}, 8);
 
 		return E('div', {}, [ css, root ]);
-	}
+	},
+
+	handleSave: function() {
+		return saveTpSettings(false);
+	},
+
+	handleSaveApply: function() {
+		return saveTpSettings(true);
+	},
+
+	handleReset: null
 });

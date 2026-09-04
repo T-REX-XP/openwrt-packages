@@ -13,12 +13,18 @@
 
 .luci-app-snort3 .snort-cards {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 0.75rem;
 	min-width: 0;
 }
 
 @media (max-width: 768px) {
+	.luci-app-snort3 .snort-cards {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 520px) {
 	.luci-app-snort3 .snort-cards {
 		grid-template-columns: 1fr;
 	}
@@ -104,3 +110,32 @@
 .luci-app-snort3 .snort-status-ok { color: var(--success-color-high); font-weight: 700; }
 .luci-app-snort3 .snort-status-err { color: var(--error-color-high); font-weight: 700; }
 .luci-app-snort3 .snort-status-warn { color: var(--warn-color-high); font-weight: 700; }
+
+.luci-app-snort3 h3 {
+	color: var(--text-color-highest);
+	margin: 1rem 0 0.5rem;
+}
+
+.luci-app-snort3 .snort-help {
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+}
+
+.luci-app-snort3 .snort-hint {
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.75rem 1rem;
+	font-family: var(--font-mono, monospace);
+	font-size: 0.9em;
+	color: var(--text-color-high);
+	overflow-x: auto;
+}
+
+.luci-app-snort3 .snort-mem--ok { color: var(--success-color-high); }
+.luci-app-snort3 .snort-mem--warn { color: var(--warn-color-high); }
+.luci-app-snort3 .snort-mem--err { color: var(--error-color-high); }
+
+.luci-app-snort3 ul.snort-help {
+	margin: 0.25rem 0 1rem 1.25rem;
+}

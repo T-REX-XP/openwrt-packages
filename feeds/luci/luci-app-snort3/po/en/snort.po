@@ -320,3 +320,73 @@ msgstr "Auto-start enabled"
 
 msgid "Auto-start disabled"
 msgstr "Auto-start disabled"
+
+msgid "Enable OpenAppID"
+msgstr "Enable OpenAppID"
+
+msgid "Use the OpenAppID detector package if installed"
+msgstr "Use the OpenAppID detector package if installed"
+
+msgid "Clean temporary files"
+msgstr "Clean temporary files"
+
+msgid "Settings form is not ready."
+msgstr "Settings form is not ready."
+
+msgid "Saved. Snort will start if Enable Snort is on."
+msgstr "Saved. Snort will start if Enable Snort is on."
+
+msgid "Service control failed"
+msgstr "Service control failed"
+
+msgid "Failed to save Snort settings"
+msgstr "Failed to save Snort settings"
+
+msgid "RPC failed"
+msgstr "RPC failed"
+
+msgid "Threat Prevention"
+msgstr "Threat Prevention"
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Snort 3 on the LAN bridge. Keep IDS (detect only) on CM5; inline IPS at 2.5 GbE is not recommended."
+msgstr "Snort 3 on the LAN bridge. Keep IDS (detect only) on CM5; inline IPS at 2.5 GbE is not recommended."
+
+msgid "Engine"
+msgstr "Engine"
+
+msgid "PID / autostart"
+msgstr "PID / autostart"
+
+msgid "enabled"
+msgstr "enabled"
+
+msgid "disabled"
+msgstr "disabled"
+
+msgid "Not installed"
+msgstr "Not installed"
+
+msgid "IDS (detection only)"
+msgstr "IDS (detection only)"
+
+msgid "IPS (prevention)"
+msgstr "IPS (prevention)"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Rules"
+msgstr "Rules"
+
+msgid "No alerts yet. Enable IDS and wait for traffic."
+msgstr "No alerts yet. Enable IDS and wait for traffic."
+
+msgid "Save & apply"
+msgstr "Save & apply"
+
+msgid "Failed"
+msgstr "Failed"
+

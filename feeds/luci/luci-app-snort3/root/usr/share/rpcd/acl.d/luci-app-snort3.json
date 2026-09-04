@@ -14,7 +14,23 @@
 			"file": {
 				"/usr/bin/snort": [ "exec" ],
 				"/etc/init.d/snort": [ "exec" ],
-				"/var/log/alert_fast.txt": [ "read" ]
+				"/var/log/alert_fast.txt": [ "read" ],
+				"/var/log/*alert_json.txt": [ "read" ],
+				"/tmp/snort_rules_update.log": [ "read" ],
+				"/tmp/snort_rules_update.lock": [ "read" ],
+				"/proc/meminfo": [ "read" ],
+				"/proc/*/status": [ "read" ],
+				"/sbin/uci": [ "exec" ],
+				"/usr/bin/uci": [ "exec" ],
+				"/bin/pidof": [ "exec" ],
+				"/usr/bin/pidof": [ "exec" ],
+				"/usr/bin/wc": [ "exec" ],
+				"/usr/bin/tail": [ "exec" ],
+				"/usr/bin/find": [ "exec" ],
+				"/bin/readlink": [ "exec" ],
+				"/usr/bin/readlink": [ "exec" ],
+				"/sbin/logread": [ "exec" ],
+				"/usr/bin/logread": [ "exec" ]
 			}
 		},
 		"write": {
@@ -23,14 +39,25 @@
 					"setConfig",
 					"serviceControl",
 					"updateRules",
-					"fixRules"
+					"fixRules",
+					"cleanupTemp"
 				]
 			},
 			"uci": [ "snort" ],
 			"file": {
 				"/etc/init.d/snort": [ "exec" ],
 				"/usr/bin/snort-rules": [ "exec" ],
-				"/usr/bin/snort-mgr": [ "exec" ]
+				"/usr/bin/snort-mgr": [ "exec" ],
+				"/sbin/uci": [ "exec" ],
+				"/usr/bin/uci": [ "exec" ],
+				"/bin/ln": [ "exec" ],
+				"/bin/rm": [ "exec" ],
+				"/bin/mv": [ "exec" ],
+				"/bin/touch": [ "exec" ],
+				"/tmp/snort_rules_update.log": [ "write" ],
+				"/tmp/snort_rules_update.lock": [ "write" ],
+				"/etc/snort/rules": [ "write" ],
+				"/var/snort.d/*.tar.gz": [ "write" ]
 			}
 		}
 	}

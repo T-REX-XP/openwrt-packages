@@ -1,45 +1,171 @@
 #!/bin/sh
 # Fetch current ET Open (Suricata 8) — not the SRM 9840 snapshot.
+# Writes /tmp/tp_etopen.json for LuCI. Designed to run under procd, not
+# inside an rpcd 30s ubus call.
 
-set -e
+set -u
 
 URL=$(uci -q get suricata.main.etopen_url 2>/dev/null || \
 	echo 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz')
 RULE_DIR=$(uci -q get suricata.main.rule_dir 2>/dev/null || echo /etc/suricata/rules)
 STATUS=/tmp/tp_etopen.json
 STAMP=/var/lib/threat-prevention/etopen.stamp
+LOCK=/var/run/suricata-etopen-fetch.lock
+CA=/etc/ssl/certs/ca-certificates.crt
+LOG=/tmp/tp_etopen_fetch.log
 
-mkdir -p "$RULE_DIR" /var/lib/threat-prevention /tmp
-tmp=$(mktemp)
-trap 'rm -f "$tmp"' EXIT
+json_escape() {
+	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g' | tr '\n\r' '  '
+}
 
-if command -v uclient-fetch >/dev/null 2>&1; then
-	uclient-fetch -O "$tmp" "$URL"
-elif command -v wget >/dev/null 2>&1; then
-	wget -O "$tmp" "$URL"
-else
-	echo "no uclient-fetch/wget" >&2
+write_status() {
+	local state="$1"
+	local err="${2:-}"
+	local mtime="${3:-}"
+	local count="${4:-0}"
+	local url_j err_j
+
+	url_j=$(json_escape "$URL")
+	err_j=$(json_escape "$err")
+	cat > "$STATUS" <<EOF
+{"etopen_state":"$state","etopen_url":"$url_j","etopen_mtime":"$mtime","etopen_files":$count,"etopen_error":"$err_j","rule_dir":"$RULE_DIR"}
+EOF
+}
+
+fail() {
+	local msg="$1"
+	local mtime="" count=0
+	count=$(find "$RULE_DIR" -name 'emerging-*.rules' 2>/dev/null | wc -l | tr -d ' ')
+	[ -n "$count" ] || count=0
+	if [ -f "$STAMP" ]; then
+		mtime=$(awk '{print $1}' "$STAMP")
+	fi
+	write_status error "$msg" "$mtime" "$count"
+	logger -t suricata-etopen "$msg"
+	echo "$msg" >&2
 	exit 1
+}
+
+mkdir -p "$RULE_DIR" /var/lib/threat-prevention /tmp /var/run
+
+if command -v flock >/dev/null 2>&1; then
+	exec 9>"$LOCK"
+	if ! flock -n 9; then
+		echo "etopen: fetch already running" >&2
+		exit 0
+	fi
 fi
 
-tar -tzf "$tmp" >/dev/null
-workdir=$(mktemp -d)
-trap 'rm -rf "$tmp" "$workdir"' EXIT
-tar -xzf "$tmp" -C "$workdir"
+write_status fetching
 
-# Tarball layout is usually rules/*.rules at top or nested.
+tmp=$(mktemp)
+workdir=
+cleanup() {
+	rm -f "$tmp"
+	[ -n "${workdir:-}" ] && rm -rf "$workdir"
+}
+trap cleanup EXIT
+
+have_default_route() {
+	ip -4 route show default 2>/dev/null | grep -q . && return 0
+	ip -6 route show default 2>/dev/null | grep -v 'dev lo' | grep -q . && return 0
+	return 1
+}
+
+url_host() {
+	printf '%s' "$URL" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+.-]*://||' -e 's|/.*||' -e 's|:.*||'
+}
+
+preflight() {
+	local wan_dev car host
+
+	if [ -n "${ETOPEN_TARBALL:-}" ]; then
+		return 0
+	fi
+
+	wan_dev=$(uci -q get network.wan.device 2>/dev/null || echo eth0)
+	car=
+	if [ -r "/sys/class/net/${wan_dev}/carrier" ]; then
+		car=$(cat "/sys/class/net/${wan_dev}/carrier" 2>/dev/null || echo)
+	fi
+
+	if ! have_default_route; then
+		if [ "$car" = "0" ]; then
+			fail "Unable to download the ET Open URL: WAN (${wan_dev}) has no link and the router has no default route. Connect the WAN port, then retry."
+		fi
+		fail "Unable to download the ET Open URL: the router has no default route (WAN may be down or DHCP has no lease)."
+	fi
+
+	host=$(url_host)
+	case "$host" in
+		''|*[!0-9.]* )
+			if [ -n "$host" ] && command -v nslookup >/dev/null 2>&1; then
+				if ! nslookup "$host" >/dev/null 2>&1; then
+					fail "Unable to download the ET Open URL: DNS lookup for ${host} failed (no upstream resolvers?)."
+				fi
+			fi
+			;;
+	esac
+
+	if [ ! -r "$CA" ]; then
+		fail "Unable to download the ET Open URL: CA bundle missing (${CA}). Install ca-bundle."
+	fi
+}
+
+download_url() {
+	local out rc args
+
+	: > "$LOG"
+	if command -v uclient-fetch >/dev/null 2>&1; then
+		# IPv4 first: uclient-fetch reports EPERM when it picks AAAA
+		# without a usable IPv6 path. --proxy=off avoids a stale env proxy.
+		args="-4 --timeout=120 --proxy=off -O $tmp"
+		[ -r "$CA" ] && args="$args --ca-certificate=$CA"
+		# shellcheck disable=SC2086
+		uclient-fetch $args "$URL" >"$LOG" 2>&1
+		rc=$?
+		if [ "$rc" -ne 0 ]; then
+			# IPv6-only WAN: retry without -4
+			uclient-fetch --timeout=120 --proxy=off ${CA:+--ca-certificate=$CA} -O "$tmp" "$URL" >"$LOG" 2>&1
+			rc=$?
+		fi
+		return "$rc"
+	fi
+	if command -v wget >/dev/null 2>&1; then
+		wget --timeout=120 -O "$tmp" "$URL" >"$LOG" 2>&1
+		return $?
+	fi
+	fail "Unable to download the ET Open URL: no uclient-fetch/wget"
+}
+
+preflight
+
+if [ -n "${ETOPEN_TARBALL:-}" ]; then
+	[ -f "$ETOPEN_TARBALL" ] || fail "ET Open tarball not found: $ETOPEN_TARBALL"
+	cp "$ETOPEN_TARBALL" "$tmp"
+else
+	if ! download_url; then
+		out=$(tr '\n' ' ' < "$LOG" 2>/dev/null | sed 's/  */ /g')
+		[ -n "$out" ] || out="download failed"
+		fail "Unable to download the ET Open URL: $out"
+	fi
+fi
+
+tar -tzf "$tmp" >/dev/null || fail "ET Open tarball is not valid gzip"
+workdir=$(mktemp -d)
+tar -xzf "$tmp" -C "$workdir" || fail "Failed to extract ET Open tarball"
+
 find "$workdir" -type f -name '*.rules' -exec cp {} "$RULE_DIR/" \;
 find "$workdir" -type f -name 'classification.config' -exec cp {} /etc/suricata/classification.config \; 2>/dev/null || true
 
 mtime=$(date -Iseconds 2>/dev/null || date)
 count=$(find "$RULE_DIR" -name 'emerging-*.rules' | wc -l | tr -d ' ')
+[ -n "$count" ] || count=0
 printf '%s\n' "$mtime $URL files=$count" > "$STAMP"
 
-cat > "$STATUS" <<EOF
-{"etopen_url":"$URL","etopen_mtime":"$mtime","etopen_files":$count,"rule_dir":"$RULE_DIR"}
-EOF
-
+write_status ok "" "$mtime" "$count"
 echo "etopen: $count emerging-*.rules in $RULE_DIR"
+logger -t suricata-etopen "fetched $count emerging-*.rules into $RULE_DIR"
 
 if [ -x /usr/sbin/suricata-config-apply ]; then
 	/usr/sbin/suricata-config-apply || true
@@ -49,8 +175,7 @@ if [ -x /usr/bin/suricata ]; then
 	run_yaml=$(uci -q get suricata.main.run_yaml 2>/dev/null || echo /var/run/suricata/suricata.yaml)
 	if [ -f "$run_yaml" ]; then
 		/usr/bin/suricata -T -c "$run_yaml" || {
-			echo "suricata -T failed" >&2
-			exit 1
+			fail "suricata -T failed after installing ET Open rules"
 		}
 	fi
 fi

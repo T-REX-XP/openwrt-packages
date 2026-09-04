@@ -85,10 +85,10 @@ msgid "Enable event logging"
 msgstr "Active l'enregistrement des événements"
 
 msgid "Log directory"
-msgstr "Log directory"
+msgstr "Répertoire des logs"
 
 msgid "Path where logs will be stored"
-msgstr "Path where logs will be stored"
+msgstr "Chemin où seront stockés les logs"
 
 msgid "Configuration directory"
 msgstr "Répertoire de configuration"
@@ -319,4 +319,74 @@ msgid "Auto-start enabled"
 msgstr "Auto-start enabled"
 
 msgid "Auto-start disabled"
-msgstr "Auto-start disabled"
+msgstr "Démarrage automatique désactivé"
+
+msgid "Enable OpenAppID"
+msgstr "Activer OpenAppID"
+
+msgid "Use the OpenAppID detector package if installed"
+msgstr "Utilise le paquet détecteur OpenAppID s'il est installé"
+
+msgid "Clean temporary files"
+msgstr "Nettoyer les fichiers temporaires"
+
+msgid "Settings form is not ready."
+msgstr "Le formulaire de configuration n'est pas prêt."
+
+msgid "Saved. Snort will start if Enable Snort is on."
+msgstr "Enregistré. Snort démarrera si Activer Snort est coché."
+
+msgid "Service control failed"
+msgstr "Échec du contrôle du service"
+
+msgid "Failed to save Snort settings"
+msgstr "Échec de l'enregistrement des paramètres Snort"
+
+msgid "RPC failed"
+msgstr "Échec RPC"
+
+msgid "Threat Prevention"
+msgstr "Prévention des menaces"
+
+msgid "Blocky"
+msgstr "Blocky"
+
+msgid "Snort 3 on the LAN bridge. Keep IDS (detect only) on CM5; inline IPS at 2.5 GbE is not recommended."
+msgstr "Snort 3 sur le pont LAN. Conservez l'IDS (détection seule) sur CM5 ; l'IPS en ligne à 2,5 GbE n'est pas recommandé."
+
+msgid "Engine"
+msgstr "Moteur"
+
+msgid "PID / autostart"
+msgstr "PID / démarrage auto"
+
+msgid "enabled"
+msgstr "activé"
+
+msgid "disabled"
+msgstr "désactivé"
+
+msgid "Not installed"
+msgstr "Non installé"
+
+msgid "IDS (detection only)"
+msgstr "IDS (détection uniquement)"
+
+msgid "IPS (prevention)"
+msgstr "IPS (prévention)"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Rules"
+msgstr "Règles"
+
+msgid "No alerts yet. Enable IDS and wait for traffic."
+msgstr "Pas encore d'alertes. Activez l'IDS et attendez du trafic."
+
+msgid "Save & apply"
+msgstr "Enregistrer et appliquer"
+
+msgid "Failed"
+msgstr "Échec"
+

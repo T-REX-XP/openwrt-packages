@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=suricata-etopen
 PKG_VERSION:=1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -39,8 +39,17 @@ define Build/Compile
 endef
 
 define Package/suricata-etopen/install
-	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/usr/sbin $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/usr/sbin/suricata-etopen-fetch $(1)/usr/sbin/suricata-etopen-fetch
+	$(INSTALL_BIN) ./files/suricata-etopen.init $(1)/etc/init.d/suricata-etopen
+endef
+
+define Package/suricata-etopen/postinst
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+# Oneshot fetcher — LuCI starts it; do not download on every boot.
+/etc/init.d/suricata-etopen disable >/dev/null 2>&1 || true
+exit 0
 endef
 
 $(eval $(call BuildPackage,suricata-etopen))

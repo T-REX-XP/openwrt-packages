@@ -93,9 +93,20 @@ jobs:
           feeds/packages/tp-eventd/tests/run-tests.sh
           feeds/luci/luci-app-threat-prevention/tests/run-tests.sh
 
+  test-snort3:
+    name: luci-app-snort3 host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - name: Run snort LuCI host tests
+        run: feeds/luci/luci-app-snort3/tests/run-tests.sh
+
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
-    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention, test-feed-discover]
+    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention, test-snort3, test-feed-discover]
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT
