@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=suricata
 PKG_VERSION:=8.0.6
-PKG_RELEASE:=5
+PKG_RELEASE:=6
 
 PKG_SOURCE:=suricata-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://www.openinfosecfoundation.org/download
@@ -33,7 +33,7 @@ define Package/suricata
   TITLE:=Suricata IDS (AF_PACKET)
   URL:=https://suricata.io/
   DEPENDS:=$(RUST_ARCH_DEPENDS) +libpcap +libpcre2 +libyaml +jansson \
-	+libmagic +zlib +libcap-ng +libnet-1.2.x +liblz4 +libatomic
+	+libmagic +zlib +libcap-ng +libnet-1.2.x +liblz4 +libatomic +libelf
 endef
 
 define Package/suricata/description
