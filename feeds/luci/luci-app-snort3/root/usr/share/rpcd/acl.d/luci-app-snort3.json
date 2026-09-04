@@ -1,0 +1,37 @@
+{
+	"luci-app-snort3": {
+		"description": "Grant access for luci-app-snort3",
+		"read": {
+			"ubus": {
+				"luci.snort3": [
+					"getStatus",
+					"getConfig",
+					"getAlerts",
+					"updateStatus"
+				]
+			},
+			"uci": [ "snort" ],
+			"file": {
+				"/usr/bin/snort": [ "exec" ],
+				"/etc/init.d/snort": [ "exec" ],
+				"/var/log/alert_fast.txt": [ "read" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.snort3": [
+					"setConfig",
+					"serviceControl",
+					"updateRules",
+					"fixRules"
+				]
+			},
+			"uci": [ "snort" ],
+			"file": {
+				"/etc/init.d/snort": [ "exec" ],
+				"/usr/bin/snort-rules": [ "exec" ],
+				"/usr/bin/snort-mgr": [ "exec" ]
+			}
+		}
+	}
+}

@@ -213,4 +213,4 @@ const methods = {
 	}
 };
 
-return { 'luci.threat-prevention': { methods } };
+return { 'luci.threat-prevention': methods };

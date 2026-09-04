@@ -1,8 +1,73 @@
 /*
- * luci-app-snort3 theme — dark / light / system via luci-theme-bootstrap
+ * luci-app-snort3 — Bootstrap light / dark / system
  */
 
-.snort-alert-box {
+.luci-app-snort3 {
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-lead,
+.luci-app-snort3 .snort-cross {
+	color: var(--text-color-medium);
+}
+
+.luci-app-snort3 .snort-cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+@media (max-width: 768px) {
+	.luci-app-snort3 .snort-cards {
+		grid-template-columns: 1fr;
+	}
+}
+
+.luci-app-snort3 .snort-card {
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.75rem 1rem;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-card-label {
+	color: var(--text-color-medium);
+	font-size: 0.85em;
+}
+
+.luci-app-snort3 .snort-card-value {
+	color: var(--text-color-highest);
+	font-size: 1.1em;
+	word-break: break-word;
+}
+
+.luci-app-snort3 .snort-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-bottom: 0.75rem;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-field label {
+	color: var(--text-color-medium);
+}
+
+.luci-app-snort3 .snort-field input,
+.luci-app-snort3 .snort-field select {
+	max-width: 100%;
+}
+
+.luci-app-snort3 .snort-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+.luci-app-snort3 .snort-alert-box {
 	background: var(--background-color-medium);
 	border-left: 4px solid var(--error-color-high);
 	padding: 15px;
@@ -13,9 +78,11 @@
 	max-height: 500px;
 	overflow-y: auto;
 	color: var(--text-color-high);
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
-.snort-log-box {
+.luci-app-snort3 .snort-log-box {
 	background: var(--background-color-low);
 	border-left: 4px solid var(--primary-color-high);
 	padding: 15px;
@@ -26,52 +93,14 @@
 	max-height: 400px;
 	overflow-y: auto;
 	color: var(--text-color-high);
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
-.snort-log-line,
-.snort-alert-line {
-	padding: 5px 0;
-	border-bottom: 1px solid var(--border-color-low);
-	word-wrap: break-word;
-}
-
-.snort-log-line:last-child,
-.snort-alert-line:last-child {
-	border-bottom: none;
-}
-
-.snort-recent-alerts {
-	background: var(--background-color-medium);
-	border-left: 4px solid var(--error-color-high);
-	padding: 12px;
-	margin: 8px 0;
-	border-radius: 4px;
-	font-family: var(--font-mono, monospace);
-	font-size: 0.85em;
-	max-height: 280px;
-	overflow-y: auto;
-	color: var(--text-color-high);
-}
-
-.snort-recent-alerts .alert-line {
-	padding: 6px 0;
-	border-bottom: 1px solid var(--border-color-low);
-	word-wrap: break-word;
-}
-
-.snort-recent-alerts .no-alerts {
-	text-align: center;
-	color: var(--success-color-high);
-	padding: 12px;
-	font-weight: 700;
-}
-
-.snort-status-ok { color: var(--success-color-high); font-weight: 700; }
-.snort-status-err { color: var(--error-color-high); font-weight: 700; }
-.snort-status-warn { color: var(--warn-color-high); font-weight: 700; }
-.snort-status-muted { color: var(--text-color-medium); }
-
-.snort-rules-ok { color: var(--success-color-high); }
-.snort-rules-warn { color: var(--warn-color-high); }
-.snort-rules-err { color: var(--error-color-high); }
-.snort-rules-meta { color: var(--text-color-medium); }
+.luci-app-snort3 .snort-rules-ok { color: var(--success-color-high); }
+.luci-app-snort3 .snort-rules-warn { color: var(--warn-color-high); }
+.luci-app-snort3 .snort-rules-err { color: var(--error-color-high); }
+.luci-app-snort3 .snort-rules-meta { color: var(--text-color-medium); }
+.luci-app-snort3 .snort-status-ok { color: var(--success-color-high); font-weight: 700; }
+.luci-app-snort3 .snort-status-err { color: var(--error-color-high); font-weight: 700; }
+.luci-app-snort3 .snort-status-warn { color: var(--warn-color-high); font-weight: 700; }

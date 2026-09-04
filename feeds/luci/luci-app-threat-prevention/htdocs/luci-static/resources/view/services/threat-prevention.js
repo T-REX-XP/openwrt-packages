@@ -244,12 +244,11 @@ return view.extend({
 		renderPolicy(cfg);
 		renderSettings(cfg);
 
-		root.appendChild(statusBox);
-		root.appendChild(eventsBox);
-		root.appendChild(policyBox);
-		root.appendChild(settingsBox);
-
-		ui.tabs.initTabGroup(root.childNodes);
+		var tabHost = E('div', { 'class': 'tp-tab-host' }, [
+			statusBox, eventsBox, policyBox, settingsBox
+		]);
+		root.appendChild(tabHost);
+		ui.tabs.initTabGroup(tabHost.childNodes);
 
 		poll.add(function() {
 			return Promise.all([ callGetStatus(), callGetEvents(50) ]).then(function(next) {

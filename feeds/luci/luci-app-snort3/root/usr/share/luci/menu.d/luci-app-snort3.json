@@ -1,0 +1,13 @@
+{
+	"admin/services/snort": {
+		"title": "Snort IDS/IPS",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "services/snort"
+		},
+		"depends": {
+			"acl": [ "luci-app-snort3" ]
+		}
+	}
+}
