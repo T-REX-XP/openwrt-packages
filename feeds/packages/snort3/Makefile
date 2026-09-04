@@ -1,7 +1,7 @@
 #
 # snort3 — vendored from openwrt/packages net/snort3 (3.12.2.0).
-# In the CM5 image (IDS off by default). Compile in Docker (libdaq3 + luajit);
-# omitted from GitHub SDK CI like suricata.
+# In the CM5 image (IDS off by default). Built and published by GitHub SDK CI
+# (libdaq3 + luajit come from ImmortalWrt packages).
 # https://github.com/openwrt/packages/tree/master/net/snort3
 #
 # This is free software, licensed under the GNU General Public License v2.

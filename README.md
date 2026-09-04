@@ -18,9 +18,9 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/luci/luci-app-peripherals` | **luci-app-peripherals** — IR, PWM fan, I2C bus scan |
 | `feeds/luci/luci-app-buttons` | **luci-app-buttons** — optional `/etc/rc.button/` script editor (feed-only; not in CM5 image) |
 | `feeds/luci/luci-app-mcu-display` | **luci-app-mcu-display** — ESP32 UART display (`mcudd`, CM5: `/dev/ttyS2`, button nav) |
-| `feeds/packages/snort3` | **snort3** — Snort 3 IDS (in CM5 image, disabled by default; compile in Docker, not GitHub SDK) |
+| `feeds/packages/snort3` | **snort3** — Snort 3 IDS (in CM5 image, disabled by default; GitHub Actions SDK + Pages) |
 | `feeds/luci/luci-app-snort3` | **luci-app-snort3** — LuCI for Snort3 IDS/IPS ([community upstream](https://github.com/dddavid51/luci-snort3-openwrt)) |
-| `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (in CM5 image, disabled by default; compile in Docker, not GitHub SDK) |
+| `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (in CM5 image, disabled by default; GitHub Actions SDK + Pages) |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 8) into `/etc/suricata/rules` |
 | `feeds/packages/tp-eventd` | **tp-eventd** — EVE JSON → SQLite event ring |
 | `feeds/luci/luci-app-threat-prevention` | Threat Prevention LuCI (EVE events, ET Open, class policy) |
@@ -61,8 +61,8 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 | **DNS threat filtering** | `blocky`, `luci-app-blocky` | **this feed** | Excellent — in default CM5 image |
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
-| **Signature IDS** | `snort3`, `luci-app-snort3` | **this feed** (engine: Docker compile; shadows ImmortalWrt `snort3` if both are linked) | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
-| | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-threat-prevention` | **this feed** (engine: Docker compile) | Optional **IDS** on `br-lan`; not in CM5 image |
+| **Signature IDS** | `snort3`, `luci-app-snort3` | **this feed** (GitHub Pages apk; shadows ImmortalWrt `snort3` if both are linked) | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
+| | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-threat-prevention` | **this feed** (GitHub Pages apk) | Optional **IDS** on `br-lan`; not in CM5 image |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
 | **Operator guide** | `luci-app-security-guide` | **this feed** | Security & privacy LuCI (CM5 profile) |
@@ -88,9 +88,8 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 Packages from **this feed** (after enabling the feed — see below):
 
 ```sh
-apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
-apk add suricata-etopen tp-eventd luci-app-threat-prevention
-# snort3 / suricata engines: compile in Docker first, then apk add snort3 suricata
+apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3 snort3
+apk add suricata suricata-etopen tp-eventd luci-app-threat-prevention
 ```
 
 Packages from the **standard ImmortalWrt index** (built into the image or from upstream feeds):
@@ -149,7 +148,7 @@ See also `feeds.conf.snippet`.
 
 ## Option D — Install from published feed
 
-GitHub Actions builds this feed **only for Orange Pi CM5 Base** (ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** packages). SDK image: **`aarch64_generic-25.12-SNAPSHOT`** on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=aarch64_generic-25.12-SNAPSHOT) (aligned with release **25.12.0**).
+GitHub Actions builds **every** `feeds/packages/*` and `feeds/luci/*` recipe (discovered from Makefiles, not a hardcoded list) **only for Orange Pi CM5 Base** (ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`**). SDK image: **`aarch64_generic-25.12-SNAPSHOT`** on [Docker Hub](https://hub.docker.com/r/immortalwrt/sdk/tags?name=aarch64_generic-25.12-SNAPSHOT) (aligned with release **25.12.0**). Tagged **Release** publishes the same set to Pages.
 
 ### GitHub Pages (online feed)
 

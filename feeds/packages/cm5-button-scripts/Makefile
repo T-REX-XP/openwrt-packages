@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cm5-button-scripts
 PKG_VERSION:=1.0
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 
 PKG_MAINTAINER:=Immortal OPI CM5 overlay
 PKG_LICENSE:=GPL-2.0-only
@@ -18,7 +18,9 @@ define Package/cm5-button-scripts
   SECTION:=utils
   CATEGORY:=Base system
   TITLE:=Orange Pi CM5 Base button hotplug scripts
-  DEPENDS:=@TARGET_rockchip_armv8 +wifi-scripts +kmod-gpio-button-hotplug +kmod-button-hotplug +kmod-input-adc-keys
+  # No @TARGET_rockchip_armv8 — that symbol is unset in the aarch64_generic
+  # SDK, so gh-action-sdk would skip this PKGARCH=all package and never publish it.
+  DEPENDS:=+wifi-scripts +kmod-gpio-button-hotplug +kmod-button-hotplug +kmod-input-adc-keys
   PKGARCH:=all
 endef
 

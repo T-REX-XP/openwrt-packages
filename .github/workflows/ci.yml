@@ -1,16 +1,18 @@
 name: CI
 
 on:
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "feeds/**"
-  #     - ".github/**"
+  push:
+    branches: [main]
+    paths:
+      - "feeds/**"
+      - ".github/**"
+      - "scripts/discover-feed-packages.sh"
   pull_request:
     branches: [main]
     paths:
       - "feeds/**"
       - ".github/**"
+      - "scripts/discover-feed-packages.sh"
   workflow_dispatch:
     inputs:
       upload_artifacts:
@@ -61,6 +63,21 @@ jobs:
       - name: Run mcudd host tests
         run: feeds/packages/mcudd/scripts/run-tests.sh
 
+  test-feed-discover:
+    name: discover all feed packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: List feeds/{packages,luci} recipes
+        run: |
+          set -euo pipefail
+          chmod +x scripts/discover-feed-packages.sh
+          scripts/discover-feed-packages.sh . | tee /tmp/feed-packages.txt
+          test "$(grep -c . /tmp/feed-packages.txt)" -ge 8
+          grep -qx cm5-button-scripts /tmp/feed-packages.txt
+          grep -qx snort3 /tmp/feed-packages.txt
+          grep -qx suricata /tmp/feed-packages.txt
+
   test-threat-prevention:
     name: threat-prevention host tests
     runs-on: ubuntu-latest
@@ -78,11 +95,11 @@ jobs:
 
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
-    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention]
+    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention, test-feed-discover]
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT
       pkg_arch: aarch64_generic
       fetch_depth: 1
-      timeout_minutes: 90
+      timeout_minutes: 180
       upload_packages: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts }}

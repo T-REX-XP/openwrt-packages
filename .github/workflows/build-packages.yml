@@ -20,7 +20,7 @@ on:
       timeout_minutes:
         required: false
         type: number
-        default: 90
+        default: 180
       upload_packages:
         required: false
         type: boolean
@@ -51,11 +51,6 @@ env:
   FEEDNAME: openwrt_packages
   FEED_DIR: ${{ github.workspace }}/feeds
   SDK_RELEASE: 25.12-SNAPSHOT
-  # Suricata 8 and snort3 engines are omitted (heavy; compile in Docker builder).
-  PACKAGES: >-
-    blocky yggdrasil luci-app-blocky luci-app-speedtest luci-app-security-guide
-    luci-app-peripherals luci-app-buttons mcudd luci-app-mcu-display
-    suricata-etopen tp-eventd luci-app-threat-prevention luci-app-snort3
 
 jobs:
   build:
@@ -68,14 +63,27 @@ jobs:
         with:
           fetch-depth: ${{ inputs.fetch_depth }}
 
+      - name: Discover feed packages
+        id: discover
+        run: |
+          set -euo pipefail
+          chmod +x scripts/discover-feed-packages.sh
+          scripts/discover-feed-packages.sh . | tee feed-packages.txt
+          pkgs="$(tr '\n' ' ' < feed-packages.txt | xargs)"
+          count="$(grep -c . feed-packages.txt)"
+          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Discovered $count feed packages: $pkgs"
+
       - name: Build packages (ImmortalWrt SDK)
+        id: sdk
         uses: immortalwrt/gh-action-sdk@c4848d7f7d899d80e6d98630f0a21ab2e9c4724f
         env:
           ARCH: ${{ inputs.arch }}
           CONTAINER: immortalwrt/sdk
           FEEDNAME: ${{ env.FEEDNAME }}
           FEED_DIR: ${{ env.FEED_DIR }}
-          PACKAGES: ${{ env.PACKAGES }}
+          PACKAGES: ${{ steps.discover.outputs.packages }}
           INDEX: ${{ inputs.index }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           KEY_BUILD: ${{ secrets.KEY_BUILD }}
@@ -90,6 +98,25 @@ jobs:
           echo "=== Built packages (${{ inputs.pkg_arch }}) ==="
           find bin/packages -type f \( -name '*.apk' -o -name '*.ipk' \) 2>/dev/null | sort || true
           echo "======================================="
+
+      - name: Require an apk for every feed package
+        if: always() && steps.sdk.outcome != 'cancelled'
+        run: |
+          set -euo pipefail
+          missing=0
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            if ! find bin/packages -type f \( -name "${pkg}-*.apk" -o -name "${pkg}_*.apk" -o -name "${pkg}-*.ipk" -o -name "${pkg}_*.ipk" \) 2>/dev/null | grep -q .; then
+              echo "::error::No .apk/.ipk for ${pkg} (hardcoded skip, @TARGET_* skip, or compile failure)"
+              missing=1
+            else
+              echo "ok ${pkg}"
+            fi
+          done < feed-packages.txt
+          if [ "$missing" -ne 0 ]; then
+            echo "Feed tree must produce an artifact for every feeds/{packages,luci}/*/Makefile" >&2
+            exit 1
+          fi
 
       - name: Prepare release tarball
         if: inputs.prepare_release_tarball

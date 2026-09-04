@@ -1,0 +1,34 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -2118,14 +2118,14 @@
+     rust_vendor_comment="# "
+     have_rust_vendor="no"
+ 
+-    if test "x$cross_compiling" = "xyes"; then
++    # Prefer CARGO_BUILD_TARGET (OpenWrt: aarch64-unknown-linux-musl).
++    # host_alias is aarch64-openwrt-linux, which rustc does not know.
++    if test "x$CARGO_BUILD_TARGET" != "x"; then
++      RUST_SURICATA_LIB_XC_DIR="${CARGO_BUILD_TARGET}/"
++    elif test "x$cross_compiling" = "xyes"; then
+       RUST_SURICATA_LIB_XC_DIR="${host_alias}/"
+     else
+-      if test "x$CARGO_BUILD_TARGET" = "x"; then
+-        RUST_SURICATA_LIB_XC_DIR=
+-      else
+-        RUST_SURICATA_LIB_XC_DIR="${CARGO_BUILD_TARGET}/"
+-      fi
++      RUST_SURICATA_LIB_XC_DIR=
+     fi
+ 
+     if test "x$enable_debug" = "xyes"; then
+--- a/rust/Makefile.am
++++ b/rust/Makefile.am
+@@ -44,7 +44,7 @@
+ endif
+ 
+ if RUST_CROSS_COMPILE 
+-RUST_TARGET = --target $(host_triplet)
++RUST_TARGET = --target $(if $(CARGO_BUILD_TARGET),$(CARGO_BUILD_TARGET),$(host_triplet))
+ endif
+ 
+ if HAVE_CYGPATH

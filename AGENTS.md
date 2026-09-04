@@ -89,12 +89,13 @@ After linking:
 ./scripts/feeds install -p openwrt_packages -a
 make package/blocky/compile V=s
 make package/luci-app-blocky/compile V=s
-# snort3 / suricata engines: Docker builder only (skipped in GitHub SDK CI)
+make package/snort3/compile V=s
+make package/suricata/compile V=s
 ```
 
 ## CI and release
 
-- **PR/push CI** — `.github/workflows/ci.yml` (calls reusable `build-packages.yml`); unsigned compile verification.
+- **PR/push CI** — `.github/workflows/ci.yml` (calls reusable `build-packages.yml`); unsigned compile of **every** feed package (`scripts/discover-feed-packages.sh`).
 - **Tagged release** — `.github/workflows/release.yml`: signed `.apk` index + GitHub Pages feed.
 - **Release tarball:** `openwrt_packages_aarch64_generic-immortalwrt-25.12-SNAPSHOT.tar.gz` on [Releases](https://github.com/T-REX-XP/openwrt-packages/releases).
 - **Critical:** GitHub Actions must set `FEED_DIR: ${{ github.workspace }}/feeds` (Makefiles are not at repo root).

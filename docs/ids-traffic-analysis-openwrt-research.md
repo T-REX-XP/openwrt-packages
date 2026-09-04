@@ -61,7 +61,7 @@ From **`immortal_opi_cm5`** / **`armv8.mk`** profile:
 
 ### Packaging
 
-- **`snort3`** is vendored in **this feed** from **[openwrt/packages `net/snort3`](https://github.com/openwrt/packages/blob/master/net/snort3/Makefile)** (3.12.x). GitHub SDK CI skips the engine; compile in Docker. `libdaq3` still comes from ImmortalWrt `packages`.
+- **`snort3`** is vendored in **this feed** from **[openwrt/packages `net/snort3`](https://github.com/openwrt/packages/blob/master/net/snort3/Makefile)** (3.12.x). GitHub SDK CI compiles and publishes it. `libdaq3` still comes from ImmortalWrt `packages`.
 - **Dependencies:** `libdaq3`, `libpcap`, `luajit`, **`kmod-nft-queue`** (for IPS), `ucode`, optional **`vectorscan`** (Hyperscan fork) on **x86_64** and **aarch64** for faster pattern matching.
 - **Init:** `snort.init` uses **procd**, **`snort-mgr`** for config validation/setup ([upstream init](https://github.com/openwrt/packages/blob/master/net/snort3/files/snort.init)).
 - **LuCI:** no official **`luci-app-snort3`** in main LuCI; community **[luci-snort3-openwrt](https://github.com/dddavid51/luci-snort3-openwrt)** (2025) provides **Services → Snort IDS/IPS** UI.

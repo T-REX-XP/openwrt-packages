@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=suricata
 PKG_VERSION:=8.0.6
-PKG_RELEASE:=2
+PKG_RELEASE:=5
 
 PKG_SOURCE:=suricata-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://www.openinfosecfoundation.org/download
@@ -59,7 +59,27 @@ CONFIGURE_ARGS += \
 
 ifneq ($(CARGO_PKG_CONFIG_VARS),)
 CONFIGURE_VARS += $(CARGO_PKG_CONFIG_VARS)
+MAKE_VARS += $(CARGO_PKG_CONFIG_VARS)
 endif
+
+# rust/Makefile.am uses --target $(host_triplet); src/Makefile looks for
+# ../rust/target/$(host_alias)/release/libsuricata_rust.a. OpenWrt rustc
+# only knows aarch64-unknown-linux-musl (CARGO_BUILD_TARGET in rust-values.mk).
+ifneq ($(RUSTC_TARGET_ARCH),)
+CONFIGURE_VARS += CARGO_BUILD_TARGET="$(RUSTC_TARGET_ARCH)"
+MAKE_VARS += CARGO_BUILD_TARGET="$(RUSTC_TARGET_ARCH)"
+MAKE_FLAGS += \
+	CARGO_BUILD_TARGET="$(RUSTC_TARGET_ARCH)" \
+	RUST_TARGET="--target $(RUSTC_TARGET_ARCH)" \
+	RUST_SURICATA_LIBDIR="../rust/target/$(RUSTC_TARGET_ARCH)/release" \
+	RUST_SURICATA_LIB="../rust/target/$(RUSTC_TARGET_ARCH)/release/libsuricata_rust.a"
+endif
+
+# Upstream `make install` skips yaml; configs live under /etc/suricata.
+define Build/Install
+	$(call Build/Install/Default)
+	$(MAKE) -C $(PKG_BUILD_DIR) $(MAKE_INSTALL_FLAGS) DESTDIR="$(PKG_INSTALL_DIR)" install-conf
+endef
 
 define Package/suricata/install
 	$(INSTALL_DIR) $(1)/usr/bin

@@ -114,7 +114,7 @@ Examples: `immortalwrt/sdk-aarch64_generic-25.12-SNAPSHOT`.
 | Change | Effect |
 |--------|--------|
 | CM5-only CI and release | One SDK job per workflow run |
-| Explicit **`PACKAGES`** list | Builds only feed packages, not accidental extras |
+| Discovered **`PACKAGES`** (`scripts/discover-feed-packages.sh`) | Builds every `feeds/{packages,luci}/*` recipe; CI fails if any `.apk` is missing |
 
 ### Tier 3 — leaner release
 

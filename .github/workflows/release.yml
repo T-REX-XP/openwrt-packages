@@ -40,7 +40,7 @@ jobs:
       pkg_arch: aarch64_generic
       index: "1"
       fetch_depth: 1
-      timeout_minutes: 120
+      timeout_minutes: 300
       prepare_release_tarball: true
 
   github-release:

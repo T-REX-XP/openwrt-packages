@@ -98,7 +98,7 @@ build-immortalwrt-macos.sh --source /path/to/immortalwrt \
 
 - Syntax-check shell: `sh -n files/...`
 - Syntax-check LuCI JS: `node --check htdocs/luci-static/resources/*.js`
-- CI compiles all packages unsigned on push/PR
+- CI compiles **every** `feeds/{packages,luci}/*` package (discovered, not a hardcoded list) unsigned on push/PR; tagged Release publishes the same set
 
 ## Do not
 
