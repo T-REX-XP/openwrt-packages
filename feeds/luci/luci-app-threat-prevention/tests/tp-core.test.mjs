@@ -132,9 +132,9 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /_\('Quick actions'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);
 	assert.match(view, /id:\s*'tp-tune-threshold'/);
-	assert.match(view, /actionSelect\('tp-tune-action'/);
 	assert.match(view, /tuneField\('tp-tune-category'/);
-	assert.match(view, /tp-tune-field--wide/);
+	assert.doesNotMatch(view, /actionSelect\('tp-tune-action'/);
+	assert.doesNotMatch(view, /tp-tune-field--wide/);
 	assert.doesNotMatch(view, /fieldRow\('tp-tune-category'/);
 	assert.doesNotMatch(view, /Cluster/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);

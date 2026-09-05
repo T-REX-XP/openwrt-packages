@@ -391,10 +391,6 @@
 	padding: 0;
 }
 
-.luci-app-threat-prevention .tp-tune-field--wide {
-	grid-column: 1 / -1;
-}
-
 .luci-app-threat-prevention .tp-tune-field-title {
 	display: block;
 	float: none;

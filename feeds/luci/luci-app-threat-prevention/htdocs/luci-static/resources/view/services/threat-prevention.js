@@ -123,8 +123,8 @@ function fieldRow(id, title, field, descr) {
 	]);
 }
 
-function tuneField(id, title, field, descr, wide) {
-	return E('div', { 'class': 'tp-tune-field' + (wide ? ' tp-tune-field--wide' : '') }, [
+function tuneField(id, title, field, descr) {
+	return E('div', { 'class': 'tp-tune-field' }, [
 		E('label', { 'class': 'tp-tune-field-title', 'for': id }, title),
 		E('div', { 'class': 'tp-tune-field-control' }, [ field ]),
 		descr ? E('p', { 'class': 'tp-tune-field-help' }, descr) : ''
@@ -823,7 +823,6 @@ return view.extend({
 				var priority;
 				var target;
 				var threshold;
-				var actionSel;
 				var tagIn;
 				var tagHost;
 				var preview;
@@ -866,7 +865,6 @@ return view.extend({
 					placeholder: 'type limit, track by_src, count 1, seconds 60',
 					value: rule.threshold || ''
 				});
-				actionSel = actionSelect('tp-tune-action', rule.tune_action || '', true);
 				preview = E('textarea', {
 					id: 'tp-tune-raw',
 					'class': 'tp-rule-raw',
@@ -888,7 +886,7 @@ return view.extend({
 						priority: priority.value,
 						target: target.value,
 						threshold: threshold.value,
-						action: actionSel.value,
+						action: rule.tune_action || '',
 						tags: tags
 					};
 				}
@@ -898,7 +896,7 @@ return view.extend({
 						classtype: category.value,
 						priority: priority.value,
 						target: target.value,
-						action: actionSel.value
+						action: rule.tune_action || ''
 					});
 				}
 
@@ -947,7 +945,6 @@ return view.extend({
 				category.addEventListener('change', paintPreview);
 				priority.addEventListener('input', paintPreview);
 				target.addEventListener('change', paintPreview);
-				actionSel.addEventListener('change', paintPreview);
 
 				ui.showModal(_('Rules management') + ' → ' + _('SID %s').format(sid), [
 					E('div', { 'class': 'luci-app-threat-prevention' }, [
@@ -973,10 +970,7 @@ return view.extend({
 							tuneField('tp-tune-target', _('Target'), target,
 								_('src_ip or dest_ip. Stored with the SID.')),
 							tuneField('tp-tune-threshold', _('Threshold'), threshold,
-								_('Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60.')),
-							tuneField('tp-tune-action', _('Action'), actionSel,
-								_('Alert logs a match. Drop and reject need Prevention mode. Empty keeps the vendor action.'),
-								true)
+								_('Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60.'))
 						]),
 						E('label', { 'class': 'tp-tune-label' }, _('Tags')),
 						E('div', { 'class': 'tp-tag-add' }, [
