@@ -103,7 +103,10 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /_\('Add'\)/);
 	assert.match(view, /_\('Fetch now'\)/);
 	assert.match(view, /callSetConfig\(\{ feeds:/);
-	assert.match(view, /callGetRules/);
+	assert.match(view, /cbi-value-title/);
+	assert.match(view, /_\('What to do next'\)/);
+	assert.doesNotMatch(view, /CM5/);
+	assert.doesNotMatch(view, /2\.5 GbE/);
 	assert.match(view, /callSetRuleState/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /Prefer the small profile on CM5/);

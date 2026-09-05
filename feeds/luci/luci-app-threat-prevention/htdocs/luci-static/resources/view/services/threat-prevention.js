@@ -78,6 +78,51 @@ function val(v, fallback) {
 
 var settingsFeeds = [];
 
+function cbiSection(title, descr, body) {
+	return E('div', { 'class': 'cbi-section' }, [
+		title ? E('h3', {}, title) : '',
+		descr ? E('div', { 'class': 'cbi-section-descr' }, descr) : '',
+		E('div', { 'class': 'cbi-section-node' }, body)
+	]);
+}
+
+function fieldRow(id, title, field, descr) {
+	return E('div', { 'class': 'cbi-value' }, [
+		E('label', { 'class': 'cbi-value-title', 'for': id }, title),
+		E('div', { 'class': 'cbi-value-field' }, [
+			field,
+			descr ? E('div', { 'class': 'cbi-value-description' }, descr) : ''
+		])
+	]);
+}
+
+function tpBadge(kind, text) {
+	return E('span', { 'class': 'tp-badge tp-badge--' + kind }, text);
+}
+
+function tpStatusRow(label, value) {
+	return E('div', { 'class': 'tp-status-row' }, [
+		E('div', { 'class': 'tp-status-label' }, label),
+		E('div', { 'class': 'tp-status-value' }, value)
+	]);
+}
+
+function tpEngineKind(st) {
+	if (!st.suricata_present)
+		return 'muted';
+	if (st.suricata_running)
+		return 'yes';
+	return 'no';
+}
+
+function tpEngineLabel(st) {
+	if (!st.suricata_present)
+		return _('Not installed');
+	if (st.suricata_running)
+		return _('Running');
+	return _('Not running');
+}
+
 function luciDevList(devs) {
 	var out = [];
 	var i, d, name, type;
@@ -189,10 +234,11 @@ return view.extend({
 			href: L.resource('threat-prevention-theme.css')
 		});
 
+		var hero = E('div', { 'class': 'tp-hero', 'id': 'tp-hero' });
 		var root = E('div', { 'class': 'luci-app-threat-prevention' }, [
 			E('h2', {}, _('Threat Prevention')),
 			E('p', { 'class': 'tp-lead' }, [
-				_('Suricata IDS on the LAN bridge with Emerging Threats Open. Not in the default CM5 image. Inline IPS at 2.5 GbE is not recommended.')
+				_('Watches devices on your LAN for known attacks using Suricata and Emerging Threats Open. Start in watch-only mode, then download rules on the Rules tab.')
 			]),
 			E('p', { 'class': 'tp-cross' }, [
 				E('a', { href: L.url('admin/services/snort') }, _('Snort3')),
@@ -200,7 +246,8 @@ return view.extend({
 				E('a', { href: L.url('admin/services/blocky') }, _('Blocky')),
 				' · ',
 				E('a', { href: L.url('admin/services/banip') }, _('banIP'))
-			])
+			]),
+			hero
 		]);
 
 		var statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
@@ -294,16 +341,12 @@ return view.extend({
 				placeholder: _('Optional description')
 			});
 			ui.showModal(existing ? _('Edit rule feed') : _('Add rule feed'), [
-				E('div', { 'class': 'tp-field' }, [
-					E('label', { 'for': 'tp-feed-name' }, _('Name')), nameIn
-				]),
-				E('div', { 'class': 'tp-field' }, [
-					E('label', { 'for': 'tp-feed-url' }, _('URL')), urlIn,
-					E('div', { 'class': 'tp-help' }, _('HTTPS URL to a rules tarball or .rules file'))
-				]),
-				E('div', { 'class': 'tp-field' }, [
-					E('label', { 'for': 'tp-feed-desc' }, _('Description')), descIn
-				]),
+				fieldRow('tp-feed-name', _('Name'), nameIn,
+					_('Short label shown in the table.')),
+				fieldRow('tp-feed-url', _('URL'), urlIn,
+					_('Must be an https:// address of a .tar.gz rules archive or a .rules file.')),
+				fieldRow('tp-feed-desc', _('Description'), descIn,
+					_('Optional. Shown under the name.')),
 				E('div', { 'class': 'right' }, [
 					E('button', {
 						'type': 'button',
@@ -359,9 +402,9 @@ return view.extend({
 			if (!tpFeedsHost)
 				return;
 			tpFeedsHost.innerHTML = '';
-			tpFeedsHost.appendChild(E('h3', {}, _('Rule feeds')));
-			tpFeedsHost.appendChild(E('p', { 'class': 'tp-help' },
-				_('Manage HTTPS rule tarball URLs. Disable a feed to skip it on the next fetch.')));
+			tpFeedsHost.appendChild(cbiSection(_('Rule feeds'),
+				_('A feed is an HTTPS address of a rules tarball. Tick Enabled for feeds to download. Official ET Open is the usual starting point.'),
+				[]));
 			table = E('div', { 'class': 'table tp-feeds-table' }, [
 				E('div', { 'class': 'tr table-titles' }, [
 					E('div', { 'class': 'th' }, _('Enabled')),
@@ -463,38 +506,115 @@ return view.extend({
 			paintTpFeeds();
 		}
 
-		function renderStatus(st) {
-			statusBox.innerHTML = '';
-			statusBox.appendChild(E('div', { 'class': 'tp-cards' }, [
-				E('div', { 'class': 'tp-card' }, [
-					E('div', { 'class': 'tp-card-label' }, _('Engine')),
-					E('div', { 'class': 'tp-card-value' }, st.suricata_present
-						? (st.suricata_running ? _('Running') : _('Stopped'))
-						: _('Not installed'))
-				]),
-				E('div', { 'class': 'tp-card' }, [
-					E('div', { 'class': 'tp-card-label' }, _('Mode')),
-					E('div', { 'class': 'tp-card-value' }, val(st.mode, 'ids') + ' / ' + val(st.interface))
-				]),
-				E('div', { 'class': 'tp-card' }, [
-					E('div', { 'class': 'tp-card-label' }, _('Alerts stored')),
-					E('div', { 'class': 'tp-card-value' }, val(st.events, '0'))
-				]),
-				E('div', { 'class': 'tp-card' }, [
-					E('div', { 'class': 'tp-card-label' }, _('ET Open')),
-					E('div', { 'class': 'tp-card-value' }, st.etopen_state === 'fetching'
-						? _('Fetching…')
-						: val(st.etopen_mtime, _('Never fetched')))
-				])
+		function paintHero(st) {
+			var note;
+			hero.innerHTML = '';
+			hero.appendChild(tpBadge(tpEngineKind(st), tpEngineLabel(st)));
+			if (!st.suricata_present)
+				note = _('The Suricata engine is not installed on this router.');
+			else if (st.suricata_running)
+				note = _('Watching %s in %s mode.').format(val(st.interface), val(st.mode, 'ids').toUpperCase());
+			else
+				note = _('Protection is off. Enable it on the Settings tab, then Save & Apply.');
+			hero.appendChild(E('div', { 'class': 'tp-hero-copy' }, [
+				E('strong', {}, tpEngineLabel(st)),
+				E('span', { 'class': 'tp-hero-note' }, note)
 			]));
+		}
+
+		function renderStatus(st) {
+			var steps = [];
+			statusBox.innerHTML = '';
+			paintHero(st);
+			statusBox.appendChild(cbiSection(_('Service status'),
+				_('This is a watch-only intrusion detector by default. It records suspicious traffic; it does not block it unless you switch to prevention mode.'),
+				[
+					E('div', { 'class': 'tp-status-grid' }, [
+						tpStatusRow(_('Engine'), tpBadge(tpEngineKind(st), tpEngineLabel(st))),
+						tpStatusRow(_('Watching'), val(st.interface)),
+						tpStatusRow(_('Mode'), (st.mode === 'ips') ? _('Prevention (IPS)') : _('Watch only (IDS)')),
+						tpStatusRow(_('Alerts stored'), val(st.events, '0')),
+						tpStatusRow(_('Rule set'), st.etopen_state === 'fetching'
+							? _('Downloading…')
+							: val(st.etopen_mtime, _('Never downloaded')))
+					])
+				]));
 			if (st.etopen_state === 'error' && st.etopen_error)
-				statusBox.appendChild(E('p', { 'class': 'tp-warn' }, st.etopen_error));
+				statusBox.appendChild(E('p', { 'class': 'alert-message error' }, st.etopen_error));
+			if (!st.suricata_present)
+				steps.push(_('Install the Suricata packages, then reload this page.'));
+			else {
+				if (!st.suricata_running)
+					steps.push(_('Open Settings, tick Enable protection, and click Save & Apply.'));
+				if (!st.etopen_mtime)
+					steps.push(_('Open the Rules tab and click Fetch now so signatures are on the router.'));
+				if (st.suricata_running && st.etopen_mtime)
+					steps.push(_('Leave this running. New matches appear on the Events tab.'));
+			}
+			statusBox.appendChild(E('div', { 'class': 'tp-next' }, [
+				E('strong', {}, _('What to do next')),
+				E('ol', {}, steps.map(function(s) { return E('li', {}, s); }))
+			]));
+			statusBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button cbi-button-apply',
+					click: function() {
+						callServiceControl('start').then(function(res) {
+							if (res && res.ok === false)
+								ui.addNotification(null, E('p', {}, res.output || _('Start failed')), 'error');
+							else
+								ui.addNotification(null, E('p', {}, _('Suricata started')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Start')),
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button',
+					click: function() {
+						callServiceControl('stop').then(function(res) {
+							if (res && res.ok === false)
+								ui.addNotification(null, E('p', {}, res.output || _('Stop failed')), 'error');
+							else
+								ui.addNotification(null, E('p', {}, _('Suricata stopped')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Stop')),
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button',
+					click: function() {
+						callServiceControl('restart').then(function(res) {
+							if (res && res.ok === false)
+								ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
+							else
+								ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Restart'))
+			]));
 		}
 
 		function renderEvents(list) {
 			eventsBox.innerHTML = '';
+			eventsBox.appendChild(cbiSection(_('Recent alerts'),
+				_('Each row is a signature that matched traffic on the watched interface. Empty is normal on a quiet network.'),
+				[]));
 			if (!list.length) {
-				eventsBox.appendChild(E('p', {}, _('No alerts yet. Enable IDS, fetch ET Open, and wait for traffic.')));
+				eventsBox.appendChild(E('div', { 'class': 'tp-empty' }, [
+					E('p', {}, _('No alerts yet.')),
+					E('ol', {}, [
+						E('li', {}, _('Enable protection on Settings and Save & Apply.')),
+						E('li', {}, _('On Rules, click Fetch now so signatures are downloaded.')),
+						E('li', {}, _('Wait for LAN traffic. Harmless probes may appear first.'))
+					])
+				]));
 				return;
 			}
 			var table = E('table', { 'class': 'table' }, [
@@ -579,9 +699,9 @@ return view.extend({
 
 			ensureRulesLayout();
 			tpSidHost.innerHTML = '';
-			tpSidHost.appendChild(E('h3', {}, _('Signatures')));
-			tpSidHost.appendChild(E('p', { 'class': 'tp-help' },
-				_('Search, filter, and disable ET Open signatures. Disabled SIDs are suppressed and kept across rule fetches.')));
+			tpSidHost.appendChild(cbiSection(_('Signatures'),
+				_('Search the downloaded rules. Untick a signature to silence it; that choice is kept when you fetch feeds again.'),
+				[]));
 
 			search = E('input', {
 				type: 'search',
@@ -758,11 +878,12 @@ return view.extend({
 
 		function renderPolicy(c) {
 			policyBox.innerHTML = '';
-			policyBox.appendChild(E('p', {},
-				_('Classtype actions are alert by default (not drop). Disable or drop is reserved for a later IPS phase.')));
+			policyBox.appendChild(cbiSection(_('Alert categories'),
+				_('Each classtype is a kind of attack (malware, web, admin). Actions stay on Alert so the detector only records matches. Blocking is a later, advanced step.'),
+				[]));
 			var classes = c.classtypes || [];
 			if (!classes.length) {
-				policyBox.appendChild(E('p', {}, _('No classtype sections in UCI.')));
+				policyBox.appendChild(E('p', { 'class': 'tp-empty' }, _('No classtype sections in UCI yet.')));
 				return;
 			}
 			var table = E('table', { 'class': 'table' }, [
@@ -780,17 +901,6 @@ return view.extend({
 			policyBox.appendChild(table);
 		}
 
-		function field(id, label, input, help, extra) {
-			var control = extra ? E('div', { 'class': 'tp-field-control' }, [ input, extra ]) : input;
-			var kids = [
-				E('label', { 'for': id }, label),
-				control
-			];
-			if (help)
-				kids.push(E('div', { 'class': 'tp-help' }, help));
-			return E('div', { 'class': 'tp-field' }, kids);
-		}
-
 		function renderSettings(c) {
 			settingsBox.innerHTML = '';
 			var enabled = E('input', { type: 'checkbox', id: 'tp-enabled' });
@@ -802,11 +912,11 @@ return view.extend({
 			var home = E('input', {
 				type: 'text', id: 'tp-home',
 				value: homeNet,
-				placeholder: lanCidr
+				placeholder: lanCidr || _('LAN subnet from Status → Network')
 			});
 			var useLan = E('button', {
 				'type': 'button',
-				'class': 'btn cbi-button',
+				'class': 'cbi-button',
 				'disabled': lanCidr ? null : true,
 				click: function(ev) {
 					ev.preventDefault();
@@ -815,15 +925,15 @@ return view.extend({
 				}
 			}, _('Use LAN subnet'));
 			var mode = E('select', { id: 'tp-mode' }, [
-				E('option', { value: 'ids' }, _('IDS (detection only)')),
-				E('option', { value: 'ips' }, _('IPS (prevention)'))
+				E('option', { value: 'ids' }, _('Watch only — log attacks (recommended)')),
+				E('option', { value: 'ips' }, _('Prevention — try to block attacks'))
 			]);
 			mode.value = c.mode || 'ids';
 			var ipsWarn = E('div', { 'class': 'tp-warn-inline' },
-				_('Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only).'));
+				_('Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device.'));
 			var profile = E('select', { id: 'tp-profile' }, [
-				E('option', { value: 'small' }, _('Small (malware / C2 / web server)')),
-				E('option', { value: 'full' }, _('Full ET Open'))
+				E('option', { value: 'small' }, _('Small — malware, C2, and web server rules')),
+				E('option', { value: 'full' }, _('Full — every ET Open rule'))
 			]);
 			profile.value = c.rule_profile || 'small';
 			function syncWarns() {
@@ -835,48 +945,58 @@ return view.extend({
 			mode.addEventListener('change', syncWarns);
 			syncWarns();
 
-			settingsBox.appendChild(E('div', {}, [
-				field('tp-enabled', _('Enable IDS'), enabled,
-					_('Start Suricata in the selected mode and load this configuration')),
-				field('tp-iface', _('Interface'), iface,
-					_('Linux device to sniff (br-lan, eth0, …), not the UCI name (lan).')),
-				field('tp-home', _('HOME_NET'), home,
-					_('CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional.'),
-					useLan),
-				field('tp-mode', _('Operating mode'), mode,
-					_('IDS = Detection only, IPS = Active prevention')),
-				ipsWarn,
-				field('tp-profile', _('Rule profile'), profile,
-					_('Small loads malware, C2, and web-server rules. Full loads the complete ET Open set. Manage feed URLs on the Rules tab.')),
-				E('div', { 'class': 'tp-actions' }, [
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button cbi-button-save',
-						click: function(ev) {
-							ev.preventDefault();
-							saveTpSettings(true).then(function() {
-								ui.addNotification(null, E('p', {}, _('Saved. Suricata will start if Enable IDS is on.')), 5000);
-							}).catch(function(e) {
-								ui.addNotification(null, E('p', {}, e.message || e), 'error');
-							});
-						}
-					}, _('Save & apply')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
-							callServiceControl('restart').then(function(res) {
-								if (res && res.ok === false)
-									ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
-								else
-									ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
-							}).catch(function(e) {
-								ui.addNotification(null, E('p', {}, e.message || e), 'error');
-							});
-						}
-					}, _('Restart Suricata'))
-				])
+			settingsBox.appendChild(cbiSection(_('Service'),
+				_('Turn protection on, then Save & Apply. Download rules on the Rules tab if you have not already.'),
+				[
+					fieldRow('tp-enabled', _('Enable protection'), enabled,
+						_('Start Suricata and load this configuration.'))
+				]));
+			settingsBox.appendChild(cbiSection(_('Network'),
+				_('Watch the LAN bridge so phones, PCs, and IoT behind the router are covered. Do not pick the UCI name “lan” — pick the Linux device such as br-lan.'),
+				[
+					fieldRow('tp-iface', _('Listen on'), iface,
+						_('Usually br-lan. This is the Linux device name, not the firewall zone.')),
+					fieldRow('tp-home', _('Home network'),
+						E('div', { 'class': 'tp-field-control' }, [ home, useLan ]),
+						_('IPv4 prefix treated as trusted (HOME_NET), for example 192.168.8.0/24. Square brackets are optional. Use LAN subnet fills the live LAN prefix when LuCI can read it.'))
+				]));
+			settingsBox.appendChild(cbiSection(_('Detection'),
+				_('Watch only records matches. Prevention tries to drop them. Rule size is independent of feeds — feeds are on the Rules tab.'),
+				[
+					fieldRow('tp-mode', _('Operating mode'), mode,
+						_('Watch only = detect and log. Prevention = inline blocking.')),
+					ipsWarn,
+					fieldRow('tp-profile', _('How many rules to load'), profile,
+						_('Small is enough for most home routers. Full loads the complete ET Open set and uses more memory.'))
+				]));
+			settingsBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button cbi-button-save',
+					click: function(ev) {
+						ev.preventDefault();
+						saveTpSettings(true).then(function() {
+							ui.addNotification(null, E('p', {}, _('Saved. Suricata will start if Enable protection is on.')), 5000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Save & apply')),
+				E('button', {
+					'type': 'button',
+					'class': 'cbi-button',
+					click: function(ev) {
+						ev.preventDefault();
+						callServiceControl('restart').then(function(res) {
+							if (res && res.ok === false)
+								ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
+							else
+								ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Restart Suricata'))
 			]));
 		}
 
@@ -888,7 +1008,7 @@ return view.extend({
 		renderSettings(cfg);
 
 		var tabHost = E('div', { 'class': 'tp-tab-host' }, [
-			statusBox, eventsBox, rulesBox, policyBox, settingsBox
+			statusBox, settingsBox, rulesBox, eventsBox, policyBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);

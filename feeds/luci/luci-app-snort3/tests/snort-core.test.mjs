@@ -152,6 +152,10 @@ test('view uses network devices select and advanced paths', () => {
 	assert.match(view, /E\('details'/);
 	assert.match(view, /option\[value="nfq"\]/);
 	assert.match(view, /Use LAN subnet/);
+	assert.match(view, /cbi-value-title/);
+	assert.match(view, /_\('What to do next'\)/);
+	assert.doesNotMatch(view, /CM5/);
+	assert.doesNotMatch(view, /2\.5 GbE/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /E\('h3',\s*\{\s*\},\s*_\('Rules management'\)\)/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
