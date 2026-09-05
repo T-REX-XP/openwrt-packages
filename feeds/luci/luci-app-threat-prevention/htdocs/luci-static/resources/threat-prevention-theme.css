@@ -533,13 +533,16 @@
 }
 
 .luci-app-threat-prevention .tp-col-actions {
+	flex: 0 0 auto;
+	width: 1%;
 	white-space: nowrap;
+	min-width: 10rem;
 }
 
 .luci-app-threat-prevention .tp-icon-row {
 	display: inline-flex;
 	flex-wrap: nowrap;
-	gap: 0.15rem;
+	gap: 0.2rem;
 	align-items: center;
 }
 
@@ -547,24 +550,24 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 1.75rem;
-	height: 1.75rem;
+	width: 1.85rem;
+	height: 1.85rem;
 	padding: 0;
-	border: 0;
+	border: 1px solid var(--border-color-medium);
 	border-radius: 3px;
-	background: transparent;
-	color: var(--text-color-high, var(--text-color-highest));
+	background: var(--background-color-low);
+	color: var(--text-color-highest);
 	cursor: pointer;
+	font-size: 0.95rem;
+	line-height: 1;
+	flex: 0 0 auto;
 }
 
 .luci-app-threat-prevention .tp-icon-btn:hover,
 .luci-app-threat-prevention .tp-icon-btn:focus {
 	background: var(--background-color-medium);
+	border-color: var(--border-color-high, var(--border-color-medium));
 	color: var(--text-color-highest);
-}
-
-.luci-app-threat-prevention .tp-icon-btn svg {
-	display: block;
 }
 
 .luci-app-threat-prevention .tp-policy-table {

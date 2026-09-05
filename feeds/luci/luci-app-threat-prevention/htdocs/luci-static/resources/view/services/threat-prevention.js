@@ -146,26 +146,13 @@ function ruleStatusInfo(row) {
 	return { id: 'enabled', kind: 'yes', label: _('Enabled'), on: true };
 }
 
-var ICON_PATHS = {
-	enable: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.5 14.2-3.7-3.7 1.4-1.4 2.3 2.3 5.3-5.3 1.4 1.4-6.7 6.7z',
-	disable: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.2 13.1-1.1 1.1L12 13.1l-3.1 3.1-1.1-1.1L10.9 12 7.8 8.9l1.1-1.1L12 10.9l3.1-3.1 1.1 1.1L13.1 12l3.1 3.1z',
-	review: 'M8 2h6l4 4v14H6V2h2zm6 1.5V7h3.5L14 3.5zM8 11h8v1.5H8V11zm0 3h8v1.5H8V14zm0 3h5v1.5H8V17z',
-	expire: 'M4 4h16v4H4V4zm1 6h14v10H5V10zm3 2v6h2v-6H8zm6 0v6h2v-6h-2z',
-	edit: 'M4 17.2V20h2.8l8.2-8.2-2.8-2.8L4 17.2zm13.1-7.6 1.7-1.7c.4-.4.4-1 0-1.4l-1.3-1.3c-.4-.4-1-.4-1.4 0l-1.7 1.7 2.7 2.7z'
+var ICON_GLYPHS = {
+	enable: '✓',
+	disable: '✕',
+	review: '▤',
+	expire: '▣',
+	edit: '✎'
 };
-
-function iconSvg(kind) {
-	return E('svg', {
-		xmlns: 'http://www.w3.org/2000/svg',
-		viewBox: '0 0 24 24',
-		width: '16',
-		height: '16',
-		'aria-hidden': 'true',
-		focusable: 'false'
-	}, [
-		E('path', { d: ICON_PATHS[kind] || ICON_PATHS.edit, fill: 'currentColor' })
-	]);
-}
 
 function iconBtn(title, kind, fn) {
 	return E('button', {
@@ -177,7 +164,7 @@ function iconBtn(title, kind, fn) {
 			ev.preventDefault();
 			fn();
 		}
-	}, [ iconSvg(kind) ]);
+	}, ICON_GLYPHS[kind] || '•');
 }
 
 function ruleTagPills(row) {
