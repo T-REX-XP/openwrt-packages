@@ -113,6 +113,11 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /CM5/);
 	assert.doesNotMatch(view, /2\.5 GbE/);
 	assert.match(view, /callSetRuleState/);
+	assert.match(view, /callSetRuleStates/);
+	assert.match(view, /_\('Rules management'\)/);
+	assert.match(view, /_\('Enable selected'\)/);
+	assert.match(view, /_\('Disable selected'\)/);
+	assert.match(view, /_\('SID:rev'\)/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /Prefer the small profile on CM5/);
 	assert.doesNotMatch(readFileSync(join(res, 'threat-prevention-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
@@ -126,6 +131,7 @@ test('ucode still validates interface names', () => {
 	assert.ok(ucode.includes('interface: /^[A-Za-z0-9_.-]+$/'));
 	assert.match(ucode, /getRules:/);
 	assert.match(ucode, /setRuleState:/);
+	assert.match(ucode, /setRuleStates:/);
 	assert.match(ucode, /reindexRules:/);
 	assert.match(ucode, /function like_safe/);
 	assert.match(ucode, /function feed_url_ok/);
@@ -138,6 +144,9 @@ test('rule query helpers', () => {
 	assert.equal(core.clampRuleLimit(500), 100);
 	assert.equal(core.validSid('2020001'), true);
 	assert.equal(core.validSid('sid;drop'), false);
+	assert.deepEqual(core.normalizeSidList(['2020001', '2020001', 'x', '9']), ['2020001', '9']);
+	assert.equal(core.normalizeSidList([]), null);
+	assert.equal(core.normalizeSidList(Array.from({ length: 51 }, function(_, i) { return String(i + 1); })), null);
 });
 
 test('feed helpers', () => {

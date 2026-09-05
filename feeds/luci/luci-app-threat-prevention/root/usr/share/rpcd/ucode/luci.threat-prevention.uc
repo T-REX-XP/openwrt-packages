@@ -388,6 +388,35 @@ function query_rules(args) {
 	return empty;
 }
 
+function write_sid_state(sid, gid, enabled) {
+	if (enabled == '0') {
+		run_cmd(`uci set suricata.s${sid}=sid`);
+		run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
+		run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
+		run_cmd(`uci set suricata.s${sid}.enabled=0`);
+	} else {
+		run_cmd(`uci -q delete suricata.s${sid}`);
+	}
+}
+
+function commit_rule_states() {
+	run_cmd('uci commit suricata');
+	if (file_test('-x', '/usr/sbin/tp-rules-apply'))
+		run_cmd('/usr/sbin/tp-rules-apply');
+	let running = run_cmd('pidof suricata >/dev/null && echo 1 || echo 0').output == '1';
+	if (running)
+		run_cmd('/etc/init.d/suricata reload');
+}
+
+function parse_enabled_flag(v) {
+	v = `${v}`;
+	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
+		return '1';
+	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
+		return '0';
+	return null;
+}
+
 const methods = {
 	getStatus: {
 		call: function() {
@@ -572,31 +601,48 @@ const methods = {
 		call: function(req) {
 			let sid = trim(`${req.args?.sid || ''}`);
 			let gid = trim(`${req.args?.gid || '1'}`);
-			let enabled = `${req.args?.enabled}`;
+			let enabled = parse_enabled_flag(req.args?.enabled);
 			if (!match(sid, /^[0-9]+$/) || !match(gid, /^[0-9]+$/))
 				return { error: 'invalid sid' };
-			if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
-				enabled = '1';
-			else if (enabled == 'false' || enabled == '0' || enabled == 'off' || enabled == 'no')
-				enabled = '0';
-			else
+			if (enabled == null)
 				return { error: 'invalid enabled' };
 			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
-			if (enabled == '0') {
-				run_cmd(`uci set suricata.s${sid}=sid`);
-				run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
-				run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
-				run_cmd(`uci set suricata.s${sid}.enabled=0`);
-			} else {
-				run_cmd(`uci -q delete suricata.s${sid}`);
-			}
-			run_cmd('uci commit suricata');
-			if (file_test('-x', '/usr/sbin/tp-rules-apply'))
-				run_cmd('/usr/sbin/tp-rules-apply');
-			let running = run_cmd('pidof suricata >/dev/null && echo 1 || echo 0').output == '1';
-			if (running)
-				run_cmd('/etc/init.d/suricata reload');
+			write_sid_state(sid, gid, enabled);
+			commit_rule_states();
 			return { ok: true, sid, gid, enabled };
+		}
+	},
+
+	setRuleStates: {
+		args: { sids: [], gid: '', enabled: '' },
+		call: function(req) {
+			let sids = req.args?.sids;
+			let gid = trim(`${req.args?.gid || '1'}`);
+			let enabled = parse_enabled_flag(req.args?.enabled);
+			let i;
+			let sid;
+			let seen = {};
+			let out = [];
+			if (type(sids) != 'array')
+				return { error: 'invalid sids' };
+			if (!match(gid, /^[0-9]+$/))
+				return { error: 'invalid sid' };
+			if (enabled == null)
+				return { error: 'invalid enabled' };
+			if (length(sids) < 1 || length(sids) > 50)
+				return { error: 'invalid sids' };
+			for (i = 0; i < length(sids); i++) {
+				sid = trim(`${sids[i]}`);
+				if (!match(sid, /^[0-9]+$/) || seen[sid])
+					return { error: 'invalid sids' };
+				seen[sid] = 1;
+				push(out, sid);
+			}
+			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			for (i = 0; i < length(out); i++)
+				write_sid_state(out[i], gid, enabled);
+			commit_rule_states();
+			return { ok: true, sids: out, gid, enabled };
 		}
 	},
 

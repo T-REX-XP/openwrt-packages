@@ -239,6 +239,26 @@ return baseclass.extend({
 		return /^[0-9]{1,10}$/.test(String(sid == null ? '' : sid));
 	},
 
+	normalizeSidList: function(sids) {
+		var out = [];
+		var seen = {};
+		var i;
+		var sid;
+
+		if (!Array.isArray(sids))
+			return null;
+		for (i = 0; i < sids.length; i++) {
+			sid = String(sids[i] == null ? '' : sids[i]).trim();
+			if (!this.validSid(sid) || seen[sid])
+				continue;
+			seen[sid] = 1;
+			out.push(sid);
+		}
+		if (!out.length || out.length > 50)
+			return null;
+		return out;
+	},
+
 	sanitizeFeedId: function(name) {
 		var id = String(name == null ? '' : name).toLowerCase()
 			.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');

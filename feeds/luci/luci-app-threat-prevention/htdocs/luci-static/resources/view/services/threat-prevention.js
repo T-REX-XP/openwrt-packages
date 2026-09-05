@@ -66,6 +66,13 @@ var callSetRuleState = rpc.declare({
 	expect: { '': {} }
 });
 
+var callSetRuleStates = rpc.declare({
+	object: 'luci.threat-prevention',
+	method: 'setRuleStates',
+	params: [ 'sids', 'gid', 'enabled' ],
+	expect: { '': {} }
+});
+
 var callReindexRules = rpc.declare({
 	object: 'luci.threat-prevention',
 	method: 'reindexRules',
@@ -257,6 +264,7 @@ return view.extend({
 			offset: 0,
 			limit: 50
 		};
+		var selectedSids = {};
 		var tpFeedsHost;
 		var tpSidHost;
 
@@ -687,19 +695,23 @@ return view.extend({
 			var fileSel;
 			var classSel;
 			var stateSel;
+			var actions;
+			var headerCb;
 			var i;
 			var opt;
+			var table;
+			var liveSids = {};
 
 			ensureRulesLayout();
 			tpSidHost.innerHTML = '';
-			tpSidHost.appendChild(cbiSection(_('Signatures'),
-				_('Search the downloaded rules. Untick a signature to silence it; that choice is kept when you fetch feeds again.'),
+			tpSidHost.appendChild(cbiSection(_('Rules management'),
+				_('Search downloaded signatures. Disable a SID to silence it; that choice is kept when you fetch feeds again.'),
 				[]));
 
 			search = E('input', {
 				type: 'search',
 				id: 'tp-rule-q',
-				placeholder: _('SID, message, class, or file'),
+				placeholder: _('Search by SID, classtype, message, or file'),
 				value: rulesState.query
 			});
 			fileSel = E('select', { id: 'tp-rule-file' }, [
@@ -724,10 +736,17 @@ return view.extend({
 				E('option', { value: 'disabled' }, _('Disabled'))
 			]);
 			stateSel.value = rulesState.state;
+			actions = E('select', { id: 'tp-rule-actions' }, [
+				E('option', { value: '' }, _('Rules actions')),
+				E('option', { value: 'enable' }, _('Enable selected')),
+				E('option', { value: 'disable' }, _('Disable selected')),
+				E('option', { value: 'reindex' }, _('Reindex signatures'))
+			]);
 
 			function applyFilters(ev) {
 				if (ev)
 					ev.preventDefault();
+				selectedSids = {};
 				rulesState.query = tpCore.sanitizeRuleQuery(search.value);
 				rulesState.file = fileSel.value;
 				rulesState.classtype = classSel.value;
@@ -738,43 +757,88 @@ return view.extend({
 				});
 			}
 
+			function selectedList() {
+				return tpCore.normalizeSidList(Object.keys(selectedSids));
+			}
+
+			function runBulk(enabled) {
+				var sids = selectedList();
+				if (!sids) {
+					ui.addNotification(null, E('p', {}, _('Select one or more signatures first.')), 'error');
+					return;
+				}
+				callSetRuleStates(sids, '1', enabled).then(function(out) {
+					if (out && out.error)
+						return Promise.reject(new Error(out.error));
+					selectedSids = {};
+					return loadRules();
+				}).then(function() {
+					ui.addNotification(null, E('p', {}, enabled === '1'
+						? _('Selected signatures enabled')
+						: _('Selected signatures disabled')), 4000);
+				}).catch(function(e) {
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+					loadRules();
+				});
+			}
+
+			function runReindex() {
+				ui.showModal(_('Indexing rules'), [ E('p', {}, _('Reading signature files…')) ]);
+				callReindexRules().then(function(out) {
+					ui.hideModal();
+					if (out && out.error && !out.ok)
+						return Promise.reject(new Error(out.error || out.output));
+					rulesState.offset = 0;
+					selectedSids = {};
+					return loadRules();
+				}).then(function() {
+					ui.addNotification(null, E('p', {}, _('Rule index updated')), 4000);
+				}).catch(function(e) {
+					ui.hideModal();
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+				});
+			}
+
 			search.addEventListener('keydown', function(ev) {
 				if (ev.key === 'Enter')
 					applyFilters(ev);
 			});
 
+			tpSidHost.appendChild(E('div', { 'class': 'tp-rules-head' }, [
+				E('div', { 'class': 'tp-rules-actions' }, [
+					actions,
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button',
+						click: function(ev) {
+							var act = actions.value;
+							ev.preventDefault();
+							if (act === 'enable')
+								runBulk('1');
+							else if (act === 'disable')
+								runBulk('0');
+							else if (act === 'reindex')
+								runReindex();
+							else
+								ui.addNotification(null, E('p', {}, _('Choose a rules action first.')), 'error');
+							actions.value = '';
+						}
+					}, _('Apply'))
+				]),
+				E('div', { 'class': 'tp-rules-search' }, [
+					search,
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button cbi-button-apply',
+						click: applyFilters
+					}, _('Search'))
+				])
+			]));
 			tpSidHost.appendChild(E('div', { 'class': 'tp-toolbar' }, [
-				search,
 				fileSel,
 				classSel,
-				stateSel,
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					click: applyFilters
-				}, _('Search')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					click: function(ev) {
-						ev.preventDefault();
-						ui.showModal(_('Indexing rules'), [ E('p', {}, _('Reading signature files…')) ]);
-						callReindexRules().then(function(out) {
-							ui.hideModal();
-							if (out && out.error && !out.ok)
-								return Promise.reject(new Error(out.error || out.output));
-							rulesState.offset = 0;
-							return loadRules();
-						}).then(function() {
-							ui.addNotification(null, E('p', {}, _('Rule index updated')), 4000);
-						}).catch(function(e) {
-							ui.hideModal();
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Reindex'))
+				stateSel
 			]));
-
 			tpSidHost.appendChild(E('p', { 'class': 'tp-help' },
 				_('Indexed: %s · Disabled: %s').format(indexedCount, disabledCount)));
 
@@ -788,53 +852,92 @@ return view.extend({
 				return;
 			}
 
-			var table = E('table', { 'class': 'table' }, [
+			headerCb = E('input', {
+				type: 'checkbox',
+				id: 'tp-rule-select-all',
+				change: function() {
+					var on = this.checked;
+					var boxes = tpSidHost.querySelectorAll('input.tp-rule-pick');
+					var n;
+					for (n = 0; n < boxes.length; n++) {
+						boxes[n].checked = on;
+						if (on)
+							selectedSids[boxes[n].getAttribute('data-sid')] = '1';
+						else
+							delete selectedSids[boxes[n].getAttribute('data-sid')];
+					}
+				}
+			});
+			table = E('table', { 'class': 'table tp-rules-table' }, [
 				E('tr', { 'class': 'tr table-titles' }, [
-					E('th', { 'class': 'th' }, _('Enabled')),
-					E('th', { 'class': 'th' }, _('SID')),
-					E('th', { 'class': 'th' }, _('Class')),
-					E('th', { 'class': 'th' }, _('File')),
-					E('th', { 'class': 'th' }, _('Message'))
+					E('th', { 'class': 'th' }, [ headerCb ]),
+					E('th', { 'class': 'th' }, '#'),
+					E('th', { 'class': 'th' }, _('SID:rev')),
+					E('th', { 'class': 'th' }, _('Message')),
+					E('th', { 'class': 'th' }, _('Category')),
+					E('th', { 'class': 'th' }, _('Status'))
 				])
 			]);
-			list.forEach(function(row) {
+			list.forEach(function(row, idx) {
 				var sid = String(row.sid || '');
 				var gid = String(row.gid || '1');
 				var on = row.enabled !== '0';
-				var toggle = E('input', {
+				var pick;
+				var trClass = 'tr';
+				liveSids[sid] = 1;
+				pick = E('input', {
 					type: 'checkbox',
-					checked: on ? 'checked' : null,
+					'class': 'tp-rule-pick',
+					'data-sid': sid,
+					checked: selectedSids[sid] ? 'checked' : null,
 					change: function() {
-						var next = this.checked ? '1' : '0';
-						callSetRuleState(sid, gid, next).then(function(out) {
-							if (out && out.error)
-								return Promise.reject(new Error(out.error));
-							return loadRules();
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-							loadRules();
-						});
+						if (this.checked)
+							selectedSids[sid] = gid;
+						else
+							delete selectedSids[sid];
 					}
 				});
-				var sidLink = E('a', {
-					href: '#',
-					click: function(ev) {
-						ev.preventDefault();
-						showRule(sid, gid);
-					}
-				}, sid);
-				var trClass = 'tr';
 				if (!on)
 					trClass += ' tp-rule--off';
 				if (row.in_profile === false)
 					trClass += ' tp-rule--unloaded';
 				table.appendChild(E('tr', { 'class': trClass }, [
-					E('td', { 'class': 'td' }, [ toggle ]),
-					E('td', { 'class': 'td' }, [ sidLink ]),
+					E('td', { 'class': 'td' }, [ pick ]),
+					E('td', { 'class': 'td' }, String(rulesState.offset + idx + 1)),
+					E('td', { 'class': 'td tp-mono' }, [
+						E('a', {
+							href: '#',
+							click: function(ev) {
+								ev.preventDefault();
+								showRule(sid, gid);
+							}
+						}, sid + ':' + val(row.rev, '0'))
+					]),
+					E('td', { 'class': 'td' }, val(row.msg)),
 					E('td', { 'class': 'td' }, val(row.classtype)),
-					E('td', { 'class': 'td' }, val(row.file)),
-					E('td', { 'class': 'td' }, val(row.msg))
+					E('td', { 'class': 'td' }, [
+						E('button', {
+							'type': 'button',
+							'class': 'btn tp-status-btn',
+							click: function(ev) {
+								var next = on ? '0' : '1';
+								ev.preventDefault();
+								callSetRuleState(sid, gid, next).then(function(out) {
+									if (out && out.error)
+										return Promise.reject(new Error(out.error));
+									return loadRules();
+								}).catch(function(e) {
+									ui.addNotification(null, E('p', {}, e.message || e), 'error');
+									loadRules();
+								});
+							}
+						}, tpBadge(on ? 'yes' : 'muted', on ? _('Enabled') : _('Disabled')))
+					])
 				]));
+			});
+			Object.keys(selectedSids).forEach(function(sid) {
+				if (!liveSids[sid])
+					delete selectedSids[sid];
 			});
 			tpSidHost.appendChild(table);
 
