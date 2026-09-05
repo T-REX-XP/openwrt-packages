@@ -114,10 +114,13 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /2\.5 GbE/);
 	assert.match(view, /callSetRuleState/);
 	assert.match(view, /callSetRuleStates/);
+	assert.match(view, /callSetRuleTune/);
 	assert.match(view, /_\('Rules management'\)/);
 	assert.match(view, /_\('Enable selected'\)/);
 	assert.match(view, /_\('Disable selected'\)/);
 	assert.match(view, /_\('SID:rev'\)/);
+	assert.match(view, /id:\s*'tp-tune-status'/);
+	assert.match(view, /id:\s*'tp-tune-threshold'/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /Prefer the small profile on CM5/);
 	assert.doesNotMatch(readFileSync(join(res, 'threat-prevention-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
@@ -132,6 +135,9 @@ test('ucode still validates interface names', () => {
 	assert.match(ucode, /getRules:/);
 	assert.match(ucode, /setRuleState:/);
 	assert.match(ucode, /setRuleStates:/);
+	assert.match(ucode, /setRuleTune:/);
+	assert.match(ucode, /function read_sid_tune/);
+	assert.doesNotMatch(ucode, /\{[0-9]+,/);
 	assert.match(ucode, /reindexRules:/);
 	assert.match(ucode, /function like_safe/);
 	assert.match(ucode, /function feed_url_ok/);
@@ -158,6 +164,38 @@ test('feed helpers', () => {
 	assert.equal(core.sanitizeFeedId('s2020001'), 'et_s2020001');
 	assert.equal(core.validateFeed({ name: 'x', url: 'http://x', enabled: '1' }), 'invalid feed url');
 	assert.equal(core.validateFeeds(def), null);
+});
+
+test('parseRuleRaw and tune preview', () => {
+	const raw = 'alert dns $HOME_NET any -> any any (msg:"ET MOBILE_MALWARE Foo"; content:"bar"; classtype:trojan-activity; sid:2026369; rev:3; metadata:former_category MALWARE, updated_at 2020_01_01;)';
+	const parsed = core.parseRuleRaw(raw);
+	assert.equal(parsed.action, 'alert');
+	assert.equal(parsed.sid, '2026369');
+	assert.equal(parsed.classtype, 'trojan-activity');
+	assert.equal(parsed.msg, 'ET MOBILE_MALWARE Foo');
+	assert.ok(parsed.tags.some((t) => t.key === 'action' && t.value === 'alert'));
+	assert.ok(parsed.tags.some((t) => t.key === 'former_category' && t.value === 'MALWARE'));
+	const preview = core.applyRuleTunePreview(raw, { priority: '1', target: 'src_ip', classtype: 'misc-activity' });
+	assert.match(preview, /priority:1;/);
+	assert.match(preview, /target:src_ip;/);
+	assert.match(preview, /classtype:misc-activity;/);
+	assert.equal(core.applyRuleTunePreview(raw, {}), raw);
+});
+
+test('validateTune and tags', () => {
+	assert.equal(core.validateTune({
+		sid: '2026369',
+		status: 'review',
+		priority: '2',
+		target: 'dest_ip',
+		threshold: 'type limit, track by_src, count 1, seconds 60'
+	}), null);
+	assert.equal(core.validateTune({ sid: '2026369', status: 'nope' }), 'invalid status');
+	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', priority: '999' }), 'invalid priority');
+	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', threshold: 'count 1' }), 'invalid threshold');
+	assert.equal(core.normalizeTag('url: www.example.com'), 'url:www.example.com');
+	assert.equal(core.normalizeTag('bad'), null);
+	assert.deepEqual(core.normalizeTagList(['a:1', 'a:1', 'b:2']), ['a:1', 'b:2']);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

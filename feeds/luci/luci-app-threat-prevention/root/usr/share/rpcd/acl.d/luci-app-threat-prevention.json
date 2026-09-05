@@ -33,6 +33,7 @@
 					"fetchRules",
 					"setRuleState",
 					"setRuleStates",
+					"setRuleTune",
 					"reindexRules"
 				]
 			},

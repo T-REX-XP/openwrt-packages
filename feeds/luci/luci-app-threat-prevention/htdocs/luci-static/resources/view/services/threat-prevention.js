@@ -66,10 +66,10 @@ var callSetRuleState = rpc.declare({
 	expect: { '': {} }
 });
 
-var callSetRuleStates = rpc.declare({
+var callSetRuleTune = rpc.declare({
 	object: 'luci.threat-prevention',
-	method: 'setRuleStates',
-	params: [ 'sids', 'gid', 'enabled' ],
+	method: 'setRuleTune',
+	params: [ 'tune' ],
 	expect: { '': {} }
 });
 
@@ -105,6 +105,17 @@ function fieldRow(id, title, field, descr) {
 
 function tpBadge(kind, text) {
 	return E('span', { 'class': 'tp-badge tp-badge--' + kind }, text);
+}
+
+function ruleStatusInfo(row) {
+	var st = (row && row.status) || ((row && row.enabled) === '0' ? 'disabled' : 'enabled');
+	if (st === 'review')
+		return { id: 'review', kind: 'warn', label: _('Review'), on: true };
+	if (st === 'expired')
+		return { id: 'expired', kind: 'muted', label: _('Expired'), on: false };
+	if (st === 'disabled' || (row && row.enabled === '0'))
+		return { id: 'disabled', kind: 'no', label: _('Disabled'), on: false };
+	return { id: 'enabled', kind: 'yes', label: _('Enabled'), on: true };
 }
 
 function tpStatusRow(label, value) {
@@ -659,21 +670,210 @@ return view.extend({
 			if (!tpCore.validSid(sid))
 				return;
 			callGetRule(sid, gid || '1').then(function(rule) {
+				var parsed;
+				var status;
+				var category;
+				var priority;
+				var target;
+				var threshold;
+				var tagIn;
+				var tagHost;
+				var preview;
+				var tags;
+				var classes;
+				var i;
 				if (rule && rule.error)
 					return Promise.reject(new Error(rule.error));
-				ui.showModal(_('Signature %s').format(sid), [
-					E('p', { 'class': 'tp-help' }, [
-						val(rule.file), ' · ',
-						val(rule.classtype), ' · ',
-						'rev ' + val(rule.rev, '0')
-					]),
-					E('pre', { 'class': 'tp-rule-raw' }, val(rule.raw, '')),
-					E('div', { 'class': 'right' }, [
-						E('button', {
-							'type': 'button',
-							'class': 'btn',
-							click: ui.hideModal
-						}, _('Close'))
+				parsed = tpCore.parseRuleRaw(rule.raw || '');
+				status = rule.status || (rule.enabled === '0' ? 'disabled' : 'enabled');
+				tags = tpCore.normalizeTagList(
+					(rule.tags && rule.tags.length) ? rule.tags : parsed.tags.map(function(t) {
+						return t.key + ':' + t.value;
+					})
+				);
+				classes = rule.classtypes || [];
+				category = E('select', { id: 'tp-tune-category' }, [
+					E('option', { value: '' }, parsed.classtype || _('Vendor classtype'))
+				]);
+				for (i = 0; i < classes.length; i++)
+					category.appendChild(E('option', { value: classes[i] }, classes[i]));
+				if (rule.category)
+					category.value = rule.category;
+				else if (parsed.classtype && classes.indexOf(parsed.classtype) >= 0)
+					category.value = parsed.classtype;
+				priority = E('input', {
+					type: 'number', id: 'tp-tune-priority',
+					min: '1', max: '255', step: '1',
+					placeholder: _('e.g. 1'),
+					value: rule.priority || parsed.priority || ''
+				});
+				target = E('select', { id: 'tp-tune-target' }, [
+					E('option', { value: '' }, _('Unchanged')),
+					E('option', { value: 'src_ip' }, 'src_ip'),
+					E('option', { value: 'dest_ip' }, 'dest_ip')
+				]);
+				target.value = rule.target || parsed.target || '';
+				threshold = E('input', {
+					type: 'text', id: 'tp-tune-threshold',
+					placeholder: 'type limit, track by_src, count 1, seconds 60',
+					value: rule.threshold || ''
+				});
+				preview = E('textarea', {
+					id: 'tp-tune-raw',
+					'class': 'tp-rule-raw',
+					readonly: 'readonly',
+					rows: 6
+				});
+				tagIn = E('input', {
+					type: 'text', id: 'tp-tune-tag',
+					placeholder: _('Add a tag (key:value)')
+				});
+				tagHost = E('div', { 'class': 'tp-tag-list' });
+
+				function currentTune() {
+					return {
+						sid: String(rule.sid),
+						gid: String(rule.gid || '1'),
+						status: status,
+						category: category.value,
+						priority: priority.value,
+						target: target.value,
+						threshold: threshold.value,
+						tags: tags
+					};
+				}
+
+				function paintPreview() {
+					preview.value = tpCore.applyRuleTunePreview(rule.raw || '', {
+						classtype: category.value,
+						priority: priority.value,
+						target: target.value
+					});
+				}
+
+				function paintTags() {
+					tagHost.innerHTML = '';
+					tags.forEach(function(entry, idx) {
+						tagHost.appendChild(E('span', { 'class': 'tp-tag' }, [
+							entry,
+							' ',
+							E('button', {
+								'type': 'button',
+								'class': 'tp-tag-x',
+								click: function(ev) {
+									ev.preventDefault();
+									tags = tags.filter(function(_, j) { return j !== idx; });
+									paintTags();
+								}
+							}, '×')
+						]));
+					});
+				}
+
+				function statusBtn(id, label, kind) {
+					return E('button', {
+						'type': 'button',
+						'class': 'tp-status-choice tp-status-choice--' + kind +
+							(status === id ? ' is-active' : ''),
+						click: function(ev) {
+							var box = document.getElementById('tp-tune-status');
+							var btns;
+							var n;
+							ev.preventDefault();
+							status = id;
+							if (!box)
+								return;
+							btns = box.querySelectorAll('.tp-status-choice');
+							for (n = 0; n < btns.length; n++)
+								btns[n].classList.remove('is-active');
+							this.classList.add('is-active');
+						}
+					}, label);
+				}
+
+				paintPreview();
+				paintTags();
+				category.addEventListener('change', paintPreview);
+				priority.addEventListener('input', paintPreview);
+				target.addEventListener('change', paintPreview);
+
+				ui.showModal(_('Rules management') + ' → ' + _('SID %s').format(sid), [
+					E('div', { 'class': 'luci-app-threat-prevention' }, [
+					E('div', { 'class': 'tp-rule-editor' }, [
+						E('h4', {}, val(rule.msg, parsed.msg)),
+						E('p', { 'class': 'tp-help' }, [
+							val(rule.file), ' · rev ', val(rule.rev, '0'), ' · ',
+							_('Tunings are stored on the router and kept when feeds are fetched again.')
+						]),
+						E('label', { 'class': 'tp-tune-label' }, _('Rule')),
+						preview,
+						E('div', { 'class': 'tp-tune-status', id: 'tp-tune-status' }, [
+							statusBtn('enabled', _('Enabled'), 'yes'),
+							statusBtn('review', _('Review'), 'warn'),
+							statusBtn('expired', _('Expired'), 'muted'),
+							statusBtn('disabled', _('Disabled'), 'no')
+						]),
+						E('div', { 'class': 'tp-tune-grid' }, [
+							fieldRow('tp-tune-category', _('Category'), category,
+								_('Operator label. Empty keeps the vendor classtype.')),
+							fieldRow('tp-tune-priority', _('Priority'), priority,
+								_('1–255. Stored with the SID; Suricata still uses the vendor rule text.')),
+							fieldRow('tp-tune-target', _('Target'), target,
+								_('src_ip or dest_ip. Stored with the SID.')),
+							fieldRow('tp-tune-threshold', _('Threshold'), threshold,
+								_('Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60.'))
+						]),
+						E('label', { 'class': 'tp-tune-label' }, _('Tags')),
+						E('div', { 'class': 'tp-tag-add' }, [
+							tagIn,
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button',
+								click: function(ev) {
+									var next = tpCore.normalizeTag(tagIn.value);
+									ev.preventDefault();
+									if (!next) {
+										ui.addNotification(null, E('p', {}, _('Use key:value tags.')), 'error');
+										return;
+									}
+									tags = tpCore.normalizeTagList(tags.concat([next]));
+									tagIn.value = '';
+									paintTags();
+								}
+							}, _('Add'))
+						]),
+						tagHost,
+						E('div', { 'class': 'right' }, [
+							E('button', {
+								'type': 'button',
+								'class': 'btn',
+								click: ui.hideModal
+							}, _('Close')),
+							' ',
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button-positive',
+								click: function(ev) {
+									var tune = currentTune();
+									var err = tpCore.validateTune(tune);
+									ev.preventDefault();
+									if (err) {
+										ui.addNotification(null, E('p', {}, err), 'error');
+										return;
+									}
+									callSetRuleTune(tune).then(function(out) {
+										if (out && out.error)
+											return Promise.reject(new Error(out.error));
+										ui.hideModal();
+										ui.addNotification(null, E('p', {}, _('Rule tuning saved')), 4000);
+										return loadRules();
+									}).catch(function(e) {
+										ui.addNotification(null, E('p', {}, e.message || e), 'error');
+									});
+								}
+							}, _('Save'))
+						])
+					])
 					])
 				]);
 			}).catch(function(e) {
@@ -705,7 +905,7 @@ return view.extend({
 			ensureRulesLayout();
 			tpSidHost.innerHTML = '';
 			tpSidHost.appendChild(cbiSection(_('Rules management'),
-				_('Search downloaded signatures. Disable a SID to silence it; that choice is kept when you fetch feeds again.'),
+				_('Search signatures, then open a SID to set status, category, priority, target, threshold, and tags. Those tunings stay on the router when feeds are fetched again.'),
 				[]));
 
 			search = E('input', {
@@ -733,6 +933,8 @@ return view.extend({
 			stateSel = E('select', { id: 'tp-rule-state' }, [
 				E('option', { value: 'all' }, _('All states')),
 				E('option', { value: 'enabled' }, _('Enabled')),
+				E('option', { value: 'review' }, _('Review')),
+				E('option', { value: 'expired' }, _('Expired')),
 				E('option', { value: 'disabled' }, _('Disabled'))
 			]);
 			stateSel.value = rulesState.state;
@@ -881,7 +1083,7 @@ return view.extend({
 			list.forEach(function(row, idx) {
 				var sid = String(row.sid || '');
 				var gid = String(row.gid || '1');
-				var on = row.enabled !== '0';
+				var st = ruleStatusInfo(row);
 				var pick;
 				var trClass = 'tr';
 				liveSids[sid] = 1;
@@ -897,7 +1099,7 @@ return view.extend({
 							delete selectedSids[sid];
 					}
 				});
-				if (!on)
+				if (!st.on)
 					trClass += ' tp-rule--off';
 				if (row.in_profile === false)
 					trClass += ' tp-rule--unloaded';
@@ -920,18 +1122,10 @@ return view.extend({
 							'type': 'button',
 							'class': 'btn tp-status-btn',
 							click: function(ev) {
-								var next = on ? '0' : '1';
 								ev.preventDefault();
-								callSetRuleState(sid, gid, next).then(function(out) {
-									if (out && out.error)
-										return Promise.reject(new Error(out.error));
-									return loadRules();
-								}).catch(function(e) {
-									ui.addNotification(null, E('p', {}, e.message || e), 'error');
-									loadRules();
-								});
+								showRule(sid, gid);
 							}
-						}, tpBadge(on ? 'yes' : 'muted', on ? _('Enabled') : _('Disabled')))
+						}, tpBadge(st.kind, st.label))
 					])
 				]));
 			});

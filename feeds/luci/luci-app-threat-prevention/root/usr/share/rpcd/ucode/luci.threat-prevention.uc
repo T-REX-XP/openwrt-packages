@@ -259,7 +259,7 @@ function int_arg(v, dflt, lo, hi) {
 	return n;
 }
 
-function disabled_sids() {
+function sid_map() {
 	let out = {};
 	let r = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.s\\([0-9][0-9]*\\)=sid$/\\1/p'");
 	if (!r.output)
@@ -268,10 +268,58 @@ function disabled_sids() {
 		if (line == '')
 			continue;
 		let en = run_cmd(`uci -q get suricata.s${line}.enabled`).output;
-		if (en == '0')
-			out[line] = 1;
+		let st = run_cmd(`uci -q get suricata.s${line}.status`).output;
+		if (en == '')
+			en = '1';
+		if (st == '')
+			st = en == '0' ? 'disabled' : 'enabled';
+		out[line] = { enabled: en, status: st };
 	}
 	return out;
+}
+
+function disabled_sids() {
+	let out = {};
+	let map = sid_map();
+	for (let sid in map) {
+		let row = map[sid];
+		if (row.enabled == '0' || row.status == 'disabled' || row.status == 'expired')
+			out[sid] = 1;
+	}
+	return out;
+}
+
+function read_sid_tune(sid) {
+	let sec = `s${sid}`;
+	let exists = run_cmd(`uci -q get suricata.${sec}`).code == 0;
+	let tags = [];
+	let raw_tags;
+	if (!exists)
+		return {
+			enabled: '1',
+			status: 'enabled',
+			category: '',
+			priority: '',
+			target: '',
+			threshold: '',
+			tags
+		};
+	raw_tags = run_cmd(`uci -q get suricata.${sec}.tags`).output;
+	if (raw_tags != '')
+		tags = split(raw_tags, ',');
+	let enabled = run_cmd(`uci -q get suricata.${sec}.enabled`).output || '1';
+	let status = run_cmd(`uci -q get suricata.${sec}.status`).output;
+	if (status == '')
+		status = enabled == '0' ? 'disabled' : 'enabled';
+	return {
+		enabled,
+		status,
+		category: run_cmd(`uci -q get suricata.${sec}.category`).output,
+		priority: run_cmd(`uci -q get suricata.${sec}.priority`).output,
+		target: run_cmd(`uci -q get suricata.${sec}.target`).output,
+		threshold: run_cmd(`uci -q get suricata.${sec}.threshold`).output,
+		tags
+	};
 }
 
 function sql_in_list(map) {
@@ -303,12 +351,26 @@ function query_rules(args) {
 	let classtype = ident_safe(args?.classtype || '');
 	let file = ident_safe(args?.file || '');
 	let state = trim(`${args?.state || 'all'}`);
-	if (state != 'enabled' && state != 'disabled')
+	if (state != 'enabled' && state != 'disabled' && state != 'review' && state != 'expired')
 		state = 'all';
 	let offset = int_arg(args?.offset, 0, 0, 1000000);
 	let limit = int_arg(args?.limit, 50, 1, 100);
-	let disabled = disabled_sids();
+	let overrides = sid_map();
+	let disabled = {};
+	let review = {};
+	let expired = {};
+	for (let sid in overrides) {
+		let row = overrides[sid];
+		if (row.status == 'review')
+			review[sid] = 1;
+		if (row.status == 'expired')
+			expired[sid] = 1;
+		if (row.enabled == '0' || row.status == 'disabled' || row.status == 'expired')
+			disabled[sid] = 1;
+	}
 	let dis_sql = sql_in_list(disabled);
+	let review_sql = sql_in_list(review);
+	let expired_sql = sql_in_list(expired);
 	let profile = uci_get('rule_profile', 'small');
 	let indexed = file_test('-f', RULES_DB);
 	let empty = {
@@ -333,6 +395,10 @@ function query_rules(args) {
 
 	if (state == 'disabled' && dis_sql == '')
 		return empty;
+	if (state == 'review' && review_sql == '')
+		return empty;
+	if (state == 'expired' && expired_sql == '')
+		return empty;
 
 	let where = '1=1';
 	if (query != '') {
@@ -350,6 +416,10 @@ function query_rules(args) {
 		where += ` AND sid IN (${dis_sql})`;
 	else if (state == 'enabled' && dis_sql != '')
 		where += ` AND sid NOT IN (${dis_sql})`;
+	else if (state == 'review')
+		where += ` AND sid IN (${review_sql})`;
+	else if (state == 'expired')
+		where += ` AND sid IN (${expired_sql})`;
 
 	let total_sql = `SELECT COUNT(*) FROM rules WHERE ${where};`;
 	let total_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} ${shell_quote(total_sql)}`);
@@ -380,6 +450,7 @@ function query_rules(args) {
 			file: fname,
 			msg: row.msg || '',
 			enabled: disabled[sid] ? '0' : '1',
+			status: (overrides[sid] && overrides[sid].status) ? overrides[sid].status : (disabled[sid] ? 'disabled' : 'enabled'),
 			in_profile
 		});
 	}
@@ -389,13 +460,16 @@ function query_rules(args) {
 }
 
 function write_sid_state(sid, gid, enabled) {
-	if (enabled == '0') {
-		run_cmd(`uci set suricata.s${sid}=sid`);
-		run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
-		run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
-		run_cmd(`uci set suricata.s${sid}.enabled=0`);
-	} else {
-		run_cmd(`uci -q delete suricata.s${sid}`);
+	run_cmd(`uci -q get suricata.s${sid} >/dev/null || uci set suricata.s${sid}=sid`);
+	run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
+	run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
+	run_cmd(`uci set suricata.s${sid}.enabled=${enabled}`);
+	if (enabled == '0')
+		run_cmd(`uci set suricata.s${sid}.status=disabled`);
+	else {
+		let st = run_cmd(`uci -q get suricata.s${sid}.status`).output;
+		if (st == '' || st == 'disabled' || st == 'expired')
+			run_cmd(`uci set suricata.s${sid}.status=enabled`);
 	}
 }
 
@@ -581,7 +655,7 @@ const methods = {
 			if (type(rows) != 'array' || !length(rows))
 				return { error: 'rule not found' };
 			let row = rows[0];
-			let disabled = disabled_sids();
+			let tune = read_sid_tune(`${row.sid}`);
 			return {
 				gid: `${row.gid}`,
 				sid: `${row.sid}`,
@@ -591,8 +665,101 @@ const methods = {
 				file: row.file || '',
 				msg: row.msg || '',
 				raw: row.raw || '',
-				enabled: disabled[`${row.sid}`] ? '0' : '1'
+				enabled: tune.enabled == '0' || tune.status == 'disabled' || tune.status == 'expired' ? '0' : '1',
+				status: tune.status,
+				category: tune.category,
+				priority: tune.priority,
+				target: tune.target,
+				threshold: tune.threshold,
+				tags: tune.tags,
+				classtypes: distinct_col('classtype')
 			};
+		}
+	},
+
+	setRuleTune: {
+		args: { tune: {} },
+		call: function(req) {
+			let t = req.args?.tune;
+			let sid;
+			let gid;
+			let status;
+			let enabled;
+			let category;
+			let priority;
+			let target;
+			let threshold;
+			let tags;
+			let tag_s;
+			let i;
+			let one;
+			if (type(t) != 'object')
+				return { error: 'invalid tune' };
+			sid = trim(`${t.sid || ''}`);
+			gid = trim(`${t.gid || '1'}`);
+			status = trim(`${t.status || 'enabled'}`);
+			if (!match(sid, /^[0-9]+$/) || !match(gid, /^[0-9]+$/))
+				return { error: 'invalid sid' };
+			if (status != 'enabled' && status != 'review' && status != 'expired' && status != 'disabled')
+				return { error: 'invalid status' };
+			enabled = (status == 'disabled' || status == 'expired') ? '0' : '1';
+			category = trim(`${t.category || ''}`);
+			priority = trim(`${t.priority || ''}`);
+			target = trim(`${t.target || ''}`);
+			threshold = trim(`${t.threshold || ''}`);
+			if (category != '' && !match(category, /^[A-Za-z0-9._-]+$/))
+				return { error: 'invalid category' };
+			if (priority != '') {
+				if (!match(priority, /^[0-9]+$/))
+					return { error: 'invalid priority' };
+				if (int(priority) < 1 || int(priority) > 255)
+					return { error: 'invalid priority' };
+			}
+			if (target != '' && target != 'src_ip' && target != 'dest_ip')
+				return { error: 'invalid target' };
+			if (threshold != '' && !match(threshold, /^type (limit|threshold|both), track (by_src|by_dst), count [0-9]+, seconds [0-9]+$/))
+				return { error: 'invalid threshold' };
+			tags = [];
+			if (type(t.tags) == 'array') {
+				for (i = 0; i < length(t.tags); i++) {
+					one = trim(`${t.tags[i]}`);
+					if (one == '')
+						continue;
+					if (!match(one, /^[A-Za-z0-9_]+:[A-Za-z0-9._:/-]+$/))
+						return { error: 'invalid tag' };
+					push(tags, one);
+					if (length(tags) > 20)
+						return { error: 'invalid tag' };
+				}
+			}
+			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			run_cmd(`uci set suricata.s${sid}=sid`);
+			run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
+			run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
+			run_cmd(`uci set suricata.s${sid}.enabled=${enabled}`);
+			run_cmd(`uci set suricata.s${sid}.status=${shell_quote(status)}`);
+			if (category != '')
+				run_cmd(`uci set suricata.s${sid}.category=${shell_quote(category)}`);
+			else
+				run_cmd(`uci -q delete suricata.s${sid}.category`);
+			if (priority != '')
+				run_cmd(`uci set suricata.s${sid}.priority=${shell_quote(priority)}`);
+			else
+				run_cmd(`uci -q delete suricata.s${sid}.priority`);
+			if (target != '')
+				run_cmd(`uci set suricata.s${sid}.target=${shell_quote(target)}`);
+			else
+				run_cmd(`uci -q delete suricata.s${sid}.target`);
+			if (threshold != '')
+				run_cmd(`uci set suricata.s${sid}.threshold=${shell_quote(threshold)}`);
+			else
+				run_cmd(`uci -q delete suricata.s${sid}.threshold`);
+			run_cmd(`uci -q delete suricata.s${sid}.tags`);
+			tag_s = join(',', tags);
+			if (tag_s != '')
+				run_cmd(`uci set suricata.s${sid}.tags=${shell_quote(tag_s)}`);
+			commit_rule_states();
+			return { ok: true, sid, gid, enabled, status };
 		}
 	},
 

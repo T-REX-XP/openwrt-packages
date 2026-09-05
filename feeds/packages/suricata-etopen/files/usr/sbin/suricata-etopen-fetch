@@ -234,6 +234,10 @@ if [ -x /usr/sbin/suricata-config-apply ]; then
 	/usr/sbin/suricata-config-apply || true
 fi
 
+if [ -x /usr/sbin/tp-rules-apply ]; then
+	/usr/sbin/tp-rules-apply || true
+fi
+
 if [ -x /usr/bin/suricata ]; then
 	run_yaml=$(uci -q get suricata.main.run_yaml 2>/dev/null || echo /var/run/suricata/suricata.yaml)
 	if [ -f "$run_yaml" ]; then

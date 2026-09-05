@@ -271,6 +271,191 @@ return baseclass.extend({
 		return id;
 	},
 
+	THRESHOLD_RE: /^type (limit|threshold|both), track (by_src|by_dst), count [0-9]{1,8}, seconds [0-9]{1,8}$/,
+
+	parseRuleTags: function(raw) {
+		var tags = [];
+		var seen = {};
+		var meta;
+		var parts;
+		var i;
+		var tok;
+		var key;
+		var val;
+		var m;
+		var action;
+
+		raw = String(raw == null ? '' : raw);
+		m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/);
+		action = m ? m[1] : '';
+		if (action)
+			tags.push({ key: 'action', value: action });
+		meta = raw.match(/\bmetadata:([^;]+)/);
+		if (meta) {
+			parts = meta[1].split(',');
+			for (i = 0; i < parts.length; i++) {
+				tok = parts[i].trim();
+				if (!tok)
+					continue;
+				if (tok.indexOf(':') >= 0) {
+					key = tok.substring(0, tok.indexOf(':')).trim();
+					val = tok.substring(tok.indexOf(':') + 1).trim();
+				} else {
+					m = tok.match(/^([A-Za-z0-9_]+)\s+(.*)$/);
+					if (!m)
+						continue;
+					key = m[1];
+					val = m[2].trim();
+				}
+				if (!key || !val)
+					continue;
+				key = key.replace(/[^A-Za-z0-9_]/g, '');
+				val = val.replace(/[^A-Za-z0-9._:\/-]/g, '').substring(0, 80);
+				if (!key || !val || seen[key + ':' + val])
+					continue;
+				seen[key + ':' + val] = 1;
+				tags.push({ key: key, value: val });
+			}
+		}
+		return tags;
+	},
+
+	parseRuleRaw: function(raw) {
+		var out = {
+			action: '',
+			msg: '',
+			sid: '',
+			rev: '',
+			classtype: '',
+			priority: '',
+			target: '',
+			tags: []
+		};
+		var m;
+
+		raw = String(raw == null ? '' : raw);
+		m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/);
+		if (m)
+			out.action = m[1];
+		m = raw.match(/msg:"((?:\\.|[^"\\])*)"/);
+		if (m)
+			out.msg = m[1].replace(/\\(.)/g, '$1');
+		m = raw.match(/\bsid:([0-9]+)/);
+		if (m)
+			out.sid = m[1];
+		m = raw.match(/\brev:([0-9]+)/);
+		if (m)
+			out.rev = m[1];
+		m = raw.match(/\bclasstype:([^;]+)/);
+		if (m)
+			out.classtype = m[1].trim();
+		m = raw.match(/\bpriority:([0-9]+)/);
+		if (m)
+			out.priority = m[1];
+		m = raw.match(/\btarget:(src_ip|dest_ip)/);
+		if (m)
+			out.target = m[1];
+		out.tags = this.parseRuleTags(raw);
+		return out;
+	},
+
+	upsertKeyword: function(raw, key, value) {
+		var re;
+
+		raw = String(raw == null ? '' : raw);
+		key = String(key || '');
+		value = String(value == null ? '' : value).trim();
+		if (!key)
+			return raw;
+		re = new RegExp('\\b' + key + ':[^;]+;');
+		if (!value)
+			return raw.replace(re, '');
+		if (re.test(raw))
+			return raw.replace(re, key + ':' + value + ';');
+		if (/\)$/.test(raw))
+			return raw.replace(/\)$/, ' ' + key + ':' + value + ';)');
+		return raw + ' ' + key + ':' + value + ';';
+	},
+
+	applyRuleTunePreview: function(raw, tune) {
+		var out = String(raw == null ? '' : raw);
+		var t = tune || {};
+
+		if (t.classtype)
+			out = this.upsertKeyword(out, 'classtype', t.classtype);
+		if (t.priority)
+			out = this.upsertKeyword(out, 'priority', t.priority);
+		if (t.target)
+			out = this.upsertKeyword(out, 'target', t.target);
+		return out.replace(/[ \t]+;/g, ';').replace(/[ \t]+\)/g, ')');
+	},
+
+	normalizeTag: function(s) {
+		var t = String(s == null ? '' : s).trim();
+		var key;
+		var val;
+		var i;
+
+		if (!t)
+			return null;
+		i = t.indexOf(':');
+		if (i < 1)
+			i = t.indexOf(' ');
+		if (i < 1)
+			return null;
+		key = t.substring(0, i).trim().replace(/[^A-Za-z0-9_]/g, '');
+		val = t.substring(i + 1).trim().replace(/[^A-Za-z0-9._:\/-]/g, '');
+		if (!key || !val || key.length > 32 || val.length > 80)
+			return null;
+		return key + ':' + val;
+	},
+
+	normalizeTagList: function(tags) {
+		var out = [];
+		var seen = {};
+		var i;
+		var t;
+
+		if (!Array.isArray(tags))
+			return [];
+		for (i = 0; i < tags.length && out.length < 20; i++) {
+			t = this.normalizeTag(tags[i]);
+			if (!t || seen[t])
+				continue;
+			seen[t] = 1;
+			out.push(t);
+		}
+		return out;
+	},
+
+	validateTune: function(tune) {
+		var status;
+		var priority;
+		var n;
+
+		if (!tune || typeof tune !== 'object')
+			return 'invalid tune';
+		if (!this.validSid(tune.sid))
+			return 'invalid sid';
+		status = String(tune.status == null ? 'enabled' : tune.status);
+		if (status !== 'enabled' && status !== 'review' &&
+		    status !== 'expired' && status !== 'disabled')
+			return 'invalid status';
+		if (tune.target && tune.target !== 'src_ip' && tune.target !== 'dest_ip')
+			return 'invalid target';
+		priority = String(tune.priority == null ? '' : tune.priority).trim();
+		if (priority) {
+			n = parseInt(priority, 10);
+			if (isNaN(n) || n < 1 || n > 255)
+				return 'invalid priority';
+		}
+		if (tune.category && !/^[A-Za-z0-9._-]{1,64}$/.test(String(tune.category)))
+			return 'invalid category';
+		if (tune.threshold && !this.THRESHOLD_RE.test(String(tune.threshold).trim()))
+			return 'invalid threshold';
+		return null;
+	},
+
 	validateFeed: function(feed) {
 		var name;
 		var url;
