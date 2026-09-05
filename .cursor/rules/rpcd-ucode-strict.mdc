@@ -1,0 +1,27 @@
+---
+description: ucode rpcd plugins — no hoist, no brace interpolation.
+globs: feeds/**/*.uc
+alwaysApply: false
+---
+
+# rpcd ucode — `'use strict'`
+
+Ucode **does not hoist** `function` declarations. A caller compiled before its helper fails at runtime (`access to undeclared variable …`).
+
+Define helpers **above** the first caller. Tests should assert source order (`indexOf('function helper') < indexOf('function caller')`).
+
+```ucode
+# BAD — get_config() runs, list_etopen_feeds is undeclared
+function get_config() { return list_etopen_feeds(); }
+function list_etopen_feeds() { … }
+
+# GOOD
+function list_etopen_feeds() { … }
+function get_config() { return list_etopen_feeds(); }
+```
+
+Do **not** put `{` or `}` in ucode regex literals or interpolated strings (treated as interpolation; plugin fails to load / “Object not found”).
+
+URL placeholders: `chr(123)` / `chr(125)`, not `{oinkcode}`.
+
+After edits: `ucode /tmp/file.uc` on the router (exit 0) **before** overwriting `/usr/share/rpcd/ucode/`, then `/etc/init.d/rpcd restart`.

@@ -1,0 +1,21 @@
+---
+description: Snort LuCI always uses generated config; no snort.lua-only checkbox.
+globs: feeds/luci/luci-app-snort3/**,feeds/packages/snort3/**
+alwaysApply: false
+---
+
+# Snort LuCI — generated config
+
+Do **not** restore **Use snort.lua only** / `#snort-manual`. LuCI always saves `manual: false` so Listen on, Home network, mode, and **How packets are captured** apply.
+
+`snort.uc` already `include()`s `/etc/snort/snort.lua`. `snort.init` default is `'manual:bool:0'`.
+
+| `method` | Meaning |
+|----------|---------|
+| `afpacket` | Usual IDS on the interface |
+| `nfq` | Prevention only (hide unless IPS) |
+| `pcap` | Remap to `afpacket` |
+
+Jail: `chown snort:snort` + rw-mount `temp_dir` and `log_dir`. Remap `/var/log` → `/var/log/snort`.
+
+Footer Save & Apply only. No Blocky/Suricata header cross-links. No CM5 / 2.5 GbE copy in views.

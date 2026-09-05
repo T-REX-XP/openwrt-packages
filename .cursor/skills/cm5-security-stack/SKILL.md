@@ -3,8 +3,8 @@ name: cm5-security-stack
 description: >-
   Recommend and configure IDS, DNS filtering, and traffic analysis for Orange Pi
   CM5 Base on ImmortalWrt. Use when working on blocky, luci-app-snort3,
-  luci-app-threat-prevention, luci-app-security-guide, banIP, or CM5
-  network/security docs.
+  luci-app-threat-prevention (LuCI Suricata), luci-app-security-guide, banIP,
+  or CM5 network/security docs. Implementation: suricata-ids-cm5, snort3-ids-cm5.
 ---
 
 # CM5 security stack (Orange Pi CM5 Base)
@@ -20,8 +20,8 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 | DNS filtering | blocky, luci-app-blocky | **this feed** | Excellent — in default CM5 image |
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
-| Signature IDS | snort3, luci-app-snort3 | **this feed** (engine: Docker, skip GitHub SDK) | Good in **passive IDS**; IPS needs tuning |
-| | suricata, suricata-etopen, tp-eventd, luci-app-threat-prevention | **this feed** (engine: Docker, skip GitHub SDK) | Optional **IDS** on `br-lan`; **not** in CM5 image |
+| Signature IDS | snort3, luci-app-snort3 | **this feed** (engine: Docker, skip GitHub SDK) | In CM5 image, **off** by default; **passive IDS**; IPS needs tuning |
+| | suricata, suricata-etopen, tp-eventd, luci-app-threat-prevention | **this feed** (engine: Docker, skip GitHub SDK) | In CM5 image, **off** by default; LuCI **Services → Suricata**; **IDS** on `br-lan` |
 | Visibility | tcpdump-mini, vnstat2, nlbwmon | ImmortalWrt | Excellent |
 | Operator guide | luci-app-security-guide | **this feed** | Optional feed install |
 | Heavy IDS/SIEM | Zeek, Wazuh, Suricata **IPS** | External Docker host | Full SIEM / inline IPS not on-router |
@@ -30,7 +30,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 
 **Tier 1 (default):** adblock + banip + blocky + tcpdump-mini + vnstat2 + nlbwmon
 
-**Tier 2 (optional):** snort3 + luci-app-snort3 and/or **suricata** + luci-app-threat-prevention in **IDS mode** on `br-lan`, small ET profile, monitor CPU/RAM
+**Tier 2 (in image, off):** snort3 + luci-app-snort3 and **suricata** + luci-app-threat-prevention (LuCI **Suricata**) in **IDS mode** on `br-lan`, small ET profile, monitor CPU/RAM
 
 **Tier 3 (advanced):** mirror WAN/LAN to an external Docker host for full Suricata IPS / Wazuh
 
@@ -72,4 +72,11 @@ Do not run **adblock** alongside Blocky as primary LAN filter (CM5 image disable
 ## CM5 network notes
 
 - Default LAN: `br-lan`, ports `eth1`/`eth2`, `192.168.8.1/24` (see immortalwrt `99-opi-cm5-network-migrate`)
-- OLED: `/dev/i2c-7`, menu via `oledd`; config in **Services → OLED**
+- MCU panel: skill **`mcu-display-cm5`** (not OLED)
+
+## Implementation skills
+
+| Concern | Skill |
+|---------|-------|
+| Suricata LuCI, ET Open, SID/policies, ucode | **`suricata-ids-cm5`** |
+| Snort LuCI, generated Lua, DAQ, jail | **`snort3-ids-cm5`** |

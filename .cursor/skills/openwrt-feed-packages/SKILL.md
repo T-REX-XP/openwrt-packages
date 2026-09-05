@@ -48,6 +48,7 @@ po/en/<app>.po                    # optional; all UI strings via _()
 - **ACL:** grant `read`/`write` for every path touched (UCI, sysfs, helper scripts).
 - **Init scripts:** `$(INSTALL_BIN)` in `Package/.../install`; repo file mode `755`.
 - **Theming:** scoped root `.luci-app-<name>`; Bootstrap CSS variables only (see `luci-bootstrap-theming`).
+- **ucode:** `'use strict'` does not hoist; helpers above callers; no `{` `}` in regex/strings. See skill **`suricata-ids-cm5`** / rule **`rpcd-ucode-strict`**.
 
 ## luci-app-oled
 

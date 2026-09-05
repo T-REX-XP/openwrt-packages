@@ -147,6 +147,8 @@ ssh root@192.168.8.1 wget -qO- http://127.0.0.1:4000/api/blocking/status
 ssh root@192.168.8.1 i2cdetect -y 7    # FPC I2C on CM5
 ```
 
+**LuCI rpcd ucode:** scp to `/tmp`, `ucode /tmp/file.uc` (exit 0), then install under `/usr/share/rpcd/ucode/` and `/etc/init.d/rpcd restart`. JS → `/www/luci-static/resources/`. Skills **`suricata-ids-cm5`**, **`snort3-ids-cm5`**.
+
 ## Agent behavior
 
 - **Prefer MCP** over ad-hoc SSH when a tool exists — structured output, shared safety semantics.
@@ -166,6 +168,8 @@ ssh root@192.168.8.1 i2cdetect -y 7    # FPC I2C on CM5
 | `blocky-dns-cm5` | build_immortalwrt | DNS/adblock validation |
 | `cm5-base-files` | immortalwrt | Expected LAN/UCI defaults |
 | `cm5-device-image` | build_immortalwrt | Post-flash package checklist |
+| `suricata-ids-cm5` | openwrt-packages | Suricata LuCI deploy, getConfig/getPolicies |
+| `snort3-ids-cm5` | openwrt-packages | Snort LuCI / jail / method |
 
 ## Reference
 
