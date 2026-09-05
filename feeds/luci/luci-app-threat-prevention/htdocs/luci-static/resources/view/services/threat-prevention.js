@@ -138,6 +138,57 @@ function ruleStatusInfo(row) {
 	return { id: 'enabled', kind: 'yes', label: _('Enabled'), on: true };
 }
 
+var ICON_PATHS = {
+	enable: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.5 14.2-3.7-3.7 1.4-1.4 2.3 2.3 5.3-5.3 1.4 1.4-6.7 6.7z',
+	disable: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.2 13.1-1.1 1.1L12 13.1l-3.1 3.1-1.1-1.1L10.9 12 7.8 8.9l1.1-1.1L12 10.9l3.1-3.1 1.1 1.1L13.1 12l3.1 3.1z',
+	review: 'M8 2h6l4 4v14H6V2h2zm6 1.5V7h3.5L14 3.5zM8 11h8v1.5H8V11zm0 3h8v1.5H8V14zm0 3h5v1.5H8V17z',
+	expire: 'M4 4h16v4H4V4zm1 6h14v10H5V10zm3 2v6h2v-6H8zm6 0v6h2v-6h-2z',
+	edit: 'M4 17.2V20h2.8l8.2-8.2-2.8-2.8L4 17.2zm13.1-7.6 1.7-1.7c.4-.4.4-1 0-1.4l-1.3-1.3c-.4-.4-1-.4-1.4 0l-1.7 1.7 2.7 2.7z'
+};
+
+function iconSvg(kind) {
+	return E('svg', {
+		xmlns: 'http://www.w3.org/2000/svg',
+		viewBox: '0 0 24 24',
+		width: '16',
+		height: '16',
+		'aria-hidden': 'true',
+		focusable: 'false'
+	}, [
+		E('path', { d: ICON_PATHS[kind] || ICON_PATHS.edit, fill: 'currentColor' })
+	]);
+}
+
+function iconBtn(title, kind, fn) {
+	return E('button', {
+		'type': 'button',
+		'class': 'tp-icon-btn tp-icon-btn--' + kind,
+		'title': title,
+		'aria-label': title,
+		click: function(ev) {
+			ev.preventDefault();
+			fn();
+		}
+	}, [ iconSvg(kind) ]);
+}
+
+function ruleTagPills(row) {
+	var tags = tpCore.displayRuleTags(row && row.raw, {
+		classtype: row && row.classtype,
+		tags: row && row.tags
+	});
+	var i;
+	var kids = [];
+
+	if (!tags.length)
+		return E('span', { 'class': 'tp-muted' }, '—');
+	for (i = 0; i < tags.length; i++)
+		kids.push(E('span', {
+			'class': 'tp-tag-pill tp-tag-pill--' + tags[i].tone
+		}, tags[i].label));
+	return E('div', { 'class': 'tp-tag-pills' }, kids);
+}
+
 function tpStatusRow(label, value) {
 	return E('div', { 'class': 'tp-status-row' }, [
 		E('div', { 'class': 'tp-status-label' }, label),
@@ -242,13 +293,66 @@ function collectTpSettings() {
 	});
 }
 
+function collectPolicies() {
+	var out = { rulesets: [], classtypes: [] };
+	var host = document.getElementById('tp-policy');
+	var rows;
+	var i;
+	var tr;
+	var en;
+	var act;
+
+	if (!host)
+		return out;
+	rows = host.querySelectorAll('tr.tp-rs-row');
+	for (i = 0; i < rows.length; i++) {
+		tr = rows[i];
+		en = tr.querySelector('input.tp-rs-en');
+		act = tr.querySelector('select');
+		out.rulesets.push({
+			file: en ? en.getAttribute('data-file') : '',
+			enabled: en && en.checked ? '1' : '0',
+			action: act ? act.value : 'alert'
+		});
+	}
+	rows = host.querySelectorAll('tr.tp-cl-row');
+	for (i = 0; i < rows.length; i++) {
+		tr = rows[i];
+		act = tr.querySelector('select');
+		out.classtypes.push({
+			name: tr.getAttribute('data-name') || '',
+			action: act ? act.value : 'alert'
+		});
+	}
+	return out;
+}
+
 function saveTpSettings(apply) {
 	var collected = collectTpSettings();
+	var policies;
+	var policyErr;
+	var hasPolicy;
+
 	if (collected.error)
 		return Promise.reject(new Error(collected.error));
+	policies = collectPolicies();
+	hasPolicy = policies.rulesets.length > 0 || policies.classtypes.length > 0;
+	if (hasPolicy) {
+		policyErr = tpCore.validatePolicies(policies);
+		if (policyErr)
+			return Promise.reject(new Error(policyErr));
+	}
 	return callSetConfig(collected.config).then(function(res) {
 		if (res && res.error)
 			return Promise.reject(new Error(res.error));
+		if (!hasPolicy)
+			return res;
+		return callSetPolicies(policies).then(function(out) {
+			if (out && out.error)
+				return Promise.reject(new Error(out.error));
+			return res;
+		});
+	}).then(function(res) {
 		if (!apply)
 			return res;
 		return callServiceControl(collected.config.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
@@ -299,7 +403,7 @@ return view.extend({
 		var statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
 		var eventsBox = E('div', { 'data-tab': 'events', 'data-tab-title': _('Events') });
 		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
-		var policyBox = E('div', { 'data-tab': 'policy', 'data-tab-title': _('Policy') });
+		var policyBox = E('div', { id: 'tp-policy', 'data-tab': 'policy', 'data-tab-title': _('Policy') });
 		var settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
 
 		var rulesState = {
@@ -943,17 +1047,18 @@ return view.extend({
 			var opt;
 			var table;
 			var liveSids = {};
+			var tableWrap;
 
 			ensureRulesLayout();
 			tpSidHost.innerHTML = '';
 			tpSidHost.appendChild(cbiSection(_('Rules management'),
-				_('Tick one or more rows, then Enable selected or Disable selected. Open a SID to tune it. Status and action changes stay when feeds are fetched again.'),
+				_('Tick rows for bulk changes, or use the icons on a row. Status and action changes stay when feeds are fetched again.'),
 				[]));
 
 			search = E('input', {
 				type: 'search',
 				id: 'tp-rule-q',
-				placeholder: _('Search by SID, classtype, message, or file'),
+				placeholder: _('Search by Rule SID, Class Type, Message or other attributes…'),
 				value: rulesState.query
 			});
 			fileSel = E('select', { id: 'tp-rule-file' }, [
@@ -1189,6 +1294,7 @@ return view.extend({
 					E('th', { 'class': 'th' }, _('Message')),
 					E('th', { 'class': 'th' }, _('Category')),
 					E('th', { 'class': 'th' }, _('Status')),
+					E('th', { 'class': 'th' }, _('Tags')),
 					E('th', { 'class': 'th' }, _('Actions'))
 				])
 			]);
@@ -1197,7 +1303,6 @@ return view.extend({
 				var gid = String(row.gid || '1');
 				var st = ruleStatusInfo(row);
 				var pick;
-				var quick;
 				var trClass = 'tr';
 				liveSids[sid] = 1;
 				pick = E('input', {
@@ -1212,22 +1317,6 @@ return view.extend({
 							delete selectedSids[sid];
 						paintSel();
 					}
-				});
-				quick = E('select', { 'class': 'tp-rule-quick' }, [
-					E('option', { value: '' }, _('Quick actions')),
-					E('option', { value: 'enabled' }, _('Enable')),
-					E('option', { value: 'disabled' }, _('Disable')),
-					E('option', { value: 'review' }, _('Review')),
-					E('option', { value: 'expired' }, _('Expire')),
-					E('option', { value: 'edit' }, _('Edit'))
-				]);
-				quick.addEventListener('change', function() {
-					var v = this.value;
-					this.value = '';
-					if (v === 'edit')
-						showRule(sid, gid);
-					else if (v)
-						runOneStatus(sid, gid, v);
 				});
 				if (!st.on)
 					trClass += ' tp-rule--off';
@@ -1247,17 +1336,37 @@ return view.extend({
 					]),
 					E('td', { 'class': 'td' }, val(row.msg)),
 					E('td', { 'class': 'td' }, val(row.classtype)),
-					E('td', { 'class': 'td' }, [
+					E('td', { 'class': 'td tp-col-status' }, [
 						E('button', {
 							'type': 'button',
-							'class': 'btn tp-status-btn',
+							'class': 'tp-status-btn',
+							'title': _('Edit signature'),
 							click: function(ev) {
 								ev.preventDefault();
 								showRule(sid, gid);
 							}
 						}, tpBadge(st.kind, st.label))
 					]),
-					E('td', { 'class': 'td' }, [ quick ])
+					E('td', { 'class': 'td tp-col-tags' }, [ ruleTagPills(row) ]),
+					E('td', { 'class': 'td tp-col-actions' }, [
+						E('div', { 'class': 'tp-icon-row' }, [
+							iconBtn(_('Enable'), 'enable', function() {
+								runOneStatus(sid, gid, 'enabled');
+							}),
+							iconBtn(_('Disable'), 'disable', function() {
+								runOneStatus(sid, gid, 'disabled');
+							}),
+							iconBtn(_('Review'), 'review', function() {
+								runOneStatus(sid, gid, 'review');
+							}),
+							iconBtn(_('Expire'), 'expire', function() {
+								runOneStatus(sid, gid, 'expired');
+							}),
+							iconBtn(_('Edit'), 'edit', function() {
+								showRule(sid, gid);
+							})
+						])
+					])
 				]));
 			});
 			Object.keys(selectedSids).forEach(function(sid) {
@@ -1306,14 +1415,14 @@ return view.extend({
 			var modeNote;
 			policyBox.innerHTML = '';
 			policyBox.appendChild(cbiSection(_('Ruleset policies'),
-				_('Choose which signature files Suricata loads, and the default action for each file. This matches a firewall-style policy: enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Saved policies override the Small/Full profile on the Settings tab.'),
+				_('Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab.'),
 				[]));
 			if (p && p.custom === '1')
 				policyBox.appendChild(E('p', { 'class': 'tp-help' },
 					_('Custom ruleset list is in use (profile: %s).').format(p.profile || 'small')));
 			else
 				policyBox.appendChild(E('p', { 'class': 'tp-help' },
-					_('Showing defaults from the %s profile. Save to keep a custom list.').format(p.profile || 'small')));
+					_('Showing defaults from the %s profile. Save & Apply to keep a custom list.').format(p.profile || 'small')));
 			modeNote = E('p', { 'class': 'tp-warn-inline' + ((p && p.mode) === 'ips' ? ' is-visible' : '') },
 				_('Prevention mode is on. Drop/Reject policies can block matching traffic.'));
 			if ((p && p.mode) !== 'ips')
@@ -1374,41 +1483,10 @@ return view.extend({
 				policyBox.appendChild(clTable);
 			}
 
-			function collectPolicies() {
-				var out = { rulesets: [], classtypes: [] };
-				var rows;
-				var i;
-				var tr;
-				var en;
-				var act;
-				rows = policyBox.querySelectorAll('tr.tp-rs-row');
-				for (i = 0; i < rows.length; i++) {
-					tr = rows[i];
-					en = tr.querySelector('input.tp-rs-en');
-					act = tr.querySelector('select');
-					out.rulesets.push({
-						file: en ? en.getAttribute('data-file') : '',
-						enabled: en && en.checked ? '1' : '0',
-						action: act ? act.value : 'alert'
-					});
-				}
-				rows = policyBox.querySelectorAll('tr.tp-cl-row');
-				for (i = 0; i < rows.length; i++) {
-					tr = rows[i];
-					act = tr.querySelector('select');
-					out.classtypes.push({
-						name: tr.getAttribute('data-name') || '',
-						action: act ? act.value : 'alert'
-					});
-				}
-				return out;
-			}
-
-			function savePolicies(resetFiles) {
+			function resetPolicies() {
 				var collected = collectPolicies();
 				var err;
-				if (resetFiles)
-					collected.rulesets = [];
+				collected.rulesets = [];
 				err = tpCore.validatePolicies(collected);
 				if (err) {
 					ui.addNotification(null, E('p', {}, err), 'error');
@@ -1417,28 +1495,20 @@ return view.extend({
 				callSetPolicies(collected).then(function(out) {
 					if (out && out.error)
 						return Promise.reject(new Error(out.error));
-					ui.addNotification(null, E('p', {}, _('Policies saved')), 4000);
+					ui.addNotification(null, E('p', {}, _('Rulesets reset to the profile on the Settings tab')), 4000);
 					renderPolicy((out && out.policies) || collected);
 				}).catch(function(e) {
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
 				});
 			}
 
-			policyBox.appendChild(E('div', { 'class': 'cbi-page-actions tp-policy-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button-positive',
-					click: function(ev) {
-						ev.preventDefault();
-						savePolicies(false);
-					}
-				}, _('Save policies')),
+			policyBox.appendChild(E('div', { 'class': 'tp-policy-actions' }, [
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button',
 					click: function(ev) {
 						ev.preventDefault();
-						savePolicies(true);
+						resetPolicies();
 					}
 				}, _('Reset rulesets to profile'))
 			]));

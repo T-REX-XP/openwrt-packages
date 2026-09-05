@@ -121,8 +121,15 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /_\('Rules management'\)/);
 	assert.match(view, /_\('Enable selected'\)/);
 	assert.match(view, /_\('Disable selected'\)/);
-	assert.match(view, /_\('Save policies'\)/);
+	assert.match(view, /callSetPolicies\(policies\)/);
+	assert.match(view, /function collectPolicies/);
+	assert.doesNotMatch(view, /_\('Save policies'\)/);
+	assert.match(view, /_\('Reset rulesets to profile'\)/);
 	assert.match(view, /_\('SID:rev'\)/);
+	assert.match(view, /_\('Tags'\)/);
+	assert.match(view, /tp-icon-btn/);
+	assert.doesNotMatch(view, /tp-rule-quick/);
+	assert.doesNotMatch(view, /_\('Quick actions'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);
 	assert.match(view, /id:\s*'tp-tune-threshold'/);
 	assert.match(view, /actionSelect\('tp-tune-action'/);
@@ -198,6 +205,9 @@ test('parseRuleRaw and tune preview', () => {
 	assert.match(preview, /classtype:misc-activity;/);
 	assert.match(core.applyRuleTunePreview(raw, { action: 'drop' }), /^drop /);
 	assert.equal(core.applyRuleTunePreview(raw, {}), raw);
+	const pills = core.displayRuleTags(raw, { classtype: 'trojan-activity' });
+	assert.ok(pills.some((t) => t.label === 'dns' && t.tone === 'proto'));
+	assert.ok(pills.some((t) => t.label === 'malware' && t.tone === 'meta'));
 });
 
 test('validateTune and tags', () => {

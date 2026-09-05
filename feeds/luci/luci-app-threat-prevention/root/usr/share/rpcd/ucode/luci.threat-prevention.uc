@@ -620,7 +620,7 @@ function query_rules(args) {
 	let total_sql = `SELECT COUNT(*) FROM rules WHERE ${where};`;
 	let total_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} ${shell_quote(total_sql)}`);
 	let total = int(total_r.output) || 0;
-	let sql = `SELECT gid, sid, rev, action, classtype, file, msg FROM rules WHERE ${where} ORDER BY sid LIMIT ${limit} OFFSET ${offset};`;
+	let sql = `SELECT gid, sid, rev, action, classtype, file, msg, raw FROM rules WHERE ${where} ORDER BY sid LIMIT ${limit} OFFSET ${offset};`;
 	let r = run_cmd(`${bin} -json ${shell_quote(RULES_DB)} ${shell_quote(sql)}`);
 	let rows = [];
 	if (r.code == 0 && r.output) {
@@ -645,6 +645,7 @@ function query_rules(args) {
 			classtype: row.classtype || '',
 			file: fname,
 			msg: row.msg || '',
+			raw: row.raw || '',
 			enabled: disabled[sid] ? '0' : '1',
 			status: (overrides[sid] && overrides[sid].status) ? overrides[sid].status : (disabled[sid] ? 'disabled' : 'enabled'),
 			in_profile

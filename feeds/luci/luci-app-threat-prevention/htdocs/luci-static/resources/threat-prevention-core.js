@@ -320,6 +320,77 @@ return baseclass.extend({
 		return tags;
 	},
 
+	TAG_SKIP: {
+		action: 1,
+		created_at: 1,
+		updated_at: 1,
+		affected_product: 1,
+		deployment: 1,
+		performance_impact: 1,
+		former_sid: 1,
+		mitigated: 1
+	},
+
+	displayRuleTags: function(raw, opts) {
+		var out = [];
+		var seen = {};
+		var parsed;
+		var extra;
+		var m;
+		var proto;
+		var i;
+		var key;
+		var val;
+		var label;
+		var t;
+
+		function add(text, tone) {
+			label = String(text == null ? '' : text).trim().replace(/_/g, '-');
+			if (!label)
+				return;
+			if (seen[label.toLowerCase()])
+				return;
+			seen[label.toLowerCase()] = 1;
+			out.push({ label: label, tone: tone || 'meta' });
+		}
+
+		opts = opts || {};
+		raw = String(raw == null ? '' : raw);
+		m = raw.match(/^(?:alert|drop|pass|reject|rejectsrc|rejectdst)\s+([A-Za-z0-9_-]+)/);
+		proto = m ? m[1].toLowerCase() : '';
+		if (proto && proto !== 'tcp' && proto !== 'udp' && proto !== 'ip' &&
+		    proto !== 'icmp' && proto !== 'any')
+			add(proto, 'proto');
+
+		parsed = this.parseRuleTags(raw);
+		for (i = 0; i < parsed.length && out.length < 4; i++) {
+			key = parsed[i].key;
+			val = parsed[i].value;
+			if (!key || !val || this.TAG_SKIP[key])
+				continue;
+			if (key === 'former_category')
+				add(String(val).toLowerCase(), 'meta');
+			else if (key === 'signature_severity')
+				add(val, 'sev');
+			else if (key === 'attack_target')
+				add(String(val).toLowerCase(), 'meta');
+		}
+
+		if (out.length < 3 && opts.classtype)
+			add(String(opts.classtype).toLowerCase(), 'meta');
+
+		extra = opts.tags;
+		if (Array.isArray(extra)) {
+			for (i = 0; i < extra.length && out.length < 4; i++) {
+				t = this.normalizeTag(extra[i]);
+				if (!t)
+					continue;
+				add(t.substring(t.indexOf(':') + 1), 'meta');
+			}
+		}
+		return out;
+	},
+
 	parseRuleRaw: function(raw) {
 		var out = {
 			action: '',

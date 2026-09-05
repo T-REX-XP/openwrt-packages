@@ -12,6 +12,6 @@ Do not restore **Threat Prevention** as the menu or page title.
 
 - Vendor `.rules` are read-only; tunings in UCI `suricata.s${sid}` (do not `uci delete` the section on re-enable)
 - Apply via `suricata-config-apply` → `tp-rules-apply` + `tp-policy-apply`
-- Footer Save & Apply only; Policy tab uses **Save policies**
+- Footer Save & Apply only (settings + policies). Do not add **Save policies**. Reset rulesets stays on the Policy tab.
 - No Blocky/Snort header cross-links; no CM5 / 2.5 GbE copy in views
 - `rpc.declare` needs `expect: { '': {} }`; buttons `'type': 'button'`

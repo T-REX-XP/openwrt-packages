@@ -4,6 +4,21 @@
 
 .luci-app-threat-prevention {
 	min-width: 0;
+	--tp-tag-fill: #00838f;
+	--tp-tag-sev: #006064;
+}
+
+:root[data-darkmode="true"] .luci-app-threat-prevention,
+:root[data-darkmode="1"] .luci-app-threat-prevention {
+	--tp-tag-fill: #26a69a;
+	--tp-tag-sev: #00897b;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-darkmode="false"]):not([data-darkmode="0"]) .luci-app-threat-prevention {
+		--tp-tag-fill: #26a69a;
+		--tp-tag-sev: #00897b;
+	}
 }
 
 .luci-app-threat-prevention .cbi-section {
@@ -427,8 +442,83 @@
 	line-height: 1;
 }
 
-.luci-app-threat-prevention .tp-rule-quick {
-	max-width: 11rem;
+.luci-app-threat-prevention .tp-tag-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	align-items: center;
+}
+
+.luci-app-threat-prevention .tp-tag-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.15em 0.5em;
+	border-radius: 3px;
+	background: var(--tp-tag-fill, #00838f);
+	color: var(--on-primary-color, #fff);
+	font-size: 0.78em;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+
+.luci-app-threat-prevention .tp-tag-pill--sev {
+	background: var(--tp-tag-sev, #006064);
+}
+
+.luci-app-threat-prevention .tp-muted {
+	color: var(--text-color-medium);
+}
+
+.luci-app-threat-prevention .tp-col-status {
+	text-align: center;
+	white-space: nowrap;
+}
+
+.luci-app-threat-prevention .tp-col-status .tp-badge {
+	border-radius: 3px;
+	text-transform: none;
+	letter-spacing: 0;
+	min-width: 4.4rem;
+	justify-content: center;
+}
+
+.luci-app-threat-prevention .tp-col-status .tp-badge--warn {
+	color: var(--on-primary-color, #fff);
+}
+
+.luci-app-threat-prevention .tp-col-actions {
+	white-space: nowrap;
+}
+
+.luci-app-threat-prevention .tp-icon-row {
+	display: inline-flex;
+	flex-wrap: nowrap;
+	gap: 0.15rem;
+	align-items: center;
+}
+
+.luci-app-threat-prevention .tp-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--text-color-high, var(--text-color-highest));
+	cursor: pointer;
+}
+
+.luci-app-threat-prevention .tp-icon-btn:hover,
+.luci-app-threat-prevention .tp-icon-btn:focus {
+	background: var(--background-color-medium);
+	color: var(--text-color-highest);
+}
+
+.luci-app-threat-prevention .tp-icon-btn svg {
+	display: block;
 }
 
 .luci-app-threat-prevention .tp-policy-table {

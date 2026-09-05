@@ -45,7 +45,8 @@ Vendor `.rules` stay read-only. Tunings live in UCI. Per-SID action wins; file a
 
 ## LuCI UX (frozen)
 
-- One Save & Apply: LuCI footer only. Policy tab uses **Save policies**.
+- One Save & Apply: LuCI footer only. Policy tab has no extra Save; footer writes settings and policies together.
+- **Reset rulesets to profile** stays on the Policy tab (clears custom `rs_*` UCI).
 - No Blocky/Snort header cross-links.
 - No CM5 / 2.5 GbE copy in views.
 - Rules: tick rows → Enable / Disable / Review / Expire / Set action / Reindex. Status badge opens the SID editor.
