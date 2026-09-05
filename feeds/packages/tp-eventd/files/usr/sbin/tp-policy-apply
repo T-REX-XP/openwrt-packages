@@ -1,0 +1,225 @@
+#!/bin/sh
+# Build Suricata rule-files list from UCI ruleset/classtype/SID policies.
+# Vendor *.rules stay untouched. Non-alert actions are written to a runtime copy.
+
+set -eu
+
+RULE_DIR=${1:-/etc/suricata/rules}
+META=${2:-/var/run/suricata/policy.meta}
+OUT_DIR=${3:-/var/run/suricata/rules}
+PROFILE=$(uci -q get suricata.main.rule_profile 2>/dev/null || echo small)
+SMALL="emerging-malware.rules emerging-mobile_malware.rules emerging-trojan.rules emerging-worm.rules emerging-exploit.rules emerging-web_server.rules"
+
+mkdir -p "$(dirname "$META")"
+
+need_transform=0
+CLASS_MAP=$(mktemp)
+SID_ACT=$(mktemp)
+SID_OFF=$(mktemp)
+FILES=$(mktemp)
+FILE_ACT=$(mktemp)
+trap 'rm -f "$CLASS_MAP" "$SID_ACT" "$SID_OFF" "$FILES" "$FILE_ACT"' EXIT
+
+: > "$CLASS_MAP"
+: > "$SID_ACT"
+: > "$SID_OFF"
+: > "$FILES"
+: > "$FILE_ACT"
+
+action_ok() {
+	case "$1" in
+		alert|drop|reject|pass) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+if command -v uci >/dev/null 2>&1; then
+	uci -q show suricata 2>/dev/null | sed -n 's/^suricata\.@classtype\[\([0-9][0-9]*\)\]=classtype$/\1/p' > "$CLASS_MAP.idx"
+	while read -r idx; do
+		[ -n "$idx" ] || continue
+		name=$(uci -q get "suricata.@classtype[${idx}].name" 2>/dev/null || true)
+		act=$(uci -q get "suricata.@classtype[${idx}].action" 2>/dev/null || echo alert)
+		[ -n "$name" ] || continue
+		action_ok "$act" || act=alert
+		echo "$name $act" >> "$CLASS_MAP"
+	done < "$CLASS_MAP.idx"
+	rm -f "$CLASS_MAP.idx"
+
+	uci -q show suricata 2>/dev/null | sed -n 's/^suricata\.\(rs_[A-Za-z0-9_]*\)=ruleset$/\1/p' > "$FILES.idx"
+	while read -r sec; do
+		[ -n "$sec" ] || continue
+		file=$(uci -q get "suricata.${sec}.file" 2>/dev/null || true)
+		en=$(uci -q get "suricata.${sec}.enabled" 2>/dev/null || echo 1)
+		act=$(uci -q get "suricata.${sec}.action" 2>/dev/null || echo alert)
+		[ -n "$file" ] || continue
+		echo "$file" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]*\.rules$' || continue
+		[ -f "$RULE_DIR/$file" ] || continue
+		action_ok "$act" || act=alert
+		if [ "$en" = 1 ]; then
+			echo "$file" >> "$FILES"
+			echo "$file $act" >> "$FILE_ACT"
+		fi
+	done < "$FILES.idx"
+	rm -f "$FILES.idx"
+
+	uci -q show suricata 2>/dev/null | sed -n 's/^suricata\.s\([0-9][0-9]*\)=sid$/\1/p' > "$SID_OFF.idx"
+	while read -r sid; do
+		[ -n "$sid" ] || continue
+		en=$(uci -q get "suricata.s${sid}.enabled" 2>/dev/null || echo 1)
+		st=$(uci -q get "suricata.s${sid}.status" 2>/dev/null || echo enabled)
+		act=$(uci -q get "suricata.s${sid}.action" 2>/dev/null || true)
+		if [ "$en" = 0 ] || [ "$st" = disabled ] || [ "$st" = expired ]; then
+			echo "$sid" >> "$SID_OFF"
+		fi
+		if [ -n "$act" ] && action_ok "$act"; then
+			echo "$sid $act" >> "$SID_ACT"
+		fi
+	done < "$SID_OFF.idx"
+	rm -f "$SID_OFF.idx"
+fi
+
+if [ ! -s "$FILES" ]; then
+	if [ "$PROFILE" = full ]; then
+		if [ -f "$RULE_DIR/suricata.rules" ]; then
+			echo "suricata.rules" >> "$FILES"
+			echo "suricata.rules alert" >> "$FILE_ACT"
+		else
+			for f in "$RULE_DIR"/emerging-*.rules; do
+				[ -f "$f" ] || continue
+				b=$(basename "$f")
+				echo "$b" >> "$FILES"
+				echo "$b alert" >> "$FILE_ACT"
+			done
+		fi
+	else
+		for b in $SMALL; do
+			[ -f "$RULE_DIR/$b" ] || continue
+			echo "$b" >> "$FILES"
+			echo "$b alert" >> "$FILE_ACT"
+		done
+	fi
+	if [ -f "$RULE_DIR/local.rules" ]; then
+		echo "local.rules" >> "$FILES"
+		echo "local.rules alert" >> "$FILE_ACT"
+	fi
+fi
+
+if grep -v ' alert$' "$FILE_ACT" >/dev/null 2>&1; then
+	need_transform=1
+fi
+if [ -s "$SID_ACT" ]; then
+	need_transform=1
+fi
+if grep -v ' alert$' "$CLASS_MAP" >/dev/null 2>&1; then
+	need_transform=1
+fi
+
+SRC_DIR=$RULE_DIR
+if [ "$need_transform" = 1 ]; then
+	rm -rf "$OUT_DIR"
+	mkdir -p "$OUT_DIR"
+	SRC_DIR=$OUT_DIR
+	while read -r file; do
+		[ -n "$file" ] || continue
+		[ -f "$RULE_DIR/$file" ] || continue
+		file_action=$(awk -v f="$file" '$1==f {print $2; exit}' "$FILE_ACT")
+		[ -n "$file_action" ] || file_action=alert
+		awk -v classf="$CLASS_MAP" -v sidact="$SID_ACT" -v sidoff="$SID_OFF" -v file_action="$file_action" '
+		function loadmap(path, dest,   line, n, k, v) {
+			while ((getline line < path) > 0) {
+				n = split(line, a, /[ \t]+/)
+				if (n >= 2) dest[a[1]] = a[2]
+			}
+			close(path)
+		}
+		BEGIN {
+			loadmap(classf, cmap)
+			loadmap(sidact, smap)
+			while ((getline line < sidoff) > 0) {
+				off[line] = 1
+			}
+			close(sidoff)
+		}
+		function sid_of(s,   i, rest, j, c, out) {
+			i = index(s, "sid:")
+			if (i == 0) return ""
+			rest = substr(s, i + 4)
+			out = ""
+			for (j = 1; j <= length(rest); j++) {
+				c = substr(rest, j, 1)
+				if (c < "0" || c > "9") break
+				out = out c
+			}
+			return out
+		}
+		function cls_of(s,   i, rest, j, c, out) {
+			i = index(s, "classtype:")
+			if (i == 0) return ""
+			rest = substr(s, i + 10)
+			out = ""
+			for (j = 1; j <= length(rest); j++) {
+				c = substr(rest, j, 1)
+				if (c == ";" || c == " " || c == "\t" || c == ")") break
+				out = out c
+			}
+			return out
+		}
+		function emit(line,   n, w, act, sid, cls, nact, rest) {
+			n = split(line, w, /[ \t]+/)
+			if (n < 1) return
+			act = w[1]
+			if (act != "alert" && act != "drop" && act != "pass" &&
+			    act != "reject" && act != "rejectsrc" && act != "rejectdst") {
+				print line
+				return
+			}
+			sid = sid_of(line)
+			if (sid != "" && off[sid]) return
+			cls = cls_of(line)
+			nact = act
+			if (sid != "" && smap[sid] != "") nact = smap[sid]
+			else if (cls != "" && cmap[cls] != "") nact = cmap[cls]
+			else if (file_action != "" && file_action != "alert") nact = file_action
+			if (nact == act) {
+				print line
+				return
+			}
+			rest = line
+			sub(/^[ \t]*(alert|drop|pass|reject|rejectsrc|rejectdst)/, nact, rest)
+			print rest
+		}
+		{
+			line = $0
+			sub(/\r$/, "", line)
+			if (cont != "") {
+				sub(/^[ \t]+/, "", line)
+				line = cont line
+				cont = ""
+			}
+			if (line ~ /\\[ \t]*$/) {
+				sub(/\\[ \t]*$/, "", line)
+				cont = line
+				next
+			}
+			tmp = line
+			sub(/^[ \t]+/, "", tmp)
+			if (tmp == "" || tmp ~ /^#/) {
+				print line
+				next
+			}
+			emit(tmp)
+		}
+		' "$RULE_DIR/$file" > "$OUT_DIR/$file"
+	done < "$FILES"
+fi
+
+{
+	echo "DIR=$SRC_DIR"
+	sort -u "$FILES" | while read -r f; do
+		[ -n "$f" ] || continue
+		echo "FILE=$f"
+	done
+} > "$META"
+
+chmod 644 "$META" 2>/dev/null || true
+exit 0

@@ -44,7 +44,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/packages/suricata` | suricata | Suricata 8 IDS (in CM5 image, disabled by default; Docker compile) |
 | `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 8 |
 | `feeds/packages/tp-eventd` | tp-eventd | EVE JSON → SQLite ring |
-| `feeds/luci/luci-app-threat-prevention` | luci-app-threat-prevention | Threat Prevention LuCI (EVE, ET Open, class policy) |
+| `feeds/luci/luci-app-threat-prevention` | luci-app-threat-prevention | Suricata LuCI (EVE, ET Open, class policy) |
 
 Upstream **speedtest-go** stays on the standard packages feed; this feed only ships the LuCI front-end where applicable.
 

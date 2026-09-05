@@ -18,6 +18,7 @@ sh -n "$INGEST"
 sh -n "$ROOT/files/usr/sbin/tp-eventd"
 sh -n "$ROOT/files/usr/sbin/tp-rules-index"
 sh -n "$ROOT/files/usr/sbin/tp-rules-apply"
+sh -n "$ROOT/files/usr/sbin/tp-policy-apply"
 sh -n "$ROOT/../suricata/files/usr/sbin/suricata-config-apply"
 sh -n "$ROOT/../suricata-etopen/files/usr/sbin/suricata-etopen-fetch"
 
@@ -104,5 +105,35 @@ grep -q 'threshold gen_id 1, sig_id 2020002, type limit, track by_src, count 1, 
 grep -q 'suppress gen_id 1, sig_id 2020004' "$THRESH" || { echo "missing expired suppress"; cat "$THRESH"; exit 1; }
 grep -q '2020005' "$THRESH" && { echo "invalid threshold was emitted"; cat "$THRESH"; exit 1; }
 grep -q 'sig_id 2020004, type' "$THRESH" && { echo "expired SID still got a threshold"; cat "$THRESH"; exit 1; }
+
+POLICY="$ROOT/files/usr/sbin/tp-policy-apply"
+POL_FAKE=$(mktemp -d)
+POL_OUT=$(mktemp -d)
+POL_META=$(mktemp)
+trap 'rm -f "$DB" "$RULES_DB" "$THRESH" "$POL_META"; rm -rf "$RULES_DIR" "$FAKE" "$POL_FAKE" "$POL_OUT"' EXIT
+cat > "$POL_FAKE/uci" <<'EOF'
+#!/bin/sh
+case "$*" in
+"-q get suricata.main.rule_profile") echo small ;;
+"-q show suricata")
+	printf '%s\n' \
+		'suricata.@classtype[0]=classtype' \
+		'suricata.s2020001=sid'
+	;;
+"-q get suricata.@classtype[0].name") echo trojan-activity ;;
+"-q get suricata.@classtype[0].action") echo drop ;;
+"-q get suricata.s2020001.enabled") echo 0 ;;
+"-q get suricata.s2020001.status") echo disabled ;;
+"-q get suricata.s2020001.action") ;;
+*) exit 1 ;;
+esac
+exit 0
+EOF
+chmod +x "$POL_FAKE/uci"
+PATH="$POL_FAKE:/usr/bin:/bin" sh "$POLICY" "$RULES_DIR" "$POL_META" "$POL_OUT"
+grep -q "DIR=$POL_OUT" "$POL_META" || { echo "policy meta DIR wrong"; cat "$POL_META"; exit 1; }
+grep -q 'FILE=emerging-malware.rules' "$POL_META" || { echo "policy meta missing file"; cat "$POL_META"; exit 1; }
+grep -q 'drop http' "$POL_OUT/emerging-malware.rules" || { echo "classtype drop not applied"; cat "$POL_OUT/emerging-malware.rules"; exit 1; }
+grep -q 'sid:2020001' "$POL_OUT/emerging-malware.rules" && { echo "disabled SID still emitted"; cat "$POL_OUT/emerging-malware.rules"; exit 1; }
 
 echo "tp-rules-index tests ok"

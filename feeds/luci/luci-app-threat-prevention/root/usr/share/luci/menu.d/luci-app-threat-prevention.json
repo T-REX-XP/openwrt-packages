@@ -1,6 +1,6 @@
 {
 	"admin/services/threat-prevention": {
-		"title": "Threat Prevention",
+		"title": "Suricata",
 		"order": 55,
 		"action": {
 			"type": "view",

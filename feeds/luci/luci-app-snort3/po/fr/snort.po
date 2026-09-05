@@ -345,11 +345,11 @@ msgstr "Échec de l'enregistrement des paramètres Snort"
 msgid "RPC failed"
 msgstr "Échec RPC"
 
-msgid "Threat Prevention"
-msgstr "Prévention des menaces"
+msgid "How packets are captured"
+msgstr "Capture des paquets"
 
-msgid "Blocky"
-msgstr "Blocky"
+msgid "AF_PACKET listens on the interface (usual for watch-only). NFQ uses a netfilter queue and is only available in prevention mode."
+msgstr "AF_PACKET écoute sur l’interface (choix habituel en détection). NFQ utilise une file netfilter et n’est disponible qu’en prévention."
 
 msgid "Snort 3 on the LAN bridge. Keep IDS (detect only) on CM5; inline IPS at 2.5 GbE is not recommended."
 msgstr "Snort 3 sur le pont LAN. Conservez l'IDS (détection seule) sur CM5 ; l'IPS en ligne à 2,5 GbE n'est pas recommandé."

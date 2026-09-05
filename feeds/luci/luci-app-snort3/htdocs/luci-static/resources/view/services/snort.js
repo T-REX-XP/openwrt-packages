@@ -175,7 +175,6 @@ function elVal(id) {
 
 function collectSnortSettings() {
 	var enabled = elVal('snort-enabled');
-	var manual = elVal('snort-manual');
 	var logging = elVal('snort-logging');
 	var openappid = elVal('snort-openappid');
 	var iface = elVal('snort-iface');
@@ -190,14 +189,14 @@ function collectSnortSettings() {
 	var cfgDir = elVal('snort-cfgdir');
 	var tmpDir = elVal('snort-tmpdir');
 
-	if (!enabled || !manual || !logging || !openappid || !iface || !home ||
+	if (!enabled || !logging || !openappid || !iface || !home ||
 	    !ext || !mode || !method || !action || !snaplen || !logDir ||
 	    !cfgDir || !tmpDir)
 		return { error: _('Settings form is not ready.') };
 
 	return snortCore.collectSettings({
 		enabled: enabled.checked,
-		manual: manual.checked,
+		manual: false,
 		logging: logging.checked,
 		openappid: openappid.checked,
 		interface: iface.value,
@@ -438,8 +437,6 @@ return view.extend({
 			settingsBox.innerHTML = '';
 			var enabled = E('input', { type: 'checkbox', id: 'snort-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
-			var manual = E('input', { type: 'checkbox', id: 'snort-manual' });
-			manual.checked = c.manual === '1' || c.manual === 1;
 			var logging = E('input', { type: 'checkbox', id: 'snort-logging' });
 			logging.checked = c.logging === '1' || c.logging === 1 || c.logging === undefined;
 			var openappid = E('input', { type: 'checkbox', id: 'snort-openappid' });
@@ -532,9 +529,7 @@ return view.extend({
 				_('Turn Snort on, then Save & Apply. Update rules on the Rules tab if you have not already.'),
 				[
 					fieldRow('snort-enabled', _('Enable Snort'), enabled,
-						_('Start the Snort service with this configuration.')),
-					fieldRow('snort-manual', _('Use snort.lua only'), manual,
-						_('Advanced. Ignore the form below and run the Lua file as-is.'))
+						_('Start the Snort service with this configuration.'))
 				]));
 			settingsBox.appendChild(cbiSection(_('Network'),
 				_('Watch the LAN bridge so devices behind the router are covered. Pick the Linux device (br-lan), not the UCI name “lan”.'),
@@ -548,13 +543,13 @@ return view.extend({
 						_('EXTERNAL_NET. Use any for the whole internet, or !$HOME_NET to exclude your LAN.'))
 				]));
 			settingsBox.appendChild(cbiSection(_('Detection'),
-				_('Watch only records matches. Prevention tries to drop them and can slow a fast LAN.'),
+				_('Watch only records matches. Prevention tries to drop them and can slow a fast LAN. The generated config always includes /etc/snort/snort.lua, then applies the settings below.'),
 				[
 					fieldRow('snort-mode', _('Operating mode'), mode,
 						_('Watch only = detect and log. Prevention = inline blocking.')),
 					ipsWarn,
 					fieldRow('snort-method', _('How packets are captured'), method,
-						_('AF_PACKET is the usual choice. NFQ is only for prevention mode.')),
+						_('AF_PACKET listens on the interface (usual for watch-only). NFQ uses a netfilter queue and is only available in prevention mode.')),
 					fieldRow('snort-snaplen', _('Bytes per packet'), snaplen,
 						_('Capture length (0–65535). 1518 is enough for typical Ethernet.')),
 					fieldRow('snort-action', _('Default rule action'), action,

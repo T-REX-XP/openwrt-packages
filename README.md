@@ -23,7 +23,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (in CM5 image, disabled by default; GitHub Actions SDK + Pages) |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 8) into `/etc/suricata/rules` |
 | `feeds/packages/tp-eventd` | **tp-eventd** — EVE JSON → SQLite event ring |
-| `feeds/luci/luci-app-threat-prevention` | Threat Prevention LuCI (EVE events, ET Open, class policy) |
+| `feeds/luci/luci-app-threat-prevention` | **luci-app-threat-prevention** — LuCI for Suricata (EVE events, ET Open, class policy) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 

@@ -169,6 +169,10 @@ test('view uses network devices select and advanced paths', () => {
 	assert.doesNotMatch(view, /admin\/services\/blocky/);
 	assert.doesNotMatch(view, /admin\/services\/threat-prevention/);
 	assert.doesNotMatch(view, /snort-cross/);
+	assert.doesNotMatch(view, /snort-manual/);
+	assert.doesNotMatch(view, /Use snort.lua only/);
+	assert.match(view, /manual: false/);
+	assert.match(view, /_\('How packets are captured'\)/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
 	assert.match(view, /_\('Add'\)/);
 	assert.match(view, /id:\s*'snort-oink'/);

@@ -12,7 +12,7 @@ validate_snort_section() {
 	$MGR -q check || return 1
 	uci_validate_section snort snort "${1}" \
 		'enabled:bool:0' \
-		'manual:bool:1' \
+		'manual:bool:0' \
 		'config_dir:string' \
 		'interface:string'
 }

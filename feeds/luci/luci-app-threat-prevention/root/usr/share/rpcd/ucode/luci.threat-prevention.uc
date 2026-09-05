@@ -117,26 +117,6 @@ const SMALL_RULE_FILES = {
 
 const RULES_DB = '/var/lib/threat-prevention/rules.sqlite';
 
-function get_config() {
-	let cfg = {};
-	for (let k in const_defaults)
-		cfg[k] = uci_get(k, const_defaults[k]);
-	let classes = [];
-	let idx = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.@classtype\\[\\([0-9]*\\)\\]=classtype/\\1/p'");
-	if (idx.output) {
-		for (let line in split(idx.output, '\n')) {
-			if (line == '')
-				continue;
-			let name = run_cmd(`uci -q get suricata.@classtype[${line}].name`).output;
-			let action = run_cmd(`uci -q get suricata.@classtype[${line}].action`).output;
-			push(classes, { name, action: action || 'alert' });
-		}
-	}
-	cfg.classtypes = classes;
-	cfg.feeds = list_etopen_feeds();
-	return cfg;
-}
-
 function feed_id_ok(id) {
 	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
 		return false;
@@ -178,6 +158,26 @@ function list_etopen_feeds() {
 		});
 	}
 	return feeds;
+}
+
+function get_config() {
+	let cfg = {};
+	for (let k in const_defaults)
+		cfg[k] = uci_get(k, const_defaults[k]);
+	let classes = [];
+	let idx = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.@classtype\\[\\([0-9]*\\)\\]=classtype/\\1/p'");
+	if (idx.output) {
+		for (let line in split(idx.output, '\n')) {
+			if (line == '')
+				continue;
+			let name = run_cmd(`uci -q get suricata.@classtype[${line}].name`).output;
+			let action = run_cmd(`uci -q get suricata.@classtype[${line}].action`).output;
+			push(classes, { name, action: action || 'alert' });
+		}
+	}
+	cfg.classtypes = classes;
+	cfg.feeds = list_etopen_feeds();
+	return cfg;
 }
 
 function replace_etopen_feeds(feeds) {
@@ -229,6 +229,215 @@ function replace_etopen_feeds(feeds) {
 		run_cmd(`uci set suricata.${id}.enabled=${enabled}`);
 		run_cmd(`uci set suricata.${id}.description=${shell_quote(trim(`${feed.description || ''}`))}`);
 		i++;
+	}
+	return null;
+}
+
+function action_ok(a) {
+	return a == 'alert' || a == 'drop' || a == 'reject' || a == 'pass';
+}
+
+function ruleset_id(file) {
+	let s = replace(`${file}`, /\.rules$/, '');
+	s = replace(s, /[^A-Za-z0-9_]/g, '_');
+	if (s == '' || match(s, /^[0-9]/))
+		s = 'r_' + s;
+	if (length(s) > 28)
+		s = substr(s, 0, 28);
+	return 'rs_' + s;
+}
+
+function file_ok(file) {
+	return match(`${file}`, /^[A-Za-z0-9][A-Za-z0-9._-]*\.rules$/);
+}
+
+function small_file_on(file) {
+	return SMALL_RULE_FILES[file] == 1;
+}
+
+function file_counts() {
+	let out = {};
+	if (!file_test('-f', RULES_DB))
+		return out;
+	let bin = sqlite3_bin();
+	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} ${shell_quote('SELECT file, COUNT(*) FROM rules GROUP BY file ORDER BY file;')}`);
+	if (r.code != 0 || !r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line == '')
+			continue;
+		let p = split(line, '|');
+		if (length(p) >= 2 && p[0] != '')
+			out[p[0]] = int(p[1]);
+	}
+	return out;
+}
+
+function distinct_col(col) {
+	if (col != 'file' && col != 'classtype')
+		return [];
+	let bin = sqlite3_bin();
+	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} ${shell_quote(`SELECT DISTINCT ${col} FROM rules WHERE ${col} != '' ORDER BY ${col};`)}`);
+	let out = [];
+	if (r.code != 0 || !r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line != '')
+			push(out, line);
+	}
+	return out;
+}
+
+function parse_enabled_flag(v) {
+	v = `${v}`;
+	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
+		return '1';
+	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
+		return '0';
+	return null;
+}
+
+function get_policies() {
+	let profile = uci_get('rule_profile', 'small');
+	let mode = uci_get('mode', 'ids');
+	let counts = file_counts();
+	let custom = false;
+	let uci_rs = {};
+	let r = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\(rs_[^=]*\\)=ruleset$/\\1/p'");
+	if (r.output) {
+		for (let sec in split(r.output, '\n')) {
+			if (sec == '')
+				continue;
+			let file = run_cmd(`uci -q get suricata.${sec}.file`).output;
+			if (!file_ok(file))
+				continue;
+			custom = true;
+			uci_rs[file] = {
+				enabled: run_cmd(`uci -q get suricata.${sec}.enabled`).output || '1',
+				action: run_cmd(`uci -q get suricata.${sec}.action`).output || 'alert'
+			};
+		}
+	}
+	let files = [];
+	for (let f in counts)
+		push(files, f);
+	if (!length(files)) {
+		for (let f in SMALL_RULE_FILES)
+			push(files, f);
+	}
+	let rulesets = [];
+	for (let file in files) {
+		let enabled = '0';
+		let action = 'alert';
+		if (uci_rs[file]) {
+			enabled = uci_rs[file].enabled == '0' ? '0' : '1';
+			action = action_ok(uci_rs[file].action) ? uci_rs[file].action : 'alert';
+		} else if (!custom) {
+			enabled = (profile == 'full' || small_file_on(file)) ? '1' : '0';
+		}
+		push(rulesets, {
+			file,
+			enabled,
+			action,
+			count: `${counts[file] || 0}`
+		});
+	}
+	let class_map = {};
+	let cfg0 = get_config();
+	let class_rows = cfg0.classtypes;
+	if (type(class_rows) == 'array') {
+		for (let row in class_rows) {
+			if (row.name)
+				class_map[row.name] = action_ok(row.action) ? row.action : 'alert';
+		}
+	}
+	let class_names = distinct_col('classtype');
+	if (type(class_names) == 'array') {
+		for (let name in class_names) {
+			if (!class_map[name])
+				class_map[name] = 'alert';
+		}
+	}
+	let classtypes = [];
+	for (let name in class_map)
+		push(classtypes, { name, action: class_map[name] });
+	return {
+		mode,
+		profile,
+		custom: custom ? '1' : '0',
+		rulesets,
+		classtypes
+	};
+}
+
+function replace_policies(rulesets, classtypes) {
+	let seen;
+	let i;
+	let file;
+	let enabled;
+	let action;
+	let name;
+	let id;
+	let cur;
+	if (type(rulesets) == 'array') {
+		if (length(rulesets) > 80)
+			return 'invalid rulesets';
+		seen = {};
+		for (i = 0; i < length(rulesets); i++) {
+			if (type(rulesets[i]) != 'object')
+				return 'invalid ruleset';
+			file = trim(`${rulesets[i].file || ''}`);
+			if (!file_ok(file) || seen[file])
+				return 'invalid ruleset';
+			seen[file] = 1;
+			action = trim(`${rulesets[i].action || 'alert'}`);
+			if (!action_ok(action))
+				return 'invalid ruleset';
+		}
+		cur = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\(rs_[^=]*\\)=ruleset$/\\1/p'");
+		if (cur.output) {
+			for (let sec in split(cur.output, '\n')) {
+				if (sec != '')
+					run_cmd(`uci -q delete suricata.${sec}`);
+			}
+		}
+		for (i = 0; i < length(rulesets); i++) {
+			file = trim(`${rulesets[i].file}`);
+			enabled = parse_enabled_flag(rulesets[i].enabled);
+			if (enabled == null)
+				enabled = '1';
+			action = trim(`${rulesets[i].action || 'alert'}`);
+			id = ruleset_id(file);
+			run_cmd(`uci set suricata.${id}=ruleset`);
+			run_cmd(`uci set suricata.${id}.file=${shell_quote(file)}`);
+			run_cmd(`uci set suricata.${id}.enabled=${enabled}`);
+			run_cmd(`uci set suricata.${id}.action=${shell_quote(action)}`);
+		}
+	}
+	if (type(classtypes) == 'array') {
+		if (length(classtypes) > 80)
+			return 'invalid classtypes';
+		seen = {};
+		for (i = 0; i < length(classtypes); i++) {
+			if (type(classtypes[i]) != 'object')
+				return 'invalid classtype';
+			name = trim(`${classtypes[i].name || ''}`);
+			if (!match(name, /^[A-Za-z0-9._-]+$/) || seen[name])
+				return 'invalid classtype';
+			seen[name] = 1;
+			action = trim(`${classtypes[i].action || 'alert'}`);
+			if (!action_ok(action))
+				return 'invalid classtype';
+		}
+		while (run_cmd('uci -q get suricata.@classtype[0]').code == 0)
+			run_cmd('uci delete suricata.@classtype[0]');
+		for (i = 0; i < length(classtypes); i++) {
+			name = trim(`${classtypes[i].name}`);
+			action = trim(`${classtypes[i].action || 'alert'}`);
+			run_cmd('uci add suricata classtype >/dev/null');
+			run_cmd(`uci set suricata.@classtype[-1].name=${shell_quote(name)}`);
+			run_cmd(`uci set suricata.@classtype[-1].action=${shell_quote(action)}`);
+		}
 	}
 	return null;
 }
@@ -302,6 +511,7 @@ function read_sid_tune(sid) {
 			priority: '',
 			target: '',
 			threshold: '',
+			action: '',
 			tags
 		};
 	raw_tags = run_cmd(`uci -q get suricata.${sec}.tags`).output;
@@ -318,6 +528,7 @@ function read_sid_tune(sid) {
 		priority: run_cmd(`uci -q get suricata.${sec}.priority`).output,
 		target: run_cmd(`uci -q get suricata.${sec}.target`).output,
 		threshold: run_cmd(`uci -q get suricata.${sec}.threshold`).output,
+		action: run_cmd(`uci -q get suricata.${sec}.action`).output,
 		tags
 	};
 }
@@ -329,21 +540,6 @@ function sql_in_list(map) {
 	if (!length(ids))
 		return '';
 	return join(',', ids);
-}
-
-function distinct_col(col) {
-	if (col != 'file' && col != 'classtype')
-		return [];
-	let bin = sqlite3_bin();
-	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} ${shell_quote(`SELECT DISTINCT ${col} FROM rules WHERE ${col} != '' ORDER BY ${col};`)}`);
-	let out = [];
-	if (r.code != 0 || !r.output)
-		return out;
-	for (let line in split(r.output, '\n')) {
-		if (line != '')
-			push(out, line);
-	}
-	return out;
 }
 
 function query_rules(args) {
@@ -459,36 +655,41 @@ function query_rules(args) {
 	return empty;
 }
 
-function write_sid_state(sid, gid, enabled) {
+function write_sid_status(sid, gid, status) {
+	let enabled = (status == 'disabled' || status == 'expired') ? '0' : '1';
 	run_cmd(`uci -q get suricata.s${sid} >/dev/null || uci set suricata.s${sid}=sid`);
 	run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
 	run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
 	run_cmd(`uci set suricata.s${sid}.enabled=${enabled}`);
+	run_cmd(`uci set suricata.s${sid}.status=${shell_quote(status)}`);
+}
+
+function write_sid_state(sid, gid, enabled) {
 	if (enabled == '0')
-		run_cmd(`uci set suricata.s${sid}.status=disabled`);
-	else {
-		let st = run_cmd(`uci -q get suricata.s${sid}.status`).output;
-		if (st == '' || st == 'disabled' || st == 'expired')
-			run_cmd(`uci set suricata.s${sid}.status=enabled`);
-	}
+		write_sid_status(sid, gid, 'disabled');
+	else
+		write_sid_status(sid, gid, 'enabled');
+}
+
+function write_sid_action(sid, gid, action) {
+	run_cmd(`uci -q get suricata.s${sid} >/dev/null || uci set suricata.s${sid}=sid`);
+	run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
+	run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
+	if (action != '')
+		run_cmd(`uci set suricata.s${sid}.action=${shell_quote(action)}`);
+	else
+		run_cmd(`uci -q delete suricata.s${sid}.action`);
 }
 
 function commit_rule_states() {
 	run_cmd('uci commit suricata');
-	if (file_test('-x', '/usr/sbin/tp-rules-apply'))
+	if (file_test('-x', '/usr/sbin/suricata-config-apply'))
+		run_cmd('/usr/sbin/suricata-config-apply');
+	else if (file_test('-x', '/usr/sbin/tp-rules-apply'))
 		run_cmd('/usr/sbin/tp-rules-apply');
 	let running = run_cmd('pidof suricata >/dev/null && echo 1 || echo 0').output == '1';
 	if (running)
 		run_cmd('/etc/init.d/suricata reload');
-}
-
-function parse_enabled_flag(v) {
-	v = `${v}`;
-	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
-		return '1';
-	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
-		return '0';
-	return null;
 }
 
 const methods = {
@@ -551,7 +752,36 @@ const methods = {
 
 	getConfig: {
 		call: function() {
-			return get_config();
+			try {
+				return get_config();
+			} catch (e) {
+				return { error: `get_config ${e}` };
+			}
+		}
+	},
+
+	getPolicies: {
+		call: function() {
+			try {
+				return get_policies();
+			} catch (e) {
+				return { error: `get_policies ${e}` };
+			}
+		}
+	},
+
+	setPolicies: {
+		args: { policies: {} },
+		call: function(req) {
+			let p = req.args?.policies;
+			if (type(p) != 'object')
+				return { error: 'invalid policies' };
+			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			let err = replace_policies(p.rulesets, p.classtypes);
+			if (err)
+				return { error: err };
+			commit_rule_states();
+			return { ok: true, policies: get_policies() };
 		}
 	},
 
@@ -671,6 +901,7 @@ const methods = {
 				priority: tune.priority,
 				target: tune.target,
 				threshold: tune.threshold,
+				tune_action: tune.action,
 				tags: tune.tags,
 				classtypes: distinct_col('classtype')
 			};
@@ -693,6 +924,7 @@ const methods = {
 			let tag_s;
 			let i;
 			let one;
+			let rule_action;
 			if (type(t) != 'object')
 				return { error: 'invalid tune' };
 			sid = trim(`${t.sid || ''}`);
@@ -719,6 +951,9 @@ const methods = {
 				return { error: 'invalid target' };
 			if (threshold != '' && !match(threshold, /^type (limit|threshold|both), track (by_src|by_dst), count [0-9]+, seconds [0-9]+$/))
 				return { error: 'invalid threshold' };
+			rule_action = trim(`${t.action || ''}`);
+			if (rule_action != '' && !action_ok(rule_action))
+				return { error: 'invalid action' };
 			tags = [];
 			if (type(t.tags) == 'array') {
 				for (i = 0; i < length(t.tags); i++) {
@@ -754,6 +989,10 @@ const methods = {
 				run_cmd(`uci set suricata.s${sid}.threshold=${shell_quote(threshold)}`);
 			else
 				run_cmd(`uci -q delete suricata.s${sid}.threshold`);
+			if (rule_action != '')
+				run_cmd(`uci set suricata.s${sid}.action=${shell_quote(rule_action)}`);
+			else
+				run_cmd(`uci -q delete suricata.s${sid}.action`);
 			run_cmd(`uci -q delete suricata.s${sid}.tags`);
 			tag_s = join(',', tags);
 			if (tag_s != '')
@@ -781,11 +1020,13 @@ const methods = {
 	},
 
 	setRuleStates: {
-		args: { sids: [], gid: '', enabled: '' },
+		args: { sids: [], gid: '', enabled: '', status: '', action: '' },
 		call: function(req) {
 			let sids = req.args?.sids;
 			let gid = trim(`${req.args?.gid || '1'}`);
 			let enabled = parse_enabled_flag(req.args?.enabled);
+			let status = trim(`${req.args?.status || ''}`);
+			let action = trim(`${req.args?.action || ''}`);
 			let i;
 			let sid;
 			let seen = {};
@@ -794,7 +1035,12 @@ const methods = {
 				return { error: 'invalid sids' };
 			if (!match(gid, /^[0-9]+$/))
 				return { error: 'invalid sid' };
-			if (enabled == null)
+			if (status != '' && status != 'enabled' && status != 'review' &&
+			    status != 'expired' && status != 'disabled')
+				return { error: 'invalid status' };
+			if (action != '' && !action_ok(action))
+				return { error: 'invalid action' };
+			if (status == '' && enabled == null && action == '')
 				return { error: 'invalid enabled' };
 			if (length(sids) < 1 || length(sids) > 50)
 				return { error: 'invalid sids' };
@@ -806,10 +1052,16 @@ const methods = {
 				push(out, sid);
 			}
 			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
-			for (i = 0; i < length(out); i++)
-				write_sid_state(out[i], gid, enabled);
+			for (i = 0; i < length(out); i++) {
+				if (status != '')
+					write_sid_status(out[i], gid, status);
+				else if (enabled != null)
+					write_sid_state(out[i], gid, enabled);
+				if (action != '')
+					write_sid_action(out[i], gid, action);
+			}
 			commit_rule_states();
-			return { ok: true, sids: out, gid, enabled };
+			return { ok: true, sids: out, gid, enabled, status, action };
 		}
 	},
 

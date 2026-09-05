@@ -387,6 +387,8 @@ return baseclass.extend({
 			out = this.upsertKeyword(out, 'priority', t.priority);
 		if (t.target)
 			out = this.upsertKeyword(out, 'target', t.target);
+		if (t.action && /^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/.test(out))
+			out = out.replace(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/, t.action);
 		return out.replace(/[ \t]+;/g, ';').replace(/[ \t]+\)/g, ')');
 	},
 
@@ -453,6 +455,81 @@ return baseclass.extend({
 			return 'invalid category';
 		if (tune.threshold && !this.THRESHOLD_RE.test(String(tune.threshold).trim()))
 			return 'invalid threshold';
+		if (tune.action && !this.actionOk(tune.action))
+			return 'invalid action';
+		return null;
+	},
+
+	RULE_ACTIONS: [ 'alert', 'drop', 'reject', 'pass' ],
+	RULE_STATUSES: [ 'enabled', 'review', 'expired', 'disabled' ],
+	SMALL_RULE_FILES: [
+		'emerging-malware.rules',
+		'emerging-mobile_malware.rules',
+		'emerging-trojan.rules',
+		'emerging-worm.rules',
+		'emerging-exploit.rules',
+		'emerging-web_server.rules'
+	],
+
+	actionOk: function(action) {
+		return this.RULE_ACTIONS.indexOf(String(action == null ? '' : action)) >= 0;
+	},
+
+	statusOk: function(status) {
+		return this.RULE_STATUSES.indexOf(String(status == null ? '' : status)) >= 0;
+	},
+
+	sanitizeRulesetFile: function(file) {
+		var f = String(file == null ? '' : file).trim();
+		if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.rules$/.test(f) || f.length > 80)
+			return '';
+		return f;
+	},
+
+	validatePolicies: function(p) {
+		var i;
+		var row;
+		var file;
+		var seen;
+		var name;
+
+		if (!p || typeof p !== 'object')
+			return 'invalid policies';
+		if (p.rulesets != null) {
+			if (!Array.isArray(p.rulesets) || p.rulesets.length > 80)
+				return 'invalid rulesets';
+			seen = {};
+			for (i = 0; i < p.rulesets.length; i++) {
+				row = p.rulesets[i];
+				if (!row || typeof row !== 'object')
+					return 'invalid ruleset';
+				file = this.sanitizeRulesetFile(row.file);
+				if (!file || seen[file])
+					return 'invalid ruleset';
+				seen[file] = 1;
+				if (this.normalizeFlag(row.enabled) !== '0' &&
+				    this.normalizeFlag(row.enabled) !== '1')
+					return 'invalid ruleset';
+				if (!this.actionOk(row.action || 'alert'))
+					return 'invalid ruleset';
+			}
+		}
+		if (p.classtypes != null) {
+			if (!Array.isArray(p.classtypes) || p.classtypes.length > 80)
+				return 'invalid classtypes';
+			seen = {};
+			for (i = 0; i < p.classtypes.length; i++) {
+				row = p.classtypes[i];
+				if (!row || typeof row !== 'object')
+					return 'invalid classtype';
+				name = String(row.name == null ? '' : row.name).trim();
+				if (!/^[A-Za-z0-9._-]{1,64}$/.test(name) || seen[name])
+					return 'invalid classtype';
+				seen[name] = 1;
+				if (!this.actionOk(row.action || 'alert'))
+					return 'invalid classtype';
+			}
+		}
 		return null;
 	},
 

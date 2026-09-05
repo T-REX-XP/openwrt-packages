@@ -110,17 +110,23 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /callSetConfig\(\{ feeds:/);
 	assert.match(view, /cbi-value-title/);
 	assert.match(view, /_\('What to do next'\)/);
+	assert.match(view, /_\('Suricata'\)/);
+	assert.doesNotMatch(view, /_\('Threat Prevention'\)/);
 	assert.doesNotMatch(view, /CM5/);
 	assert.doesNotMatch(view, /2\.5 GbE/);
-	assert.match(view, /callSetRuleState/);
 	assert.match(view, /callSetRuleStates/);
 	assert.match(view, /callSetRuleTune/);
+	assert.match(view, /callGetPolicies/);
+	assert.match(view, /callSetPolicies/);
 	assert.match(view, /_\('Rules management'\)/);
 	assert.match(view, /_\('Enable selected'\)/);
 	assert.match(view, /_\('Disable selected'\)/);
+	assert.match(view, /_\('Save policies'\)/);
 	assert.match(view, /_\('SID:rev'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);
 	assert.match(view, /id:\s*'tp-tune-threshold'/);
+	assert.match(view, /actionSelect\('tp-tune-action'/);
+	assert.doesNotMatch(view, /Cluster/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /Prefer the small profile on CM5/);
 	assert.doesNotMatch(readFileSync(join(res, 'threat-prevention-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
@@ -136,12 +142,23 @@ test('ucode still validates interface names', () => {
 	assert.match(ucode, /setRuleState:/);
 	assert.match(ucode, /setRuleStates:/);
 	assert.match(ucode, /setRuleTune:/);
+	assert.match(ucode, /setPolicies:/);
+	assert.match(ucode, /getPolicies:/);
 	assert.match(ucode, /function read_sid_tune/);
+	assert.match(ucode, /function replace_policies/);
 	assert.doesNotMatch(ucode, /\{[0-9]+,/);
 	assert.match(ucode, /reindexRules:/);
 	assert.match(ucode, /function like_safe/);
 	assert.match(ucode, /function feed_url_ok/);
 	assert.doesNotMatch(ucode, /FEED_URL_RE/);
+	function fnPos(name) {
+		const i = ucode.indexOf('function ' + name);
+		assert.ok(i >= 0, name + ' missing');
+		return i;
+	}
+	assert.ok(fnPos('list_etopen_feeds') < fnPos('get_config'), 'list_etopen_feeds before get_config');
+	assert.ok(fnPos('distinct_col') < fnPos('get_policies'), 'distinct_col before get_policies');
+	assert.ok(fnPos('parse_enabled_flag') < fnPos('replace_policies'), 'parse_enabled_flag before replace_policies');
 });
 
 test('rule query helpers', () => {
@@ -179,6 +196,7 @@ test('parseRuleRaw and tune preview', () => {
 	assert.match(preview, /priority:1;/);
 	assert.match(preview, /target:src_ip;/);
 	assert.match(preview, /classtype:misc-activity;/);
+	assert.match(core.applyRuleTunePreview(raw, { action: 'drop' }), /^drop /);
 	assert.equal(core.applyRuleTunePreview(raw, {}), raw);
 });
 
@@ -193,9 +211,26 @@ test('validateTune and tags', () => {
 	assert.equal(core.validateTune({ sid: '2026369', status: 'nope' }), 'invalid status');
 	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', priority: '999' }), 'invalid priority');
 	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', threshold: 'count 1' }), 'invalid threshold');
+	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', action: 'drop' }), null);
+	assert.equal(core.validateTune({ sid: '2026369', status: 'enabled', action: 'block' }), 'invalid action');
 	assert.equal(core.normalizeTag('url: www.example.com'), 'url:www.example.com');
 	assert.equal(core.normalizeTag('bad'), null);
 	assert.deepEqual(core.normalizeTagList(['a:1', 'a:1', 'b:2']), ['a:1', 'b:2']);
+});
+
+test('validatePolicies', () => {
+	assert.equal(core.validatePolicies({
+		rulesets: [{ file: 'emerging-malware.rules', enabled: '1', action: 'drop' }],
+		classtypes: [{ name: 'trojan-activity', action: 'alert' }]
+	}), null);
+	assert.equal(core.validatePolicies({
+		rulesets: [{ file: 'bad.txt', enabled: '1', action: 'alert' }]
+	}), 'invalid ruleset');
+	assert.equal(core.validatePolicies({
+		classtypes: [{ name: 'trojan-activity', action: 'block' }]
+	}), 'invalid classtype');
+	assert.equal(core.sanitizeRulesetFile('emerging-malware.rules'), 'emerging-malware.rules');
+	assert.equal(core.actionOk('reject'), true);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

@@ -36,8 +36,25 @@ if [ -x /usr/sbin/tp-rules-apply ]; then
 	/usr/sbin/tp-rules-apply "$THRESHOLD" || true
 fi
 
+META=/var/run/suricata/policy.meta
+if [ -x /usr/sbin/tp-policy-apply ]; then
+	/usr/sbin/tp-policy-apply "$RULE_DIR" "$META" || true
+fi
+
 rules_block="rule-files:"
-if [ "$PROFILE" = full ]; then
+if [ -f "$META" ]; then
+	RULE_SRC=$(sed -n 's/^DIR=//p' "$META" | head -n 1)
+	[ -n "$RULE_SRC" ] || RULE_SRC=$RULE_DIR
+	sed -i "s|^default-rule-path:.*|default-rule-path: $RULE_SRC|" "$tmp"
+	while IFS= read -r line; do
+		case "$line" in
+			FILE=*)
+				rules_block="${rules_block}
+  - ${line#FILE=}"
+				;;
+		esac
+	done < "$META"
+elif [ "$PROFILE" = full ]; then
 	if [ -f "$RULE_DIR/suricata.rules" ]; then
 		rules_block="${rules_block}
   - suricata.rules"

@@ -8,7 +8,8 @@
 					"getEvents",
 					"getConfig",
 					"getRules",
-					"getRule"
+					"getRule",
+					"getPolicies"
 				]
 			},
 			"uci": [ "suricata" ],
@@ -34,6 +35,7 @@
 					"setRuleState",
 					"setRuleStates",
 					"setRuleTune",
+					"setPolicies",
 					"reindexRules"
 				]
 			},
@@ -46,6 +48,7 @@
 				"/usr/sbin/suricata-config-apply": [ "exec" ],
 				"/usr/sbin/tp-rules-index": [ "exec" ],
 				"/usr/sbin/tp-rules-apply": [ "exec" ],
+				"/usr/sbin/tp-policy-apply": [ "exec" ],
 				"/etc/suricata/threshold.config": [ "write" ],
 				"/var/lib/threat-prevention/rules.sqlite": [ "write" ]
 			}

@@ -427,6 +427,21 @@
 	line-height: 1;
 }
 
+.luci-app-threat-prevention .tp-rule-quick {
+	max-width: 11rem;
+}
+
+.luci-app-threat-prevention .tp-policy-table {
+	margin: 0.5rem 0 1rem;
+}
+
+.luci-app-threat-prevention .tp-policy-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
 .luci-app-threat-prevention .tp-rule--off td {
 	color: var(--text-color-medium);
 }

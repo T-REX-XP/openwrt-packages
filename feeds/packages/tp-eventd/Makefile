@@ -6,7 +6,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=tp-eventd
 PKG_VERSION:=1.0
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -43,6 +43,7 @@ define Package/tp-eventd/install
 	$(INSTALL_BIN) ./files/usr/sbin/tp-eventd $(1)/usr/sbin/tp-eventd
 	$(INSTALL_BIN) ./files/usr/sbin/tp-rules-index $(1)/usr/sbin/tp-rules-index
 	$(INSTALL_BIN) ./files/usr/sbin/tp-rules-apply $(1)/usr/sbin/tp-rules-apply
+	$(INSTALL_BIN) ./files/usr/sbin/tp-policy-apply $(1)/usr/sbin/tp-policy-apply
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/tp-eventd.init $(1)/etc/init.d/tp-eventd
 endef
