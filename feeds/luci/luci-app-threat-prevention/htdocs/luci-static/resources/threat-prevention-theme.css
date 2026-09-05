@@ -313,6 +313,12 @@
 	resize: vertical;
 }
 
+.luci-app-threat-prevention .tp-rule-editor {
+	max-height: calc(100vh - 8rem);
+	overflow: auto;
+	min-width: 0;
+}
+
 .luci-app-threat-prevention .tp-rule-editor h4 {
 	margin: 0 0 0.35rem;
 	color: var(--text-color-highest);
@@ -370,36 +376,53 @@
 .luci-app-threat-prevention .tp-tune-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 0.35rem 1.25rem;
+	gap: 0.75rem 1.25rem;
 	min-width: 0;
-	margin-top: 0.5rem;
+	margin: 0.75rem 0 0.25rem;
+	align-items: start;
 }
 
-.luci-app-threat-prevention .tp-tune-grid .cbi-value {
+.luci-app-threat-prevention .tp-tune-field {
 	display: flex;
 	flex-direction: column;
+	gap: 0.3rem;
+	min-width: 0;
 	margin: 0;
-	padding: 0.35rem 0;
+	padding: 0;
 }
 
-.luci-app-threat-prevention .tp-tune-grid .cbi-value-title {
+.luci-app-threat-prevention .tp-tune-field--wide {
+	grid-column: 1 / -1;
+}
+
+.luci-app-threat-prevention .tp-tune-field-title {
+	display: block;
 	float: none;
 	width: auto;
-	text-align: left;
-	padding: 0 0 0.25rem;
-}
-
-.luci-app-threat-prevention .tp-tune-grid .cbi-value-field {
-	float: none;
-	width: 100%;
 	margin: 0;
+	padding: 0;
+	font-weight: 600;
+	color: var(--text-color-highest);
 }
 
-.luci-app-threat-prevention .tp-tune-grid input,
-.luci-app-threat-prevention .tp-tune-grid select {
+.luci-app-threat-prevention .tp-tune-field-control {
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-tune-field-control input,
+.luci-app-threat-prevention .tp-tune-field-control select {
+	display: block;
 	width: 100%;
 	max-width: 100%;
 	box-sizing: border-box;
+}
+
+.luci-app-threat-prevention .tp-tune-field-help {
+	margin: 0;
+	padding: 0;
+	font-size: 0.85em;
+	line-height: 1.35;
+	color: var(--text-color-medium);
 }
 
 .luci-app-threat-prevention .tp-tag-add {

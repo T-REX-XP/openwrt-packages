@@ -123,6 +123,14 @@ function fieldRow(id, title, field, descr) {
 	]);
 }
 
+function tuneField(id, title, field, descr, wide) {
+	return E('div', { 'class': 'tp-tune-field' + (wide ? ' tp-tune-field--wide' : '') }, [
+		E('label', { 'class': 'tp-tune-field-title', 'for': id }, title),
+		E('div', { 'class': 'tp-tune-field-control' }, [ field ]),
+		descr ? E('p', { 'class': 'tp-tune-field-help' }, descr) : ''
+	]);
+}
+
 function tpBadge(kind, text) {
 	return E('span', { 'class': 'tp-badge tp-badge--' + kind }, text);
 }
@@ -958,16 +966,17 @@ return view.extend({
 							statusBtn('disabled', _('Disabled'), 'no')
 						]),
 						E('div', { 'class': 'tp-tune-grid' }, [
-							fieldRow('tp-tune-category', _('Category'), category,
+							tuneField('tp-tune-category', _('Category'), category,
 								_('Operator label. Empty keeps the vendor classtype.')),
-							fieldRow('tp-tune-priority', _('Priority'), priority,
+							tuneField('tp-tune-priority', _('Priority'), priority,
 								_('1–255. Stored with the SID; Suricata still uses the vendor rule text.')),
-							fieldRow('tp-tune-target', _('Target'), target,
+							tuneField('tp-tune-target', _('Target'), target,
 								_('src_ip or dest_ip. Stored with the SID.')),
-							fieldRow('tp-tune-threshold', _('Threshold'), threshold,
+							tuneField('tp-tune-threshold', _('Threshold'), threshold,
 								_('Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60.')),
-							fieldRow('tp-tune-action', _('Action'), actionSel,
-								_('Alert logs a match. Drop and reject need Prevention mode. Empty keeps the vendor action.'))
+							tuneField('tp-tune-action', _('Action'), actionSel,
+								_('Alert logs a match. Drop and reject need Prevention mode. Empty keeps the vendor action.'),
+								true)
 						]),
 						E('label', { 'class': 'tp-tune-label' }, _('Tags')),
 						E('div', { 'class': 'tp-tag-add' }, [
