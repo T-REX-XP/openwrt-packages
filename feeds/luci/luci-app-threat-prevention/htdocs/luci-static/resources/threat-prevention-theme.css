@@ -571,8 +571,10 @@
 }
 
 .luci-app-threat-prevention .tp-icon-btn:disabled {
-	opacity: 0.45;
-	cursor: wait;
+	opacity: 0.35;
+	cursor: not-allowed;
+	color: var(--text-color-medium);
+	background: var(--background-color-medium);
 }
 
 .luci-app-threat-prevention .tp-progress {

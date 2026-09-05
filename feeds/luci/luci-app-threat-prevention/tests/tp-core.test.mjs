@@ -138,6 +138,9 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /id:\s*'tp-tune-busy'/);
 	assert.match(view, /Applying Suricata policy/);
 	assert.match(view, /ruleStatusBusyMsg/);
+	assert.match(view, /function iconActionEnabled/);
+	assert.match(view, /iconActionEnabled\(st\.id, 'enable'\)/);
+	assert.match(view, /iconActionEnabled\(st\.id, 'disable'\)/);
 	assert.doesNotMatch(view, /tp-rule-quick/);
 	assert.doesNotMatch(view, /_\('Quick actions'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);

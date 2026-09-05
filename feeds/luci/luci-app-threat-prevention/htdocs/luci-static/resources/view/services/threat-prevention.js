@@ -154,14 +154,30 @@ var ICON_GLYPHS = {
 	edit: '✎'
 };
 
-function iconBtn(title, kind, fn) {
+function iconActionEnabled(statusId, kind) {
+	if (kind === 'enable')
+		return statusId !== 'enabled';
+	if (kind === 'disable')
+		return statusId === 'enabled' || statusId === 'review';
+	if (kind === 'review')
+		return statusId !== 'review';
+	if (kind === 'expire')
+		return statusId !== 'expired';
+	return true;
+}
+
+function iconBtn(title, kind, fn, enabled) {
+	var on = enabled !== false;
 	return E('button', {
 		'type': 'button',
 		'class': 'tp-icon-btn tp-icon-btn--' + kind,
 		'title': title,
 		'aria-label': title,
+		'disabled': on ? null : true,
 		click: function(ev) {
 			ev.preventDefault();
+			if (!on)
+				return;
 			fn();
 		}
 	}, ICON_GLYPHS[kind] || '•');
@@ -1453,19 +1469,19 @@ return view.extend({
 						E('div', { 'class': 'tp-icon-row' }, [
 							iconBtn(_('Enable'), 'enable', function() {
 								runOneStatus(sid, gid, 'enabled');
-							}),
+							}, iconActionEnabled(st.id, 'enable')),
 							iconBtn(_('Disable'), 'disable', function() {
 								runOneStatus(sid, gid, 'disabled');
-							}),
+							}, iconActionEnabled(st.id, 'disable')),
 							iconBtn(_('Review'), 'review', function() {
 								runOneStatus(sid, gid, 'review');
-							}),
+							}, iconActionEnabled(st.id, 'review')),
 							iconBtn(_('Expire'), 'expire', function() {
 								runOneStatus(sid, gid, 'expired');
-							}),
+							}, iconActionEnabled(st.id, 'expire')),
 							iconBtn(_('Edit'), 'edit', function() {
 								showRule(sid, gid);
-							})
+							}, true)
 						])
 					])
 				]));
