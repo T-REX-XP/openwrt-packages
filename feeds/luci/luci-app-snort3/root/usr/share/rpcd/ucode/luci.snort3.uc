@@ -86,7 +86,7 @@ const STRING_OPTS = {
 	home_net: /^[A-Za-z0-9.\/!$,_-]+$/,
 	external_net: /^[A-Za-z0-9.\/!$,_-]+$/,
 	mode: /^(ids|ips)$/,
-	method: /^(pcap|afpacket|nfq)$/,
+	method: /^(afpacket|nfq)$/,
 	action: /^(default|alert|block|drop|reject)$/,
 	log_dir: /^\/[ -~]+$/,
 	config_dir: /^\/[ -~]+$/,
@@ -109,7 +109,12 @@ function normalize_value(k, v) {
 		return normalize_flag(v);
 	if (k == 'home_net' || k == 'external_net')
 		return unwrap_net(v);
-	return trim(`${v}`);
+	v = trim(`${v}`);
+	if (k == 'method' && v == 'pcap')
+		return 'afpacket';
+	if (k == 'log_dir' && (v == '/var/log' || v == '/var/log/'))
+		return '/var/log/snort';
+	return v;
 }
 
 function validate_field(k, v) {
@@ -144,7 +149,7 @@ function get_config() {
 		snaplen: uci_get('snort', 'snaplen', '1518'),
 		logging: uci_get('snort', 'logging', '1'),
 		openappid: uci_get('snort', 'openappid', '0'),
-		log_dir: uci_get('snort', 'log_dir', '/var/log'),
+		log_dir: uci_get('snort', 'log_dir', '/var/log/snort'),
 		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
 		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
 		oinkcode: uci_get('snort', 'oinkcode', ''),

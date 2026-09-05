@@ -22,30 +22,45 @@ start_service() {
 	# output.logdir, in the snort lua config, determines the PID file location.
 	# Add '--create-pidfile' to the 'command', below.
 
-        local enabled
+	local enabled
 	local manual
 	local config_dir
 	local interface
+	local temp_dir
+	local log_dir
+	local config_file
 
-        validate_snort_section snort || {
-                echo "Validation failed, try 'snort-mgr check'."
-                return 1
-        }
+	validate_snort_section snort || {
+		echo "Validation failed, try 'snort-mgr check'."
+		return 1
+	}
 
 	[ "$enabled" = 0 ] && return
 
+	temp_dir=$(uci -q get snort.snort.temp_dir || echo /var/snort.d)
+	log_dir=$(uci -q get snort.snort.log_dir || echo /var/log/snort)
+	case "$log_dir" in
+		/var/log|/var/log/) log_dir=/var/log/snort ;;
+	esac
+	mkdir -p "$temp_dir" "$log_dir"
+
 	procd_open_instance
 	if [ "$manual" = 0 ]; then
-		local config_file=$($MGR setup)
+		config_file=$($MGR setup)
 		procd_set_param command "$PROG" -q -c "${config_file}"
 	else
-		procd_set_param command $PROG -q -i "$interface" -c "${config_dir%/}/snort.lua" --tweaks local
+		config_file="${config_dir%/}/snort.lua"
+		procd_set_param command $PROG -q -i "$interface" -c "$config_file" --tweaks local
 		procd_set_param env SNORT_LUA_PATH="$config_dir"
 		procd_set_param file $CONFIGFILE
 	fi
 	[ -x /sbin/ujail -a -e /etc/capabilities/snort.json ] && {
-		chown -R snort:snort "$config_dir"
-		procd_add_jail snort
+		chown -R snort:snort "$config_dir" "$temp_dir" "$log_dir"
+		[ -n "$config_file" ] && [ -f "$config_file" ] && chown snort:snort "$config_file"
+		chmod 0750 "$temp_dir" 2>/dev/null || true
+		procd_add_jail snort log
+		procd_add_jail_mount "$config_dir" /usr/lib/daq /usr/lib/snort /usr/share/lua
+		procd_add_jail_mount_rw "$temp_dir" "$log_dir"
 		procd_set_param capabilities /etc/capabilities/snort.json
 		procd_set_param user snort
 		procd_set_param group snort

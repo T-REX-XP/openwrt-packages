@@ -240,13 +240,6 @@ return view.extend({
 			E('p', { 'class': 'tp-lead' }, [
 				_('Watches devices on your LAN for known attacks using Suricata and Emerging Threats Open. Start in watch-only mode, then download rules on the Rules tab.')
 			]),
-			E('p', { 'class': 'tp-cross' }, [
-				E('a', { href: L.url('admin/services/snort') }, _('Snort3')),
-				' · ',
-				E('a', { href: L.url('admin/services/blocky') }, _('Blocky')),
-				' · ',
-				E('a', { href: L.url('admin/services/banip') }, _('banIP'))
-			]),
 			hero
 		]);
 
@@ -969,35 +962,6 @@ return view.extend({
 					fieldRow('tp-profile', _('How many rules to load'), profile,
 						_('Small is enough for most home routers. Full loads the complete ET Open set and uses more memory.'))
 				]));
-			settingsBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button cbi-button-save',
-					click: function(ev) {
-						ev.preventDefault();
-						saveTpSettings(true).then(function() {
-							ui.addNotification(null, E('p', {}, _('Saved. Suricata will start if Enable protection is on.')), 5000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Save & apply')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					click: function(ev) {
-						ev.preventDefault();
-						callServiceControl('restart').then(function(res) {
-							if (res && res.ok === false)
-								ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
-							else
-								ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Restart Suricata'))
-			]));
 		}
 
 		renderStatus(status);

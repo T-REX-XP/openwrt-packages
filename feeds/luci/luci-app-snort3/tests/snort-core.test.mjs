@@ -128,6 +128,8 @@ test('FLAG_OPTS and STRING_OPTS match ucode', () => {
 test('ucode setConfig is fail-fast not silent skip', () => {
 	assert.match(ucode, /return \{ error: err \}/);
 	assert.doesNotMatch(ucode, /continue;\s*\n\s*\} else if \(k in STRING_OPTS\)/);
+	assert.match(ucode, /method: \/\^\(afpacket\|nfq\)\$\//);
+	assert.match(ucode, /k == 'method' && v == 'pcap'/);
 });
 
 test('view wires footer save and type=button', () => {
@@ -136,6 +138,8 @@ test('view wires footer save and type=button', () => {
 	assert.match(view, /handleReset:\s*null/);
 	assert.match(view, /'require snort-core as snortCore'/);
 	assert.match(view, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
+	assert.doesNotMatch(view, /_\('Save & apply'\)/);
+	assert.doesNotMatch(view, /cbi-button-save/);
 	const buttons = [...view.matchAll(/E\('button',\s*\{([^}]+)\}/g)];
 	assert.ok(buttons.length >= 8, 'expected service/settings/rules buttons');
 	for (const m of buttons)
@@ -158,6 +162,11 @@ test('view uses network devices select and advanced paths', () => {
 	assert.doesNotMatch(view, /2\.5 GbE/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /E\('h3',\s*\{\s*\},\s*_\('Rules management'\)\)/);
+	assert.doesNotMatch(view, /_\('Installed rules'\)/);
+	assert.doesNotMatch(view, /_\('Snort subscriber code'\)/);
+	assert.doesNotMatch(view, /admin\/services\/blocky/);
+	assert.doesNotMatch(view, /admin\/services\/threat-prevention/);
+	assert.doesNotMatch(view, /snort-cross/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
 	assert.match(view, /_\('Add'\)/);
 	assert.match(view, /id:\s*'snort-oink'/);
@@ -232,6 +241,12 @@ test('feed helpers', () => {
 	const got = core.collectSettings(raw);
 	assert.equal(got.error, undefined);
 	assert.equal(got.config.feeds[0].id, 'community');
+});
+
+test('legacy pcap and /var/log are remapped', () => {
+	assert.equal(core.normalizeValue('method', 'pcap'), 'afpacket');
+	assert.equal(core.normalizeValue('log_dir', '/var/log'), '/var/log/snort');
+	assert.equal(core.validateField('method', 'pcap'), null);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

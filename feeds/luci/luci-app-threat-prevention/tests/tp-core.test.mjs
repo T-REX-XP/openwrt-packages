@@ -95,6 +95,11 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /type:\s*'text',\s*id:\s*'tp-iface'/);
 	assert.match(view, /handleSave:\s*function/);
 	assert.match(view, /handleSaveApply:\s*function/);
+	assert.doesNotMatch(view, /_\('Save & apply'\)/);
+	assert.doesNotMatch(view, /cbi-button-save/);
+	assert.doesNotMatch(view, /admin\/services\/blocky/);
+	assert.doesNotMatch(view, /admin\/services\/snort/);
+	assert.doesNotMatch(view, /tp-cross/);
 	assert.match(view, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 	assert.match(view, /id:\s*'tp-mode'/);
 	assert.doesNotMatch(view, /id:\s*'tp-url-preset'/);

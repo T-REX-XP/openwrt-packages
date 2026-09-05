@@ -10,8 +10,7 @@
 	margin-bottom: 1.5rem;
 }
 
-.luci-app-snort3 .snort-lead,
-.luci-app-snort3 .snort-cross {
+.luci-app-snort3 .snort-lead {
 	color: var(--text-color-medium);
 }
 

@@ -290,11 +290,6 @@ return view.extend({
 			E('p', { 'class': 'snort-lead' }, [
 				_('Snort watches LAN traffic for known attacks. Start in watch-only mode. Download or update signatures on the Rules tab before you expect alerts.')
 			]),
-			E('p', { 'class': 'snort-cross' }, [
-				E('a', { href: L.url('admin/services/threat-prevention') }, _('Threat Prevention')),
-				' · ',
-				E('a', { href: L.url('admin/services/blocky') }, _('Blocky'))
-			]),
 			hero
 		]);
 
@@ -481,11 +476,10 @@ return view.extend({
 			var ipsWarn = E('div', { 'class': 'snort-warn-inline' },
 				_('Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device.'));
 			var method = E('select', { id: 'snort-method' }, [
-				E('option', { value: 'pcap' }, 'PCAP'),
-				E('option', { value: 'afpacket' }, 'AF_PACKET'),
-				E('option', { value: 'nfq' }, 'NFQ (IPS)')
+				E('option', { value: 'afpacket' }, _('AF_PACKET (recommended)')),
+				E('option', { value: 'nfq' }, _('NFQ (prevention only)'))
 			]);
-			method.value = c.method || 'afpacket';
+			method.value = (c.method === 'nfq') ? 'nfq' : 'afpacket';
 			var action = E('select', { id: 'snort-action' }, [
 				E('option', { value: 'default' }, _('Default')),
 				E('option', { value: 'alert' }, _('Alert')),
@@ -502,8 +496,9 @@ return view.extend({
 			});
 			var logDir = E('input', {
 				type: 'text', id: 'snort-logdir',
-				value: val(c.log_dir, '/var/log'),
-				placeholder: '/var/log'
+				value: (c.log_dir === '/var/log' || c.log_dir === '/var/log/')
+					? '/var/log/snort' : val(c.log_dir, '/var/log/snort'),
+				placeholder: '/var/log/snort'
 			});
 			var cfgDir = E('input', {
 				type: 'text', id: 'snort-cfgdir',
@@ -579,21 +574,6 @@ return view.extend({
 					_('Snort configuration files.')),
 				fieldRow('snort-tmpdir', _('Download directory'), tmpDir,
 					_('Temporary files and unpacked rule tarballs.'))
-			]));
-			settingsBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button cbi-button-save',
-					click: function(ev) {
-						ev.preventDefault();
-						saveSnortSettings(true).then(function() {
-							ui.addNotification(null, E('p', {},
-								_('Saved. Snort will start if Enable Snort is on.')), 5000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Save & apply'))
 			]));
 		}
 
@@ -698,9 +678,6 @@ return view.extend({
 			if (!snortFeedsHost)
 				return;
 			snortFeedsHost.innerHTML = '';
-			snortFeedsHost.appendChild(cbiSection(_('Rule feeds'),
-				_('A feed is an HTTPS address of a rules tarball. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point.'),
-				[]));
 			table = E('div', { 'class': 'table snort-feeds-table' }, [
 				E('div', { 'class': 'tr table-titles' }, [
 					E('div', { 'class': 'th' }, _('Enabled')),
@@ -789,9 +766,6 @@ return view.extend({
 			if (!snortUpdateHost)
 				return;
 			snortUpdateHost.innerHTML = '';
-			snortUpdateHost.appendChild(cbiSection(_('Installed rules'),
-				_('Update downloads every enabled feed. Keep rules on disk with a symlink if they currently live only in /var.'),
-				[]));
 			if (r.symlink)
 				loc = E('p', { 'class': 'snort-rules-ok' },
 					_('Active symbolic link') + ': /etc/snort/rules → ' + val(r.target));
@@ -874,22 +848,22 @@ return view.extend({
 			if (snortFeedsHost)
 				return;
 			rulesBox.innerHTML = '';
-			snortFeedsHost = E('div', { 'class': 'snort-feeds-section' });
-			rulesBox.appendChild(snortFeedsHost);
-			paintSnortFeeds();
+			snortFeedsHost = E('div', { 'class': 'snort-feeds-table-host' });
+			snortUpdateHost = E('div', { 'class': 'snort-rules-update' });
 			oink = E('input', {
 				type: 'password', id: 'snort-oink',
 				value: cfg.oinkcode || '',
 				placeholder: _('Enter your Oinkcode if you have one')
 			});
-			rulesBox.appendChild(cbiSection(_('Snort subscriber code'),
-				_('Only needed for paid Talos feeds. Put {oinkcode} in the feed URL and paste the code here. Community rules do not need this.'),
+			rulesBox.appendChild(cbiSection(_('Rule feeds'),
+				_('A feed is an HTTPS address of a rules tarball. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode and {oinkcode} in the URL.'),
 				[
+					snortFeedsHost,
 					fieldRow('snort-oink', _('Oinkcode'), oink,
-						_('From snort.org. Leave empty for community rules.'))
+						_('From snort.org. Leave empty for community rules.')),
+					snortUpdateHost
 				]));
-			snortUpdateHost = E('div', { 'class': 'snort-rules-update' });
-			rulesBox.appendChild(snortUpdateHost);
+			paintSnortFeeds();
 		}
 
 		function renderRules(st, u) {

@@ -8,6 +8,12 @@ import { lsdir } from 'fs';
 
 let line_mode = snort.mode == "ids" ? "tap"     : "inline";
 let mod_mode  = snort.mode == "ids" ? "passive" : "inline";
+let daq_name  = snort.method;
+if (daq_name == "pcap")
+	daq_name = "afpacket";
+let logdir = snort.log_dir;
+if (logdir == "/var/log" || logdir == "/var/log/")
+	logdir = "/var/log/snort";
 
 let inputs = null;
 let vars   = null;
@@ -41,7 +47,7 @@ snort  = {
 {% if (snort.mode == 'ips'): %}
   ['-Q'] = true,
 {% endif %}
-  ['--daq'] = '{{ snort.method }}',
+  ['--daq'] = '{{ daq_name }}',
 {% if (snort.method == 'nfq'): %}
   ['--max-packet-threads'] = {{ nfq.thread_count }},
 {% endif %}
@@ -79,7 +85,7 @@ daq = {
   module_dirs = { '/usr/lib/daq/', },
   modules     = {
     {
-      name      = '{{ snort.method }}',
+      name      = '{{ daq_name }}',
       mode      = '{{ mod_mode }}',
       variables = {{ vars }},
     }
@@ -93,7 +99,7 @@ alert_syslog = nil -- Disable output to syslog
 -- Note that this is also the location of the PID file, if you use it.
 output = {
   -- View all options with "snort --help-module output"
-  logdir    = '{{ snort.log_dir }}',
+  logdir    = '{{ logdir }}',
 
   show_year = true,  -- Include year in timestamps.
   -- See also 'process.utc = true' if you wish to record timestamps

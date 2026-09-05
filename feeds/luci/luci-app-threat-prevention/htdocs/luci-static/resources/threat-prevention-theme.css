@@ -10,8 +10,7 @@
 	margin-bottom: 1.5rem;
 }
 
-.luci-app-threat-prevention .tp-lead,
-.luci-app-threat-prevention .tp-cross {
+.luci-app-threat-prevention .tp-lead {
 	color: var(--text-color-medium);
 }
 

@@ -65,9 +65,15 @@ setup() {
 	# Generates all the configuration, then reports the config file for snort.
 	# Does NOT generate the rules file, you'll need to do 'update-rules' first.
 	local log_dir=$(uci get snort.snort.log_dir)
+	case "$log_dir" in
+		/var/log|/var/log/) log_dir=/var/log/snort ;;
+	esac
 	[ ! -e "$log_dir" ] && mkdir -p "$log_dir"
+	[ ! -e "$CONF_DIR" ] && mkdir -p "$CONF_DIR"
 	nft_rm_table
 	print snort > "$CONF"
+	chmod 0640 "$CONF" 2>/dev/null || true
+	chown snort:snort "$CONF" "$CONF_DIR" "$log_dir" 2>/dev/null || true
 	nft_add_table
 	echo "$CONF"
 }

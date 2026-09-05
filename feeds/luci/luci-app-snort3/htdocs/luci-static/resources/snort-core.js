@@ -8,7 +8,7 @@ var STRING_OPTS = {
 	home_net: /^[A-Za-z0-9.\/!$,_-]+$/,
 	external_net: /^[A-Za-z0-9.\/!$,_-]+$/,
 	mode: /^(ids|ips)$/,
-	method: /^(pcap|afpacket|nfq)$/,
+	method: /^(afpacket|nfq)$/,
 	action: /^(default|alert|block|drop|reject)$/,
 	log_dir: /^\/[ -~]+$/,
 	config_dir: /^\/[ -~]+$/,
@@ -61,11 +61,17 @@ return baseclass.extend({
 	},
 
 	normalizeValue: function(key, value) {
+		var v;
 		if (FLAG_OPTS.indexOf(key) >= 0)
 			return this.normalizeFlag(value);
 		if (key === 'home_net' || key === 'external_net')
 			return this.unwrapNet(value);
-		return String(value == null ? '' : value).trim();
+		v = String(value == null ? '' : value).trim();
+		if (key === 'method' && v === 'pcap')
+			return 'afpacket';
+		if (key === 'log_dir' && (v === '/var/log' || v === '/var/log/'))
+			return '/var/log/snort';
+		return v;
 	},
 
 	validateField: function(key, value) {
