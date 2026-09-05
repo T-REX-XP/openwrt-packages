@@ -260,8 +260,35 @@
 	min-width: 0;
 }
 
+.luci-app-threat-prevention .tp-rules-wrap {
+	overflow-x: auto;
+	min-width: 0;
+	max-width: 100%;
+}
+
 .luci-app-threat-prevention .tp-rules-table {
 	margin: 0.5rem 0;
+	table-layout: auto;
+}
+
+.luci-app-threat-prevention .tp-rules-table .tp-col-check,
+.luci-app-threat-prevention .tp-rules-table .tp-col-num,
+.luci-app-threat-prevention .tp-rules-table .tp-col-sid {
+	flex: 0 0 auto;
+	width: 1%;
+	white-space: nowrap;
+	word-break: normal;
+	overflow-wrap: normal;
+}
+
+.luci-app-threat-prevention .tp-rules-table .tp-col-num {
+	min-width: 2.75rem;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.luci-app-threat-prevention .tp-rules-table .tp-col-sid {
+	min-width: 7.5rem;
 }
 
 .luci-app-threat-prevention .tp-rules-table .tr:nth-child(even) .td {
@@ -562,7 +589,10 @@
 .luci-app-threat-prevention .tp-mono {
 	font-family: var(--font-mono, monospace);
 	font-size: 0.9em;
-	word-break: break-all;
+}
+
+.luci-app-threat-prevention .tp-col-sid.tp-mono {
+	word-break: normal;
 }
 
 @media (max-width: 768px) {

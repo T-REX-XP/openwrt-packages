@@ -127,6 +127,8 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /_\('Reset rulesets to profile'\)/);
 	assert.match(view, /_\('SID:rev'\)/);
 	assert.match(view, /_\('Tags'\)/);
+	assert.match(view, /tp-col-num/);
+	assert.match(view, /tp-col-sid/);
 	assert.match(view, /tp-icon-btn/);
 	assert.doesNotMatch(view, /tp-rule-quick/);
 	assert.doesNotMatch(view, /_\('Quick actions'\)/);

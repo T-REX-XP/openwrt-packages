@@ -1291,9 +1291,9 @@ return view.extend({
 			});
 			table = E('table', { 'class': 'table tp-rules-table' }, [
 				E('tr', { 'class': 'tr table-titles' }, [
-					E('th', { 'class': 'th' }, [ headerCb ]),
-					E('th', { 'class': 'th' }, '#'),
-					E('th', { 'class': 'th' }, _('SID:rev')),
+					E('th', { 'class': 'th tp-col-check' }, [ headerCb ]),
+					E('th', { 'class': 'th tp-col-num' }, '#'),
+					E('th', { 'class': 'th tp-col-sid' }, _('SID:rev')),
 					E('th', { 'class': 'th' }, _('Message')),
 					E('th', { 'class': 'th' }, _('Category')),
 					E('th', { 'class': 'th' }, _('Status')),
@@ -1326,9 +1326,9 @@ return view.extend({
 				if (row.in_profile === false)
 					trClass += ' tp-rule--unloaded';
 				table.appendChild(E('tr', { 'class': trClass }, [
-					E('td', { 'class': 'td' }, [ pick ]),
-					E('td', { 'class': 'td' }, String(rulesState.offset + idx + 1)),
-					E('td', { 'class': 'td tp-mono' }, [
+					E('td', { 'class': 'td tp-col-check' }, [ pick ]),
+					E('td', { 'class': 'td tp-col-num' }, String(rulesState.offset + idx + 1)),
+					E('td', { 'class': 'td tp-col-sid tp-mono' }, [
 						E('a', {
 							href: '#',
 							click: function(ev) {
@@ -1377,7 +1377,8 @@ return view.extend({
 					delete selectedSids[sid];
 			});
 			paintSel();
-			tpSidHost.appendChild(table);
+			tableWrap = E('div', { 'class': 'tp-rules-wrap' }, [ table ]);
+			tpSidHost.appendChild(tableWrap);
 
 			from = total ? (rulesState.offset + 1) : 0;
 			to = rulesState.offset + list.length;
