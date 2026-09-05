@@ -167,6 +167,65 @@ function iconBtn(title, kind, fn) {
 	}, ICON_GLYPHS[kind] || '•');
 }
 
+var ruleActionBusy = false;
+
+function progressPanel(msg) {
+	return E('div', { 'class': 'luci-app-threat-prevention' }, [
+		E('div', { 'class': 'tp-progress', role: 'status', 'aria-live': 'polite' }, [
+			E('span', { 'class': 'tp-progress-spinner', 'aria-hidden': 'true' }),
+			E('p', { 'class': 'tp-progress-msg' }, msg)
+		])
+	]);
+}
+
+function showProgress(title, msg) {
+	ui.showModal(title, [ progressPanel(msg) ]);
+}
+
+function withProgress(title, msg, work) {
+	if (ruleActionBusy)
+		return Promise.reject({ busy: true });
+	ruleActionBusy = true;
+	showProgress(title, msg);
+	return Promise.resolve().then(work).then(function(v) {
+		ui.hideModal();
+		ruleActionBusy = false;
+		return v;
+	}, function(e) {
+		ui.hideModal();
+		ruleActionBusy = false;
+		throw e;
+	});
+}
+
+function isBusyErr(e) {
+	return !!(e && e.busy);
+}
+
+function ruleStatusBusyMsg(status) {
+	if (status === 'enabled')
+		return _('Enabling signature… Applying Suricata policy…');
+	if (status === 'disabled')
+		return _('Disabling signature… Applying Suricata policy…');
+	if (status === 'review')
+		return _('Marking signature for review… Applying Suricata policy…');
+	if (status === 'expired')
+		return _('Expiring signature… Applying Suricata policy…');
+	return _('Updating signature… Applying Suricata policy…');
+}
+
+function ruleStatusDoneMsg(status) {
+	if (status === 'enabled')
+		return _('Signature enabled');
+	if (status === 'disabled')
+		return _('Signature disabled');
+	if (status === 'review')
+		return _('Signature set to review');
+	if (status === 'expired')
+		return _('Signature expired');
+	return _('Signature updated');
+}
+
 function ruleTagPills(row) {
 	var tags = tpCore.displayRuleTags(row && row.raw, {
 		classtype: row && row.classtype,
@@ -380,6 +439,7 @@ return view.extend({
 		settingsFeeds = tpCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : tpCore.defaultFeeds()
 		);
+		ruleActionBusy = false;
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -428,44 +488,45 @@ return view.extend({
 		}
 
 		function runTpFetch() {
-			ui.showModal(_('Fetching rules'), [ E('p', {}, _('Downloading enabled feeds…')) ]);
-			return persistTpFeeds().then(function() {
-				return callFetchRules();
-			}).then(function(res) {
-				if (res && res.error && !res.started)
-					return Promise.reject(new Error(res.error));
-				if (res && res.ok === false)
-					return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
-				if (!res || !res.started)
-					return res;
-				var tries = 0;
-				function pollDone() {
-					tries++;
-					return callGetStatus().then(function(st) {
-						if (st && st.etopen_state === 'fetching') {
-							if (tries >= 120)
-								return Promise.reject(new Error(_('Rule fetch timed out')));
-							return new Promise(function(resolve) {
-								window.setTimeout(function() {
-									resolve(pollDone());
-								}, 2000);
-							});
-						}
-						return st;
-					});
-				}
-				return pollDone();
-			}).then(function(res) {
-				ui.hideModal();
-				if (res && res.etopen_state === 'error')
-					ui.addNotification(null, E('p', {}, res.etopen_error || res.output || _('Fetch failed')), 'error');
-				else if (res && res.ok === false)
-					ui.addNotification(null, E('p', {}, res.error || res.output || _('Fetch failed')), 'error');
-				else
-					ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
-				return loadRules();
+			return withProgress(_('Fetching rules'), _('Downloading enabled feeds…'), function() {
+				return persistTpFeeds().then(function() {
+					return callFetchRules();
+				}).then(function(res) {
+					if (res && res.error && !res.started)
+						return Promise.reject(new Error(res.error));
+					if (res && res.ok === false)
+						return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
+					if (!res || !res.started)
+						return res;
+					var tries = 0;
+					function pollDone() {
+						tries++;
+						return callGetStatus().then(function(st) {
+							if (st && st.etopen_state === 'fetching') {
+								if (tries >= 120)
+									return Promise.reject(new Error(_('Rule fetch timed out')));
+								return new Promise(function(resolve) {
+									window.setTimeout(function() {
+										resolve(pollDone());
+									}, 2000);
+								});
+							}
+							return st;
+						});
+					}
+					return pollDone();
+				}).then(function(res) {
+					if (res && res.etopen_state === 'error')
+						return Promise.reject(new Error(res.etopen_error || res.output || _('Fetch failed')));
+					if (res && res.ok === false)
+						return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
+					return loadRules();
+				});
+			}).then(function() {
+				ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
 			}).catch(function(e) {
-				ui.hideModal();
+				if (isBusyErr(e))
+					return;
 				ui.addNotification(null, E('p', {}, e.message || e), 'error');
 			});
 		}
@@ -979,31 +1040,58 @@ return view.extend({
 							}, _('Add'))
 						]),
 						tagHost,
+						E('p', { 'class': 'tp-tune-busy', id: 'tp-tune-busy' }, [
+							E('span', { 'class': 'tp-progress-spinner', 'aria-hidden': 'true' }),
+							E('span', {}, _('Saving signature… Applying Suricata policy…'))
+						]),
 						E('div', { 'class': 'right' }, [
 							E('button', {
 								'type': 'button',
 								'class': 'btn',
+								id: 'tp-tune-close',
 								click: ui.hideModal
 							}, _('Close')),
 							' ',
 							E('button', {
 								'type': 'button',
 								'class': 'btn cbi-button-positive',
+								id: 'tp-tune-save',
 								click: function(ev) {
 									var tune = currentTune();
 									var err = tpCore.validateTune(tune);
+									var saveBtn = this;
+									var closeBtn = document.getElementById('tp-tune-close');
+									var busyEl = document.getElementById('tp-tune-busy');
 									ev.preventDefault();
 									if (err) {
 										ui.addNotification(null, E('p', {}, err), 'error');
 										return;
 									}
+									if (ruleActionBusy)
+										return;
+									ruleActionBusy = true;
+									saveBtn.disabled = true;
+									saveBtn.classList.add('spinning');
+									if (closeBtn)
+										closeBtn.disabled = true;
+									if (busyEl)
+										busyEl.classList.add('is-on');
 									callSetRuleTune(tune).then(function(out) {
 										if (out && out.error)
 											return Promise.reject(new Error(out.error));
+										return loadRules();
+									}).then(function() {
+										ruleActionBusy = false;
 										ui.hideModal();
 										ui.addNotification(null, E('p', {}, _('Rule tuning saved')), 4000);
-										return loadRules();
 									}).catch(function(e) {
+										ruleActionBusy = false;
+										saveBtn.disabled = false;
+										saveBtn.classList.remove('spinning');
+										if (closeBtn)
+											closeBtn.disabled = false;
+										if (busyEl)
+											busyEl.classList.remove('is-on');
 										ui.addNotification(null, E('p', {}, e.message || e), 'error');
 									});
 								}
@@ -1103,18 +1191,26 @@ return view.extend({
 
 			function runBulkStatus(status, msg) {
 				var sids = selectedList();
+				var n;
 				if (!sids) {
 					ui.addNotification(null, E('p', {}, _('Tick one or more signatures first.')), 'error');
 					return;
 				}
-				callSetRuleStates(sids, '1', '', status, '').then(function(out) {
-					if (out && out.error)
-						return Promise.reject(new Error(out.error));
-					selectedSids = {};
-					return loadRules();
-				}).then(function() {
+				n = sids.length;
+				withProgress(_('Updating signatures'),
+					_('Updating %s signatures… Applying Suricata policy…').format(n),
+					function() {
+						return callSetRuleStates(sids, '1', '', status, '').then(function(out) {
+							if (out && out.error)
+								return Promise.reject(new Error(out.error));
+							selectedSids = {};
+							return loadRules();
+						});
+					}).then(function() {
 					ui.addNotification(null, E('p', {}, msg), 4000);
 				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
 					loadRules();
 				});
@@ -1123,6 +1219,7 @@ return view.extend({
 			function runBulkAction() {
 				var sids = selectedList();
 				var action = actionBulk.value;
+				var n;
 				if (!sids) {
 					ui.addNotification(null, E('p', {}, _('Tick one or more signatures first.')), 'error');
 					return;
@@ -1131,43 +1228,57 @@ return view.extend({
 					ui.addNotification(null, E('p', {}, _('Choose an action first.')), 'error');
 					return;
 				}
-				callSetRuleStates(sids, '1', '', '', action).then(function(out) {
-					if (out && out.error)
-						return Promise.reject(new Error(out.error));
-					selectedSids = {};
-					return loadRules();
-				}).then(function() {
+				n = sids.length;
+				withProgress(_('Updating signatures'),
+					_('Setting action on %s signatures… Applying Suricata policy…').format(n),
+					function() {
+						return callSetRuleStates(sids, '1', '', '', action).then(function(out) {
+							if (out && out.error)
+								return Promise.reject(new Error(out.error));
+							selectedSids = {};
+							return loadRules();
+						});
+					}).then(function() {
 					ui.addNotification(null, E('p', {}, _('Selected signatures set to %s').format(action)), 4000);
 				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
 					loadRules();
 				});
 			}
 
 			function runOneStatus(sid, gid, status) {
-				callSetRuleStates([sid], gid || '1', '', status, '').then(function(out) {
-					if (out && out.error)
-						return Promise.reject(new Error(out.error));
-					return loadRules();
+				withProgress(_('Updating signature'), ruleStatusBusyMsg(status), function() {
+					return callSetRuleStates([sid], gid || '1', '', status, '').then(function(out) {
+						if (out && out.error)
+							return Promise.reject(new Error(out.error));
+						return loadRules();
+					});
+				}).then(function() {
+					ui.addNotification(null, E('p', {}, ruleStatusDoneMsg(status)), 4000);
 				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
 					loadRules();
 				});
 			}
 
 			function runReindex() {
-				ui.showModal(_('Indexing rules'), [ E('p', {}, _('Reading signature files…')) ]);
-				callReindexRules().then(function(out) {
-					ui.hideModal();
-					if (out && out.error && !out.ok)
-						return Promise.reject(new Error(out.error || out.output));
-					rulesState.offset = 0;
-					selectedSids = {};
-					return loadRules();
+				withProgress(_('Indexing rules'), _('Reading signature files…'), function() {
+					return callReindexRules().then(function(out) {
+						if (out && out.error && !out.ok)
+							return Promise.reject(new Error(out.error || out.output));
+						rulesState.offset = 0;
+						selectedSids = {};
+						return loadRules();
+					});
 				}).then(function() {
 					ui.addNotification(null, E('p', {}, _('Rule index updated')), 4000);
 				}).catch(function(e) {
-					ui.hideModal();
+					if (isBusyErr(e))
+						return;
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
 				});
 			}

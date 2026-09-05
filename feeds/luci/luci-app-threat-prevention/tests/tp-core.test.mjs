@@ -132,6 +132,12 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /tp-icon-btn/);
 	assert.match(view, /ICON_GLYPHS/);
 	assert.doesNotMatch(view, /E\('svg'/);
+	assert.match(view, /function showProgress/);
+	assert.match(view, /function withProgress/);
+	assert.match(view, /tp-progress-spinner/);
+	assert.match(view, /id:\s*'tp-tune-busy'/);
+	assert.match(view, /Applying Suricata policy/);
+	assert.match(view, /ruleStatusBusyMsg/);
 	assert.doesNotMatch(view, /tp-rule-quick/);
 	assert.doesNotMatch(view, /_\('Quick actions'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);

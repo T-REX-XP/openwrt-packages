@@ -570,6 +570,52 @@
 	color: var(--text-color-highest);
 }
 
+.luci-app-threat-prevention .tp-icon-btn:disabled {
+	opacity: 0.45;
+	cursor: wait;
+}
+
+.luci-app-threat-prevention .tp-progress {
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+	padding: 0.35rem 0 0.15rem;
+	min-width: 16rem;
+}
+
+.luci-app-threat-prevention .tp-progress-spinner {
+	display: inline-block;
+	box-sizing: border-box;
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: 0 0 auto;
+	border: 2px solid var(--border-color-medium);
+	border-top-color: var(--primary-color-high, var(--text-color-highest));
+	border-radius: 50%;
+	animation: tp-spin 0.7s linear infinite;
+}
+
+.luci-app-threat-prevention .tp-progress-msg {
+	margin: 0;
+	color: var(--text-color-highest);
+}
+
+.luci-app-threat-prevention .tp-tune-busy {
+	display: none;
+	align-items: center;
+	gap: 0.6rem;
+	margin: 0 0 0.75rem;
+	color: var(--text-color-highest);
+}
+
+.luci-app-threat-prevention .tp-tune-busy.is-on {
+	display: flex;
+}
+
+@keyframes tp-spin {
+	to { transform: rotate(360deg); }
+}
+
 .luci-app-threat-prevention .tp-policy-table {
 	margin: 0.5rem 0 1rem;
 }
