@@ -128,6 +128,8 @@ test('ucode still validates interface names', () => {
 	assert.match(ucode, /setRuleState:/);
 	assert.match(ucode, /reindexRules:/);
 	assert.match(ucode, /function like_safe/);
+	assert.match(ucode, /function feed_url_ok/);
+	assert.doesNotMatch(ucode, /FEED_URL_RE/);
 });
 
 test('rule query helpers', () => {

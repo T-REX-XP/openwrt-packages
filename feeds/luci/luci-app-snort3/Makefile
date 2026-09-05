@@ -11,7 +11,7 @@ LUCI_DEPENDS:=+luci-base +snort3
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=3.6
-PKG_RELEASE:=12
+PKG_RELEASE:=13
 
 PKG_LICENSE:=GPL-2.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>

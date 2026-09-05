@@ -130,6 +130,8 @@ test('ucode setConfig is fail-fast not silent skip', () => {
 	assert.doesNotMatch(ucode, /continue;\s*\n\s*\} else if \(k in STRING_OPTS\)/);
 	assert.match(ucode, /method: \/\^\(afpacket\|nfq\)\$\//);
 	assert.match(ucode, /k == 'method' && v == 'pcap'/);
+	assert.match(ucode, /function feed_url_ok/);
+	assert.doesNotMatch(ucode, /FEED_URL_RE/);
 });
 
 test('view wires footer save and type=button', () => {

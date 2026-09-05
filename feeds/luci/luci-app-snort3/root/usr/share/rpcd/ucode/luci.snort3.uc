@@ -165,8 +165,30 @@ function feed_id_ok(id) {
 	return true;
 }
 
+function feed_url_ok(url) {
+	let s = trim(`${url}`);
+	let out = '';
+	let i = 0;
+	let n = length(s);
+	while (i < n) {
+		let ch = substr(s, i, 1);
+		if (ch == chr(123)) {
+			let j = i + 1;
+			while (j < n && substr(s, j, 1) != chr(125))
+				j++;
+			if (j >= n)
+				return false;
+			out += 'x';
+			i = j + 1;
+			continue;
+		}
+		out += ch;
+		i++;
+	}
+	return match(out, /^https:\/\/[-A-Za-z0-9._~:/?#@!$&()*+,;=%]+$/) != null;
+}
+
 const COMMUNITY_RULES_URL = 'https://www.snort.org/downloads/community/snort3-community-rules.tar.gz';
-const FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
 
 function list_rulesets() {
 	let feeds = [];
@@ -212,7 +234,7 @@ function replace_rulesets(feeds) {
 			return 'invalid feed';
 		let name = trim(`${feed.name || ''}`);
 		let url = trim(`${feed.url || ''}`);
-		if (name == '' || !match(url, FEED_URL_RE))
+		if (name == '' || !feed_url_ok(url))
 			return 'invalid feed';
 		let id = trim(`${feed.id || ''}`);
 		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq')
