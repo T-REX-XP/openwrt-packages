@@ -152,6 +152,9 @@ test('view uses network devices select and advanced paths', () => {
 	assert.match(view, /E\('details'/);
 	assert.match(view, /option\[value="nfq"\]/);
 	assert.match(view, /Use LAN subnet/);
+	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
+	assert.doesNotMatch(readFileSync(join(res, 'snort-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
+	assert.equal(core.DEFAULT_LAN_CIDR, undefined);
 });
 
 test('idsDeviceNames filters lo/alias and keeps current', () => {

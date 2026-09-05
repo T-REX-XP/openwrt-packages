@@ -96,6 +96,12 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 	assert.match(view, /id:\s*'tp-mode'/);
 	assert.match(view, /id:\s*'tp-url-preset'/);
+	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
+	assert.match(view, /callGetRules/);
+	assert.match(view, /callSetRuleState/);
+	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
+	assert.doesNotMatch(view, /Prefer the small profile on CM5/);
+	assert.doesNotMatch(readFileSync(join(res, 'threat-prevention-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
 	const buttons = [...view.matchAll(/E\('button',\s*\{([^}]+)\}/g)];
 	assert.ok(buttons.length >= 3, 'expected settings/service buttons');
 	for (const m of buttons)
@@ -104,6 +110,18 @@ test('view uses network devices select and footer save', () => {
 
 test('ucode still validates interface names', () => {
 	assert.ok(ucode.includes('interface: /^[A-Za-z0-9_.-]+$/'));
+	assert.match(ucode, /getRules:/);
+	assert.match(ucode, /setRuleState:/);
+	assert.match(ucode, /reindexRules:/);
+	assert.match(ucode, /function like_safe/);
+});
+
+test('rule query helpers', () => {
+	assert.equal(core.sanitizeRuleQuery("foo%'bar"), 'foobar');
+	assert.equal(core.clampRuleLimit(0), 50);
+	assert.equal(core.clampRuleLimit(500), 100);
+	assert.equal(core.validSid('2020001'), true);
+	assert.equal(core.validSid('sid;drop'), false);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

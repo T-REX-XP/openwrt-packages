@@ -56,5 +56,26 @@ msgstr "CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional."
 msgid "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
 msgstr "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
 
-msgid "Full ET Open uses a lot of RAM. Prefer the small profile on this router."
-msgstr "Full ET Open uses a lot of RAM. Prefer the small profile on this router."
+msgid "Rules"
+msgstr "Rules"
+
+msgid "Search, filter, and disable ET Open signatures. Disabled SIDs are suppressed and kept across rule fetches."
+msgstr "Search, filter, and disable ET Open signatures. Disabled SIDs are suppressed and kept across rule fetches."
+
+msgid "SID, message, class, or file"
+msgstr "SID, message, class, or file"
+
+msgid "Reindex"
+msgstr "Reindex"
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"

@@ -83,6 +83,17 @@ function uci_get(opt, fallback) {
 	return r.output;
 }
 
+const SMALL_RULE_FILES = {
+	'emerging-malware.rules': 1,
+	'emerging-mobile_malware.rules': 1,
+	'emerging-trojan.rules': 1,
+	'emerging-worm.rules': 1,
+	'emerging-exploit.rules': 1,
+	'emerging-web_server.rules': 1
+};
+
+const RULES_DB = '/var/lib/threat-prevention/rules.sqlite';
+
 function get_config() {
 	let cfg = {};
 	for (let k in const_defaults)
@@ -100,6 +111,161 @@ function get_config() {
 	}
 	cfg.classtypes = classes;
 	return cfg;
+}
+
+function like_safe(s) {
+	s = trim(`${s}`);
+	s = replace(s, /[%_\\']/g, '');
+	if (length(s) > 64)
+		s = substr(s, 0, 64);
+	return s;
+}
+
+function ident_safe(s) {
+	s = trim(`${s}`);
+	if (!match(s, /^[A-Za-z0-9._-]*$/))
+		return '';
+	if (length(s) > 80)
+		return '';
+	return s;
+}
+
+function int_arg(v, dflt, lo, hi) {
+	let n = int(v);
+	if (n < lo)
+		return dflt;
+	if (n > hi)
+		return hi;
+	return n;
+}
+
+function disabled_sids() {
+	let out = {};
+	let r = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.s\\([0-9][0-9]*\\)=sid$/\\1/p'");
+	if (!r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line == '')
+			continue;
+		let en = run_cmd(`uci -q get suricata.s${line}.enabled`).output;
+		if (en == '0')
+			out[line] = 1;
+	}
+	return out;
+}
+
+function sql_in_list(map) {
+	let ids = [];
+	for (let sid in map)
+		push(ids, sid);
+	if (!length(ids))
+		return '';
+	return join(',', ids);
+}
+
+function distinct_col(col) {
+	if (col != 'file' && col != 'classtype')
+		return [];
+	let bin = sqlite3_bin();
+	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} ${shell_quote(`SELECT DISTINCT ${col} FROM rules WHERE ${col} != '' ORDER BY ${col};`)}`);
+	let out = [];
+	if (r.code != 0 || !r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line != '')
+			push(out, line);
+	}
+	return out;
+}
+
+function query_rules(args) {
+	let query = like_safe(args?.query || '');
+	let classtype = ident_safe(args?.classtype || '');
+	let file = ident_safe(args?.file || '');
+	let state = trim(`${args?.state || 'all'}`);
+	if (state != 'enabled' && state != 'disabled')
+		state = 'all';
+	let offset = int_arg(args?.offset, 0, 0, 1000000);
+	let limit = int_arg(args?.limit, 50, 1, 100);
+	let disabled = disabled_sids();
+	let dis_sql = sql_in_list(disabled);
+	let profile = uci_get('rule_profile', 'small');
+	let indexed = file_test('-f', RULES_DB);
+	let empty = {
+		rules: [],
+		total: 0,
+		offset,
+		limit,
+		files: [],
+		classtypes: [],
+		indexed,
+		indexed_count: 0,
+		disabled_count: length(disabled)
+	};
+	if (!indexed)
+		return empty;
+
+	let bin = sqlite3_bin();
+	let count_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} 'SELECT COUNT(*) FROM rules;'`);
+	empty.indexed_count = int(count_r.output) || 0;
+	empty.files = distinct_col('file');
+	empty.classtypes = distinct_col('classtype');
+
+	if (state == 'disabled' && dis_sql == '')
+		return empty;
+
+	let where = '1=1';
+	if (query != '') {
+		let like = `'%${query}%'`;
+		where += ` AND (msg LIKE ${like} OR file LIKE ${like} OR classtype LIKE ${like} OR CAST(sid AS TEXT) LIKE ${like}`;
+		if (match(query, /^[0-9]+$/))
+			where += ` OR sid = ${query}`;
+		where += ')';
+	}
+	if (classtype != '')
+		where += ` AND classtype = '${classtype}'`;
+	if (file != '')
+		where += ` AND file = '${file}'`;
+	if (state == 'disabled')
+		where += ` AND sid IN (${dis_sql})`;
+	else if (state == 'enabled' && dis_sql != '')
+		where += ` AND sid NOT IN (${dis_sql})`;
+
+	let total_sql = `SELECT COUNT(*) FROM rules WHERE ${where};`;
+	let total_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} ${shell_quote(total_sql)}`);
+	let total = int(total_r.output) || 0;
+	let sql = `SELECT gid, sid, rev, action, classtype, file, msg FROM rules WHERE ${where} ORDER BY sid LIMIT ${limit} OFFSET ${offset};`;
+	let r = run_cmd(`${bin} -json ${shell_quote(RULES_DB)} ${shell_quote(sql)}`);
+	let rows = [];
+	if (r.code == 0 && r.output) {
+		try {
+			rows = json(r.output);
+		} catch (e) {
+			rows = [];
+		}
+	}
+	if (type(rows) != 'array')
+		rows = [];
+	let rules = [];
+	for (let row in rows) {
+		let sid = `${row.sid}`;
+		let fname = `${row.file || ''}`;
+		let in_profile = profile == 'full' || SMALL_RULE_FILES[fname] == 1;
+		push(rules, {
+			gid: `${row.gid}`,
+			sid,
+			rev: `${row.rev}`,
+			action: row.action || '',
+			classtype: row.classtype || '',
+			file: fname,
+			msg: row.msg || '',
+			enabled: disabled[sid] ? '0' : '1',
+			in_profile
+		});
+	}
+	empty.rules = rules;
+	empty.total = total;
+	return empty;
 }
 
 const methods = {
@@ -221,6 +387,105 @@ const methods = {
 			}
 			let r = run_cmd('/usr/sbin/suricata-etopen-fetch');
 			return { ok: r.code == 0, output: r.output, error: r.code == 0 ? '' : r.output };
+		}
+	},
+
+	getRules: {
+		args: {
+			query: '',
+			classtype: '',
+			file: '',
+			state: '',
+			offset: 0,
+			limit: 50
+		},
+		call: function(req) {
+			return query_rules(req.args || {});
+		}
+	},
+
+	getRule: {
+		args: { sid: '', gid: '' },
+		call: function(req) {
+			let sid = trim(`${req.args?.sid || ''}`);
+			let gid = trim(`${req.args?.gid || '1'}`);
+			if (!match(sid, /^[0-9]+$/) || !match(gid, /^[0-9]+$/))
+				return { error: 'invalid sid' };
+			if (!file_test('-f', RULES_DB))
+				return { error: 'rules not indexed' };
+			let bin = sqlite3_bin();
+			let sql = `SELECT gid, sid, rev, action, classtype, file, msg, raw FROM rules WHERE gid = ${gid} AND sid = ${sid} LIMIT 1;`;
+			let r = run_cmd(`${bin} -json ${shell_quote(RULES_DB)} ${shell_quote(sql)}`);
+			if (r.code != 0 || !r.output)
+				return { error: 'rule not found' };
+			let rows;
+			try {
+				rows = json(r.output);
+			} catch (e) {
+				return { error: 'rule not found' };
+			}
+			if (type(rows) != 'array' || !length(rows))
+				return { error: 'rule not found' };
+			let row = rows[0];
+			let disabled = disabled_sids();
+			return {
+				gid: `${row.gid}`,
+				sid: `${row.sid}`,
+				rev: `${row.rev}`,
+				action: row.action || '',
+				classtype: row.classtype || '',
+				file: row.file || '',
+				msg: row.msg || '',
+				raw: row.raw || '',
+				enabled: disabled[`${row.sid}`] ? '0' : '1'
+			};
+		}
+	},
+
+	setRuleState: {
+		args: { sid: '', gid: '', enabled: '' },
+		call: function(req) {
+			let sid = trim(`${req.args?.sid || ''}`);
+			let gid = trim(`${req.args?.gid || '1'}`);
+			let enabled = `${req.args?.enabled}`;
+			if (!match(sid, /^[0-9]+$/) || !match(gid, /^[0-9]+$/))
+				return { error: 'invalid sid' };
+			if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
+				enabled = '1';
+			else if (enabled == 'false' || enabled == '0' || enabled == 'off' || enabled == 'no')
+				enabled = '0';
+			else
+				return { error: 'invalid enabled' };
+			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			if (enabled == '0') {
+				run_cmd(`uci set suricata.s${sid}=sid`);
+				run_cmd(`uci set suricata.s${sid}.sid=${shell_quote(sid)}`);
+				run_cmd(`uci set suricata.s${sid}.gid=${shell_quote(gid)}`);
+				run_cmd(`uci set suricata.s${sid}.enabled=0`);
+			} else {
+				run_cmd(`uci -q delete suricata.s${sid}`);
+			}
+			run_cmd('uci commit suricata');
+			if (file_test('-x', '/usr/sbin/tp-rules-apply'))
+				run_cmd('/usr/sbin/tp-rules-apply');
+			let running = run_cmd('pidof suricata >/dev/null && echo 1 || echo 0').output == '1';
+			if (running)
+				run_cmd('/etc/init.d/suricata reload');
+			return { ok: true, sid, gid, enabled };
+		}
+	},
+
+	reindexRules: {
+		call: function() {
+			if (!file_test('-x', '/usr/sbin/tp-rules-index'))
+				return { error: 'tp-rules-index not installed' };
+			let dir = uci_get('rule_dir', '/etc/suricata/rules');
+			let r = run_cmd(`/usr/sbin/tp-rules-index ${shell_quote(dir)}`);
+			return {
+				ok: r.code == 0,
+				output: r.output,
+				error: r.code == 0 ? '' : r.output
+			};
 		}
 	}
 };

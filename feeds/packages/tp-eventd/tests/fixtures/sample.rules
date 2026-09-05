@@ -1,0 +1,9 @@
+# comment should be skipped
+alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"ET MALWARE Win32/Foo Checkin"; flow:established,to_server; classtype:trojan-activity; sid:2020001; rev:4;)
+alert tcp any any -> any any (msg:"ET SCAN Nested \"quote\" test"; classtype:attempted-recon; sid:2020002; rev:1; gid:1;)
+#alert http any any -> any any (msg:"ET DISABLED In File"; classtype:misc-activity; sid:2020003; rev:1;)
+alert http any any -> any any (msg:"ET TEST \
+ Continued"; classtype:misc-activity; sid:2020004; rev:2;)
+drop tcp any any -> any any (msg:"ET POLICY Drop Example"; classtype:policy-violation; sid:2020005; rev:1;)
+not-a-rule
+alert http any any -> any any (msg:"ET TEST Apostrophe's SID"; classtype:trojan-activity; sid:2020006; rev:1;)

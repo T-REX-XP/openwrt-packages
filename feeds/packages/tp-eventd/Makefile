@@ -6,7 +6,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=tp-eventd
 PKG_VERSION:=1.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0
@@ -24,8 +24,8 @@ endef
 
 define Package/tp-eventd/description
   Reads Suricata eve.json alert lines into
-  /var/lib/threat-prevention/events.sqlite (capped ring) and
-  /tmp/tp_status.json for rpcd.
+  /var/lib/threat-prevention/events.sqlite (capped ring),
+  indexes ET Open rules for LuCI, and writes /tmp/tp_status.json for rpcd.
 endef
 
 define Build/Prepare
@@ -41,6 +41,8 @@ define Package/tp-eventd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) ./files/usr/sbin/tp-eve-ingest $(1)/usr/sbin/tp-eve-ingest
 	$(INSTALL_BIN) ./files/usr/sbin/tp-eventd $(1)/usr/sbin/tp-eventd
+	$(INSTALL_BIN) ./files/usr/sbin/tp-rules-index $(1)/usr/sbin/tp-rules-index
+	$(INSTALL_BIN) ./files/usr/sbin/tp-rules-apply $(1)/usr/sbin/tp-rules-apply
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/tp-eventd.init $(1)/etc/init.d/tp-eventd
 endef

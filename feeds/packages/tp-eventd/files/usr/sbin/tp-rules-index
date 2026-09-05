@@ -1,0 +1,143 @@
+#!/bin/sh
+# Index Suricata *.rules into SQLite for LuCI rule search.
+# Usage: tp-rules-index [rule_dir] [db]
+
+set -eu
+
+RULE_DIR=${1:-/etc/suricata/rules}
+DB=${2:-/var/lib/threat-prevention/rules.sqlite}
+SQL=$(mktemp)
+AWK=$(mktemp)
+trap 'rm -f "$SQL" "$AWK"' EXIT
+
+mkdir -p "$(dirname "$DB")"
+
+if [ ! -d "$RULE_DIR" ]; then
+	echo "tp-rules-index: missing rule dir $RULE_DIR" >&2
+	exit 1
+fi
+
+cat > "$AWK" << 'AWK'
+function sql_esc(s,   t) {
+	t = s
+	gsub(/\047/, "\047\047", t)
+	return t
+}
+function field_after(s, key,   i, rest, j, c, out) {
+	i = index(s, key)
+	if (i == 0)
+		return ""
+	rest = substr(s, i + length(key))
+	out = ""
+	for (j = 1; j <= length(rest); j++) {
+		c = substr(rest, j, 1)
+		if (c == ";" || c == " " || c == "\t" || c == ")")
+			break
+		out = out c
+	}
+	return out
+}
+function get_msg(s,   i, rest, j, c, out) {
+	i = index(s, "msg:\"")
+	if (i == 0)
+		return ""
+	rest = substr(s, i + 5)
+	out = ""
+	for (j = 1; j <= length(rest); j++) {
+		c = substr(rest, j, 1)
+		if (c == "\\") {
+			out = out substr(rest, j + 1, 1)
+			j++
+			continue
+		}
+		if (c == "\"")
+			break
+		out = out c
+	}
+	return out
+}
+function emit(line, file,   n, w, action, sid, gid, rev, cls, msg, raw) {
+	n = split(line, w, /[ \t]+/)
+	if (n < 1)
+		return
+	action = w[1]
+	if (action != "alert" && action != "drop" && action != "pass" &&
+	    action != "reject" && action != "rejectsrc" && action != "rejectdst")
+		return
+	sid = field_after(line, "sid:")
+	if (sid == "" || sid !~ /^[0-9]+$/)
+		return
+	gid = field_after(line, "gid:")
+	if (gid == "" || gid !~ /^[0-9]+$/)
+		gid = "1"
+	rev = field_after(line, "rev:")
+	if (rev == "" || rev !~ /^[0-9]+$/)
+		rev = "0"
+	cls = field_after(line, "classtype:")
+	msg = get_msg(line)
+	gsub(/[\t\r\n]/, " ", msg)
+	raw = line
+	if (length(raw) > 4000)
+		raw = substr(raw, 1, 4000)
+	gsub(/[\t\r\n]/, " ", raw)
+	printf "INSERT OR REPLACE INTO rules(gid,sid,rev,action,classtype,file,msg,raw) VALUES(%s,%s,%s,'%s','%s','%s','%s','%s');\n",
+		gid, sid, rev, sql_esc(action), sql_esc(cls), sql_esc(file), sql_esc(msg), sql_esc(raw)
+}
+BEGIN { cont = "" }
+{
+	line = $0
+	sub(/\r$/, "", line)
+	if (cont != "") {
+		sub(/^[ \t]+/, "", line)
+		line = cont line
+		cont = ""
+	}
+	if (line ~ /\\[ \t]*$/) {
+		sub(/\\[ \t]*$/, "", line)
+		cont = line
+		next
+	}
+	tmp = line
+	sub(/^[ \t]+/, "", tmp)
+	if (tmp == "" || tmp ~ /^#/)
+		next
+	n = split(FILENAME, parts, "/")
+	emit(tmp, parts[n])
+}
+AWK
+
+{
+	echo "BEGIN;"
+	echo "DROP TABLE IF EXISTS rules;"
+	echo "CREATE TABLE rules (
+		gid INTEGER NOT NULL,
+		sid INTEGER NOT NULL,
+		rev INTEGER,
+		action TEXT,
+		classtype TEXT,
+		file TEXT,
+		msg TEXT,
+		raw TEXT,
+		PRIMARY KEY (gid, sid)
+	);"
+	echo "CREATE INDEX idx_rules_msg ON rules(msg);"
+	echo "CREATE INDEX idx_rules_class ON rules(classtype);"
+	echo "CREATE INDEX idx_rules_file ON rules(file);"
+	found=0
+	for f in "$RULE_DIR"/*.rules; do
+		[ -f "$f" ] || continue
+		found=1
+		awk -f "$AWK" "$f"
+	done
+	echo "COMMIT;"
+	if [ "$found" = 0 ]; then
+		echo "tp-rules-index: no .rules files in $RULE_DIR" >&2
+	fi
+} > "$SQL"
+
+sqlite3 "$DB" < "$SQL"
+
+n=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM rules;')
+echo "tp-rules-index: $n rules in $DB"
+logger -t tp-rules-index "indexed $n rules from $RULE_DIR" 2>/dev/null || true
+exit 0

@@ -31,6 +31,11 @@ sed -i "s|^default-rule-path:.*|default-rule-path: $RULE_DIR|" "$tmp"
 eve_base=$(basename "$EVE")
 sed -i "s|^[[:space:]]*filename: eve.json|      filename: $eve_base|" "$tmp"
 
+THRESHOLD=$(uci -q get suricata.main.threshold_file 2>/dev/null || echo /etc/suricata/threshold.config)
+if [ -x /usr/sbin/tp-rules-apply ]; then
+	/usr/sbin/tp-rules-apply "$THRESHOLD" || true
+fi
+
 rules_block="rule-files:"
 if [ "$PROFILE" = full ]; then
 	if [ -f "$RULE_DIR/suricata.rules" ]; then
@@ -56,6 +61,12 @@ echo "$rules_block" | grep -q '  - ' || {
   - local.rules"
 	[ -f "$RULE_DIR/local.rules" ] || : > "$RULE_DIR/local.rules"
 }
+
+if grep -q '^[[:space:]]*#*threshold-file:' "$tmp"; then
+	sed -i "s|^[[:space:]]*#*threshold-file:.*|threshold-file: $THRESHOLD|" "$tmp"
+else
+	printf '\nthreshold-file: %s\n' "$THRESHOLD" >> "$tmp"
+fi
 
 awk -v repl="$rules_block" '
   BEGIN { skip=0 }

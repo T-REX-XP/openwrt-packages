@@ -167,6 +167,10 @@ write_status ok "" "$mtime" "$count"
 echo "etopen: $count emerging-*.rules in $RULE_DIR"
 logger -t suricata-etopen "fetched $count emerging-*.rules into $RULE_DIR"
 
+if [ -x /usr/sbin/tp-rules-index ]; then
+	/usr/sbin/tp-rules-index "$RULE_DIR" || true
+fi
+
 if [ -x /usr/sbin/suricata-config-apply ]; then
 	/usr/sbin/suricata-config-apply || true
 fi

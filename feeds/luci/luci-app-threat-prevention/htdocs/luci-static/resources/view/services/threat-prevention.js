@@ -45,6 +45,33 @@ var callFetchRules = rpc.declare({
 	expect: { '': {} }
 });
 
+var callGetRules = rpc.declare({
+	object: 'luci.threat-prevention',
+	method: 'getRules',
+	params: [ 'query', 'classtype', 'file', 'state', 'offset', 'limit' ],
+	expect: { '': {} }
+});
+
+var callGetRule = rpc.declare({
+	object: 'luci.threat-prevention',
+	method: 'getRule',
+	params: [ 'sid', 'gid' ],
+	expect: { '': {} }
+});
+
+var callSetRuleState = rpc.declare({
+	object: 'luci.threat-prevention',
+	method: 'setRuleState',
+	params: [ 'sid', 'gid', 'enabled' ],
+	expect: { '': {} }
+});
+
+var callReindexRules = rpc.declare({
+	object: 'luci.threat-prevention',
+	method: 'reindexRules',
+	expect: { '': {} }
+});
+
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
@@ -174,8 +201,18 @@ return view.extend({
 
 		var statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
 		var eventsBox = E('div', { 'data-tab': 'events', 'data-tab-title': _('Events') });
+		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
 		var policyBox = E('div', { 'data-tab': 'policy', 'data-tab-title': _('Policy') });
 		var settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
+
+		var rulesState = {
+			query: '',
+			classtype: '',
+			file: '',
+			state: 'all',
+			offset: 0,
+			limit: 50
+		};
 
 		function renderStatus(st) {
 			statusBox.innerHTML = '';
@@ -232,6 +269,240 @@ return view.extend({
 				]));
 			});
 			eventsBox.appendChild(table);
+		}
+
+		function loadRules() {
+			return callGetRules(
+				tpCore.sanitizeRuleQuery(rulesState.query),
+				rulesState.classtype,
+				rulesState.file,
+				rulesState.state,
+				rulesState.offset,
+				tpCore.clampRuleLimit(rulesState.limit)
+			).then(function(res) {
+				renderRules(res || {});
+				return res;
+			});
+		}
+
+		function showRule(sid, gid) {
+			if (!tpCore.validSid(sid))
+				return;
+			callGetRule(sid, gid || '1').then(function(rule) {
+				if (rule && rule.error)
+					return Promise.reject(new Error(rule.error));
+				ui.showModal(_('Signature %s').format(sid), [
+					E('p', { 'class': 'tp-help' }, [
+						val(rule.file), ' · ',
+						val(rule.classtype), ' · ',
+						'rev ' + val(rule.rev, '0')
+					]),
+					E('pre', { 'class': 'tp-rule-raw' }, val(rule.raw, '')),
+					E('div', { 'class': 'right' }, [
+						E('button', {
+							'type': 'button',
+							'class': 'btn',
+							click: ui.hideModal
+						}, _('Close'))
+					])
+				]);
+			}).catch(function(e) {
+				ui.addNotification(null, E('p', {}, e.message || e), 'error');
+			});
+		}
+
+		function renderRules(res) {
+			var list = (res && res.rules) || [];
+			var total = Number(res && res.total) || 0;
+			var files = (res && res.files) || [];
+			var classes = (res && res.classtypes) || [];
+			var indexed = !!(res && res.indexed);
+			var indexedCount = Number(res && res.indexed_count) || 0;
+			var disabledCount = Number(res && res.disabled_count) || 0;
+			var from;
+			var to;
+			var search;
+			var fileSel;
+			var classSel;
+			var stateSel;
+			var i;
+			var opt;
+
+			rulesBox.innerHTML = '';
+			rulesBox.appendChild(E('p', { 'class': 'tp-help' },
+				_('Search, filter, and disable ET Open signatures. Disabled SIDs are suppressed and kept across rule fetches.')));
+
+			search = E('input', {
+				type: 'search',
+				id: 'tp-rule-q',
+				placeholder: _('SID, message, class, or file'),
+				value: rulesState.query
+			});
+			fileSel = E('select', { id: 'tp-rule-file' }, [
+				E('option', { value: '' }, _('All files'))
+			]);
+			for (i = 0; i < files.length; i++) {
+				opt = E('option', { value: files[i] }, files[i]);
+				fileSel.appendChild(opt);
+			}
+			fileSel.value = rulesState.file;
+			classSel = E('select', { id: 'tp-rule-class' }, [
+				E('option', { value: '' }, _('All classes'))
+			]);
+			for (i = 0; i < classes.length; i++) {
+				opt = E('option', { value: classes[i] }, classes[i]);
+				classSel.appendChild(opt);
+			}
+			classSel.value = rulesState.classtype;
+			stateSel = E('select', { id: 'tp-rule-state' }, [
+				E('option', { value: 'all' }, _('All states')),
+				E('option', { value: 'enabled' }, _('Enabled')),
+				E('option', { value: 'disabled' }, _('Disabled'))
+			]);
+			stateSel.value = rulesState.state;
+
+			function applyFilters(ev) {
+				if (ev)
+					ev.preventDefault();
+				rulesState.query = tpCore.sanitizeRuleQuery(search.value);
+				rulesState.file = fileSel.value;
+				rulesState.classtype = classSel.value;
+				rulesState.state = stateSel.value;
+				rulesState.offset = 0;
+				loadRules().catch(function(e) {
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+				});
+			}
+
+			search.addEventListener('keydown', function(ev) {
+				if (ev.key === 'Enter')
+					applyFilters(ev);
+			});
+
+			rulesBox.appendChild(E('div', { 'class': 'tp-toolbar' }, [
+				search,
+				fileSel,
+				classSel,
+				stateSel,
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					click: applyFilters
+				}, _('Search')),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					click: function(ev) {
+						ev.preventDefault();
+						ui.showModal(_('Indexing rules'), [ E('p', {}, _('Reading signature files…')) ]);
+						callReindexRules().then(function(out) {
+							ui.hideModal();
+							if (out && out.error && !out.ok)
+								return Promise.reject(new Error(out.error || out.output));
+							rulesState.offset = 0;
+							return loadRules();
+						}).then(function() {
+							ui.addNotification(null, E('p', {}, _('Rule index updated')), 4000);
+						}).catch(function(e) {
+							ui.hideModal();
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Reindex'))
+			]));
+
+			rulesBox.appendChild(E('p', { 'class': 'tp-help' },
+				_('Indexed: %s · Disabled: %s').format(indexedCount, disabledCount)));
+
+			if (!indexed) {
+				rulesBox.appendChild(E('p', {},
+					_('No rule index yet. Fetch ET Open from Settings, then reindex.')));
+				return;
+			}
+			if (!list.length) {
+				rulesBox.appendChild(E('p', {}, _('No matching signatures.')));
+				return;
+			}
+
+			var table = E('table', { 'class': 'table' }, [
+				E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th' }, _('Enabled')),
+					E('th', { 'class': 'th' }, _('SID')),
+					E('th', { 'class': 'th' }, _('Class')),
+					E('th', { 'class': 'th' }, _('File')),
+					E('th', { 'class': 'th' }, _('Message'))
+				])
+			]);
+			list.forEach(function(row) {
+				var sid = String(row.sid || '');
+				var gid = String(row.gid || '1');
+				var on = row.enabled !== '0';
+				var toggle = E('input', {
+					type: 'checkbox',
+					checked: on ? 'checked' : null,
+					change: function() {
+						var next = this.checked ? '1' : '0';
+						callSetRuleState(sid, gid, next).then(function(out) {
+							if (out && out.error)
+								return Promise.reject(new Error(out.error));
+							return loadRules();
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+							loadRules();
+						});
+					}
+				});
+				var sidLink = E('a', {
+					href: '#',
+					click: function(ev) {
+						ev.preventDefault();
+						showRule(sid, gid);
+					}
+				}, sid);
+				var trClass = 'tr';
+				if (!on)
+					trClass += ' tp-rule--off';
+				if (row.in_profile === false)
+					trClass += ' tp-rule--unloaded';
+				table.appendChild(E('tr', { 'class': trClass }, [
+					E('td', { 'class': 'td' }, [ toggle ]),
+					E('td', { 'class': 'td' }, [ sidLink ]),
+					E('td', { 'class': 'td' }, val(row.classtype)),
+					E('td', { 'class': 'td' }, val(row.file)),
+					E('td', { 'class': 'td' }, val(row.msg))
+				]));
+			});
+			rulesBox.appendChild(table);
+
+			from = total ? (rulesState.offset + 1) : 0;
+			to = rulesState.offset + list.length;
+			rulesBox.appendChild(E('div', { 'class': 'tp-pager' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'disabled': rulesState.offset <= 0 ? true : null,
+					click: function(ev) {
+						ev.preventDefault();
+						if (rulesState.offset <= 0)
+							return;
+						rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
+						loadRules();
+					}
+				}, _('Previous')),
+				E('span', {}, _('Showing %s–%s of %s').format(from, to, total)),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'disabled': (rulesState.offset + list.length) >= total ? true : null,
+					click: function(ev) {
+						ev.preventDefault();
+						if ((rulesState.offset + list.length) >= total)
+							return;
+						rulesState.offset += rulesState.limit;
+						loadRules();
+					}
+				}, _('Next'))
+			]));
 		}
 
 		function renderPolicy(c) {
@@ -419,6 +690,7 @@ return view.extend({
 									ui.addNotification(null, E('p', {}, res.error || res.output || _('Fetch failed')), 'error');
 								else
 									ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
+								return loadRules();
 							}).catch(function(e) {
 								ui.hideModal();
 								ui.addNotification(null, E('p', {}, e.message || e), 'error');
@@ -431,11 +703,13 @@ return view.extend({
 
 		renderStatus(status);
 		renderEvents(events);
+		renderRules({});
+		loadRules().catch(function() {});
 		renderPolicy(cfg);
 		renderSettings(cfg);
 
 		var tabHost = E('div', { 'class': 'tp-tab-host' }, [
-			statusBox, eventsBox, policyBox, settingsBox
+			statusBox, eventsBox, rulesBox, policyBox, settingsBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);

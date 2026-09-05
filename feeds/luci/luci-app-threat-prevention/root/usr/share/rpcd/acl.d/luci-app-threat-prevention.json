@@ -6,7 +6,9 @@
 				"luci.threat-prevention": [
 					"getStatus",
 					"getEvents",
-					"getConfig"
+					"getConfig",
+					"getRules",
+					"getRule"
 				]
 			},
 			"uci": [ "suricata" ],
@@ -14,6 +16,7 @@
 				"/tmp/tp_status.json": [ "read" ],
 				"/tmp/tp_etopen.json": [ "read" ],
 				"/var/lib/threat-prevention/events.sqlite": [ "read" ],
+				"/var/lib/threat-prevention/rules.sqlite": [ "read" ],
 				"/usr/sbin/tp-eve-ingest": [ "exec" ],
 				"/usr/bin/suricata": [ "exec" ],
 				"/etc/init.d/suricata": [ "exec" ],
@@ -27,7 +30,9 @@
 				"luci.threat-prevention": [
 					"setConfig",
 					"serviceControl",
-					"fetchRules"
+					"fetchRules",
+					"setRuleState",
+					"reindexRules"
 				]
 			},
 			"uci": [ "suricata" ],
@@ -36,7 +41,11 @@
 				"/etc/init.d/tp-eventd": [ "exec" ],
 				"/etc/init.d/suricata-etopen": [ "exec" ],
 				"/usr/sbin/suricata-etopen-fetch": [ "exec" ],
-				"/usr/sbin/suricata-config-apply": [ "exec" ]
+				"/usr/sbin/suricata-config-apply": [ "exec" ],
+				"/usr/sbin/tp-rules-index": [ "exec" ],
+				"/usr/sbin/tp-rules-apply": [ "exec" ],
+				"/etc/suricata/threshold.config": [ "write" ],
+				"/var/lib/threat-prevention/rules.sqlite": [ "write" ]
 			}
 		}
 	}

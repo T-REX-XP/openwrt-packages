@@ -210,5 +210,25 @@ return baseclass.extend({
 			add('br-lan');
 		names.sort();
 		return names;
+	},
+
+	sanitizeRuleQuery: function(q) {
+		q = String(q == null ? '' : q).trim();
+		if (q.length > 64)
+			q = q.substring(0, 64);
+		return q.replace(/[%_'\\]/g, '');
+	},
+
+	clampRuleLimit: function(n) {
+		n = parseInt(n, 10);
+		if (isNaN(n) || n < 1)
+			return 50;
+		if (n > 100)
+			return 100;
+		return n;
+	},
+
+	validSid: function(sid) {
+		return /^[0-9]{1,10}$/.test(String(sid == null ? '' : sid));
 	}
 });
