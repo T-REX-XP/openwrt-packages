@@ -5,6 +5,8 @@ var FLAG_OPTS = [ 'enabled' ];
 
 var ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
 
+var FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
+
 var SKIP_DEV_TYPES = { alias: 1, vrf: 1 };
 
 var SKIP_DEV_NAMES = { lo: 1 };
@@ -13,14 +15,13 @@ var STRING_OPTS = {
 	mode: /^(ids|ips)$/,
 	interface: /^[A-Za-z0-9_.-]+$/,
 	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
-	rule_profile: /^(small|full)$/,
-	etopen_url: /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+$/
+	rule_profile: /^(small|full)$/
 };
 
 var FORM_KEYS = FLAG_OPTS.concat(Object.keys(STRING_OPTS));
 
 var REQUIRED_FORM_KEYS = [
-	'enabled', 'interface', 'home_net', 'rule_profile', 'etopen_url', 'mode'
+	'enabled', 'interface', 'home_net', 'rule_profile', 'mode'
 ];
 
 function truthyFlag(value) {
@@ -136,6 +137,12 @@ return baseclass.extend({
 		err = this.validateConfig(cfg);
 		if (err)
 			return { error: err };
+		if (raw.feeds !== undefined) {
+			err = this.validateFeeds(raw.feeds);
+			if (err)
+				return { error: err };
+			cfg.feeds = this.normalizeFeeds(raw.feeds);
+		}
 		return { config: cfg };
 	},
 
@@ -230,5 +237,99 @@ return baseclass.extend({
 
 	validSid: function(sid) {
 		return /^[0-9]{1,10}$/.test(String(sid == null ? '' : sid));
+	},
+
+	sanitizeFeedId: function(name) {
+		var id = String(name == null ? '' : name).toLowerCase()
+			.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+		if (!id)
+			return '';
+		if (/^[0-9]/.test(id) || id === 'main' || /^s[0-9]+$/.test(id))
+			id = 'et_' + id;
+		if (id.length > 32)
+			id = id.substring(0, 32);
+		return id;
+	},
+
+	validateFeed: function(feed) {
+		var name;
+		var url;
+		var enabled;
+
+		if (!feed || typeof feed !== 'object')
+			return 'invalid feed';
+		name = String(feed.name == null ? '' : feed.name).trim();
+		url = String(feed.url == null ? '' : feed.url).trim();
+		enabled = this.normalizeFlag(feed.enabled);
+		if (!name)
+			return 'invalid feed name';
+		if (!FEED_URL_RE.test(url))
+			return 'invalid feed url';
+		if (enabled !== '0' && enabled !== '1')
+			return 'invalid feed enabled';
+		return null;
+	},
+
+	validateFeeds: function(feeds) {
+		var i;
+		var err;
+		var seen;
+		var id;
+
+		if (!Array.isArray(feeds))
+			return 'invalid feeds';
+		seen = {};
+		for (i = 0; i < feeds.length; i++) {
+			err = this.validateFeed(feeds[i]);
+			if (err)
+				return err;
+			id = this.sanitizeFeedId(feeds[i].id || feeds[i].name);
+			if (!id)
+				return 'invalid feed id';
+			if (seen[id])
+				return 'duplicate feed id';
+			seen[id] = 1;
+		}
+		return null;
+	},
+
+	normalizeFeeds: function(feeds) {
+		var out = [];
+		var i;
+		var feed;
+		var id;
+		var used = {};
+		var n;
+
+		if (!Array.isArray(feeds))
+			return [];
+		for (i = 0; i < feeds.length; i++) {
+			feed = feeds[i];
+			id = this.sanitizeFeedId(feed.id || feed.name);
+			n = 2;
+			while (used[id]) {
+				id = this.sanitizeFeedId((feed.id || feed.name) + '_' + n);
+				n++;
+			}
+			used[id] = 1;
+			out.push({
+				id: id,
+				name: String(feed.name).trim(),
+				url: String(feed.url).trim(),
+				enabled: this.normalizeFlag(feed.enabled),
+				description: String(feed.description == null ? '' : feed.description).trim()
+			});
+		}
+		return out;
+	},
+
+	defaultFeeds: function() {
+		return [{
+			id: 'official',
+			name: 'Official ET Open 8.0',
+			url: ETOPEN_OFFICIAL,
+			enabled: '1',
+			description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
+		}];
 	}
 });

@@ -76,6 +76,8 @@ function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
+var settingsFeeds = [];
+
 function luciDevList(devs) {
 	var out = [];
 	var i, d, name, type;
@@ -131,17 +133,16 @@ function collectTpSettings() {
 	var iface = document.getElementById('tp-iface');
 	var home = document.getElementById('tp-home');
 	var profile = document.getElementById('tp-profile');
-	var url = document.getElementById('tp-url');
 	var mode = document.getElementById('tp-mode');
-	if (!enabled || !iface || !home || !profile || !url || !mode)
+	if (!enabled || !iface || !home || !profile || !mode)
 		return { error: _('Settings form is not ready.') };
 	return tpCore.collectSettings({
 		enabled: enabled.checked,
 		interface: iface.value,
 		home_net: home.value,
 		rule_profile: profile.value,
-		etopen_url: url.value,
-		mode: mode.value
+		mode: mode.value,
+		feeds: settingsFeeds
 	});
 }
 
@@ -179,6 +180,9 @@ return view.extend({
 		var cfg = data[2] || {};
 		var netDevices = data[3] || [];
 		var lanCidr = lanCidrFromNet(data[4]);
+		settingsFeeds = tpCore.normalizeFeeds(
+			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : tpCore.defaultFeeds()
+		);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -213,6 +217,251 @@ return view.extend({
 			offset: 0,
 			limit: 50
 		};
+		var tpFeedsHost;
+		var tpSidHost;
+
+		function persistTpFeeds() {
+			var err = tpCore.validateFeeds(settingsFeeds);
+			if (err)
+				return Promise.reject(new Error(err));
+			settingsFeeds = tpCore.normalizeFeeds(settingsFeeds);
+			return callSetConfig({ feeds: settingsFeeds }).then(function(res) {
+				if (res && res.error)
+					return Promise.reject(new Error(res.error));
+				if (res && res.config && Array.isArray(res.config.feeds))
+					settingsFeeds = tpCore.normalizeFeeds(res.config.feeds);
+				return res;
+			});
+		}
+
+		function runTpFetch() {
+			ui.showModal(_('Fetching rules'), [ E('p', {}, _('Downloading enabled feeds…')) ]);
+			return persistTpFeeds().then(function() {
+				return callFetchRules();
+			}).then(function(res) {
+				if (res && res.error && !res.started)
+					return Promise.reject(new Error(res.error));
+				if (res && res.ok === false)
+					return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
+				if (!res || !res.started)
+					return res;
+				var tries = 0;
+				function pollDone() {
+					tries++;
+					return callGetStatus().then(function(st) {
+						if (st && st.etopen_state === 'fetching') {
+							if (tries >= 120)
+								return Promise.reject(new Error(_('Rule fetch timed out')));
+							return new Promise(function(resolve) {
+								window.setTimeout(function() {
+									resolve(pollDone());
+								}, 2000);
+							});
+						}
+						return st;
+					});
+				}
+				return pollDone();
+			}).then(function(res) {
+				ui.hideModal();
+				if (res && res.etopen_state === 'error')
+					ui.addNotification(null, E('p', {}, res.etopen_error || res.output || _('Fetch failed')), 'error');
+				else if (res && res.ok === false)
+					ui.addNotification(null, E('p', {}, res.error || res.output || _('Fetch failed')), 'error');
+				else
+					ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
+				return loadRules();
+			}).catch(function(e) {
+				ui.hideModal();
+				ui.addNotification(null, E('p', {}, e.message || e), 'error');
+			});
+		}
+
+		function openTpFeedModal(existing) {
+			var nameIn = E('input', {
+				type: 'text', id: 'tp-feed-name',
+				value: existing ? existing.name : '',
+				placeholder: _('Name')
+			});
+			var urlIn = E('input', {
+				type: 'text', id: 'tp-feed-url',
+				value: existing ? existing.url : 'https://',
+				placeholder: tpCore.ETOPEN_OFFICIAL
+			});
+			var descIn = E('input', {
+				type: 'text', id: 'tp-feed-desc',
+				value: existing ? (existing.description || '') : '',
+				placeholder: _('Optional description')
+			});
+			ui.showModal(existing ? _('Edit rule feed') : _('Add rule feed'), [
+				E('div', { 'class': 'tp-field' }, [
+					E('label', { 'for': 'tp-feed-name' }, _('Name')), nameIn
+				]),
+				E('div', { 'class': 'tp-field' }, [
+					E('label', { 'for': 'tp-feed-url' }, _('URL')), urlIn,
+					E('div', { 'class': 'tp-help' }, _('HTTPS URL to a rules tarball or .rules file'))
+				]),
+				E('div', { 'class': 'tp-field' }, [
+					E('label', { 'for': 'tp-feed-desc' }, _('Description')), descIn
+				]),
+				E('div', { 'class': 'right' }, [
+					E('button', {
+						'type': 'button',
+						'class': 'btn',
+						click: ui.hideModal
+					}, _('Cancel')),
+					' ',
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button-positive',
+						click: function() {
+							var feed = {
+								id: existing ? existing.id : tpCore.sanitizeFeedId(nameIn.value),
+								name: nameIn.value,
+								url: urlIn.value,
+								enabled: existing ? existing.enabled : '1',
+								description: descIn.value
+							};
+							var err = tpCore.validateFeed(feed);
+							var next;
+							if (err) {
+								ui.addNotification(null, E('p', {}, err), 'error');
+								return;
+							}
+							feed = tpCore.normalizeFeeds([feed])[0];
+							if (existing) {
+								settingsFeeds = settingsFeeds.map(function(f) {
+									return f.id === existing.id ? feed : f;
+								});
+							} else {
+								next = tpCore.validateFeeds(settingsFeeds.concat([feed]));
+								if (next) {
+									ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
+									return;
+								}
+								settingsFeeds = settingsFeeds.concat([feed]);
+							}
+							persistTpFeeds().then(function() {
+								ui.hideModal();
+								paintTpFeeds();
+								ui.addNotification(null, E('p', {}, _('Rule feeds saved')), 4000);
+							}).catch(function(e) {
+								ui.addNotification(null, E('p', {}, e.message || e), 'error');
+							});
+						}
+					}, _('Save'))
+				])
+			]);
+		}
+
+		function paintTpFeeds() {
+			var table;
+			if (!tpFeedsHost)
+				return;
+			tpFeedsHost.innerHTML = '';
+			tpFeedsHost.appendChild(E('h3', {}, _('Rule feeds')));
+			tpFeedsHost.appendChild(E('p', { 'class': 'tp-help' },
+				_('Manage HTTPS rule tarball URLs. Disable a feed to skip it on the next fetch.')));
+			table = E('div', { 'class': 'table tp-feeds-table' }, [
+				E('div', { 'class': 'tr table-titles' }, [
+					E('div', { 'class': 'th' }, _('Enabled')),
+					E('div', { 'class': 'th' }, _('Name')),
+					E('div', { 'class': 'th' }, _('URL')),
+					E('div', { 'class': 'th' }, _('Actions'))
+				])
+			]);
+			if (!settingsFeeds.length) {
+				tpFeedsHost.appendChild(E('p', {},
+					_('No rule feeds. Add the official ET Open URL or a custom HTTPS feed.')));
+			} else {
+				settingsFeeds.forEach(function(entry) {
+					var on = entry.enabled !== '0';
+					table.appendChild(E('div', { 'class': 'tr' }, [
+						E('div', { 'class': 'td' }, [
+							E('input', {
+								type: 'checkbox',
+								checked: on ? 'checked' : null,
+								change: function() {
+									entry.enabled = this.checked ? '1' : '0';
+									persistTpFeeds().then(paintTpFeeds).catch(function(e) {
+										ui.addNotification(null, E('p', {}, e.message || e), 'error');
+										paintTpFeeds();
+									});
+								}
+							})
+						]),
+						E('div', { 'class': 'td' }, [
+							E('strong', {}, entry.name),
+							entry.description
+								? E('div', { 'class': 'tp-feed-note' }, entry.description)
+								: ''
+						]),
+						E('div', { 'class': 'td' }, [
+							E('code', { 'class': 'tp-feed-url' }, entry.url)
+						]),
+						E('div', { 'class': 'td' }, [
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button cbi-button-edit',
+								click: function(ev) {
+									ev.preventDefault();
+									openTpFeedModal(entry);
+								}
+							}, _('Edit')),
+							' ',
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button cbi-button-negative',
+								click: function(ev) {
+									ev.preventDefault();
+									if (!window.confirm(_('Delete rule feed “%s”?').format(entry.name)))
+										return;
+									settingsFeeds = settingsFeeds.filter(function(f) {
+										return f.id !== entry.id;
+									});
+									persistTpFeeds().then(function() {
+										paintTpFeeds();
+										ui.addNotification(null, E('p', {}, _('Rule feed deleted')), 4000);
+									}).catch(function(e) {
+										ui.addNotification(null, E('p', {}, e.message || e), 'error');
+									});
+								}
+							}, _('Delete'))
+						])
+					]));
+				});
+				tpFeedsHost.appendChild(table);
+			}
+			tpFeedsHost.appendChild(E('div', { 'class': 'tp-feeds-toolbar' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button cbi-button-add',
+					click: function(ev) {
+						ev.preventDefault();
+						openTpFeedModal(null);
+					}
+				}, _('Add')),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button cbi-button-apply',
+					click: function(ev) {
+						ev.preventDefault();
+						runTpFetch();
+					}
+				}, _('Fetch now'))
+			]));
+		}
+
+		function ensureRulesLayout() {
+			if (tpFeedsHost)
+				return;
+			rulesBox.innerHTML = '';
+			tpFeedsHost = E('div', { 'class': 'tp-feeds-section' });
+			tpSidHost = E('div', { 'class': 'tp-sid-section' });
+			rulesBox.appendChild(tpFeedsHost);
+			rulesBox.appendChild(tpSidHost);
+			paintTpFeeds();
+		}
 
 		function renderStatus(st) {
 			statusBox.innerHTML = '';
@@ -328,8 +577,10 @@ return view.extend({
 			var i;
 			var opt;
 
-			rulesBox.innerHTML = '';
-			rulesBox.appendChild(E('p', { 'class': 'tp-help' },
+			ensureRulesLayout();
+			tpSidHost.innerHTML = '';
+			tpSidHost.appendChild(E('h3', {}, _('Signatures')));
+			tpSidHost.appendChild(E('p', { 'class': 'tp-help' },
 				_('Search, filter, and disable ET Open signatures. Disabled SIDs are suppressed and kept across rule fetches.')));
 
 			search = E('input', {
@@ -379,7 +630,7 @@ return view.extend({
 					applyFilters(ev);
 			});
 
-			rulesBox.appendChild(E('div', { 'class': 'tp-toolbar' }, [
+			tpSidHost.appendChild(E('div', { 'class': 'tp-toolbar' }, [
 				search,
 				fileSel,
 				classSel,
@@ -411,16 +662,16 @@ return view.extend({
 				}, _('Reindex'))
 			]));
 
-			rulesBox.appendChild(E('p', { 'class': 'tp-help' },
+			tpSidHost.appendChild(E('p', { 'class': 'tp-help' },
 				_('Indexed: %s · Disabled: %s').format(indexedCount, disabledCount)));
 
 			if (!indexed) {
-				rulesBox.appendChild(E('p', {},
-					_('No rule index yet. Fetch ET Open from Settings, then reindex.')));
+				tpSidHost.appendChild(E('p', {},
+					_('No rule index yet. Fetch rules from this tab, then reindex.')));
 				return;
 			}
 			if (!list.length) {
-				rulesBox.appendChild(E('p', {}, _('No matching signatures.')));
+				tpSidHost.appendChild(E('p', {}, _('No matching signatures.')));
 				return;
 			}
 
@@ -472,11 +723,11 @@ return view.extend({
 					E('td', { 'class': 'td' }, val(row.msg))
 				]));
 			});
-			rulesBox.appendChild(table);
+			tpSidHost.appendChild(table);
 
 			from = total ? (rulesState.offset + 1) : 0;
 			to = rulesState.offset + list.length;
-			rulesBox.appendChild(E('div', { 'class': 'tp-pager' }, [
+			tpSidHost.appendChild(E('div', { 'class': 'tp-pager' }, [
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button',
@@ -542,7 +793,6 @@ return view.extend({
 
 		function renderSettings(c) {
 			settingsBox.innerHTML = '';
-			var official = tpCore.ETOPEN_OFFICIAL;
 			var enabled = E('input', { type: 'checkbox', id: 'tp-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
 			var iface = ifaceSelect('tp-iface', val(c.interface, 'br-lan'), netDevices);
@@ -576,28 +826,6 @@ return view.extend({
 				E('option', { value: 'full' }, _('Full ET Open'))
 			]);
 			profile.value = c.rule_profile || 'small';
-			var urlVal = val(c.etopen_url, official);
-			var isOfficial = urlVal === official;
-			var preset = E('select', { id: 'tp-url-preset' }, [
-				E('option', { value: 'official' }, _('Official ET Open 8.0')),
-				E('option', { value: 'custom' }, _('Custom URL'))
-			]);
-			preset.value = isOfficial ? 'official' : 'custom';
-			var url = E('input', {
-				type: 'text', id: 'tp-url',
-				value: urlVal,
-				placeholder: official
-			});
-			url.disabled = isOfficial;
-			preset.addEventListener('change', function() {
-				if (preset.value === 'official') {
-					url.value = official;
-					url.disabled = true;
-				} else {
-					url.disabled = false;
-					url.focus();
-				}
-			});
 			function syncWarns() {
 				if (mode.value === 'ips')
 					ipsWarn.classList.add('is-visible');
@@ -619,11 +847,7 @@ return view.extend({
 					_('IDS = Detection only, IPS = Active prevention')),
 				ipsWarn,
 				field('tp-profile', _('Rule profile'), profile,
-					_('Small loads malware, C2, and web-server rules. Full loads the complete ET Open set.')),
-				field('tp-url-preset', _('ET Open source'), preset,
-					_('Official Emerging Threats Open rules for Suricata 8.0, or a custom HTTPS URL.')),
-				field('tp-url', _('ET Open URL'), url,
-					_('Must be an https:// URL to a rules tarball')),
+					_('Small loads malware, C2, and web-server rules. Full loads the complete ET Open set. Manage feed URLs on the Rules tab.')),
 				E('div', { 'class': 'tp-actions' }, [
 					E('button', {
 						'type': 'button',
@@ -651,52 +875,7 @@ return view.extend({
 								ui.addNotification(null, E('p', {}, e.message || e), 'error');
 							});
 						}
-					}, _('Restart Suricata')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
-							ui.showModal(_('Fetching ET Open'), [ E('p', {}, _('Downloading rules…')) ]);
-							callFetchRules().then(function(res) {
-								if (res && res.error && !res.started)
-									return Promise.reject(new Error(res.error));
-								if (res && res.ok === false)
-									return Promise.reject(new Error(res.error || res.output || _('Fetch failed')));
-								if (!res || !res.started)
-									return res;
-								var tries = 0;
-								function pollDone() {
-									tries++;
-									return callGetStatus().then(function(st) {
-										if (st && st.etopen_state === 'fetching') {
-											if (tries >= 120)
-												return Promise.reject(new Error(_('ET Open fetch timed out')));
-											return new Promise(function(resolve) {
-												window.setTimeout(function() {
-													resolve(pollDone());
-												}, 2000);
-											});
-										}
-										return st;
-									});
-								}
-								return pollDone();
-							}).then(function(res) {
-								ui.hideModal();
-								if (res && res.etopen_state === 'error')
-									ui.addNotification(null, E('p', {}, res.etopen_error || res.output || _('Fetch failed')), 'error');
-								else if (res && res.ok === false)
-									ui.addNotification(null, E('p', {}, res.error || res.output || _('Fetch failed')), 'error');
-								else
-									ui.addNotification(null, E('p', {}, _('Rules updated')), 4000);
-								return loadRules();
-							}).catch(function(e) {
-								ui.hideModal();
-								ui.addNotification(null, E('p', {}, e.message || e), 'error');
-							});
-						}
-					}, _('Fetch ET Open now'))
+					}, _('Restart Suricata'))
 				])
 			]));
 		}

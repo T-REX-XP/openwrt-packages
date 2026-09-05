@@ -153,6 +153,12 @@ test('view uses network devices select and advanced paths', () => {
 	assert.match(view, /option\[value="nfq"\]/);
 	assert.match(view, /Use LAN subnet/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
+	assert.doesNotMatch(view, /E\('h3',\s*\{\s*\},\s*_\('Rules management'\)\)/);
+	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
+	assert.match(view, /_\('Add'\)/);
+	assert.match(view, /id:\s*'snort-oink'/);
+	assert.match(view, /snort-feeds-table/);
+	assert.match(view, /callSetConfig\(payload\)/);
 	assert.doesNotMatch(readFileSync(join(res, 'snort-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
 	assert.equal(core.DEFAULT_LAN_CIDR, undefined);
 });
@@ -190,6 +196,38 @@ test('mem helpers', () => {
 	assert.equal(core.memTone(10), 'snort-mem--ok');
 	assert.equal(core.formatKb(2048), '2 MB');
 	assert.equal(core.formatSysMem(1024 * 100, 1024 * 200, 50), '100 MB / 200 MB (50%)');
+});
+
+test('feed helpers', () => {
+	const def = core.defaultFeeds();
+	assert.equal(def.length, 1);
+	assert.equal(def[0].url, core.COMMUNITY_RULES_URL);
+	assert.equal(core.sanitizeFeedId('snort'), 'rs_snort');
+	assert.equal(core.sanitizeFeedId('nfq'), 'rs_nfq');
+	const url = 'https://www.snort.org/rules/x.tar.gz?oinkcode={oinkcode}';
+	assert.equal(core.validateFeed({ name: 'Talos', url: url, enabled: '1' }), null);
+	assert.equal(core.validateFeeds(def), null);
+	const raw = {
+		enabled: true,
+		manual: false,
+		logging: true,
+		openappid: false,
+		interface: 'br-lan',
+		home_net: '192.168.8.0/24',
+		external_net: 'any',
+		mode: 'ids',
+		method: 'afpacket',
+		action: 'alert',
+		snaplen: '1518',
+		log_dir: '/var/log',
+		config_dir: '/etc/snort',
+		temp_dir: '/var/snort.d',
+		oinkcode: '',
+		feeds: def
+	};
+	const got = core.collectSettings(raw);
+	assert.equal(got.error, undefined);
+	assert.equal(got.config.feeds[0].id, 'community');
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

@@ -179,3 +179,36 @@
 .luci-app-snort3 ul.snort-help {
 	margin: 0.25rem 0 1rem 1.25rem;
 }
+
+.luci-app-snort3 .snort-feeds-section {
+	margin-bottom: 1.25rem;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-feeds-table {
+	width: 100%;
+	min-width: 0;
+	margin: 0.5rem 0;
+}
+
+.luci-app-snort3 .snort-feed-url {
+	display: block;
+	font-size: 0.82em;
+	word-break: break-all;
+	font-family: var(--font-mono, monospace);
+	color: var(--text-color-high);
+}
+
+.luci-app-snort3 .snort-feed-note {
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+	margin-top: 0.2rem;
+}
+
+.luci-app-snort3 .snort-feeds-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.75rem 0 1rem;
+}

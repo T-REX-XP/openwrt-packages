@@ -39,7 +39,7 @@ test('collectSettings wraps HOME_NET and keeps enabled', () => {
 		interface: 'br-lan',
 		home_net: '192.168.8.0/24',
 		rule_profile: 'small',
-		etopen_url: core.ETOPEN_OFFICIAL,
+		feeds: core.defaultFeeds(),
 		mode: 'ids'
 	});
 	assert.equal(got.error, undefined);
@@ -47,6 +47,8 @@ test('collectSettings wraps HOME_NET and keeps enabled', () => {
 	assert.equal(got.config.home_net, '[192.168.8.0/24]');
 	assert.equal(got.config.interface, 'br-lan');
 	assert.equal(got.config.mode, 'ids');
+	assert.equal(got.config.feeds.length, 1);
+	assert.equal(got.config.etopen_url, undefined);
 });
 
 test('collectSettings unwraps already-bracketed HOME_NET', () => {
@@ -55,7 +57,7 @@ test('collectSettings unwraps already-bracketed HOME_NET', () => {
 		interface: 'eth0',
 		home_net: '[192.168.8.0/24]',
 		rule_profile: 'small',
-		etopen_url: core.ETOPEN_OFFICIAL,
+		feeds: core.defaultFeeds(),
 		mode: 'ids'
 	});
 	assert.equal(got.config.home_net, '[192.168.8.0/24]');
@@ -95,8 +97,12 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /handleSaveApply:\s*function/);
 	assert.match(view, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 	assert.match(view, /id:\s*'tp-mode'/);
-	assert.match(view, /id:\s*'tp-url-preset'/);
+	assert.doesNotMatch(view, /id:\s*'tp-url-preset'/);
+	assert.doesNotMatch(view, /id:\s*'tp-url'/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
+	assert.match(view, /_\('Add'\)/);
+	assert.match(view, /_\('Fetch now'\)/);
+	assert.match(view, /callSetConfig\(\{ feeds:/);
 	assert.match(view, /callGetRules/);
 	assert.match(view, /callSetRuleState/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
@@ -122,6 +128,17 @@ test('rule query helpers', () => {
 	assert.equal(core.clampRuleLimit(500), 100);
 	assert.equal(core.validSid('2020001'), true);
 	assert.equal(core.validSid('sid;drop'), false);
+});
+
+test('feed helpers', () => {
+	const def = core.defaultFeeds();
+	assert.equal(def.length, 1);
+	assert.equal(def[0].url, core.ETOPEN_OFFICIAL);
+	assert.equal(core.sanitizeFeedId('Official ET Open 8.0'), 'official_et_open_8_0');
+	assert.equal(core.sanitizeFeedId('main'), 'et_main');
+	assert.equal(core.sanitizeFeedId('s2020001'), 'et_s2020001');
+	assert.equal(core.validateFeed({ name: 'x', url: 'http://x', enabled: '1' }), 'invalid feed url');
+	assert.equal(core.validateFeeds(def), null);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

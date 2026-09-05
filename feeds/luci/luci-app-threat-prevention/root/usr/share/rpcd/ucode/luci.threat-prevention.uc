@@ -61,9 +61,11 @@ const const_defaults = {
 	eve_path: '/var/log/suricata/eve.json',
 	rule_dir: '/etc/suricata/rules',
 	rule_profile: 'small',
-	fail_open: '1',
-	etopen_url: 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz'
+	fail_open: '1'
 };
+
+const ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
+const FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
 
 const FLAG_OPTS = [ 'enabled', 'fail_open' ];
 const STRING_OPTS = {
@@ -72,8 +74,7 @@ const STRING_OPTS = {
 	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
 	eve_path: /^\/[ -~]+$/,
 	rule_dir: /^\/[ -~]+$/,
-	rule_profile: /^(small|full)$/,
-	etopen_url: /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+$/
+	rule_profile: /^(small|full)$/
 };
 
 function uci_get(opt, fallback) {
@@ -110,7 +111,104 @@ function get_config() {
 		}
 	}
 	cfg.classtypes = classes;
+	cfg.feeds = list_etopen_feeds();
 	return cfg;
+}
+
+function feed_id_ok(id) {
+	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
+		return false;
+	if (id == 'main' || match(`${id}`, /^s[0-9]+$/))
+		return false;
+	return true;
+}
+
+function list_etopen_feeds() {
+	let feeds = [];
+	let r = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\([^=]*\\)=etopen$/\\1/p'");
+	if (r.output) {
+		for (let line in split(r.output, '\n')) {
+			if (line == '')
+				continue;
+			let name = run_cmd(`uci -q get suricata.${line}.name`).output || line;
+			let url = run_cmd(`uci -q get suricata.${line}.url`).output;
+			let enabled = run_cmd(`uci -q get suricata.${line}.enabled`).output;
+			let description = run_cmd(`uci -q get suricata.${line}.description`).output;
+			if (url == '')
+				continue;
+			push(feeds, {
+				id: line,
+				name,
+				url,
+				enabled: enabled == '' ? '1' : enabled,
+				description: description || ''
+			});
+		}
+	}
+	if (!length(feeds)) {
+		let old = uci_get('etopen_url', '');
+		push(feeds, {
+			id: 'official',
+			name: 'Official ET Open 8.0',
+			url: old != '' ? old : ETOPEN_OFFICIAL,
+			enabled: '1',
+			description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
+		});
+	}
+	return feeds;
+}
+
+function replace_etopen_feeds(feeds) {
+	if (type(feeds) != 'array')
+		return 'invalid feeds';
+	let seen = {};
+	let i = 0;
+	for (let feed in feeds) {
+		if (type(feed) != 'object')
+			return 'invalid feed';
+		let name = trim(`${feed.name || ''}`);
+		let url = trim(`${feed.url || ''}`);
+		let enabled = `${feed.enabled}`;
+		if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
+			enabled = '1';
+		else
+			enabled = '0';
+		if (name == '' || !match(url, FEED_URL_RE))
+			return 'invalid feed';
+		let id = trim(`${feed.id || ''}`);
+		if (!feed_id_ok(id))
+			id = 'etopen' + i;
+		if (seen[id])
+			return 'duplicate feed id';
+		seen[id] = 1;
+		i++;
+	}
+	let cur = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\([^=]*\\)=etopen$/\\1/p'");
+	if (cur.output) {
+		for (let line in split(cur.output, '\n')) {
+			if (line != '')
+				run_cmd(`uci -q delete suricata.${line}`);
+		}
+	}
+	run_cmd('uci -q delete suricata.main.etopen_url');
+	i = 0;
+	for (let feed in feeds) {
+		let id = trim(`${feed.id || ''}`);
+		if (!feed_id_ok(id))
+			id = 'etopen' + i;
+		let enabled = `${feed.enabled}`;
+		if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
+			enabled = '1';
+		else
+			enabled = '0';
+		run_cmd(`uci set suricata.${id}=etopen`);
+		run_cmd(`uci set suricata.${id}.name=${shell_quote(trim(`${feed.name}`))}`);
+		run_cmd(`uci set suricata.${id}.url=${shell_quote(trim(`${feed.url}`))}`);
+		run_cmd(`uci set suricata.${id}.enabled=${enabled}`);
+		run_cmd(`uci set suricata.${id}.description=${shell_quote(trim(`${feed.description || ''}`))}`);
+		i++;
+	}
+	return null;
 }
 
 function like_safe(s) {
@@ -339,6 +437,11 @@ const methods = {
 			if (type(cfg) != 'object')
 				return { error: 'invalid config' };
 			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			if ('feeds' in cfg) {
+				let ferr = replace_etopen_feeds(cfg.feeds);
+				if (ferr)
+					return { error: ferr };
+			}
 			for (let k in const_defaults) {
 				if (!(k in cfg))
 					continue;

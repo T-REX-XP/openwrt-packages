@@ -67,6 +67,8 @@ function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
+var snortFeeds = [];
+
 function field(id, label, input, help, extra) {
 	var control = extra ? E('div', { 'class': 'snort-field-control' }, [ input, extra ]) : input;
 	var kids = [
@@ -169,7 +171,8 @@ function collectSnortSettings() {
 		oinkcode: oink ? oink.value : '',
 		log_dir: logDir.value,
 		config_dir: cfgDir.value,
-		temp_dir: tmpDir.value
+		temp_dir: tmpDir.value,
+		feeds: snortFeeds
 	});
 }
 
@@ -233,6 +236,9 @@ return view.extend({
 		var upd = data[3] || {};
 		var netDevices = data[4] || [];
 		var lanCidr = lanCidrFromNet(data[5]);
+		snortFeeds = snortCore.normalizeFeeds(
+			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : snortCore.defaultFeeds()
+		);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -432,11 +438,6 @@ return view.extend({
 				value: val(c.snaplen, '1518'),
 				placeholder: '1518'
 			});
-			var oink = E('input', {
-				type: 'password', id: 'snort-oink',
-				value: c.oinkcode || '',
-				placeholder: _('Enter your Oinkcode if you have one')
-			});
 			var logDir = E('input', {
 				type: 'text', id: 'snort-logdir',
 				value: val(c.log_dir, '/var/log'),
@@ -509,32 +510,220 @@ return view.extend({
 				field('snort-tmpdir', _('Temporary directory'), tmpDir,
 					_('Directory for temporary files and downloaded rules'))
 			]));
-			settingsBox.appendChild(E('h3', {}, _('Rules management')));
-			settingsBox.appendChild(E('div', {}, [
-				field('snort-oink', _('Oinkcode'), oink,
-					_('Access code to download official Snort rules (optional)')),
-				E('div', { 'class': 'snort-actions' }, [
+			settingsBox.appendChild(E('div', { 'class': 'snort-actions' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button cbi-button-save',
+					click: function(ev) {
+						ev.preventDefault();
+						saveSnortSettings(true).then(function() {
+							ui.addNotification(null, E('p', {},
+								_('Saved. Snort will start if Enable Snort is on.')), 5000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}
+				}, _('Save & apply'))
+			]));
+		}
+
+		var snortFeedsHost;
+		var snortUpdateHost;
+
+		function persistSnortFeeds() {
+			var oink = elVal('snort-oink');
+			var err = snortCore.validateFeeds(snortFeeds);
+			var payload;
+			if (err)
+				return Promise.reject(new Error(err));
+			snortFeeds = snortCore.normalizeFeeds(snortFeeds);
+			payload = { feeds: snortFeeds };
+			if (oink)
+				payload.oinkcode = oink.value;
+			return callSetConfig(payload).then(function(res) {
+				var fail = rpcFail(res, _('Failed to save rule feeds'));
+				if (fail)
+					return Promise.reject(new Error(fail));
+				if (res && res.config && Array.isArray(res.config.feeds))
+					snortFeeds = snortCore.normalizeFeeds(res.config.feeds);
+				return res;
+			});
+		}
+
+		function openSnortFeedModal(existing) {
+			var nameIn = E('input', {
+				type: 'text', id: 'snort-feed-name',
+				value: existing ? existing.name : '',
+				placeholder: _('Name')
+			});
+			var urlIn = E('input', {
+				type: 'text', id: 'snort-feed-url',
+				value: existing ? existing.url : 'https://',
+				placeholder: snortCore.COMMUNITY_RULES_URL
+			});
+			var descIn = E('input', {
+				type: 'text', id: 'snort-feed-desc',
+				value: existing ? (existing.description || '') : '',
+				placeholder: _('Optional description')
+			});
+			ui.showModal(existing ? _('Edit rule feed') : _('Add rule feed'), [
+				E('div', { 'class': 'snort-field' }, [
+					E('label', { 'for': 'snort-feed-name' }, _('Name')), nameIn
+				]),
+				E('div', { 'class': 'snort-field' }, [
+					E('label', { 'for': 'snort-feed-url' }, _('URL')), urlIn,
+					E('div', { 'class': 'snort-help' },
+						_('HTTPS URL to a rules tarball. Use {oinkcode} in the URL if the feed needs a Snort Oinkcode.'))
+				]),
+				E('div', { 'class': 'snort-field' }, [
+					E('label', { 'for': 'snort-feed-desc' }, _('Description')), descIn
+				]),
+				E('div', { 'class': 'right' }, [
 					E('button', {
 						'type': 'button',
-						'class': 'btn cbi-button cbi-button-save',
-						click: function(ev) {
-							ev.preventDefault();
-							saveSnortSettings(true).then(function() {
-								ui.addNotification(null, E('p', {},
-									_('Saved. Snort will start if Enable Snort is on.')), 5000);
+						'class': 'btn',
+						click: ui.hideModal
+					}, _('Cancel')),
+					' ',
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button-positive',
+						click: function() {
+							var feed = {
+								id: existing ? existing.id : snortCore.sanitizeFeedId(nameIn.value),
+								name: nameIn.value,
+								url: urlIn.value,
+								enabled: existing ? existing.enabled : '1',
+								description: descIn.value
+							};
+							var err = snortCore.validateFeed(feed);
+							var next;
+							if (err) {
+								ui.addNotification(null, E('p', {}, err), 'error');
+								return;
+							}
+							feed = snortCore.normalizeFeeds([feed])[0];
+							if (existing) {
+								snortFeeds = snortFeeds.map(function(f) {
+									return f.id === existing.id ? feed : f;
+								});
+							} else {
+								next = snortCore.validateFeeds(snortFeeds.concat([feed]));
+								if (next) {
+									ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
+									return;
+								}
+								snortFeeds = snortFeeds.concat([feed]);
+							}
+							persistSnortFeeds().then(function() {
+								ui.hideModal();
+								paintSnortFeeds();
+								ui.addNotification(null, E('p', {}, _('Rule feeds saved')), 4000);
 							}).catch(function(e) {
 								ui.addNotification(null, E('p', {}, e.message || e), 'error');
 							});
 						}
-					}, _('Save & apply'))
+					}, _('Save'))
 				])
+			]);
+		}
+
+		function paintSnortFeeds() {
+			var table;
+			if (!snortFeedsHost)
+				return;
+			snortFeedsHost.innerHTML = '';
+			snortFeedsHost.appendChild(E('h3', {}, _('Rule feeds')));
+			snortFeedsHost.appendChild(E('p', { 'class': 'snort-help' },
+				_('Manage HTTPS rule tarball URLs. Disable a feed to skip it on the next update.')));
+			table = E('div', { 'class': 'table snort-feeds-table' }, [
+				E('div', { 'class': 'tr table-titles' }, [
+					E('div', { 'class': 'th' }, _('Enabled')),
+					E('div', { 'class': 'th' }, _('Name')),
+					E('div', { 'class': 'th' }, _('URL')),
+					E('div', { 'class': 'th' }, _('Actions'))
+				])
+			]);
+			if (!snortFeeds.length) {
+				snortFeedsHost.appendChild(E('p', {},
+					_('No rule feeds. Add the Snort 3 community URL or a subscription tarball.')));
+			} else {
+				snortFeeds.forEach(function(entry) {
+					var on = entry.enabled !== '0';
+					table.appendChild(E('div', { 'class': 'tr' }, [
+						E('div', { 'class': 'td' }, [
+							E('input', {
+								type: 'checkbox',
+								checked: on ? 'checked' : null,
+								change: function() {
+									entry.enabled = this.checked ? '1' : '0';
+									persistSnortFeeds().then(paintSnortFeeds).catch(function(e) {
+										ui.addNotification(null, E('p', {}, e.message || e), 'error');
+										paintSnortFeeds();
+									});
+								}
+							})
+						]),
+						E('div', { 'class': 'td' }, [
+							E('strong', {}, entry.name),
+							entry.description
+								? E('div', { 'class': 'snort-feed-note' }, entry.description)
+								: ''
+						]),
+						E('div', { 'class': 'td' }, [
+							E('code', { 'class': 'snort-feed-url' }, entry.url)
+						]),
+						E('div', { 'class': 'td' }, [
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button cbi-button-edit',
+								click: function(ev) {
+									ev.preventDefault();
+									openSnortFeedModal(entry);
+								}
+							}, _('Edit')),
+							' ',
+							E('button', {
+								'type': 'button',
+								'class': 'btn cbi-button cbi-button-negative',
+								click: function(ev) {
+									ev.preventDefault();
+									if (!window.confirm(_('Delete rule feed “%s”?').format(entry.name)))
+										return;
+									snortFeeds = snortFeeds.filter(function(f) {
+										return f.id !== entry.id;
+									});
+									persistSnortFeeds().then(function() {
+										paintSnortFeeds();
+										ui.addNotification(null, E('p', {}, _('Rule feed deleted')), 4000);
+									}).catch(function(e) {
+										ui.addNotification(null, E('p', {}, e.message || e), 'error');
+									});
+								}
+							}, _('Delete'))
+						])
+					]));
+				});
+				snortFeedsHost.appendChild(table);
+			}
+			snortFeedsHost.appendChild(E('div', { 'class': 'snort-feeds-toolbar' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button cbi-button-add',
+					click: function(ev) {
+						ev.preventDefault();
+						openSnortFeedModal(null);
+					}
+				}, _('Add'))
 			]));
 		}
 
-		function renderRules(st, u) {
+		function paintSnortUpdate(st, u) {
 			var r = (st && st.rules) || {};
 			var loc;
-			rulesBox.innerHTML = '';
+			if (!snortUpdateHost)
+				return;
+			snortUpdateHost.innerHTML = '';
 			if (r.symlink)
 				loc = E('p', { 'class': 'snort-rules-ok' },
 					_('Active symbolic link') + ': /etc/snort/rules → ' + val(r.target));
@@ -544,25 +733,27 @@ return view.extend({
 					_('Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?'));
 			else
 				loc = E('p', { 'class': 'snort-rules-err' }, _('No rules directory found'));
-			rulesBox.appendChild(loc);
-			rulesBox.appendChild(E('p', { 'class': 'snort-rules-meta' },
+			snortUpdateHost.appendChild(loc);
+			snortUpdateHost.appendChild(E('p', { 'class': 'snort-rules-meta' },
 				_('Rule files:') + ' ' + val(r.rule_files, '0')));
 
 			if (u && u.running)
-				rulesBox.appendChild(E('p', { 'class': 'snort-status-warn' }, _('Update in progress...')));
+				snortUpdateHost.appendChild(E('p', { 'class': 'snort-status-warn' }, _('Update in progress...')));
 			else if (u && u.finished)
-				rulesBox.appendChild(E('p', { 'class': 'snort-status-ok' }, _('Update completed!')));
+				snortUpdateHost.appendChild(E('p', { 'class': 'snort-status-ok' }, _('Update completed!')));
 			else
-				rulesBox.appendChild(E('p', { 'class': 'snort-help' },
+				snortUpdateHost.appendChild(E('p', { 'class': 'snort-help' },
 					_('Click on "Update" to start the rules update')));
-			rulesBox.appendChild(E('pre', { 'class': 'snort-log-box' }, (u && u.log) || ''));
+			snortUpdateHost.appendChild(E('pre', { 'class': 'snort-log-box' }, (u && u.log) || ''));
 
-			rulesBox.appendChild(E('div', { 'class': 'snort-actions' }, [
+			snortUpdateHost.appendChild(E('div', { 'class': 'snort-actions' }, [
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button cbi-button-apply',
 					click: function() {
-						callUpdateRules().then(function(res) {
+						persistSnortFeeds().then(function() {
+							return callUpdateRules();
+						}).then(function(res) {
 							var err = rpcFail(res, null);
 							if (err)
 								ui.addNotification(null, E('p', {}, err), 'error');
@@ -608,6 +799,31 @@ return view.extend({
 					}
 				}, _('Clean temporary files'))
 			]));
+		}
+
+		function ensureSnortRulesLayout() {
+			var oink;
+			if (snortFeedsHost)
+				return;
+			rulesBox.innerHTML = '';
+			snortFeedsHost = E('div', { 'class': 'snort-feeds-section' });
+			rulesBox.appendChild(snortFeedsHost);
+			paintSnortFeeds();
+			oink = E('input', {
+				type: 'password', id: 'snort-oink',
+				value: cfg.oinkcode || '',
+				placeholder: _('Enter your Oinkcode if you have one')
+			});
+			rulesBox.appendChild(E('h3', {}, _('Subscription')));
+			rulesBox.appendChild(field('snort-oink', _('Oinkcode'), oink,
+				_('Access code for official Snort rules. Used when a feed URL contains {oinkcode}.')));
+			snortUpdateHost = E('div', { 'class': 'snort-rules-update' });
+			rulesBox.appendChild(snortUpdateHost);
+		}
+
+		function renderRules(st, u) {
+			ensureSnortRulesLayout();
+			paintSnortUpdate(st, u);
 		}
 
 		renderStatus(status);

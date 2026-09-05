@@ -156,6 +156,43 @@
 	font-style: italic;
 }
 
+.luci-app-threat-prevention .tp-feeds-section {
+	margin-bottom: 1.25rem;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-feeds-table {
+	width: 100%;
+	min-width: 0;
+	margin: 0.5rem 0;
+}
+
+.luci-app-threat-prevention .tp-feed-url {
+	display: block;
+	font-size: 0.82em;
+	word-break: break-all;
+	font-family: var(--font-mono, monospace);
+	color: var(--text-color-high);
+}
+
+.luci-app-threat-prevention .tp-feed-note {
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+	margin-top: 0.2rem;
+}
+
+.luci-app-threat-prevention .tp-feeds-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.75rem 0 1rem;
+}
+
+.luci-app-threat-prevention .tp-sid-section {
+	min-width: 0;
+}
+
 @media (max-width: 520px) {
 	.luci-app-threat-prevention .tp-toolbar {
 		flex-direction: column;

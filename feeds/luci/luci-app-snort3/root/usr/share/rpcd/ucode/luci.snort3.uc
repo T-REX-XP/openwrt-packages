@@ -147,8 +147,101 @@ function get_config() {
 		log_dir: uci_get('snort', 'log_dir', '/var/log'),
 		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
 		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
-		oinkcode: uci_get('snort', 'oinkcode', '')
+		oinkcode: uci_get('snort', 'oinkcode', ''),
+		feeds: list_rulesets()
 	};
+}
+
+function feed_id_ok(id) {
+	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
+		return false;
+	if (id == 'snort' || id == 'nfq')
+		return false;
+	return true;
+}
+
+const COMMUNITY_RULES_URL = 'https://www.snort.org/downloads/community/snort3-community-rules.tar.gz';
+const FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
+
+function list_rulesets() {
+	let feeds = [];
+	let r = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=ruleset$/\\1/p'");
+	if (r.output) {
+		for (let line in split(r.output, '\n')) {
+			if (line == '' || line == 'snort' || line == 'nfq')
+				continue;
+			let name = run_cmd(`uci -q get snort.${line}.name`).output || line;
+			let url = run_cmd(`uci -q get snort.${line}.url`).output;
+			let enabled = run_cmd(`uci -q get snort.${line}.enabled`).output;
+			let description = run_cmd(`uci -q get snort.${line}.description`).output;
+			if (url == '')
+				continue;
+			push(feeds, {
+				id: line,
+				name,
+				url,
+				enabled: enabled == '' ? '1' : enabled,
+				description: description || ''
+			});
+		}
+	}
+	if (!length(feeds)) {
+		push(feeds, {
+			id: 'community',
+			name: 'Snort 3 community',
+			url: COMMUNITY_RULES_URL,
+			enabled: '1',
+			description: 'Free Snort 3 community ruleset'
+		});
+	}
+	return feeds;
+}
+
+function replace_rulesets(feeds) {
+	if (type(feeds) != 'array')
+		return 'invalid feeds';
+	let seen = {};
+	let i = 0;
+	for (let feed in feeds) {
+		if (type(feed) != 'object')
+			return 'invalid feed';
+		let name = trim(`${feed.name || ''}`);
+		let url = trim(`${feed.url || ''}`);
+		if (name == '' || !match(url, FEED_URL_RE))
+			return 'invalid feed';
+		let id = trim(`${feed.id || ''}`);
+		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq')
+			id = 'ruleset' + i;
+		if (seen[id])
+			return 'duplicate feed id';
+		seen[id] = 1;
+		i++;
+	}
+	let cur = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=ruleset$/\\1/p'");
+	if (cur.output) {
+		for (let line in split(cur.output, '\n')) {
+			if (line != '' && line != 'snort' && line != 'nfq')
+				run_cmd(`uci -q delete snort.${line}`);
+		}
+	}
+	i = 0;
+	for (let feed in feeds) {
+		let id = trim(`${feed.id || ''}`);
+		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq')
+			id = 'ruleset' + i;
+		let enabled = `${feed.enabled}`;
+		if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
+			enabled = '1';
+		else
+			enabled = '0';
+		run_cmd(`uci set snort.${id}=ruleset`);
+		run_cmd(`uci set snort.${id}.name=${shell_quote(trim(`${feed.name}`))}`);
+		run_cmd(`uci set snort.${id}.url=${shell_quote(trim(`${feed.url}`))}`);
+		run_cmd(`uci set snort.${id}.enabled=${enabled}`);
+		run_cmd(`uci set snort.${id}.description=${shell_quote(trim(`${feed.description || ''}`))}`);
+		i++;
+	}
+	return null;
 }
 
 function rules_info() {
@@ -218,7 +311,14 @@ const methods = {
 			if (length(keys) == 0)
 				return { error: 'invalid config' };
 			run_cmd('uci -q get snort.snort >/dev/null || uci set snort.snort=snort');
+			if ('feeds' in cfg) {
+				let ferr = replace_rulesets(cfg.feeds);
+				if (ferr)
+					return { error: ferr };
+			}
 			for (let k in cfg) {
+				if (k == 'feeds')
+					continue;
 				let err = validate_field(k, cfg[k]);
 				if (err)
 					return { error: err };

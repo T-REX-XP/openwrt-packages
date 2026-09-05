@@ -7,13 +7,65 @@ set -o nounset
 
 alias log='logger -s -t "snort-rules[$$]" -p "info"'
 
+COMMUNITY_URL='https://www.snort.org/downloads/community/snort3-community-rules.tar.gz'
+
+expand_feed_url() {
+	local url="$1"
+	local oink="$2"
+	printf '%s' "$url" | sed -e "s|{oinkcode}|${oink}|g" -e "s|\$oinkcode|${oink}|g"
+}
+
+collect_rulesets() {
+	local secs sec en url name
+	secs=$(uci -q show snort 2>/dev/null | sed -n 's/^snort\.\([^=]*\)=ruleset$/\1/p')
+	[ -n "$secs" ] || return 1
+	for sec in $secs; do
+		[ -n "$sec" ] || continue
+		[ "$sec" = snort ] && continue
+		[ "$sec" = nfq ] && continue
+		en=$(uci -q get "snort.${sec}.enabled" 2>/dev/null || echo 1)
+		[ "$en" = 0 ] && continue
+		url=$(uci -q get "snort.${sec}.url" 2>/dev/null || true)
+		name=$(uci -q get "snort.${sec}.name" 2>/dev/null || echo "$sec")
+		[ -n "$url" ] || continue
+		printf '%s\t%s\t%s\n' "$sec" "$url" "$name"
+	done
+	return 0
+}
+
+stash_old_rules() {
+	local rules_dir="$1"
+	local old_rules="$2"
+	local rules_file
+	rm -fr "${old_rules:?}"
+	mkdir -p "$old_rules"
+	for rules_file in "$rules_dir"/*; do
+		[ -e "$rules_file" ] || continue
+		log "Stashing '$rules_file' to '$old_rules/'..."
+		mv -f "$rules_file" "$old_rules/"
+	done
+}
+
+install_rules_blob() {
+	local blob="$1"
+	local dest="$2"
+	local work
+	work=$(mktemp -d)
+	if tar -tzf "$blob" >/dev/null 2>&1; then
+		tar xzf "$blob" -C "$work" || { rm -rf "$work"; return 1; }
+		find "$work" -type f \( -iname 'includes.rules' -o ! -iname '*.rules' \) -delete
+		find "$work" -type f -iname '*.rules' -exec cp {} "$dest/" \;
+	else
+		cp "$blob" "$dest/$(basename "$blob" .tar.gz).rules"
+	fi
+	rm -rf "$work"
+	return 0
+}
+
 download_rules() {
 	# Further information:
 	#    https://www.snort.org/products#rule_subscriptions
 	#    https://www.snort.org/oinkcodes
-	#
-	# Also, what to do about "subscription" vs Talos_LightSPD rules when subbed?
-	# Add a "use_rules" list or option or something?
 	local oinkcode=$(uci -q get snort.snort.oinkcode)
 
 	local conf_dir=$(uci -q get snort.snort.config_dir || echo "/etc/snort")
@@ -23,15 +75,15 @@ download_rules() {
 
 	local new_rules
 	local rules_file
-	local archive_loc
+	local feeds feedfile feed_id feed_url feed_name expanded
+	local snortver
 
 	# Make sure everything exists.
 	[ -d "$data_dir" ] || mkdir -p "$data_dir"
 
 	if $testing ; then
 		log "Generating testing rules..."
-		archive_loc="testing-rules"
-		new_rules="$data_dir/$archive_loc"
+		new_rules="$data_dir/testing-rules"
 		rm -fr "${new_rules:?}"
 		mkdir -p "$new_rules"
 		rules_file="$new_rules/testing.rules"
@@ -42,65 +94,65 @@ download_rules() {
 		} >> "$rules_file"
 
 	else
-		if [ -z "$oinkcode" ]; then
-			# If you do not have a subscription, then we use the community rules:
-			log "Downloading community rules..."
-			url="https://www.snort.org/downloads/community/snort3-community-rules.tar.gz"
-			archive_loc="snort3-community-rules"
-
+		if feeds=$(collect_rulesets); then
+			if [ -z "$feeds" ]; then
+				log "No enabled rule feeds. Enable a feed on the Rules tab."
+				exit 1
+			fi
 		else
-			# If you have a subscription and its corresponding oinkcode, use this:
-			#
-			# 'snortver' is the version number of the snort executable in use on your
-			# router.
-			#
-			# Ideally, the 'snort --version' output would work, but OpenWrt builds
-			# are often between (or, more likely, newer than) those listed on the
-			# snort.org downloads page.
-			#
-			# So instead, we define it manually to be the value just before the
-			# installed version.  Look on https://www.snort.org/advisories/ and
-			# select the most recent date.  On that page, find the closest version
-			# number preceding your installed version and modify the hard-coded
-			# value below (for example, installed is 31600 then use 31470):
-
-			#snortver=$(snort --version | awk '/Version/ {print gensub("\\.", "", "", $NF)}')
-			snortver=31470
-
-			log "Downloading subscription rules..."
-			url="https://www.snort.org/rules/snortrules-snapshot-$snortver.tar.gz?oinkcode=$oinkcode"
-			# Non-community tar contains many "*.rules" file, we only care about
-			# the one directory.
-			archive_loc="rules"
+			if [ -z "$oinkcode" ]; then
+				log "Downloading community rules..."
+				feeds=$(printf '%s\t%s\t%s\n' community "$COMMUNITY_URL" "Snort 3 community")
+			else
+				# Closest Talos snapshot preceding typical OpenWrt builds.
+				# See https://www.snort.org/advisories/
+				snortver=31470
+				log "Downloading subscription rules..."
+				feeds=$(printf '%s\t%s\t%s\n' talos \
+					"https://www.snort.org/rules/snortrules-snapshot-${snortver}.tar.gz?oinkcode={oinkcode}" \
+					"Talos snapshot")
+			fi
 		fi
 
-		wget "$url" -O "$data_tar" 2>&1 | log || exit 1
-
-		old_rules="$data_dir/old.rules"
 		if $backup; then
-			rm -fr "${old_rules:?}"
-			mkdir -p "$old_rules"
-
-			for rules_file in "$rules_dir"/*; do
-				# Before we overwrite with the new download.
-				log "Stashing '$rules_file' to '$old_rules/'..."
-				mv -f "$rules_file" "$old_rules/"
-			done
+			stash_old_rules "$rules_dir" "$data_dir/old.rules"
 		fi
 
-		log "Unpacking '$data_tar'..."
-		tar xzvof "$data_tar" "$archive_loc" -C "$data_dir" | log || exit 1
+		new_rules="$data_dir/merged-rules"
+		rm -fr "${new_rules:?}"
+		mkdir -p "$new_rules"
 
-		# Get rid of the non-rule files and aggregator.
-		new_rules="$data_dir/$archive_loc"
-		find "$new_rules" \( -iname 'includes.rules' -o ! -iname '*.rules' -type f \) -exec rm '{}' \;
+		feedfile=$(mktemp)
+		printf '%s\n' "$feeds" > "$feedfile"
+		while IFS="$(printf '\t')" read -r feed_id feed_url feed_name; do
+			[ -n "$feed_url" ] || continue
+			expanded=$(expand_feed_url "$feed_url" "$oinkcode")
+			case "$expanded" in
+				*'{oinkcode}'*|*'?oinkcode='|*'$oinkcode'*)
+					if [ -z "$oinkcode" ]; then
+						rm -f "$feedfile"
+						log "Feed '$feed_name' needs an Oinkcode (Rules tab)."
+						exit 1
+					fi
+					;;
+			esac
+			log "Downloading '$feed_name'..."
+			wget "$expanded" -O "$data_tar" 2>&1 | log || {
+				rm -f "$feedfile"
+				exit 1
+			}
+			install_rules_blob "$data_tar" "$new_rules" || {
+				rm -f "$feedfile"
+				log "Failed to install '$feed_name'"
+				exit 1
+			}
+		done < "$feedfile"
+		rm -f "$feedfile"
 
-		# Old unfinished experiment with diffing old and new rules.
-		#for rules_file in "$new_rules"/*; do
-		#blah blah
-		#if [ -e "$old_rules" ] && ! cmp -s "$new_rules" "$old_rules" ; then
-		#	diff "$new_rules" "$old_rules" 2>&1 | log
-		#fi
+		if [ -z "$(find "$new_rules" -type f -iname '*.rules' 2>/dev/null | head -n 1)" ]; then
+			log "No .rules files installed from enabled feeds."
+			exit 1
+		fi
 	fi
 
 

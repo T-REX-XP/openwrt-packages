@@ -1,21 +1,41 @@
 #!/bin/sh
-# Fetch current ET Open (Suricata 8) — not the SRM 9840 snapshot.
+# Fetch enabled ET Open / custom rule tarballs — not the SRM 9840 snapshot.
 # Writes /tmp/tp_etopen.json for LuCI. Designed to run under procd, not
 # inside an rpcd 30s ubus call.
 
 set -u
 
-URL=$(uci -q get suricata.main.etopen_url 2>/dev/null || \
-	echo 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz')
+OFFICIAL='https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz'
 RULE_DIR=$(uci -q get suricata.main.rule_dir 2>/dev/null || echo /etc/suricata/rules)
 STATUS=/tmp/tp_etopen.json
 STAMP=/var/lib/threat-prevention/etopen.stamp
 LOCK=/var/run/suricata-etopen-fetch.lock
 CA=/etc/ssl/certs/ca-certificates.crt
 LOG=/tmp/tp_etopen_fetch.log
+URL=''
 
 json_escape() {
 	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g' | tr '\n\r' '  '
+}
+
+collect_feeds() {
+	local secs sec en url name
+	secs=$(uci -q show suricata 2>/dev/null | sed -n 's/^suricata\.\([^=]*\)=etopen$/\1/p')
+	if [ -z "$secs" ]; then
+		url=$(uci -q get suricata.main.etopen_url 2>/dev/null || true)
+		[ -n "$url" ] || url="$OFFICIAL"
+		printf '%s\t%s\t%s\n' official "$url" "Official ET Open 8.0"
+		return
+	fi
+	for sec in $secs; do
+		[ -n "$sec" ] || continue
+		en=$(uci -q get "suricata.${sec}.enabled" 2>/dev/null || echo 1)
+		[ "$en" = 0 ] && continue
+		url=$(uci -q get "suricata.${sec}.url" 2>/dev/null || true)
+		name=$(uci -q get "suricata.${sec}.name" 2>/dev/null || echo "$sec")
+		[ -n "$url" ] || continue
+		printf '%s\t%s\t%s\n' "$sec" "$url" "$name"
+	done
 }
 
 write_status() {
@@ -35,7 +55,7 @@ EOF
 fail() {
 	local msg="$1"
 	local mtime="" count=0
-	count=$(find "$RULE_DIR" -name 'emerging-*.rules' 2>/dev/null | wc -l | tr -d ' ')
+	count=$(find "$RULE_DIR" -name '*.rules' 2>/dev/null | wc -l | tr -d ' ')
 	[ -n "$count" ] || count=0
 	if [ -f "$STAMP" ]; then
 		mtime=$(awk '{print $1}' "$STAMP")
@@ -56,6 +76,14 @@ if command -v flock >/dev/null 2>&1; then
 	fi
 fi
 
+FEEDS=$(collect_feeds)
+if [ -z "$FEEDS" ]; then
+	URL=''
+	write_status fetching
+	fail "No enabled rule feeds. Add a feed on the Rules tab."
+fi
+URL=$(printf '%s\n' "$FEEDS" | awk -F '\t' '{print $2}' | paste -sd, -)
+
 write_status fetching
 
 tmp=$(mktemp)
@@ -73,11 +101,11 @@ have_default_route() {
 }
 
 url_host() {
-	printf '%s' "$URL" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+.-]*://||' -e 's|/.*||' -e 's|:.*||'
+	printf '%s' "$1" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+.-]*://||' -e 's|/.*||' -e 's|:.*||'
 }
 
 preflight() {
-	local wan_dev car host
+	local wan_dev car host first
 
 	if [ -n "${ETOPEN_TARBALL:-}" ]; then
 		return 0
@@ -91,81 +119,112 @@ preflight() {
 
 	if ! have_default_route; then
 		if [ "$car" = "0" ]; then
-			fail "Unable to download the ET Open URL: WAN (${wan_dev}) has no link and the router has no default route. Connect the WAN port, then retry."
+			fail "Unable to download rule feeds: WAN (${wan_dev}) has no link and the router has no default route. Connect the WAN port, then retry."
 		fi
-		fail "Unable to download the ET Open URL: the router has no default route (WAN may be down or DHCP has no lease)."
+		fail "Unable to download rule feeds: the router has no default route (WAN may be down or DHCP has no lease)."
 	fi
 
-	host=$(url_host)
+	first=$(printf '%s\n' "$FEEDS" | awk -F '\t' 'NR==1 {print $2}')
+	host=$(url_host "$first")
 	case "$host" in
 		''|*[!0-9.]* )
 			if [ -n "$host" ] && command -v nslookup >/dev/null 2>&1; then
 				if ! nslookup "$host" >/dev/null 2>&1; then
-					fail "Unable to download the ET Open URL: DNS lookup for ${host} failed (no upstream resolvers?)."
+					fail "Unable to download rule feeds: DNS lookup for ${host} failed (no upstream resolvers?)."
 				fi
 			fi
 			;;
 	esac
 
 	if [ ! -r "$CA" ]; then
-		fail "Unable to download the ET Open URL: CA bundle missing (${CA}). Install ca-bundle."
+		fail "Unable to download rule feeds: CA bundle missing (${CA}). Install ca-bundle."
 	fi
 }
 
 download_url() {
-	local out rc args
+	local dest="$1"
+	local src="$2"
+	local rc args
 
 	: > "$LOG"
 	if command -v uclient-fetch >/dev/null 2>&1; then
-		# IPv4 first: uclient-fetch reports EPERM when it picks AAAA
-		# without a usable IPv6 path. --proxy=off avoids a stale env proxy.
-		args="-4 --timeout=120 --proxy=off -O $tmp"
+		args="-4 --timeout=120 --proxy=off -O $dest"
 		[ -r "$CA" ] && args="$args --ca-certificate=$CA"
 		# shellcheck disable=SC2086
-		uclient-fetch $args "$URL" >"$LOG" 2>&1
+		uclient-fetch $args "$src" >"$LOG" 2>&1
 		rc=$?
 		if [ "$rc" -ne 0 ]; then
-			# IPv6-only WAN: retry without -4
-			uclient-fetch --timeout=120 --proxy=off ${CA:+--ca-certificate=$CA} -O "$tmp" "$URL" >"$LOG" 2>&1
+			uclient-fetch --timeout=120 --proxy=off ${CA:+--ca-certificate=$CA} -O "$dest" "$src" >"$LOG" 2>&1
 			rc=$?
 		fi
 		return "$rc"
 	fi
 	if command -v wget >/dev/null 2>&1; then
-		wget --timeout=120 -O "$tmp" "$URL" >"$LOG" 2>&1
+		wget --timeout=120 -O "$dest" "$src" >"$LOG" 2>&1
 		return $?
 	fi
-	fail "Unable to download the ET Open URL: no uclient-fetch/wget"
+	fail "Unable to download rule feeds: no uclient-fetch/wget"
+}
+
+install_blob() {
+	local blob="$1"
+	local feed_id="$2"
+	local n dest
+
+	if tar -tzf "$blob" >/dev/null 2>&1; then
+		workdir=$(mktemp -d)
+		tar -xzf "$blob" -C "$workdir" || return 1
+		find "$workdir" -type f -name '*.rules' -exec cp {} "$RULE_DIR/" \;
+		find "$workdir" -type f -name 'classification.config' -exec cp {} /etc/suricata/classification.config \; 2>/dev/null || true
+		n=$(find "$workdir" -type f -name '*.rules' | wc -l | tr -d ' ')
+		rm -rf "$workdir"
+		workdir=
+		echo "$n"
+		return 0
+	fi
+	dest="$RULE_DIR/${feed_id}.rules"
+	cp "$blob" "$dest"
+	echo 1
+	return 0
 }
 
 preflight
 
+# Refresh from enabled feeds only (keep local.rules).
+find "$RULE_DIR" -type f \( -name 'emerging-*.rules' -o -name '*.rules' \) ! -name 'local.rules' -delete 2>/dev/null || true
+
 if [ -n "${ETOPEN_TARBALL:-}" ]; then
 	[ -f "$ETOPEN_TARBALL" ] || fail "ET Open tarball not found: $ETOPEN_TARBALL"
 	cp "$ETOPEN_TARBALL" "$tmp"
+	install_blob "$tmp" local >/dev/null || fail "Failed to install ETOPEN_TARBALL"
 else
-	if ! download_url; then
-		out=$(tr '\n' ' ' < "$LOG" 2>/dev/null | sed 's/  */ /g')
-		[ -n "$out" ] || out="download failed"
-		fail "Unable to download the ET Open URL: $out"
-	fi
+	feedfile=$(mktemp)
+	printf '%s\n' "$FEEDS" > "$feedfile"
+	while IFS="$(printf '\t')" read -r feed_id feed_url feed_name; do
+		[ -n "$feed_url" ] || continue
+		echo "etopen: fetching $feed_name"
+		if ! download_url "$tmp" "$feed_url"; then
+			rm -f "$feedfile"
+			out=$(tr '\n' ' ' < "$LOG" 2>/dev/null | sed 's/  */ /g')
+			[ -n "$out" ] || out="download failed"
+			fail "Unable to download ${feed_name}: $out"
+		fi
+		install_blob "$tmp" "$feed_id" >/dev/null || {
+			rm -f "$feedfile"
+			fail "Failed to install ${feed_name}"
+		}
+	done < "$feedfile"
+	rm -f "$feedfile"
 fi
 
-tar -tzf "$tmp" >/dev/null || fail "ET Open tarball is not valid gzip"
-workdir=$(mktemp -d)
-tar -xzf "$tmp" -C "$workdir" || fail "Failed to extract ET Open tarball"
-
-find "$workdir" -type f -name '*.rules' -exec cp {} "$RULE_DIR/" \;
-find "$workdir" -type f -name 'classification.config' -exec cp {} /etc/suricata/classification.config \; 2>/dev/null || true
-
 mtime=$(date -Iseconds 2>/dev/null || date)
-count=$(find "$RULE_DIR" -name 'emerging-*.rules' | wc -l | tr -d ' ')
+count=$(find "$RULE_DIR" -name '*.rules' | wc -l | tr -d ' ')
 [ -n "$count" ] || count=0
 printf '%s\n' "$mtime $URL files=$count" > "$STAMP"
 
 write_status ok "" "$mtime" "$count"
-echo "etopen: $count emerging-*.rules in $RULE_DIR"
-logger -t suricata-etopen "fetched $count emerging-*.rules into $RULE_DIR"
+echo "etopen: $count *.rules in $RULE_DIR"
+logger -t suricata-etopen "fetched $count *.rules into $RULE_DIR"
 
 if [ -x /usr/sbin/tp-rules-index ]; then
 	/usr/sbin/tp-rules-index "$RULE_DIR" || true
@@ -179,7 +238,7 @@ if [ -x /usr/bin/suricata ]; then
 	run_yaml=$(uci -q get suricata.main.run_yaml 2>/dev/null || echo /var/run/suricata/suricata.yaml)
 	if [ -f "$run_yaml" ]; then
 		/usr/bin/suricata -T -c "$run_yaml" || {
-			fail "suricata -T failed after installing ET Open rules"
+			fail "suricata -T failed after installing rules"
 		}
 	fi
 fi

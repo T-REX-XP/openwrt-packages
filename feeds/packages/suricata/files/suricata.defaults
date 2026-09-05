@@ -1,6 +1,26 @@
 #!/bin/sh
 # Default: IDS off until the operator enables it (RAM / overlay).
+# Migrate suricata.main.etopen_url into a named etopen feed section.
 
 [ -f /etc/config/suricata ] || exit 0
-uci -q get suricata.main.enabled >/dev/null || exit 0
+
+OFFICIAL='https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz'
+
+has_etopen=0
+if uci -q show suricata 2>/dev/null | grep -q '=etopen$'; then
+	has_etopen=1
+fi
+
+if [ "$has_etopen" -eq 0 ]; then
+	url=$(uci -q get suricata.main.etopen_url 2>/dev/null || true)
+	[ -n "$url" ] || url="$OFFICIAL"
+	uci -q set suricata.official=etopen
+	uci -q set suricata.official.name='Official ET Open 8.0'
+	uci -q set suricata.official.url="$url"
+	uci -q set suricata.official.enabled='1'
+	uci -q set suricata.official.description='Proofpoint Emerging Threats Open for Suricata 8.0'
+	uci -q delete suricata.main.etopen_url
+	uci -q commit suricata
+fi
+
 exit 0
