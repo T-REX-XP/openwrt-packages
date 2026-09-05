@@ -7,3 +7,54 @@ msgstr "Threat Prevention"
 
 msgid "Suricata IDS on the LAN bridge with Emerging Threats Open. Not in the default CM5 image. Inline IPS at 2.5 GbE is not recommended."
 msgstr "Suricata IDS on the LAN bridge with Emerging Threats Open. Not in the default CM5 image. Inline IPS at 2.5 GbE is not recommended."
+
+msgid "not present"
+msgstr "not present"
+
+msgid "Use LAN subnet"
+msgstr "Use LAN subnet"
+
+msgid "Enable IDS"
+msgstr "Enable IDS"
+
+msgid "Interface"
+msgstr "Interface"
+
+msgid "HOME_NET"
+msgstr "HOME_NET"
+
+msgid "Operating mode"
+msgstr "Operating mode"
+
+msgid "IDS (detection only)"
+msgstr "IDS (detection only)"
+
+msgid "IPS (prevention)"
+msgstr "IPS (prevention)"
+
+msgid "Rule profile"
+msgstr "Rule profile"
+
+msgid "ET Open source"
+msgstr "ET Open source"
+
+msgid "Official ET Open 8.0"
+msgstr "Official ET Open 8.0"
+
+msgid "Custom URL"
+msgstr "Custom URL"
+
+msgid "ET Open URL"
+msgstr "ET Open URL"
+
+msgid "Linux device to sniff (br-lan, eth0, …), not the UCI name (lan)."
+msgstr "Linux device to sniff (br-lan, eth0, …), not the UCI name (lan)."
+
+msgid "CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional."
+msgstr "CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional."
+
+msgid "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
+msgstr "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
+
+msgid "Full ET Open uses a lot of RAM. Prefer the small profile on this router."
+msgstr "Full ET Open uses a lot of RAM. Prefer the small profile on this router."

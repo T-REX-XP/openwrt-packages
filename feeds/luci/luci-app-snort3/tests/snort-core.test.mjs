@@ -142,6 +142,45 @@ test('view wires footer save and type=button', () => {
 		assert.match(m[1], /'type':\s*'button'/);
 });
 
+test('view uses network devices select and advanced paths', () => {
+	assert.match(view, /'require network'/);
+	assert.match(view, /network\.getDevices\(\)/);
+	assert.match(view, /network\.getNetwork\('lan'\)/);
+	assert.match(view, /ifaceSelect\('snort-iface'/);
+	assert.doesNotMatch(view, /type:\s*'text',\s*id:\s*'snort-iface'/);
+	assert.match(view, /type:\s*'number',\s*id:\s*'snort-snaplen'/);
+	assert.match(view, /E\('details'/);
+	assert.match(view, /option\[value="nfq"\]/);
+	assert.match(view, /Use LAN subnet/);
+});
+
+test('idsDeviceNames filters lo/alias and keeps current', () => {
+	assert.deepEqual(core.idsDeviceNames([
+		{ name: 'lo', type: 'ethernet' },
+		{ name: 'br-lan', type: 'bridge' },
+		{ name: 'eth0', type: 'ethernet' },
+		{ name: 'eth1', type: 'ethernet' },
+		{ name: '@lan', type: 'alias' },
+		{ name: 'eth0;rm', type: 'ethernet' },
+		{ name: 'radio0.network1', type: 'wifi' },
+		{ name: 'ifb0', type: 'ethernet' }
+	], 'gone0'), ['br-lan', 'eth0', 'eth1', 'gone0']);
+	assert.deepEqual(core.idsDeviceNames([], ''), ['br-lan']);
+	assert.deepEqual(core.idsDeviceNames([], 'br-lan'), ['br-lan']);
+});
+
+test('hostCidrToNetwork converts host CIDR to network', () => {
+	assert.equal(core.hostCidrToNetwork('192.168.8.1/24'), '192.168.8.0/24');
+	assert.equal(core.hostCidrToNetwork('10.1.2.3/8'), '10.0.0.0/8');
+	assert.equal(core.hostCidrToNetwork('192.168.8.0/24'), '192.168.8.0/24');
+	assert.equal(core.hostCidrToNetwork('bad'), null);
+	assert.equal(core.hostCidrToNetwork('192.168.8.1'), null);
+});
+
+test('empty interface is invalid', () => {
+	assert.equal(core.validateField('interface', ''), 'invalid interface');
+});
+
 test('mem helpers', () => {
 	assert.equal(core.memTone(90), 'snort-mem--err');
 	assert.equal(core.memTone(70), 'snort-mem--warn');

@@ -3,6 +3,8 @@
 'require rpc';
 'require ui';
 'require poll';
+'require network';
+'require threat-prevention-core as tpCore';
 
 var callGetStatus = rpc.declare({
 	object: 'luci.threat-prevention',
@@ -47,37 +49,85 @@ function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
+function luciDevList(devs) {
+	var out = [];
+	var i, d, name, type;
+	if (!Array.isArray(devs))
+		return out;
+	for (i = 0; i < devs.length; i++) {
+		d = devs[i];
+		if (!d)
+			continue;
+		name = (typeof d.getName === 'function') ? d.getName() : String(d);
+		type = (typeof d.getType === 'function') ? d.getType() : '';
+		out.push({ name: name, type: type });
+	}
+	return out;
+}
+
+function lanCidrFromNet(net) {
+	var addrs, i, cidr;
+	if (!net || typeof net.getIPAddrs !== 'function')
+		return '';
+	addrs = net.getIPAddrs() || [];
+	for (i = 0; i < addrs.length; i++) {
+		cidr = tpCore.hostCidrToNetwork(addrs[i]);
+		if (cidr)
+			return cidr;
+	}
+	return '';
+}
+
+function ifaceSelect(id, current, devices) {
+	var list = luciDevList(devices);
+	var names = tpCore.idsDeviceNames(list, current);
+	var live = {};
+	var i, n, label, sel, opts;
+	for (i = 0; i < list.length; i++)
+		live[list[i].name] = 1;
+	opts = [];
+	for (i = 0; i < names.length; i++) {
+		n = names[i];
+		label = live[n] ? n : n + ' (' + _('not present') + ')';
+		opts.push(E('option', { value: n }, label));
+	}
+	sel = E('select', { id: id, required: 'required' }, opts);
+	if (current && names.indexOf(current) >= 0)
+		sel.value = current;
+	else if (names.length)
+		sel.value = names[0];
+	return sel;
+}
+
 function collectTpSettings() {
 	var enabled = document.getElementById('tp-enabled');
 	var iface = document.getElementById('tp-iface');
 	var home = document.getElementById('tp-home');
 	var profile = document.getElementById('tp-profile');
 	var url = document.getElementById('tp-url');
-	if (!enabled || !iface || !home || !profile || !url)
-		return null;
-	var homeNet = (home.value || '').trim();
-	if (homeNet && homeNet.charAt(0) !== '[')
-		homeNet = '[' + homeNet + ']';
-	return {
-		enabled: enabled.checked ? '1' : '0',
-		interface: (iface.value || '').trim(),
-		home_net: homeNet,
+	var mode = document.getElementById('tp-mode');
+	if (!enabled || !iface || !home || !profile || !url || !mode)
+		return { error: _('Settings form is not ready.') };
+	return tpCore.collectSettings({
+		enabled: enabled.checked,
+		interface: iface.value,
+		home_net: home.value,
 		rule_profile: profile.value,
-		etopen_url: (url.value || '').trim(),
-		mode: 'ids'
-	};
+		etopen_url: url.value,
+		mode: mode.value
+	});
 }
 
 function saveTpSettings(apply) {
-	var payload = collectTpSettings();
-	if (!payload)
-		return Promise.reject(new Error(_('Settings form is not ready.')));
-	return callSetConfig(payload).then(function(res) {
+	var collected = collectTpSettings();
+	if (collected.error)
+		return Promise.reject(new Error(collected.error));
+	return callSetConfig(collected.config).then(function(res) {
 		if (res && res.error)
 			return Promise.reject(new Error(res.error));
 		if (!apply)
 			return res;
-		return callServiceControl(payload.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
+		return callServiceControl(collected.config.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
 			if (svc && svc.ok === false)
 				return Promise.reject(new Error(svc.output || _('Service control failed')));
 			return res;
@@ -90,7 +140,9 @@ return view.extend({
 		return Promise.all([
 			callGetStatus(),
 			callGetEvents(50),
-			callGetConfig()
+			callGetConfig(),
+			L.resolveDefault(network.getDevices(), []),
+			L.resolveDefault(network.getNetwork('lan'), null)
 		]);
 	},
 
@@ -98,7 +150,8 @@ return view.extend({
 		var status = data[0] || {};
 		var events = (data[1] && data[1].events) || [];
 		var cfg = data[2] || {};
-		var self = this;
+		var netDevices = data[3] || [];
+		var lanCidr = lanCidrFromNet(data[4]);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -150,9 +203,6 @@ return view.extend({
 			]));
 			if (st.etopen_state === 'error' && st.etopen_error)
 				statusBox.appendChild(E('p', { 'class': 'tp-warn' }, st.etopen_error));
-			if (st.rule_profile === 'full')
-				statusBox.appendChild(E('p', { 'class': 'tp-warn' },
-					_('Full ET Open uses a lot of RAM. Prefer the small profile on CM5.')));
 		}
 
 		function renderEvents(list) {
@@ -208,33 +258,101 @@ return view.extend({
 			policyBox.appendChild(table);
 		}
 
-		function field(id, label, input) {
-			return E('div', { 'class': 'tp-field' }, [
+		function field(id, label, input, help, extra) {
+			var control = extra ? E('div', { 'class': 'tp-field-control' }, [ input, extra ]) : input;
+			var kids = [
 				E('label', { 'for': id }, label),
-				input
-			]);
+				control
+			];
+			if (help)
+				kids.push(E('div', { 'class': 'tp-help' }, help));
+			return E('div', { 'class': 'tp-field' }, kids);
 		}
 
 		function renderSettings(c) {
 			settingsBox.innerHTML = '';
+			var official = tpCore.ETOPEN_OFFICIAL;
 			var enabled = E('input', { type: 'checkbox', id: 'tp-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
-			var iface = E('input', { type: 'text', id: 'tp-iface', value: val(c.interface, 'br-lan') });
-			var home = E('input', { type: 'text', id: 'tp-home', value: val(c.home_net, '[192.168.8.0/24]') });
+			var iface = ifaceSelect('tp-iface', val(c.interface, 'br-lan'), netDevices);
+			var homeNet = tpCore.unwrapNet(c.home_net);
+			if (!homeNet)
+				homeNet = lanCidr;
+			var home = E('input', {
+				type: 'text', id: 'tp-home',
+				value: homeNet,
+				placeholder: lanCidr
+			});
+			var useLan = E('button', {
+				'type': 'button',
+				'class': 'btn cbi-button',
+				'disabled': lanCidr ? null : true,
+				click: function(ev) {
+					ev.preventDefault();
+					if (lanCidr)
+						home.value = lanCidr;
+				}
+			}, _('Use LAN subnet'));
+			var mode = E('select', { id: 'tp-mode' }, [
+				E('option', { value: 'ids' }, _('IDS (detection only)')),
+				E('option', { value: 'ips' }, _('IPS (prevention)'))
+			]);
+			mode.value = c.mode || 'ids';
+			var ipsWarn = E('div', { 'class': 'tp-warn-inline' },
+				_('Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only).'));
 			var profile = E('select', { id: 'tp-profile' }, [
 				E('option', { value: 'small' }, _('Small (malware / C2 / web server)')),
-				E('option', { value: 'full' }, _('Full ET Open (high RAM)'))
+				E('option', { value: 'full' }, _('Full ET Open'))
 			]);
 			profile.value = c.rule_profile || 'small';
-			var url = E('input', { type: 'text', id: 'tp-url', value: val(c.etopen_url,
-				'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz') });
+			var urlVal = val(c.etopen_url, official);
+			var isOfficial = urlVal === official;
+			var preset = E('select', { id: 'tp-url-preset' }, [
+				E('option', { value: 'official' }, _('Official ET Open 8.0')),
+				E('option', { value: 'custom' }, _('Custom URL'))
+			]);
+			preset.value = isOfficial ? 'official' : 'custom';
+			var url = E('input', {
+				type: 'text', id: 'tp-url',
+				value: urlVal,
+				placeholder: official
+			});
+			url.disabled = isOfficial;
+			preset.addEventListener('change', function() {
+				if (preset.value === 'official') {
+					url.value = official;
+					url.disabled = true;
+				} else {
+					url.disabled = false;
+					url.focus();
+				}
+			});
+			function syncWarns() {
+				if (mode.value === 'ips')
+					ipsWarn.classList.add('is-visible');
+				else
+					ipsWarn.classList.remove('is-visible');
+			}
+			mode.addEventListener('change', syncWarns);
+			syncWarns();
 
 			settingsBox.appendChild(E('div', {}, [
-				field('tp-enabled', _('Enable IDS'), enabled),
-				field('tp-iface', _('Interface'), iface),
-				field('tp-home', _('HOME_NET'), home),
-				field('tp-profile', _('Rule profile'), profile),
-				field('tp-url', _('ET Open URL'), url),
+				field('tp-enabled', _('Enable IDS'), enabled,
+					_('Start Suricata in the selected mode and load this configuration')),
+				field('tp-iface', _('Interface'), iface,
+					_('Linux device to sniff (br-lan, eth0, …), not the UCI name (lan).')),
+				field('tp-home', _('HOME_NET'), home,
+					_('CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional.'),
+					useLan),
+				field('tp-mode', _('Operating mode'), mode,
+					_('IDS = Detection only, IPS = Active prevention')),
+				ipsWarn,
+				field('tp-profile', _('Rule profile'), profile,
+					_('Small loads malware, C2, and web-server rules. Full loads the complete ET Open set.')),
+				field('tp-url-preset', _('ET Open source'), preset,
+					_('Official Emerging Threats Open rules for Suricata 8.0, or a custom HTTPS URL.')),
+				field('tp-url', _('ET Open URL'), url,
+					_('Must be an https:// URL to a rules tarball')),
 				E('div', { 'class': 'tp-actions' }, [
 					E('button', {
 						'type': 'button',

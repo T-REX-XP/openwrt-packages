@@ -1,32 +1,27 @@
 'use strict';
 'require baseclass';
 
-var FLAG_OPTS = [ 'enabled', 'manual', 'logging', 'openappid' ];
+var FLAG_OPTS = [ 'enabled' ];
+
+var ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
+
+var SKIP_DEV_TYPES = { alias: 1, vrf: 1 };
+
+var SKIP_DEV_NAMES = { lo: 1 };
 
 var STRING_OPTS = {
-	interface: /^[A-Za-z0-9_.-]+$/,
-	home_net: /^[A-Za-z0-9.\/!$,_-]+$/,
-	external_net: /^[A-Za-z0-9.\/!$,_-]+$/,
 	mode: /^(ids|ips)$/,
-	method: /^(pcap|afpacket|nfq)$/,
-	action: /^(default|alert|block|drop|reject)$/,
-	log_dir: /^\/[ -~]+$/,
-	config_dir: /^\/[ -~]+$/,
-	temp_dir: /^\/[ -~]+$/,
-	oinkcode: /^[A-Za-z0-9]*$/,
-	snaplen: /^\d+$/
+	interface: /^[A-Za-z0-9_.-]+$/,
+	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
+	rule_profile: /^(small|full)$/,
+	etopen_url: /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+$/
 };
 
 var FORM_KEYS = FLAG_OPTS.concat(Object.keys(STRING_OPTS));
 
 var REQUIRED_FORM_KEYS = [
-	'enabled', 'manual', 'logging', 'openappid',
-	'interface', 'home_net', 'external_net', 'mode', 'method',
-	'action', 'snaplen', 'log_dir', 'config_dir', 'temp_dir'
+	'enabled', 'interface', 'home_net', 'rule_profile', 'etopen_url', 'mode'
 ];
-
-var SKIP_DEV_TYPES = { alias: 1, vrf: 1 };
-var SKIP_DEV_NAMES = { lo: 1 };
 
 function truthyFlag(value) {
 	return value === true || value === 1 || value === '1' ||
@@ -38,6 +33,7 @@ return baseclass.extend({
 	STRING_OPTS: STRING_OPTS,
 	FORM_KEYS: FORM_KEYS,
 	REQUIRED_FORM_KEYS: REQUIRED_FORM_KEYS,
+	ETOPEN_OFFICIAL: ETOPEN_OFFICIAL,
 
 	unwrapNet: function(val) {
 		val = String(val == null ? '' : val).trim();
@@ -45,6 +41,13 @@ return baseclass.extend({
 		       val.charAt(val.length - 1) === ']')
 			val = val.substring(1, val.length - 1).trim();
 		return val.replace(/[ \t]+/g, '');
+	},
+
+	wrapHomeNet: function(val) {
+		val = this.unwrapNet(val);
+		if (!val)
+			return '';
+		return '[' + val + ']';
 	},
 
 	normalizeFlag: function(value) {
@@ -60,14 +63,13 @@ return baseclass.extend({
 	normalizeValue: function(key, value) {
 		if (FLAG_OPTS.indexOf(key) >= 0)
 			return this.normalizeFlag(value);
-		if (key === 'home_net' || key === 'external_net')
-			return this.unwrapNet(value);
+		if (key === 'home_net')
+			return this.wrapHomeNet(value);
 		return String(value == null ? '' : value).trim();
 	},
 
 	validateField: function(key, value) {
 		var v = this.normalizeValue(key, value);
-		var n;
 
 		if (FLAG_OPTS.indexOf(key) >= 0) {
 			if (v !== '0' && v !== '1')
@@ -76,13 +78,10 @@ return baseclass.extend({
 		}
 		if (!STRING_OPTS[key])
 			return 'invalid ' + key;
+		if (key === 'home_net' && (v === '' || v === '[]'))
+			return 'invalid ' + key;
 		if (!STRING_OPTS[key].test(v))
 			return 'invalid ' + key;
-		if (key === 'snaplen') {
-			n = parseInt(v, 10);
-			if (isNaN(n) || n < 0 || n > 65535)
-				return 'invalid ' + key;
-		}
 		return null;
 	},
 
@@ -98,10 +97,6 @@ return baseclass.extend({
 			if (cfg[key] === undefined)
 				continue;
 			out[key] = this.normalizeValue(key, cfg[key]);
-		}
-		for (key in cfg) {
-			if (FORM_KEYS.indexOf(key) < 0)
-				out[key] = cfg[key];
 		}
 		return out;
 	},
@@ -138,47 +133,10 @@ return baseclass.extend({
 				return { error: 'Settings form is not ready.' };
 		}
 		cfg = this.normalizeConfig(raw);
-		if (raw.oinkcode === undefined)
-			cfg.oinkcode = '';
-		else
-			cfg.oinkcode = this.normalizeValue('oinkcode', raw.oinkcode);
 		err = this.validateConfig(cfg);
 		if (err)
 			return { error: err };
 		return { config: cfg };
-	},
-
-	memTone: function(percent) {
-		percent = Number(percent) || 0;
-		if (percent > 80)
-			return 'snort-mem--err';
-		if (percent > 60)
-			return 'snort-mem--warn';
-		return 'snort-mem--ok';
-	},
-
-	formatKb: function(kb) {
-		var n = Number(kb);
-
-		if (!n || n < 0)
-			return '—';
-		if (n >= 1024)
-			return (Math.round(n / 102.4) / 10) + ' MB';
-		return Math.round(n) + ' kB';
-	},
-
-	formatSysMem: function(usedKb, totalKb, percent) {
-		var usedMb;
-		var totalMb;
-		var p = Number(percent);
-
-		if (!totalKb)
-			return '—';
-		usedMb = Math.floor((Number(usedKb) || 0) / 1024);
-		totalMb = Math.floor(Number(totalKb) / 1024);
-		if (isNaN(p))
-			p = totalKb ? Math.floor((Number(usedKb) || 0) * 100 / totalKb) : 0;
-		return usedMb + ' MB / ' + totalMb + ' MB (' + p + '%)';
 	},
 
 	hostCidrToNetwork: function(val) {

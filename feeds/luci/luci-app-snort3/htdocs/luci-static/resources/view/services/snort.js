@@ -3,6 +3,7 @@
 'require rpc';
 'require ui';
 'require poll';
+'require network';
 'require snort-core as snortCore';
 
 var callGetStatus = rpc.declare({
@@ -66,14 +67,65 @@ function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
-function field(id, label, input, help) {
+function field(id, label, input, help, extra) {
+	var control = extra ? E('div', { 'class': 'snort-field-control' }, [ input, extra ]) : input;
 	var kids = [
 		E('label', { 'for': id }, label),
-		input
+		control
 	];
 	if (help)
 		kids.push(E('div', { 'class': 'snort-help' }, help));
 	return E('div', { 'class': 'snort-field' }, kids);
+}
+
+function luciDevList(devs) {
+	var out = [];
+	var i, d, name, type;
+	if (!Array.isArray(devs))
+		return out;
+	for (i = 0; i < devs.length; i++) {
+		d = devs[i];
+		if (!d)
+			continue;
+		name = (typeof d.getName === 'function') ? d.getName() : String(d);
+		type = (typeof d.getType === 'function') ? d.getType() : '';
+		out.push({ name: name, type: type });
+	}
+	return out;
+}
+
+function lanCidrFromNet(net) {
+	var addrs, i, cidr;
+	if (!net || typeof net.getIPAddrs !== 'function')
+		return '';
+	addrs = net.getIPAddrs() || [];
+	for (i = 0; i < addrs.length; i++) {
+		cidr = snortCore.hostCidrToNetwork(addrs[i]);
+		if (cidr)
+			return cidr;
+	}
+	return '';
+}
+
+function ifaceSelect(id, current, devices) {
+	var list = luciDevList(devices);
+	var names = snortCore.idsDeviceNames(list, current);
+	var live = {};
+	var i, n, label, sel, opts;
+	for (i = 0; i < list.length; i++)
+		live[list[i].name] = 1;
+	opts = [];
+	for (i = 0; i < names.length; i++) {
+		n = names[i];
+		label = live[n] ? n : n + ' (' + _('not present') + ')';
+		opts.push(E('option', { value: n }, label));
+	}
+	sel = E('select', { id: id, required: 'required' }, opts);
+	if (current && names.indexOf(current) >= 0)
+		sel.value = current;
+	else if (names.length)
+		sel.value = names[0];
+	return sel;
 }
 
 function elVal(id) {
@@ -168,7 +220,9 @@ return view.extend({
 			callGetStatus(),
 			callGetConfig(),
 			callGetAlerts(50),
-			callUpdateStatus()
+			callUpdateStatus(),
+			L.resolveDefault(network.getDevices(), []),
+			L.resolveDefault(network.getNetwork('lan'), null)
 		]);
 	},
 
@@ -177,6 +231,8 @@ return view.extend({
 		var cfg = data[1] || {};
 		var alerts = data[2] || {};
 		var upd = data[3] || {};
+		var netDevices = data[4] || [];
+		var lanCidr = lanCidrFromNet(data[5]);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -325,19 +381,28 @@ return view.extend({
 			logging.checked = c.logging === '1' || c.logging === 1 || c.logging === undefined;
 			var openappid = E('input', { type: 'checkbox', id: 'snort-openappid' });
 			openappid.checked = c.openappid === '1' || c.openappid === 1;
-			var iface = E('input', {
-				type: 'text', id: 'snort-iface',
-				value: val(c.interface, 'br-lan'),
-				placeholder: 'br-lan'
-			});
+			var iface = ifaceSelect('snort-iface', val(c.interface, 'br-lan'), netDevices);
+			var homeNet = snortCore.unwrapNet(c.home_net);
+			if (!homeNet)
+				homeNet = lanCidr;
 			var home = E('input', {
 				type: 'text', id: 'snort-home',
-				value: val(c.home_net, '192.168.8.0/24'),
-				placeholder: '192.168.8.0/24'
+				value: homeNet,
+				placeholder: lanCidr
 			});
+			var useLan = E('button', {
+				'type': 'button',
+				'class': 'btn cbi-button',
+				'disabled': lanCidr ? null : true,
+				click: function(ev) {
+					ev.preventDefault();
+					if (lanCidr)
+						home.value = lanCidr;
+				}
+			}, _('Use LAN subnet'));
 			var ext = E('input', {
 				type: 'text', id: 'snort-ext',
-				value: val(c.external_net, 'any'),
+				value: snortCore.unwrapNet(val(c.external_net, 'any')),
 				placeholder: 'any'
 			});
 			var mode = E('select', { id: 'snort-mode' }, [
@@ -345,6 +410,8 @@ return view.extend({
 				E('option', { value: 'ips' }, _('IPS (prevention)'))
 			]);
 			mode.value = c.mode || 'ids';
+			var ipsWarn = E('div', { 'class': 'snort-warn-inline' },
+				_('Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only).'));
 			var method = E('select', { id: 'snort-method' }, [
 				E('option', { value: 'pcap' }, 'PCAP'),
 				E('option', { value: 'afpacket' }, 'AF_PACKET'),
@@ -360,7 +427,8 @@ return view.extend({
 			]);
 			action.value = c.action || 'alert';
 			var snaplen = E('input', {
-				type: 'text', id: 'snort-snaplen',
+				type: 'number', id: 'snort-snaplen',
+				min: '0', max: '65535', step: '1',
 				value: val(c.snaplen, '1518'),
 				placeholder: '1518'
 			});
@@ -385,33 +453,55 @@ return view.extend({
 				placeholder: '/var/snort.d'
 			});
 
+			function syncModeWidgets() {
+				var nfqOpt = method.querySelector('option[value="nfq"]');
+				var ips = mode.value === 'ips';
+				if (nfqOpt) {
+					nfqOpt.disabled = !ips;
+					nfqOpt.hidden = !ips;
+				}
+				if (!ips && method.value === 'nfq')
+					method.value = 'afpacket';
+				if (ips)
+					ipsWarn.classList.add('is-visible');
+				else
+					ipsWarn.classList.remove('is-visible');
+			}
+			mode.addEventListener('change', syncModeWidgets);
+			syncModeWidgets();
+
 			settingsBox.appendChild(E('h3', {}, _('Configuration')));
 			settingsBox.appendChild(E('div', {}, [
 				field('snort-enabled', _('Enable Snort'), enabled,
-					_('Enable or disable Snort service')),
+					_('Start the Snort service and load this configuration')),
 				field('snort-manual', _('Manual mode'), manual,
 					_('Use manual configuration (snort.lua)')),
 				field('snort-iface', _('Network interface'), iface,
-					_('Network interface to monitor (e.g. br-lan, eth0)')),
-				field('snort-home', _('Local network'), home,
-					_('IP address range to protect')),
-				field('snort-ext', _('External network'), ext,
-					_('External IP address range')),
+					_('Linux device to sniff (br-lan, eth0, …), not the UCI name (lan).')),
+				field('snort-home', _('HOME_NET'), home,
+					_('CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional.'),
+					useLan),
+				field('snort-ext', _('EXTERNAL_NET'), ext,
+					_('External range, usually any or !$HOME_NET')),
 				field('snort-mode', _('Operating mode'), mode,
 					_('IDS = Detection only, IPS = Active prevention')),
+				ipsWarn,
 				field('snort-method', _('DAQ method'), method,
-					_('Packet acquisition method')),
-				field('snort-snaplen', _('Capture Length'), snaplen,
-					_('Maximum packet capture size')),
+					_('Packet acquisition method. NFQ is only used for inline IPS.')),
+				field('snort-snaplen', _('Capture length'), snaplen,
+					_('Maximum packet capture size (0–65535 bytes)')),
 				field('snort-action', _('Rule action'), action,
 					_('Default action for rules')),
 				field('snort-openappid', _('Enable OpenAppID'), openappid,
 					_('Use the OpenAppID detector package if installed'))
 			]));
-			settingsBox.appendChild(E('h3', {}, _('Logging configuration')));
+			settingsBox.appendChild(E('h3', {}, _('Logging')));
 			settingsBox.appendChild(E('div', {}, [
 				field('snort-logging', _('Enable logging'), logging,
-					_('Enable event logging')),
+					_('Write fast alerts and JSON events'))
+			]));
+			settingsBox.appendChild(E('details', { 'class': 'snort-advanced' }, [
+				E('summary', {}, _('Advanced paths')),
 				field('snort-logdir', _('Log directory'), logDir,
 					_('Path where logs will be stored')),
 				field('snort-cfgdir', _('Configuration directory'), cfgDir,

@@ -390,3 +390,48 @@ msgstr "Save & apply"
 msgid "Failed"
 msgstr "Failed"
 
+msgid "not present"
+msgstr "not present"
+
+msgid "Use LAN subnet"
+msgstr "Use LAN subnet"
+
+msgid "HOME_NET"
+msgstr "HOME_NET"
+
+msgid "EXTERNAL_NET"
+msgstr "EXTERNAL_NET"
+
+msgid "CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional."
+msgstr "CIDR to protect, e.g. 192.168.8.0/24. Square brackets are optional."
+
+msgid "Linux device to sniff (br-lan, eth0, …), not the UCI name (lan)."
+msgstr "Linux device to sniff (br-lan, eth0, …), not the UCI name (lan)."
+
+msgid "Start the Snort service and load this configuration"
+msgstr "Start the Snort service and load this configuration"
+
+msgid "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
+msgstr "Inline IPS at 2.5 GbE is not recommended on this router. Prefer IDS (detect only)."
+
+msgid "Packet acquisition method. NFQ is only used for inline IPS."
+msgstr "Packet acquisition method. NFQ is only used for inline IPS."
+
+msgid "Capture length"
+msgstr "Capture length"
+
+msgid "Maximum packet capture size (0–65535 bytes)"
+msgstr "Maximum packet capture size (0–65535 bytes)"
+
+msgid "Logging"
+msgstr "Logging"
+
+msgid "Write fast alerts and JSON events"
+msgstr "Write fast alerts and JSON events"
+
+msgid "Advanced paths"
+msgstr "Advanced paths"
+
+msgid "External range, usually any or !$HOME_NET"
+msgstr "External range, usually any or !$HOME_NET"
+

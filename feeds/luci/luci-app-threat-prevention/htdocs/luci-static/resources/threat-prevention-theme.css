@@ -65,6 +65,36 @@
 	max-width: 100%;
 }
 
+.luci-app-threat-prevention .tp-field-control {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-field-control input,
+.luci-app-threat-prevention .tp-field-control select {
+	flex: 1 1 12rem;
+	min-width: 0;
+}
+
+.luci-app-threat-prevention .tp-help {
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+}
+
+.luci-app-threat-prevention .tp-warn-inline {
+	display: none;
+	color: var(--error-color-high);
+	font-size: 0.9em;
+	margin: 0 0 0.75rem;
+}
+
+.luci-app-threat-prevention .tp-warn-inline.is-visible {
+	display: block;
+}
+
 .luci-app-threat-prevention .tp-actions {
 	display: flex;
 	flex-wrap: wrap;

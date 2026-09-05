@@ -66,6 +66,46 @@
 	max-width: 100%;
 }
 
+.luci-app-snort3 .snort-field-control {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-field-control input,
+.luci-app-snort3 .snort-field-control select {
+	flex: 1 1 12rem;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-advanced {
+	margin: 1rem 0;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	padding: 0.5rem 0.75rem;
+	background: var(--background-color-medium);
+}
+
+.luci-app-snort3 .snort-advanced summary {
+	cursor: pointer;
+	color: var(--text-color-highest);
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.luci-app-snort3 .snort-warn-inline {
+	display: none;
+	color: var(--error-color-high);
+	font-size: 0.9em;
+	margin: 0 0 0.75rem;
+}
+
+.luci-app-snort3 .snort-warn-inline.is-visible {
+	display: block;
+}
+
 .luci-app-snort3 .snort-actions {
 	display: flex;
 	flex-wrap: wrap;
