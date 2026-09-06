@@ -179,6 +179,8 @@ test('view uses network devices select and advanced paths', () => {
 	assert.doesNotMatch(view, /_\('Stop'\)/);
 	assert.doesNotMatch(view, /Enable at boot/);
 	assert.doesNotMatch(view, /function runService/);
+	assert.doesNotMatch(view, /_\('Signature enabled'\)/);
+	assert.doesNotMatch(view, /_\('Signature disabled'\)/);
 	assert.match(view, /manual: false/);
 	assert.match(view, /_\('How packets are captured'\)/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);

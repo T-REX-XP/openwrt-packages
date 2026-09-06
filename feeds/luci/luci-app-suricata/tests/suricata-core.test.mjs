@@ -204,6 +204,8 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /_\('Start'\)/);
 	assert.doesNotMatch(view, /_\('Stop'\)/);
 	assert.doesNotMatch(view, /_\('Restart'\)/);
+	assert.doesNotMatch(view, /_\('Signature enabled'\)/);
+	assert.doesNotMatch(view, /_\('Signature disabled'\)/);
 });
 
 test('ucode still validates interface names', () => {

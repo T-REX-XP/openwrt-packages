@@ -303,18 +303,6 @@ function ruleStatusBusyMsg(status) {
 	return _('Updating signature… Applying Suricata policy…');
 }
 
-function ruleStatusDoneMsg(status) {
-	if (status === 'enabled')
-		return _('Signature enabled');
-	if (status === 'disabled')
-		return _('Signature disabled');
-	if (status === 'review')
-		return _('Signature set to review');
-	if (status === 'expired')
-		return _('Signature expired');
-	return _('Signature updated');
-}
-
 function ruleTagPills(row) {
 	var tags = suricataCore.displayRuleTags(row && row.raw, {
 		classtype: row && row.classtype,
@@ -1441,7 +1429,7 @@ return view.extend({
 					disBtn.hidden = !canDisable;
 			}
 
-			function runBulkStatus(status, msg) {
+			function runBulkStatus(status) {
 				var sids = selectedList();
 				var n;
 				if (!sids) {
@@ -1458,9 +1446,7 @@ return view.extend({
 							selectedSids = {};
 							return loadRules();
 						});
-					}).then(function() {
-					ui.addNotification(null, E('p', {}, msg), 4000);
-				}).catch(function(e) {
+					}).catch(function(e) {
 					if (isBusyErr(e))
 						return;
 					ui.addNotification(null, E('p', {}, e.message || e), 'error');
@@ -1507,8 +1493,6 @@ return view.extend({
 							return Promise.reject(new Error(out.error));
 						return loadRules();
 					});
-				}).then(function() {
-					ui.addNotification(null, E('p', {}, ruleStatusDoneMsg(status)), 4000);
 				}).catch(function(e) {
 					if (isBusyErr(e))
 						return;
@@ -1546,22 +1530,22 @@ return view.extend({
 						labeledActionBtn(_('Enable selected'), 'cbi-button-positive tp-bulk-enable',
 							_('Enable selected signatures'),
 							function() {
-								runBulkStatus('enabled', _('Selected signatures enabled'));
+								runBulkStatus('enabled');
 							}, 'enable'),
 						labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-bulk-disable',
 							_('Disable selected signatures'),
 							function() {
-								runBulkStatus('disabled', _('Selected signatures disabled'));
+								runBulkStatus('disabled');
 							}, 'disable'),
 						labeledActionBtn(_('Review selected'), 'cbi-button',
 							_('Mark selected signatures for review'),
 							function() {
-								runBulkStatus('review', _('Selected signatures set to review'));
+								runBulkStatus('review');
 							}, 'review'),
 						labeledActionBtn(_('Expire selected'), 'cbi-button',
 							_('Expire selected signatures'),
 							function() {
-								runBulkStatus('expired', _('Selected signatures expired'));
+								runBulkStatus('expired');
 							}, 'expire'),
 						actionBulk,
 						labeledActionBtn(_('Set action'), 'cbi-button',
