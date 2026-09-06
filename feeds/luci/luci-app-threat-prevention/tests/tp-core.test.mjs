@@ -141,6 +141,10 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /function iconActionEnabled/);
 	assert.match(view, /iconActionEnabled\(st\.id, 'enable'\)/);
 	assert.match(view, /iconActionEnabled\(st\.id, 'disable'\)/);
+	assert.match(view, /function labeledActionBtn/);
+	assert.match(view, /_\('Enable selected signatures'\)/);
+	assert.match(view, /_\('Disable selected signatures'\)/);
+	assert.match(view, /tp-icon-wrap/);
 	assert.doesNotMatch(view, /tp-rule-quick/);
 	assert.doesNotMatch(view, /_\('Quick actions'\)/);
 	assert.match(view, /id:\s*'tp-tune-status'/);

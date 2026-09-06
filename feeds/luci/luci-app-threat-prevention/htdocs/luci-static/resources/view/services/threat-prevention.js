@@ -168,19 +168,45 @@ function iconActionEnabled(statusId, kind) {
 
 function iconBtn(title, kind, fn, enabled) {
 	var on = enabled !== false;
+	var tip = title;
+	if (!on) {
+		if (kind === 'enable')
+			tip = _('Already enabled');
+		else if (kind === 'disable')
+			tip = _('Already disabled');
+		else if (kind === 'review')
+			tip = _('Already set to review');
+		else if (kind === 'expire')
+			tip = _('Already expired');
+	}
+	return E('span', { 'class': 'tp-icon-wrap', 'title': tip }, [
+		E('button', {
+			'type': 'button',
+			'class': 'tp-icon-btn tp-icon-btn--' + kind,
+			'title': tip,
+			'aria-label': tip,
+			'disabled': on ? null : true,
+			click: function(ev) {
+				ev.preventDefault();
+				if (!on)
+					return;
+				fn();
+			}
+		}, ICON_GLYPHS[kind] || '•')
+	]);
+}
+
+function labeledActionBtn(label, cls, title, fn) {
 	return E('button', {
 		'type': 'button',
-		'class': 'tp-icon-btn tp-icon-btn--' + kind,
+		'class': 'btn ' + cls,
 		'title': title,
 		'aria-label': title,
-		'disabled': on ? null : true,
 		click: function(ev) {
 			ev.preventDefault();
-			if (!on)
-				return;
 			fn();
 		}
-	}, ICON_GLYPHS[kind] || '•');
+	}, label);
 }
 
 var ruleActionBusy = false;
@@ -988,6 +1014,8 @@ return view.extend({
 						'type': 'button',
 						'class': 'tp-status-choice tp-status-choice--' + kind +
 							(status === id ? ' is-active' : ''),
+						'title': label,
+						'aria-label': label,
 						click: function(ev) {
 							var box = document.getElementById('tp-tune-status');
 							var btns;
@@ -1180,6 +1208,7 @@ return view.extend({
 			]);
 			stateSel.value = rulesState.state;
 			actionBulk = actionSelect('tp-rule-set-action', 'alert', false);
+			actionBulk.title = _('Action for selected signatures');
 
 			function applyFilters(ev) {
 				if (ev)
@@ -1306,63 +1335,43 @@ return view.extend({
 
 			tpSidHost.appendChild(E('div', { 'class': 'tp-rules-head' }, [
 				E('div', { 'class': 'tp-rules-actions' }, [
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-positive',
-						click: function(ev) {
-							ev.preventDefault();
+					labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+						_('Enable selected signatures'),
+						function() {
 							runBulkStatus('enabled', _('Selected signatures enabled'));
-						}
-					}, _('Enable selected')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button-negative',
-						click: function(ev) {
-							ev.preventDefault();
+						}),
+					labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+						_('Disable selected signatures'),
+						function() {
 							runBulkStatus('disabled', _('Selected signatures disabled'));
-						}
-					}, _('Disable selected')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
+						}),
+					labeledActionBtn(_('Review selected'), 'cbi-button',
+						_('Mark selected signatures for review'),
+						function() {
 							runBulkStatus('review', _('Selected signatures set to review'));
-						}
-					}, _('Review selected')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
+						}),
+					labeledActionBtn(_('Expire selected'), 'cbi-button',
+						_('Expire selected signatures'),
+						function() {
 							runBulkStatus('expired', _('Selected signatures expired'));
-						}
-					}, _('Expire selected')),
+						}),
 					actionBulk,
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
+					labeledActionBtn(_('Set action'), 'cbi-button',
+						_('Apply the chosen action to selected signatures'),
+						function() {
 							runBulkAction();
-						}
-					}, _('Set action')),
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button',
-						click: function(ev) {
-							ev.preventDefault();
+						}),
+					labeledActionBtn(_('Reindex signatures'), 'cbi-button',
+						_('Rebuild the local signature index'),
+						function() {
 							runReindex();
-						}
-					}, _('Reindex signatures'))
+						})
 				]),
 				E('div', { 'class': 'tp-rules-search' }, [
 					search,
-					E('button', {
-						'type': 'button',
-						'class': 'btn cbi-button cbi-button-apply',
-						click: applyFilters
-					}, _('Search'))
+					labeledActionBtn(_('Search'), 'cbi-button cbi-button-apply',
+						_('Apply search and filters'),
+						applyFilters)
 				])
 			]));
 			tpSidHost.appendChild(E('div', { 'class': 'tp-toolbar' }, [

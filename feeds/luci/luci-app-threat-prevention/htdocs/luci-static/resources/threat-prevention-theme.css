@@ -546,6 +546,11 @@
 	align-items: center;
 }
 
+.luci-app-threat-prevention .tp-icon-wrap {
+	display: inline-flex;
+	flex: 0 0 auto;
+}
+
 .luci-app-threat-prevention .tp-icon-btn {
 	display: inline-flex;
 	align-items: center;
@@ -575,6 +580,7 @@
 	cursor: not-allowed;
 	color: var(--text-color-medium);
 	background: var(--background-color-medium);
+	pointer-events: none;
 }
 
 .luci-app-threat-prevention .tp-progress {
