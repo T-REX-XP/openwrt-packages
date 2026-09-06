@@ -178,6 +178,65 @@ function blockyInjectStyles() {
 	});
 }
 
+function renderServiceStatus(pageStatus) {
+	var st = pageStatus || {};
+	var running = !!st.service_running;
+	var boot = !!st.enabled_boot;
+	var dnsPort = (st.ports && st.ports.dns) || 5353;
+	var forwarding = !!st.dnsmasq_forward;
+	var steps = [];
+	var rows;
+
+	rows = [
+		{
+			label: _('Engine'),
+			ok: running,
+			detail: running ? _('Running') : _('Not running')
+		},
+		{
+			label: _('Start at boot'),
+			ok: boot,
+			detail: boot ? _('Yes') : _('No')
+		},
+		{
+			label: _('DNS listener'),
+			ok: running,
+			detail: _('127.0.0.1:%s').format(String(dnsPort))
+		},
+		{
+			label: _('LAN DNS chain'),
+			ok: forwarding && running,
+			detail: forwarding
+				? _('dnsmasq :53 → Blocky')
+				: _('Off — enable Router DNS on Settings')
+		}
+	];
+
+	if (!running)
+		steps.push(_('Open Settings, tick Enable Blocky, and click Save & Apply.'));
+	else
+		steps.push(_('Edit lists on Block lists. Change resolvers on Settings.'));
+
+	return E('div', { 'class': 'cbi-section' }, [
+		E('h3', {}, [ _('Service status') ]),
+		E('div', { 'class': 'table blocky-status-table' }, rows.map(function(row) {
+			return E('div', { 'class': 'tr' }, [
+				E('div', { 'class': 'td left', 'style': 'width:34%' }, [ row.label ]),
+				E('div', { 'class': 'td left' }, [
+					blockyPill(row.ok ? 'yes' : 'no', row.ok ? _('OK') : _('Check')),
+					blockyStatusDetail(row.detail)
+				])
+			]);
+		})),
+		E('div', { 'class': 'blocky-next' }, [
+			E('strong', {}, _('What to do next')),
+			E('ol', {}, steps.map(function(s) {
+				return E('li', {}, s);
+			}))
+		])
+	]);
+}
+
 function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsResult, adblockService) {
 	var port = parseBlockyDnsPort(configYaml);
 	var running = isRunning(service);
@@ -193,7 +252,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		{
 			label: _('Blocky service'),
 			ok: running,
-			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Not running. Start Blocky under System → Startup.')
+			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Not running. Enable Blocky on Settings, then Save & Apply.')
 		},
 		{
 			label: _('Ad blocking'),
@@ -749,6 +808,7 @@ function mountDashboardContent(host, data, refreshPage) {
 	var metricsPayload = unwrapFetchText(metrics);
 
 	host.replaceChildren(
+		renderServiceStatus(data[9] || {}),
 		E('div', { 'class': 'cbi-section' }, [
 			E('h3', {}, [ _('Blocking') ]),
 			tabControls.renderBlockingControls(status, refreshPage)
@@ -814,6 +874,7 @@ return baseclass.extend({
 	applyBlockyChartPathTheme: applyBlockyChartPathTheme,
 	blockyAttachThemeSync: blockyAttachThemeSync,
 	blockyInjectStyles: blockyInjectStyles,
+	renderServiceStatus: renderServiceStatus,
 	renderAdBlockerPipeline: renderAdBlockerPipeline,
 	buildQueriesChartUnderlay: buildQueriesChartUnderlay,
 	buildQueriesChartAxisLabels: buildQueriesChartAxisLabels,

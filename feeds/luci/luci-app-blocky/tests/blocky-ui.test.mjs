@@ -105,11 +105,24 @@ test('no board-specific copy', () => {
 	assert.doesNotMatch(config, /CM5/);
 });
 
-test('no init.d replica or UCI/YAML sync badge', () => {
+test('service enable matches Snort/Suricata', () => {
+	assert.match(dashboard, /function renderServiceStatus/);
+	assert.match(dashboard, /_\('Service status'\)/);
+	assert.match(dashboard, /_\('What to do next'\)/);
+	assert.match(config, /_\('Enable Blocky'\)/);
+	assert.match(config, /id': 'blocky-enabled'/);
+	assert.match(base, /options.enabled === false/);
+	assert.doesNotMatch(common, /System → Startup/);
+	assert.doesNotMatch(dashboard, /Blocky filters DNS on the router/);
+	assert.doesNotMatch(dashboard, /Clients keep using dnsmasq/);
+	assert.doesNotMatch(dashboard, /actionButton\(_\('Start'\)/);
+	assert.doesNotMatch(dashboard, /actionButton\(_\('Stop'\)/);
+	assert.doesNotMatch(dashboard, /actionButton\(_\('Restart'\)/);
+	assert.doesNotMatch(dashboard, /Enable at boot/);
+	assert.doesNotMatch(dashboard, /Disable at boot/);
 	assert.doesNotMatch(controls, /renderServiceControls/);
 	assert.doesNotMatch(controls, /Enable at boot/);
 	assert.doesNotMatch(dashboard, /renderServiceControls/);
-	assert.doesNotMatch(dashboard, /_\('Service status'\)/);
 	assert.doesNotMatch(lists, /UCI changed — sync to config.yml/);
 	assert.doesNotMatch(lists, /UCI and config.yml in sync/);
 	assert.doesNotMatch(lists, /repaintSyncPill/);

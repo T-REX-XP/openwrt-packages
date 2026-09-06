@@ -117,6 +117,20 @@ function service_running() {
 	return trim(res.output) == 'yes';
 }
 
+function uci_enabled_flag(opt, def) {
+	let v = trim(run_cmd('uci -q get blocky.main.' + opt).output);
+
+	if (!length(v))
+		return def;
+	if (v == '0' || v == 'false' || v == 'no')
+		return '0';
+	return '1';
+}
+
+function init_enabled_boot() {
+	return trim(run_cmd('/etc/init.d/blocky enabled && echo 1 || echo 0').output) == '1';
+}
+
 function parse_blocking_status(text) {
 	text = trim(text || '');
 	if (!length(text))
@@ -332,6 +346,8 @@ const methods = {
 			return {
 				ok: true,
 				service_running: service_running(),
+				enabled: uci_enabled_flag('enabled', '1'),
+				enabled_boot: init_enabled_boot(),
 				dnsmasq_forward: dnsmasq_forward,
 				blocking: blocking,
 				api_ok: blocking_raw.ok && length(blocking_raw.output) > 0,

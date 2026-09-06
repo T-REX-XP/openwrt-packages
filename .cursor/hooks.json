@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/ucode-syntax-check.py",
+        "timeout": 15
+      }
+    ]
+  }
+}

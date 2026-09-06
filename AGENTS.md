@@ -12,6 +12,7 @@ feeds/
 docs/                                  # CI plans, feature plans, research
 scripts/setup-openwrt-mcp.sh           # Host MCP for Cursor (SSH to router)
 .cursor/mcp.json                       # Cursor MCP config (run setup script)
+.cursor/hooks.json                     # afterFileEdit: ucode -c on *.uc
 .github/workflows/                     # ci.yml (PR/push), build-packages.yml (reusable), release.yml
 ```
 
@@ -68,12 +69,13 @@ Default CM5 host: `192.168.8.1`. Use MCP for UCI/apk/network; SSH fallbacks for 
 2. **Bump `PKG_RELEASE`** on every recipe change (packages and LuCI apps). Do not bump `PKG_VERSION` unless upgrading upstream.
 3. **LuCI theming** — each app ships its own `*-theme.css`. Use **luci-theme-bootstrap** CSS variables (`--background-color-*`, `--text-color-*`, `--border-color-*`, `--error-color-high`, …). Support **Bootstrap** (system / `prefers-color-scheme`), **BootstrapDark**, and **BootstrapLight**. No shared theme library.
 4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-mcu-display`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`. Footer Save & Apply only (no in-page duplicate). No Blocky/Snort/Suricata header cross-links.
-5. **rpcd ucode** — `'use strict'` does **not** hoist functions; helpers must appear above the first caller. Never put `{` `}` in ucode regex or interpolated strings (`chr(123)` / `chr(125)`). Parse with `ucode /tmp/file.uc` on the router before replacing `/usr/share/rpcd/ucode/`. Rule **`rpcd-ucode-strict`**.
-6. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms. **Page sync is `evt screen` only** — do not restore `evt input` or echo `cmd screen` on swipe; skill **`mcu-display-cm5`**.
-7. **Suricata / Snort LuCI** — user-facing **Suricata** (package `luci-app-suricata`). Snort always `manual=0`; do not restore **Use snort.lua only**. Skills **`suricata-ids-cm5`**, **`snort3-ids-cm5`**.
-8. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
-9. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
-10. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.
+5. **rpcd ucode** — native **25.x** stack (`rpcd-mod-ucode`, `ucode-mod-uci`, `ucode-mod-fs`) at `/usr/share/rpcd/ucode/`, not shell/Lua `/usr/libexec/rpcd/`. `'use strict'` does **not** hoist functions; helpers must appear above the first caller. Never put `{` `}` in ucode regex or interpolated strings (`chr(123)` / `chr(125)`). Check with **`ucode -c`** (router or `.cursor/hooks.json`) before replacing `/usr/share/rpcd/ucode/`. Rules **`openwrt-25x`**, **`rpcd-ucode-strict`**.
+6. **apk not opkg** — ImmortalWrt 25.x package output and on-router install are **`.apk` / `apk add`**. Skill **`openwrt-25x`**.
+7. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms. **Page sync is `evt screen` only** — do not restore `evt input` or echo `cmd screen` on swipe; skill **`mcu-display-cm5`**.
+8. **Suricata / Snort LuCI** — user-facing **Suricata** (package `luci-app-suricata`). Snort always `manual=0`; do not restore **Use snort.lua only**. Skills **`suricata-ids-cm5`**, **`snort3-ids-cm5`**.
+9. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
+10. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
+11. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.
 
 ## Integrating the feed (local build)
 
@@ -125,6 +127,7 @@ Use these Cursor skills when working in this repo:
 
 | Skill | When to use |
 |-------|-------------|
+| `openwrt-25x` | ImmortalWrt 25.x: apk vs opkg, ucode rpcd, `ucode -c` |
 | `openwrt-feed-packages` | Adding or editing packages, Makefiles, init scripts, feed layout, blocky scripts |
 | `luci-bootstrap-theming` | LuCI views, JS dashboards, `*-theme.css`, responsive layout, tabs |
 | `mcu-display-cm5` | luci-app-mcu-display, Go mcudd, ttyS2 RDCP, `evt screen` sidecar |

@@ -93,7 +93,7 @@ function createBlockyView(options) {
 
 				hero.innerHTML = '';
 				if (!running)
-					note = _('Blocky is not running. Start it under System → Startup.');
+					note = _('Filtering is off. Enable Blocky on the Settings tab, then Save & Apply.');
 				else if (!blocking)
 					note = _('The service is up, but blocking is off or paused. Use Enable blocking on Status.');
 				else
@@ -124,7 +124,8 @@ function createBlockyView(options) {
 						fresh[2],
 						blockyCliStdout(execResultStdout(fresh[4], '0\n')),
 						fresh[7] || { user: '', password: '', localOnly: true },
-						refreshPage
+						refreshPage,
+						pageStatus
 					));
 					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9], {
 						onQueryDomain: openDnsQuery
@@ -147,7 +148,7 @@ function createBlockyView(options) {
 			listsBox.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
 
 			settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
-			settingsBox.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
+			settingsBox.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage, pageStatus));
 
 			queryBox = E('div', { 'data-tab': 'query', 'data-tab-title': _('Query') });
 			queryBox.appendChild(queryPanel.node);
@@ -170,9 +171,6 @@ function createBlockyView(options) {
 			root = E('div', { 'class': 'luci-app-blocky' }, [
 				BlockyTabs.dashboard.blockyInjectStyles(),
 				E('h2', {}, [ _('Blocky') ]),
-				E('p', { 'class': 'blocky-lead' }, [
-					_('DNS filter for devices on your LAN. dnsmasq on port 53 forwards to Blocky; clients keep using the router as their DNS server.')
-				]),
 				hero,
 				tabHost
 			]);

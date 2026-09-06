@@ -1,0 +1,39 @@
+---
+description: >-
+  OpenWrt / ImmortalWrt 25.x: apk not opkg, native ucode rpcd, CI 25.12.
+  Apply for packages, LuCI RPC, install/QA, or when opkg/.ipk/Lua RPC appears.
+alwaysApply: true
+---
+
+# OpenWrt 25.x conventions
+
+## Package manager
+
+ImmortalWrt **25.x** uses **`apk`**. Output is `.apk`. Do not write `opkg` / `.ipk` in recipes, docs, or QA.
+
+```sh
+apk update
+apk add luci-app-snort3
+apk info luci-app-snort3
+apk del luci-app-snort3
+```
+
+CI / Pages: ImmortalWrt **25.12**, `aarch64_generic`.
+
+## LuCI RPC
+
+New backends are **ucode** via **`rpcd-mod-ucode`**, not shell/Lua under `/usr/libexec/rpcd/`.
+
+Install path: `/usr/share/rpcd/ucode/luci.<app>.uc`
+
+Use **`ucode-mod-uci`** and **`ucode-mod-fs`**. Rule **`rpcd-ucode-strict`**. Skill **`openwrt-25x`**.
+
+## Verify ucode
+
+Host hook: `.cursor/hooks.json` → `ucode -c` when `ucode` is on `PATH`.
+
+On the router (macOS has no ucode): `ucode -c /tmp/file.uc` (exit 0), then copy to `/usr/share/rpcd/ucode/` and `/etc/init.d/rpcd restart`.
+
+## Kernel (not this repo)
+
+OpenWrt 25.x default is Linux **6.12**. This feed does not set `KERNEL_PATCHVER`. CM5 ImmortalWrt **rockchip** stays **6.18** — do not “fix” it to 6.12.

@@ -324,6 +324,7 @@ function readBlockySettingsForm(state) {
 
 function saveBlockySettingsForm(state, currentYaml, restart) {
 	var fields = readBlockySettingsForm(state);
+	var enabled = !!(state.serviceEnabled && state.serviceEnabled.checked);
 
 	fields.blockingSection = bc.patchBlockingLoadingSection(fields.blockingSection, fields);
 
@@ -335,9 +336,11 @@ function saveBlockySettingsForm(state, currentYaml, restart) {
 
 	return applyBlockyConfigYaml(yaml, {
 		restart: restart,
+		enabled: enabled,
 		onUciPatch: function() {
 			return uci.load('blocky').then(function() {
 				uci.set('blocky', 'main', 'refresh_period', fields.listRefreshPeriod || '4h');
+				uci.set('blocky', 'main', 'enabled', enabled ? '1' : '0');
 				return uci.save();
 			});
 		}
@@ -439,10 +442,16 @@ function renderUpstreamGroupsEditor(parsed) {
 	};
 }
 
-function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
+function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage, pageStatus) {
 	var parsed = bc.parseBlockySettings(configYaml);
 	var upstreamEditor = renderUpstreamGroupsEditor(parsed);
+	var serviceOn = !(pageStatus && (pageStatus.enabled === '0' || pageStatus.enabled === 0 || pageStatus.enabled === false));
 	var state = {
+		serviceEnabled: E('input', {
+			'type': 'checkbox',
+			'id': 'blocky-enabled',
+			'checked': serviceOn ? '' : null
+		}),
 		upstreamGroupRows: upstreamEditor.rows,
 		upstreamInitStrategy: E('select', { 'class': 'cbi-input-select' }, [
 			E('option', { 'value': 'fast', 'selected': parsed.upstreamInitStrategy === 'fast' ? '' : null }, [ 'fast' ]),
@@ -587,6 +596,19 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 	});
 
 	var sections = [
+		{
+			id: 'service',
+			title: _('Service'),
+			content: configSectionPage(
+				_('Service'),
+				_('Turn Blocky on, then Save & Apply. Block lists stay on the Block lists tab.'),
+				[
+					settingsRow(_('Enable Blocky'),
+						_('Start Blocky and apply this configuration.'),
+						state.serviceEnabled, 'blocky-enabled')
+				]
+			)
+		},
 		{
 			id: 'router',
 			title: _('Router DNS'),
@@ -745,12 +767,12 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 	]);
 }
 
-function renderBlockySettingsPage(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
+function renderBlockySettingsPage(configYaml, dnsFwdRaw, uciAccess, refreshPage, pageStatus) {
 	return E('div', { 'class': 'blocky-config-page' }, [
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Choose a settings section on the left. Use footer Save & Apply to write config.yml and restart Blocky. Block list URLs stay under the Block lists tab.')
+			_('Choose a settings section on the left. Tick Enable Blocky, then use footer Save & Apply to write config.yml and start or stop the service. Block list URLs stay under the Block lists tab.')
 		]),
-		renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
+		renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage, pageStatus)
 	]);
 }
 

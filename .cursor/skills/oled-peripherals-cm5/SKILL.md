@@ -77,7 +77,7 @@ OLED tab: read-only **I2C** bus scan (`scanI2c` RPC) only. Cross-link to **Servi
 ## Router diagnostics
 
 ```sh
-opkg info luci-app-oled | grep Release
+apk info luci-app-oled
 logread -e oledd | tail -20
 ps w | grep oledd
 ubus call oledd status

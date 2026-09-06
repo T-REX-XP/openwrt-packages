@@ -517,8 +517,15 @@ function applyBlockyConfigYaml(yaml, options) {
 	}).then(function() {
 		return execBlockyListsSync();
 	}).then(function() {
-		if (restart)
+		if (!restart)
+			return;
+		if (options.enabled === false)
+			return runInit('disable').then(function() {
+				return runInit('stop');
+			});
+		return runInit('enable').then(function() {
 			return runInit('restart');
+		});
 	});
 }
 

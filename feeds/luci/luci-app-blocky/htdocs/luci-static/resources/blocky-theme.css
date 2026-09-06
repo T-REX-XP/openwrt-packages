@@ -81,6 +81,24 @@
 	font-size: 0.9em;
 }
 
+.luci-app-blocky .blocky-next {
+	margin: 0.75rem 0 0;
+	padding: 0.75rem 1rem;
+	background: var(--background-color-low);
+	border-left: 4px solid var(--primary-color-high, #1565c0);
+	border-radius: 0 4px 4px 0;
+	color: var(--text-color-high);
+}
+
+.luci-app-blocky .blocky-next ol {
+	margin: 0.35rem 0 0 1.2rem;
+	padding: 0;
+}
+
+.luci-app-blocky .blocky-next li {
+	margin: 0.25rem 0;
+}
+
 .luci-app-blocky .blocky-tab-host {
 	min-width: 0;
 }

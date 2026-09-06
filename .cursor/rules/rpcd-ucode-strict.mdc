@@ -1,10 +1,12 @@
 ---
-description: ucode rpcd plugins — no hoist, no brace interpolation.
+description: ucode rpcd plugins — native 25.x stack, no hoist, no brace interpolation.
 globs: feeds/**/*.uc
 alwaysApply: false
 ---
 
-# rpcd ucode — `'use strict'`
+# rpcd ucode — OpenWrt 25.x
+
+LuCI backends are **ucode** (`rpcd-mod-ucode`) at `/usr/share/rpcd/ucode/`, using **`ucode-mod-uci`** and **`ucode-mod-fs`**. Do not add new shell/Lua plugins under `/usr/libexec/rpcd/`.
 
 Ucode **does not hoist** `function` declarations. A caller compiled before its helper fails at runtime (`access to undeclared variable …`).
 
@@ -24,4 +26,4 @@ Do **not** put `{` or `}` in ucode regex literals or interpolated strings (treat
 
 URL placeholders: `chr(123)` / `chr(125)`, not `{oinkcode}`.
 
-After edits: `ucode /tmp/file.uc` on the router (exit 0) **before** overwriting `/usr/share/rpcd/ucode/`, then `/etc/init.d/rpcd restart`.
+After edits: **`ucode -c /tmp/file.uc`** on the router (exit 0) **before** overwriting `/usr/share/rpcd/ucode/`, then `/etc/init.d/rpcd restart`. Host hook `.cursor/hooks.json` runs `ucode -c` when the binary exists.

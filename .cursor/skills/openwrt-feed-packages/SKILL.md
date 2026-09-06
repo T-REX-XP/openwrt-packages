@@ -33,7 +33,7 @@ Feed name: **`openwrt_packages`**. Link **`feeds/`**, not the repo root.
 
 ## LuCI app pattern (JS + rpcd)
 
-Modern apps in this feed use **not** `luasrc/controller` + CBI:
+Modern apps in this feed use **JS views + ucode rpcd** (OpenWrt **25.x**), not `luasrc/controller` + CBI and not shell/Lua `/usr/libexec/rpcd/`. Skill **`openwrt-25x`**.
 
 ```text
 htdocs/luci-static/resources/view/<area>/<app>.js
@@ -99,7 +99,8 @@ build-immortalwrt-macos.sh --source /path/to/immortalwrt \
 
 - Syntax-check shell: `sh -n files/...`
 - Syntax-check LuCI JS: `node --check htdocs/luci-static/resources/*.js`
-- CI compiles **every** `feeds/{packages,luci}/*` package (discovered, not a hardcoded list) unsigned on push/PR; tagged Release publishes the same set
+- Syntax-check ucode: `ucode -c root/usr/share/rpcd/ucode/*.uc` (or router `/tmp` copy). Host hook: `.cursor/hooks.json`
+- CI compiles **every** `feeds/{packages,luci}/*` package (discovered, not a hardcoded list) unsigned on push/PR; tagged Release publishes the same set (**.apk**)
 
 ## Do not
 
@@ -107,3 +108,4 @@ build-immortalwrt-macos.sh --source /path/to/immortalwrt \
 - Skip `PKG_RELEASE` bump when changing installed files
 - Add unrelated packages or refactor across apps in one change
 - Assume packages are on `immortalwrt.org` — this is a third-party feed (compile-time link or published Pages/Releases apk)
+- Use `opkg` / `.ipk` — ImmortalWrt 25.x is **`apk` / `.apk`**
