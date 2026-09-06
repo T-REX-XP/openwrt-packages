@@ -1,12 +1,12 @@
 ---
 description: Suricata LuCI naming, policies, and frozen UX.
-globs: feeds/luci/luci-app-threat-prevention/**,feeds/packages/tp-eventd/**,feeds/packages/suricata/**,feeds/packages/suricata-etopen/**
+globs: feeds/luci/luci-app-suricata/**,feeds/packages/tp-eventd/**,feeds/packages/suricata/**,feeds/packages/suricata-etopen/**
 alwaysApply: false
 ---
 
 # Suricata LuCI
 
-User-facing name is **Suricata** (menu JSON `title`, view `E('h2')`). Package / rpcd / CSS stay `luci-app-threat-prevention`, `luci.threat-prevention`, `.luci-app-threat-prevention`.
+User-facing name is **Suricata** (menu JSON `title`, view `E('h2')`). Package / rpcd / CSS are `luci-app-suricata`, `luci.suricata`, `.luci-app-suricata`. Do not use `luci-app-threat-prevention`.
 
 Do not restore **Threat Prevention** as the menu or page title.
 

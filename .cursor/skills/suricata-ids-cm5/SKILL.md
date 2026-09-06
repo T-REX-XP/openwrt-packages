@@ -1,15 +1,15 @@
 ---
 name: suricata-ids-cm5
 description: >-
-  Suricata IDS host stack on CM5 ImmortalWrt: luci-app-threat-prevention
-  (user-facing Suricata), tp-eventd, suricata-etopen, rules/policies, ucode
-  rpcd. Use when editing those packages, ET Open feeds, SID tunings, classtype
-  policies, or deploying Suricata LuCI to 192.168.8.1.
+  Suricata IDS host stack on CM5 ImmortalWrt: luci-app-suricata, tp-eventd,
+  suricata-etopen, rules/policies, ucode rpcd. Use when editing those packages,
+  ET Open feeds, SID tunings, classtype policies, or deploying Suricata LuCI
+  to 192.168.8.1.
 ---
 
 # Suricata IDS on CM5 (host)
 
-LuCI menu **Services → Suricata**. Package id stays **`luci-app-threat-prevention`** (rpcd `luci.threat-prevention`, CSS `.luci-app-threat-prevention`). Do not rename the package. Do not restore the title **Threat Prevention**.
+LuCI menu **Services → Suricata**. Package id is **`luci-app-suricata`** (rpcd `luci.suricata`, CSS `.luci-app-suricata`). Do not restore **Threat Prevention** or `luci-app-threat-prevention`.
 
 Engine packages: `suricata`, `suricata-etopen`, `tp-eventd`. In the CM5 image, **disabled by default**. Passive IDS on `br-lan`. Do not recommend inline IPS at 2.5 GbE.
 
@@ -19,9 +19,9 @@ Tiers and banIP/Blocky: skill **`cm5-security-stack`**.
 
 | Piece | Path |
 |-------|------|
-| LuCI view | `feeds/luci/luci-app-threat-prevention/htdocs/.../view/services/threat-prevention.js` |
-| rpcd | `feeds/luci/luci-app-threat-prevention/root/usr/share/rpcd/ucode/luci.threat-prevention.uc` |
-| Menu | `.../menu.d/luci-app-threat-prevention.json` (`title`: `Suricata`) |
+| LuCI view | `feeds/luci/luci-app-suricata/htdocs/.../view/services/suricata.js` |
+| rpcd | `feeds/luci/luci-app-suricata/root/usr/share/rpcd/ucode/luci.suricata.uc` |
+| Menu | `.../menu.d/luci-app-suricata.json` (`title`: `Suricata`) |
 | Index | `feeds/packages/tp-eventd/files/usr/sbin/tp-rules-index` |
 | SID suppress | `.../tp-rules-apply` → `/etc/suricata/threshold.config` |
 | Ruleset policy | `.../tp-policy-apply` → `/var/run/suricata/policy.meta` |
@@ -54,22 +54,22 @@ Vendor `.rules` stay read-only. Tunings live in UCI. Per-SID action wins; file a
 
 ## ucode (`'use strict'`)
 
-Functions are **not hoisted**. Define helpers **above** the first caller (`list_etopen_feeds` before `get_config`, `distinct_col` before `get_policies`, `parse_enabled_flag` before `replace_policies`). Tests in `tests/tp-core.test.mjs` assert that order.
+Functions are **not hoisted**. Define helpers **above** the first caller (`list_etopen_feeds` before `get_config`, `distinct_col` before `get_policies`, `parse_enabled_flag` before `replace_policies`). Tests in `tests/suricata-core.test.mjs` assert that order.
 
 Do **not** put `{` `}` in ucode regex or string patterns (interpolation). URL placeholders: `chr(123)` / `chr(125)`.
 
 ## Deploy to live router
 
 ```sh
-scp -i ~/.ssh/id_ed25519_openwrt_mcp FILE.uc root@192.168.8.1:/tmp/luci.threat-prevention.uc
-ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'ucode /tmp/luci.threat-prevention.uc'
+scp -i ~/.ssh/id_ed25519_openwrt_mcp FILE.uc root@192.168.8.1:/tmp/luci.suricata.uc
+ssh -i ~/.ssh/id_ed25519_openwrt_mcp root@192.168.8.1 'ucode /tmp/luci.suricata.uc'
 # exit 0, then:
-#   cp → /usr/share/rpcd/ucode/luci.threat-prevention.uc
-#   JS → /www/luci-static/resources/view/services/threat-prevention.js
+#   cp → /usr/share/rpcd/ucode/luci.suricata.uc
+#   JS → /www/luci-static/resources/view/services/suricata.js
 #   menu → /usr/share/luci/menu.d/
 /etc/init.d/rpcd restart
-ubus call luci.threat-prevention getConfig
-ubus call luci.threat-prevention getPolicies
+ubus call luci.suricata getConfig
+ubus call luci.suricata getPolicies
 ```
 
 Hard-refresh LuCI after JS/menu changes. Bump `PKG_RELEASE` on recipe changes.
@@ -77,13 +77,12 @@ Hard-refresh LuCI after JS/menu changes. Bump `PKG_RELEASE` on recipe changes.
 ## Tests
 
 ```sh
-feeds/luci/luci-app-threat-prevention/tests/run-tests.sh
+feeds/luci/luci-app-suricata/tests/run-tests.sh
 feeds/packages/tp-eventd/tests/run-tests.sh
 ```
 
 ## Do not
 
-- Rename package / rpcd / CSS class to `luci-app-suricata`
-- Restore **Threat Prevention** as the menu or H2
+- Restore **Threat Prevention** or `luci-app-threat-prevention` as the package / menu / H2
 - `uci delete` the SID section on re-enable (wipes tunings)
 - Restore `evt input` / MCU display logic (wrong skill)

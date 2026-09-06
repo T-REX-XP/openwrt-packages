@@ -315,6 +315,7 @@ test('view has catalog, pass, suppress, policy', () => {
 	assert.match(ucode, /snort-rules-index/);
 	assert.match(ucode, /snort-rules-apply/);
 	assert.ok(ucode.indexOf('function list_rulesets') < ucode.indexOf('function get_config'));
+	assert.match(ucode, /find -L \/etc\/snort\/rules/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

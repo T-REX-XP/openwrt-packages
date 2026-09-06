@@ -115,12 +115,12 @@ function snortCatalogEntry(feed) {
 
 function snortCatalogName(feed) {
 	var row = snortCatalogEntry(feed);
-	return row.name ? _(row.name) : '';
+	return row.name || '';
 }
 
 function snortCatalogDesc(feed) {
 	var row = snortCatalogEntry(feed);
-	return row.description ? _(row.description) : '';
+	return row.description || '';
 }
 
 var snortFeeds = [];

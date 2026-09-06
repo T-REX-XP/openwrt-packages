@@ -23,7 +23,7 @@ Personal OpenWrt / ImmortalWrt feed (layout aligned with [fantastic-packages/pac
 | `feeds/packages/suricata` | **suricata** — Suricata 8 IDS (in CM5 image, disabled by default; GitHub Actions SDK + Pages) |
 | `feeds/packages/suricata-etopen` | **suricata-etopen** — fetch live ET Open (Suricata 8) into `/etc/suricata/rules` |
 | `feeds/packages/tp-eventd` | **tp-eventd** — EVE JSON → SQLite event ring |
-| `feeds/luci/luci-app-threat-prevention` | **luci-app-threat-prevention** — LuCI for Suricata (EVE events, ET Open, class policy) |
+| `feeds/luci/luci-app-suricata` | **luci-app-suricata** — LuCI for Suricata (EVE events, ET Open, class policy) |
 
 Upstream **speedtest-go** remains on the normal packages feed; these recipes only add the LuCI front-end where applicable.
 
@@ -62,7 +62,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 | | `adblock`, `luci-app-adblock` | ImmortalWrt `packages` / `luci` | Excellent — already in CM5 image |
 | **IP blocklists (“mini-IPS”)** | `banip`, `luci-app-banip` | ImmortalWrt `packages` / `luci` | **Best add-on** — low CPU, nftables threat feeds |
 | **Signature IDS** | `snort3`, `luci-app-snort3` | **this feed** (GitHub Pages apk; shadows ImmortalWrt `snort3` if both are linked) | Good in **passive IDS** mode; IPS on 2.5 GbE needs tuning |
-| | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-threat-prevention` | **this feed** (GitHub Pages apk) | Optional **IDS** on `br-lan`; not in CM5 image |
+| | `suricata`, `suricata-etopen`, `tp-eventd`, `luci-app-suricata` | **this feed** (GitHub Pages apk) | Optional **IDS** on `br-lan`; not in CM5 image |
 | **Traffic visibility** | `tcpdump-mini`, `vnstat2`, `luci-app-vnstat2` | ImmortalWrt feeds | Excellent — capture and per-interface volume |
 | | `nlbwmon`, `luci-app-nlbwmon`, `luci-app-statistics` | ImmortalWrt feeds | Per-host accounting / graphs (in CM5 profile) |
 | **Operator guide** | `luci-app-security-guide` | **this feed** | Security & privacy LuCI (CM5 profile) |
@@ -79,7 +79,7 @@ OpenWrt routers are not datacenter IDS appliances. On **Orange Pi CM5 Base** (RK
 
 **Tier 1 — default (low risk, high value):** keep **`adblock`**; add **`banip`** + **`luci-app-banip`**; **`blocky`** in CM5 image; use **`tcpdump-mini`**, **`vnstat2`**, **`nlbwmon`** for visibility.
 
-**Tier 2 — in CM5 image (disabled by default):** **`snort3`** + **`luci-app-snort3`** and **`suricata`** + **`luci-app-threat-prevention`** in **IDS** mode on `br-lan` with a **minimal** rule set — see the [Suricata plan](docs/suricata-openwrt-plan.md).
+**Tier 2 — in CM5 image (disabled by default):** **`snort3`** + **`luci-app-snort3`** and **`suricata`** + **`luci-app-suricata`** in **IDS** mode on `br-lan` with a **minimal** rule set — see the [Suricata plan](docs/suricata-openwrt-plan.md).
 
 **Tier 3 — advanced:** mirror WAN/LAN to a **Docker** host on another machine for Suricata or Wazuh — see the research doc.
 
@@ -89,7 +89,7 @@ Packages from **this feed** (after enabling the feed — see below):
 
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3 snort3
-apk add suricata suricata-etopen tp-eventd luci-app-threat-prevention
+apk add suricata suricata-etopen tp-eventd luci-app-suricata
 ```
 
 Packages from the **standard ImmortalWrt index** (built into the image or from upstream feeds):

@@ -3,7 +3,7 @@ name: cm5-security-stack
 description: >-
   Recommend and configure IDS, DNS filtering, and traffic analysis for Orange Pi
   CM5 Base on ImmortalWrt. Use when working on blocky, luci-app-snort3,
-  luci-app-threat-prevention (LuCI Suricata), luci-app-security-guide, banIP,
+  luci-app-suricata (LuCI Suricata), luci-app-security-guide, banIP,
   or CM5 network/security docs. Implementation: suricata-ids-cm5, snort3-ids-cm5.
 ---
 
@@ -21,7 +21,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 | | adblock, luci-app-adblock | ImmortalWrt | Excellent — in CM5 profile |
 | IP blocklists | banip, luci-app-banip | ImmortalWrt | **Best add-on** — low CPU |
 | Signature IDS | snort3, luci-app-snort3 | **this feed** (engine: Docker, skip GitHub SDK) | In CM5 image, **off** by default; **passive IDS**; IPS needs tuning |
-| | suricata, suricata-etopen, tp-eventd, luci-app-threat-prevention | **this feed** (engine: Docker, skip GitHub SDK) | In CM5 image, **off** by default; LuCI **Services → Suricata**; **IDS** on `br-lan` |
+| | suricata, suricata-etopen, tp-eventd, luci-app-suricata | **this feed** (engine: Docker, skip GitHub SDK) | In CM5 image, **off** by default; LuCI **Services → Suricata**; **IDS** on `br-lan` |
 | Visibility | tcpdump-mini, vnstat2, nlbwmon | ImmortalWrt | Excellent |
 | Operator guide | luci-app-security-guide | **this feed** | Optional feed install |
 | Heavy IDS/SIEM | Zeek, Wazuh, Suricata **IPS** | External Docker host | Full SIEM / inline IPS not on-router |
@@ -30,7 +30,7 @@ Full research: `docs/ids-traffic-analysis-openwrt-research.md`
 
 **Tier 1 (default):** adblock + banip + blocky + tcpdump-mini + vnstat2 + nlbwmon
 
-**Tier 2 (in image, off):** snort3 + luci-app-snort3 and **suricata** + luci-app-threat-prevention (LuCI **Suricata**) in **IDS mode** on `br-lan`, small ET profile, monitor CPU/RAM
+**Tier 2 (in image, off):** snort3 + luci-app-snort3 and **suricata** + luci-app-suricata (LuCI **Suricata**) in **IDS mode** on `br-lan`, small ET profile, monitor CPU/RAM
 
 **Tier 3 (advanced):** mirror WAN/LAN to an external Docker host for full Suricata IPS / Wazuh
 
@@ -45,7 +45,7 @@ From **this feed** (after enabling feed):
 
 ```sh
 apk add blocky luci-app-blocky luci-app-security-guide luci-app-snort3
-apk add suricata-etopen tp-eventd luci-app-threat-prevention
+apk add suricata-etopen tp-eventd luci-app-suricata
 # snort3 / suricata engines: compile in Docker first
 ```
 

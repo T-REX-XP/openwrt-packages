@@ -4,7 +4,7 @@
 var FLAG_OPTS = [ 'enabled' ];
 
 var ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
-var CATALOG_PATH = '/usr/share/luci-app-threat-prevention/ruleset-catalog.json';
+var CATALOG_PATH = '/usr/share/luci-app-suricata/ruleset-catalog.json';
 
 var FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
 

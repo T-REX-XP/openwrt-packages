@@ -78,8 +78,8 @@ jobs:
           grep -qx snort3 /tmp/feed-packages.txt
           grep -qx suricata /tmp/feed-packages.txt
 
-  test-threat-prevention:
-    name: threat-prevention host tests
+  test-suricata:
+    name: luci-app-suricata host tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -91,7 +91,7 @@ jobs:
       - name: Run tp-eventd and LuCI checks
         run: |
           feeds/packages/tp-eventd/tests/run-tests.sh
-          feeds/luci/luci-app-threat-prevention/tests/run-tests.sh
+          feeds/luci/luci-app-suricata/tests/run-tests.sh
 
   test-snort3:
     name: luci-app-snort3 host tests
@@ -106,7 +106,7 @@ jobs:
 
   build-cm5:
     name: Orange Pi CM5 (aarch64_generic)
-    needs: [test-blocky, test-mcu-display, test-mcudd, test-threat-prevention, test-snort3, test-feed-discover]
+    needs: [test-blocky, test-mcu-display, test-mcudd, test-suricata, test-snort3, test-feed-discover]
     uses: ./.github/workflows/build-packages.yml
     with:
       arch: aarch64_generic-25.12-SNAPSHOT

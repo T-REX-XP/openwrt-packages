@@ -1,9 +1,9 @@
 {
-	"luci-app-threat-prevention": {
-		"description": "Grant access for luci-app-threat-prevention",
+	"luci-app-suricata": {
+		"description": "Grant access for luci-app-suricata",
 		"read": {
 			"ubus": {
-				"luci.threat-prevention": [
+				"luci.suricata": [
 					"getStatus",
 					"getEvents",
 					"getConfig",
@@ -14,7 +14,7 @@
 			},
 			"uci": [ "suricata" ],
 			"file": {
-				"/usr/share/luci-app-threat-prevention/ruleset-catalog.json": [ "read" ],
+				"/usr/share/luci-app-suricata/ruleset-catalog.json": [ "read" ],
 				"/tmp/tp_status.json": [ "read" ],
 				"/tmp/tp_etopen.json": [ "read" ],
 				"/var/lib/threat-prevention/events.sqlite": [ "read" ],
@@ -29,7 +29,7 @@
 		},
 		"write": {
 			"ubus": {
-				"luci.threat-prevention": [
+				"luci.suricata": [
 					"setConfig",
 					"serviceControl",
 					"fetchRules",

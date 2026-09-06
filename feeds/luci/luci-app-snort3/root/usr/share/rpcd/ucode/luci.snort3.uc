@@ -713,13 +713,13 @@ function rules_info() {
 	let target = '';
 	if (symlink)
 		target = run_cmd(`readlink ${shell_quote(config_rules)}`).output;
-	let count = run_cmd("find /etc/snort/rules -name '*.rules' 2>/dev/null | wc -l").output;
+	let count = run_cmd("find -L /etc/snort/rules -type f -name '*.rules' 2>/dev/null | wc -l").output;
 	return {
 		symlink,
 		target,
 		temp_exists: file_test('-d', temp_rules),
 		config_exists: file_test('-d', config_rules) || symlink,
-		rule_files: int(count) || 0
+		rule_files: int(trim(count)) || 0
 	};
 }
 

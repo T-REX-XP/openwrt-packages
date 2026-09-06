@@ -44,7 +44,7 @@ src-link openwrt_packages /absolute/path/to/openwrt-packages/feeds
 | `feeds/packages/suricata` | suricata | Suricata 8 IDS (in CM5 image, disabled by default; Docker compile) |
 | `feeds/packages/suricata-etopen` | suricata-etopen | Live ET Open fetch for Suricata 8 |
 | `feeds/packages/tp-eventd` | tp-eventd | EVE JSON → SQLite ring |
-| `feeds/luci/luci-app-threat-prevention` | luci-app-threat-prevention | Suricata LuCI (EVE, ET Open, class policy) |
+| `feeds/luci/luci-app-suricata` | luci-app-suricata | Suricata LuCI (EVE, ET Open, class policy) |
 
 Upstream **speedtest-go** stays on the standard packages feed; this feed only ships the LuCI front-end where applicable.
 
@@ -70,7 +70,7 @@ Default CM5 host: `192.168.8.1`. Use MCP for UCI/apk/network; SSH fallbacks for 
 4. **LuCI JS** — prefer CSS tone classes over inline hex/rgba. Wrap views in a scoped root (e.g. `.luci-app-mcu-display`). Use **JS views** + `menu.d` + `rpcd/ucode` (not legacy `luasrc` CBI). All `rpc.declare` calls need `expect: { '': {} }`. No hardcoded board/wiring prose in views — use `_()` and runtime RPC data; hardware harness docs stay in `docs/`. Footer Save & Apply only (no in-page duplicate). No Blocky/Snort/Suricata header cross-links.
 5. **rpcd ucode** — `'use strict'` does **not** hoist functions; helpers must appear above the first caller. Never put `{` `}` in ucode regex or interpolated strings (`chr(123)` / `chr(125)`). Parse with `ucode /tmp/file.uc` on the router before replacing `/usr/share/rpcd/ucode/`. Rule **`rpcd-ucode-strict`**.
 6. **MCU display vs peripherals** — display/menu/button mapping/splash → **luci-app-mcu-display** (`Services → MCU Display`); fan/IR/I2C scan/module checks → **luci-app-peripherals** (`System → Peripherals`). Physical hotplug scripts → **cm5-button-scripts** (shipped on CM5; editable via SSH). Cross-link in UI; do not duplicate UCI forms. **Page sync is `evt screen` only** — do not restore `evt input` or echo `cmd screen` on swipe; skill **`mcu-display-cm5`**.
-7. **Suricata / Snort LuCI** — user-facing **Suricata** (package stays `luci-app-threat-prevention`). Snort always `manual=0`; do not restore **Use snort.lua only**. Skills **`suricata-ids-cm5`**, **`snort3-ids-cm5`**.
+7. **Suricata / Snort LuCI** — user-facing **Suricata** (package `luci-app-suricata`). Snort always `manual=0`; do not restore **Use snort.lua only**. Skills **`suricata-ids-cm5`**, **`snort3-ids-cm5`**.
 8. **Conffiles** — preserve `/etc/config/*` and service config paths in `conffiles`; document migration in init/uci-defaults when defaults change.
 9. **Target platform** — CI builds for ImmortalWrt **25.12**, `rockchip/armv8` → **`aarch64_generic`** only.
 10. **Commits** — only when the user explicitly asks. Never force-push or amend without permission.
@@ -112,7 +112,7 @@ Primary device: **Orange Pi CM5 Base** (RK3588S, dual 2.5 GbE, ~8 GB RAM).
 **Suggested security stack (tiers)** — see [README.md](README.md) and `docs/ids-traffic-analysis-openwrt-research.md`:
 
 - **Tier 1:** adblock + banip + traffic visibility (tcpdump-mini, vnstat2, nlbwmon); **blocky** in CM5 image
-- **Tier 2:** snort3 + luci-app-snort3 and suricata + luci-app-threat-prevention in **passive IDS** mode on `br-lan` (in CM5 image, disabled by default)
+- **Tier 2:** snort3 + luci-app-snort3 and suricata + luci-app-suricata in **passive IDS** mode on `br-lan` (in CM5 image, disabled by default)
 - **Tier 3:** mirror traffic to an **external** Docker host for Suricata/Wazuh (not on-router; CM5 image no longer ships Docker)
 
 **Blocky on CM5 (default image):** `blocky` + `luci-app-blocky` in CM5 `DEVICE_PACKAGES`. Clients → dnsmasq `:53` → Blocky `127.0.0.1:5353`; LuCI/API via rpcd → `blocky-http-api` → `127.0.0.1:4000`. UCI blocklists → `blocky-lists-sync` (rewrite `config.yml`); live reload → `blocky-lists-refresh` (POST `/api/lists/refresh`). Router DNS toggle → `blocky-dnsmasq-sync`.
@@ -132,7 +132,7 @@ Use these Cursor skills when working in this repo:
 | `oled-peripherals-cm5` | Historical OLED/oledd notes; peripherals I2C/fan (not MCU UART) |
 | `openwrt-feed-ci-release` | GitHub Actions, release tags, Pages feed, apk signing |
 | `cm5-security-stack` | IDS/IPS tiers, banIP, blocky, Snort/Suricata fit on CM5 |
-| `suricata-ids-cm5` | luci-app-threat-prevention (menu **Suricata**), ET Open, SID/policies, ucode |
+| `suricata-ids-cm5` | luci-app-suricata (menu **Suricata**), ET Open, SID/policies, ucode |
 | `snort3-ids-cm5` | luci-app-snort3, generated Lua, DAQ method, jail |
 | `openwrt-mcp-ssh` | Live router via MCP (`user-openwrt`) or SSH — UCI, apk, mcudd link test, post-flash validation |
 

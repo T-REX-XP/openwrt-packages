@@ -1,0 +1,13 @@
+{
+	"admin/services/suricata": {
+		"title": "Suricata",
+		"order": 55,
+		"action": {
+			"type": "view",
+			"path": "services/suricata"
+		},
+		"depends": {
+			"acl": [ "luci-app-suricata" ]
+		}
+	}
+}

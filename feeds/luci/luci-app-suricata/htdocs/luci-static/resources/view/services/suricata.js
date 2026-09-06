@@ -5,97 +5,97 @@
 'require poll';
 'require network';
 'require fs';
-'require threat-prevention-core as tpCore';
+'require suricata-core as suricataCore';
 
 var callGetStatus = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getStatus',
 	expect: { '': {} }
 });
 
 var callGetEvents = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getEvents',
 	params: [ 'limit' ],
 	expect: { '': {} }
 });
 
 var callGetConfig = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getConfig',
 	expect: { '': {} }
 });
 
 var callSetConfig = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'setConfig',
 	params: [ 'config' ],
 	expect: { '': {} }
 });
 
 var callServiceControl = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'serviceControl',
 	params: [ 'action' ],
 	expect: { '': {} }
 });
 
 var callFetchRules = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'fetchRules',
 	expect: { '': {} }
 });
 
 var callGetRules = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getRules',
 	params: [ 'query', 'classtype', 'file', 'state', 'offset', 'limit' ],
 	expect: { '': {} }
 });
 
 var callGetRule = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getRule',
 	params: [ 'sid', 'gid' ],
 	expect: { '': {} }
 });
 
 var callSetRuleState = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'setRuleState',
 	params: [ 'sid', 'gid', 'enabled' ],
 	expect: { '': {} }
 });
 
 var callSetRuleStates = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'setRuleStates',
 	params: [ 'sids', 'gid', 'enabled', 'status', 'action' ],
 	expect: { '': {} }
 });
 
 var callSetRuleTune = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'setRuleTune',
 	params: [ 'tune' ],
 	expect: { '': {} }
 });
 
 var callGetPolicies = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'getPolicies',
 	expect: { '': {} }
 });
 
 var callSetPolicies = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'setPolicies',
 	params: [ 'policies' ],
 	expect: { '': {} }
 });
 
 var callReindexRules = rpc.declare({
-	object: 'luci.threat-prevention',
+	object: 'luci.suricata',
 	method: 'reindexRules',
 	expect: { '': {} }
 });
@@ -105,7 +105,7 @@ function val(v, fallback) {
 }
 
 function tpCatalogEntry(feed) {
-	var rows = tpCore.knownFeeds();
+	var rows = suricataCore.knownFeeds();
 	var i;
 	var id = feed && feed.id;
 	var url = feed && feed.url;
@@ -118,12 +118,12 @@ function tpCatalogEntry(feed) {
 
 function tpCatalogName(feed) {
 	var row = tpCatalogEntry(feed);
-	return row.name ? _(row.name) : '';
+	return row.name || '';
 }
 
 function tpCatalogDesc(feed) {
 	var row = tpCatalogEntry(feed);
-	return row.description ? _(row.description) : '';
+	return row.description || '';
 }
 
 var settingsFeeds = [];
@@ -236,7 +236,7 @@ function labeledActionBtn(label, cls, title, fn) {
 var ruleActionBusy = false;
 
 function progressPanel(msg) {
-	return E('div', { 'class': 'luci-app-threat-prevention' }, [
+	return E('div', { 'class': 'luci-app-suricata' }, [
 		E('div', { 'class': 'tp-progress', role: 'status', 'aria-live': 'polite' }, [
 			E('span', { 'class': 'tp-progress-spinner', 'aria-hidden': 'true' }),
 			E('p', { 'class': 'tp-progress-msg' }, msg)
@@ -293,7 +293,7 @@ function ruleStatusDoneMsg(status) {
 }
 
 function ruleTagPills(row) {
-	var tags = tpCore.displayRuleTags(row && row.raw, {
+	var tags = suricataCore.displayRuleTags(row && row.raw, {
 		classtype: row && row.classtype,
 		tags: row && row.tags
 	});
@@ -367,7 +367,7 @@ function lanCidrFromNet(net) {
 		return '';
 	addrs = net.getIPAddrs() || [];
 	for (i = 0; i < addrs.length; i++) {
-		cidr = tpCore.hostCidrToNetwork(addrs[i]);
+		cidr = suricataCore.hostCidrToNetwork(addrs[i]);
 		if (cidr)
 			return cidr;
 	}
@@ -376,7 +376,7 @@ function lanCidrFromNet(net) {
 
 function ifaceSelect(id, current, devices) {
 	var list = luciDevList(devices);
-	var names = tpCore.idsDeviceNames(list, current);
+	var names = suricataCore.idsDeviceNames(list, current);
 	var live = {};
 	var i, n, label, sel, opts;
 	for (i = 0; i < list.length; i++)
@@ -403,7 +403,7 @@ function collectTpSettings() {
 	var mode = document.getElementById('tp-mode');
 	if (!enabled || !iface || !home || !profile || !mode)
 		return { error: _('Settings form is not ready.') };
-	return tpCore.collectSettings({
+	return suricataCore.collectSettings({
 		enabled: enabled.checked,
 		interface: iface.value,
 		home_net: home.value,
@@ -466,7 +466,7 @@ function saveTpSettings(apply) {
 	policies = collectPolicies();
 	hasPolicy = policies.rulesets.length > 0 || policies.classtypes.length > 0;
 	if (hasPolicy) {
-		policyErr = tpCore.validatePolicies(policies);
+		policyErr = suricataCore.validatePolicies(policies);
 		if (policyErr)
 			return Promise.reject(new Error(policyErr));
 	}
@@ -500,7 +500,7 @@ return view.extend({
 			L.resolveDefault(network.getDevices(), []),
 			L.resolveDefault(network.getNetwork('lan'), null),
 			callGetPolicies(),
-			L.resolveDefault(fs.read(tpCore.CATALOG_PATH), '')
+			L.resolveDefault(fs.read(suricataCore.CATALOG_PATH), '')
 		]);
 	},
 
@@ -511,20 +511,20 @@ return view.extend({
 		var netDevices = data[3] || [];
 		var lanCidr = lanCidrFromNet(data[4]);
 		var policies = data[5] || {};
-		tpCore.parseCatalog(data[6]);
-		settingsFeeds = tpCore.normalizeFeeds(
-			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : tpCore.defaultFeeds()
+		suricataCore.parseCatalog(data[6]);
+		settingsFeeds = suricataCore.normalizeFeeds(
+			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : suricataCore.defaultFeeds()
 		);
-		settingsSuppress = tpCore.normalizeSuppressList(cfg.suppress);
+		settingsSuppress = suricataCore.normalizeSuppressList(cfg.suppress);
 		ruleActionBusy = false;
 
 		var css = E('link', {
 			rel: 'stylesheet',
-			href: L.resource('threat-prevention-theme.css')
+			href: L.resource('suricata-theme.css')
 		});
 
 		var hero = E('div', { 'class': 'tp-hero', 'id': 'tp-hero' });
-		var root = E('div', { 'class': 'luci-app-threat-prevention' }, [
+		var root = E('div', { 'class': 'luci-app-suricata' }, [
 			E('h2', {}, _('Suricata')),
 			E('p', { 'class': 'tp-lead' }, [
 				_('Watches devices on your LAN for known attacks using Suricata and Emerging Threats Open. Start in watch-only mode, then download rules on the Rules tab.')
@@ -553,15 +553,15 @@ return view.extend({
 		var tpSidHost;
 
 		function persistTpFeeds() {
-			var err = tpCore.validateFeeds(settingsFeeds);
+			var err = suricataCore.validateFeeds(settingsFeeds);
 			if (err)
 				return Promise.reject(new Error(err));
-			settingsFeeds = tpCore.normalizeFeeds(settingsFeeds);
+			settingsFeeds = suricataCore.normalizeFeeds(settingsFeeds);
 			return callSetConfig({ feeds: settingsFeeds }).then(function(res) {
 				if (res && res.error)
 					return Promise.reject(new Error(res.error));
 				if (res && res.config && Array.isArray(res.config.feeds))
-					settingsFeeds = tpCore.normalizeFeeds(res.config.feeds);
+					settingsFeeds = suricataCore.normalizeFeeds(res.config.feeds);
 				return res;
 			});
 		}
@@ -619,7 +619,7 @@ return view.extend({
 			var urlIn = E('input', {
 				type: 'text', id: 'tp-feed-url',
 				value: existing ? existing.url : 'https://',
-				placeholder: tpCore.ETOPEN_OFFICIAL
+				placeholder: suricataCore.ETOPEN_OFFICIAL
 			});
 			var descIn = E('input', {
 				type: 'text', id: 'tp-feed-desc',
@@ -645,25 +645,25 @@ return view.extend({
 						'class': 'btn cbi-button-positive',
 						click: function() {
 							var feed = {
-								id: existing ? existing.id : tpCore.sanitizeFeedId(nameIn.value),
+								id: existing ? existing.id : suricataCore.sanitizeFeedId(nameIn.value),
 								name: nameIn.value,
 								url: urlIn.value,
 								enabled: existing ? existing.enabled : '1',
 								description: descIn.value
 							};
-							var err = tpCore.validateFeed(feed);
+							var err = suricataCore.validateFeed(feed);
 							var next;
 							if (err) {
 								ui.addNotification(null, E('p', {}, err), 'error');
 								return;
 							}
-							feed = tpCore.normalizeFeeds([feed])[0];
+							feed = suricataCore.normalizeFeeds([feed])[0];
 							if (existing) {
 								settingsFeeds = settingsFeeds.map(function(f) {
 									return f.id === existing.id ? feed : f;
 								});
 							} else {
-								next = tpCore.validateFeeds(settingsFeeds.concat([feed]));
+								next = suricataCore.validateFeeds(settingsFeeds.concat([feed]));
 								if (next) {
 									ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
 									return;
@@ -685,20 +685,20 @@ return view.extend({
 
 		function addTpCatalogFeed(item) {
 			var feed = {
-				id: tpCore.sanitizeFeedId(item.id || item.name),
+				id: suricataCore.sanitizeFeedId(item.id || item.name),
 				name: item.name,
 				url: item.url,
 				enabled: '1',
 				description: item.description || ''
 			};
-			var err = tpCore.validateFeed(feed);
+			var err = suricataCore.validateFeed(feed);
 			var next;
 			if (err) {
 				ui.addNotification(null, E('p', {}, err), 'error');
 				return Promise.reject(new Error(err));
 			}
-			feed = tpCore.normalizeFeeds([feed])[0];
-			next = tpCore.validateFeeds(settingsFeeds.concat([feed]));
+			feed = suricataCore.normalizeFeeds([feed])[0];
+			next = suricataCore.validateFeeds(settingsFeeds.concat([feed]));
 			if (next) {
 				ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
 				return Promise.reject(new Error(next));
@@ -711,7 +711,7 @@ return view.extend({
 		}
 
 		function openTpCatalogModal() {
-			var unused = tpCore.unusedKnownFeeds(settingsFeeds);
+			var unused = suricataCore.unusedKnownFeeds(settingsFeeds);
 			var sel;
 			var note;
 			var i;
@@ -1010,12 +1010,12 @@ return view.extend({
 
 		function loadRules() {
 			return callGetRules(
-				tpCore.sanitizeRuleQuery(rulesState.query),
+				suricataCore.sanitizeRuleQuery(rulesState.query),
 				rulesState.classtype,
 				rulesState.file,
 				rulesState.state,
 				rulesState.offset,
-				tpCore.clampRuleLimit(rulesState.limit)
+				suricataCore.clampRuleLimit(rulesState.limit)
 			).then(function(res) {
 				renderRules(res || {});
 				return res;
@@ -1023,7 +1023,7 @@ return view.extend({
 		}
 
 		function showRule(sid, gid) {
-			if (!tpCore.validSid(sid))
+			if (!suricataCore.validSid(sid))
 				return;
 			callGetRule(sid, gid || '1').then(function(rule) {
 				var parsed;
@@ -1040,9 +1040,9 @@ return view.extend({
 				var i;
 				if (rule && rule.error)
 					return Promise.reject(new Error(rule.error));
-				parsed = tpCore.parseRuleRaw(rule.raw || '');
+				parsed = suricataCore.parseRuleRaw(rule.raw || '');
 				status = rule.status || (rule.enabled === '0' ? 'disabled' : 'enabled');
-				tags = tpCore.normalizeTagList(
+				tags = suricataCore.normalizeTagList(
 					(rule.tags && rule.tags.length) ? rule.tags : parsed.tags.map(function(t) {
 						return t.key + ':' + t.value;
 					})
@@ -1101,7 +1101,7 @@ return view.extend({
 				}
 
 				function paintPreview() {
-					preview.value = tpCore.applyRuleTunePreview(rule.raw || '', {
+					preview.value = suricataCore.applyRuleTunePreview(rule.raw || '', {
 						classtype: category.value,
 						priority: priority.value,
 						target: target.value,
@@ -1158,7 +1158,7 @@ return view.extend({
 				target.addEventListener('change', paintPreview);
 
 				ui.showModal(_('Rules management') + ' → ' + _('SID %s').format(sid), [
-					E('div', { 'class': 'luci-app-threat-prevention' }, [
+					E('div', { 'class': 'luci-app-suricata' }, [
 					E('div', { 'class': 'tp-rule-editor' }, [
 						E('h4', {}, val(rule.msg, parsed.msg)),
 						E('p', { 'class': 'tp-help' }, [
@@ -1190,13 +1190,13 @@ return view.extend({
 								'type': 'button',
 								'class': 'btn cbi-button',
 								click: function(ev) {
-									var next = tpCore.normalizeTag(tagIn.value);
+									var next = suricataCore.normalizeTag(tagIn.value);
 									ev.preventDefault();
 									if (!next) {
 										ui.addNotification(null, E('p', {}, _('Use key:value tags.')), 'error');
 										return;
 									}
-									tags = tpCore.normalizeTagList(tags.concat([next]));
+									tags = suricataCore.normalizeTagList(tags.concat([next]));
 									tagIn.value = '';
 									paintTags();
 								}
@@ -1221,7 +1221,7 @@ return view.extend({
 								id: 'tp-tune-save',
 								click: function(ev) {
 									var tune = currentTune();
-									var err = tpCore.validateTune(tune);
+									var err = suricataCore.validateTune(tune);
 									var saveBtn = this;
 									var closeBtn = document.getElementById('tp-tune-close');
 									var busyEl = document.getElementById('tp-tune-busy');
@@ -1333,7 +1333,7 @@ return view.extend({
 				if (ev)
 					ev.preventDefault();
 				selectedSids = {};
-				rulesState.query = tpCore.sanitizeRuleQuery(search.value);
+				rulesState.query = suricataCore.sanitizeRuleQuery(search.value);
 				rulesState.file = fileSel.value;
 				rulesState.classtype = classSel.value;
 				rulesState.state = stateSel.value;
@@ -1344,7 +1344,7 @@ return view.extend({
 			}
 
 			function selectedList() {
-				return tpCore.normalizeSidList(Object.keys(selectedSids));
+				return suricataCore.normalizeSidList(Object.keys(selectedSids));
 			}
 
 			function paintSel() {
@@ -1388,7 +1388,7 @@ return view.extend({
 					ui.addNotification(null, E('p', {}, _('Tick one or more signatures first.')), 'error');
 					return;
 				}
-				if (!tpCore.actionOk(action)) {
+				if (!suricataCore.actionOk(action)) {
 					ui.addNotification(null, E('p', {}, _('Choose an action first.')), 'error');
 					return;
 				}
@@ -1553,7 +1553,7 @@ return view.extend({
 				var sid = String(row.sid || '');
 				var gid = String(row.gid || '1');
 				var st = ruleStatusInfo(row);
-				var parsed = tpCore.parseRuleRaw(row.raw);
+				var parsed = suricataCore.parseRuleRaw(row.raw);
 				var pick;
 				var trClass = 'tr';
 				var statusTitle = st.on ? _('Disable') : _('Enable');
@@ -1749,7 +1749,7 @@ return view.extend({
 				var collected = collectPolicies();
 				var err;
 				collected.rulesets = [];
-				err = tpCore.validatePolicies(collected);
+				err = suricataCore.validatePolicies(collected);
 				if (err) {
 					ui.addNotification(null, E('p', {}, err), 'error');
 					return;
@@ -1799,7 +1799,7 @@ return view.extend({
 			var dnsCb;
 			var vpnCb;
 			var ips;
-			p = tpCore.normalizePass(p);
+			p = suricataCore.normalizePass(p);
 			passBox.innerHTML = '';
 			localCb = E('input', { type: 'checkbox', id: 'tp-pass-local' });
 			gwCb = E('input', { type: 'checkbox', id: 'tp-pass-gw' });
@@ -1904,12 +1904,12 @@ return view.extend({
 							track: trackIn.value,
 							comment: commentIn.value
 						};
-						var err = tpCore.validateSuppressList([next]);
+						var err = suricataCore.validateSuppressList([next]);
 						if (err) {
 							ui.addNotification(null, E('p', {}, err), 'error');
 							return;
 						}
-						settingsSuppress = tpCore.normalizeSuppressList(settingsSuppress.concat([next]));
+						settingsSuppress = suricataCore.normalizeSuppressList(settingsSuppress.concat([next]));
 						sidIn.value = '';
 						ipIn.value = '';
 						commentIn.value = '';
@@ -1925,7 +1925,7 @@ return view.extend({
 			var enabled = E('input', { type: 'checkbox', id: 'tp-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
 			var iface = ifaceSelect('tp-iface', val(c.interface, 'br-lan'), netDevices);
-			var homeNet = tpCore.unwrapNet(c.home_net);
+			var homeNet = suricataCore.unwrapNet(c.home_net);
 			if (!homeNet)
 				homeNet = lanCidr;
 			var home = E('input', {

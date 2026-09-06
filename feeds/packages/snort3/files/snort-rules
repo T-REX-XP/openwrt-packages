@@ -63,10 +63,12 @@ install_rules_blob() {
 		rm -rf "$work"
 		return 0
 	fi
-	find "$work" -type f \( -iname 'includes.rules' -o ! -iname '*.rules' \) -delete
-	n=$(find "$work" -type f -iname '*.rules' | wc -l | tr -d ' ')
+	# BusyBox find has no -delete.
+	find "$work" -type f ! -name '*.rules' -exec rm -f {} + 2>/dev/null || true
+	find "$work" -type f -name 'includes.rules' -exec rm -f {} + 2>/dev/null || true
+	n=$(find "$work" -type f -name '*.rules' | wc -l | tr -d ' ')
 	if [ "${n:-0}" -gt 0 ]; then
-		find "$work" -type f -iname '*.rules' -exec cp {} "$dest/" \;
+		find "$work" -type f -name '*.rules' -exec cp {} "$dest/" \;
 	else
 		rm -rf "$work"
 		return 1
@@ -131,7 +133,7 @@ download_rules() {
 			stash_old_rules "$rules_dir" "$data_dir/old.rules"
 		fi
 
-		new_rules="$data_dir/merged-rules"
+		new_rules="$data_dir/rules"
 		rm -fr "${new_rules:?}"
 		mkdir -p "$new_rules"
 
@@ -170,7 +172,15 @@ download_rules() {
 
 
 	mkdir -p "$conf_dir"
-	rm -fr "${rules_dir:?}"
+	if [ "$(id -u)" = 0 ] && id snort >/dev/null 2>&1; then
+		chown -R snort:snort "$new_rules" 2>/dev/null || true
+		chmod -R a+rX "$new_rules" 2>/dev/null || true
+	fi
+	if [ -L "$rules_dir" ]; then
+		rm -f "$rules_dir"
+	else
+		rm -fr "${rules_dir:?}"
+	fi
 	if $persist; then
 		mv -f "$new_rules" "$rules_dir"
 	else

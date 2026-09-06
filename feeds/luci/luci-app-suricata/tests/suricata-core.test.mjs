@@ -6,12 +6,12 @@ import { dirname, join } from 'node:path';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const res = join(dir, '..', 'htdocs', 'luci-static', 'resources');
-const viewPath = join(res, 'view', 'services', 'threat-prevention.js');
-const ucodePath = join(dir, '..', 'root', 'usr', 'share', 'rpcd', 'ucode', 'luci.threat-prevention.uc');
-const catalogPath = join(dir, '..', 'root', 'usr', 'share', 'luci-app-threat-prevention', 'ruleset-catalog.json');
+const viewPath = join(res, 'view', 'services', 'suricata.js');
+const ucodePath = join(dir, '..', 'root', 'usr', 'share', 'rpcd', 'ucode', 'luci.suricata.uc');
+const catalogPath = join(dir, '..', 'root', 'usr', 'share', 'luci-app-suricata', 'ruleset-catalog.json');
 
 function loadCore() {
-	let src = readFileSync(join(res, 'threat-prevention-core.js'), 'utf8');
+	let src = readFileSync(join(res, 'suricata-core.js'), 'utf8');
 	src = src.replace(/^'use strict';\n?/, '');
 	src = src.replace(/^'require baseclass';\n?/, '');
 	const fn = new Function('baseclass', src);
@@ -93,7 +93,7 @@ test('hostCidrToNetwork converts host CIDR to network', () => {
 
 test('view uses network devices select and footer save', () => {
 	assert.match(view, /'require network'/);
-	assert.match(view, /'require threat-prevention-core as tpCore'/);
+	assert.match(view, /'require suricata-core as suricataCore'/);
 	assert.match(view, /network\.getDevices\(\)/);
 	assert.match(view, /ifaceSelect\('tp-iface'/);
 	assert.doesNotMatch(view, /type:\s*'text',\s*id:\s*'tp-iface'/);
@@ -167,7 +167,7 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /Cluster/);
 	assert.doesNotMatch(view, /DEFAULT_LAN_CIDR/);
 	assert.doesNotMatch(view, /Prefer the small profile on CM5/);
-	assert.doesNotMatch(readFileSync(join(res, 'threat-prevention-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
+	assert.doesNotMatch(readFileSync(join(res, 'suricata-core.js'), 'utf8'), /DEFAULT_LAN_CIDR/);
 	const buttons = [...view.matchAll(/E\('button',\s*\{([^}]+)\}/g)];
 	assert.ok(buttons.length >= 3, 'expected settings/service buttons');
 	for (const m of buttons)
@@ -306,7 +306,7 @@ test('pass list and suppress helpers', () => {
 });
 
 test('known Suricata ruleset catalog', () => {
-	assert.equal(core.CATALOG_PATH, '/usr/share/luci-app-threat-prevention/ruleset-catalog.json');
+	assert.equal(core.CATALOG_PATH, '/usr/share/luci-app-suricata/ruleset-catalog.json');
 	assert.ok(Array.isArray(catalog.rulesets));
 	const cat = core.knownFeeds();
 	assert.ok(cat.length >= 10);
@@ -319,10 +319,12 @@ test('known Suricata ruleset catalog', () => {
 	const unused = core.unusedKnownFeeds(core.defaultFeeds());
 	assert.ok(unused.every((f) => f.id !== 'official'));
 	assert.ok(unused.some((f) => f.id === 'urlhaus'));
-	const coreSrc = readFileSync(join(res, 'threat-prevention-core.js'), 'utf8');
+	const coreSrc = readFileSync(join(res, 'suricata-core.js'), 'utf8');
 	assert.doesNotMatch(coreSrc, /networkforensic\.dk/);
 	assert.match(catalogJson, /networkforensic\.dk/);
-	assert.match(view, /fs\.read\(tpCore\.CATALOG_PATH\)/);
+	assert.match(view, /fs\.read\(suricataCore\.CATALOG_PATH\)/);
+	assert.doesNotMatch(view, /luci-app-threat-prevention/);
+	assert.doesNotMatch(view, /luci\.threat-prevention/);
 });
 
 test('view has catalog picker', () => {
