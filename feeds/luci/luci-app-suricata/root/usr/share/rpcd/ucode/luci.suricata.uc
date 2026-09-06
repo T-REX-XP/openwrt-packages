@@ -120,7 +120,7 @@ const RULES_DB = '/var/lib/threat-prevention/rules.sqlite';
 function feed_id_ok(id) {
 	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
 		return false;
-	if (id == 'main' || id == 'pass' || match(`${id}`, /^s[0-9]+$/))
+	if (id == 'main' || id == 'pass' || match(`${id}`, /^s[0-9]+$/) || match(`${id}`, /^n_/) || match(`${id}`, /^rs_/))
 		return false;
 	return true;
 }
@@ -284,6 +284,235 @@ function replace_suppress(rows) {
 	return null;
 }
 
+function notify_type_ok(t) {
+	return t == 'telegram' || t == 'ntfy' || t == 'webhook' || t == 'discord' || t == 'email';
+}
+
+function notify_id_ok(id) {
+	return match(`${id}`, /^n_[A-Za-z0-9_]+$/);
+}
+
+function notify_url_ok(url) {
+	let s = trim(`${url}`);
+	if (s == '')
+		return false;
+	return match(s, /^https?:\/\/[-A-Za-z0-9._~:/?#@!$&()*+,;=%]+$/) != null;
+}
+
+function notify_sid_list_ok(s) {
+	let one;
+	let n;
+	s = trim(`${s}`);
+	if (s == '')
+		return true;
+	n = 0;
+	for (one in split(s, /[ ,]+/)) {
+		one = trim(`${one}`);
+		if (one == '')
+			continue;
+		if (!match(one, /^[0-9]+$/))
+			return false;
+		n++;
+		if (n > 32)
+			return false;
+	}
+	return true;
+}
+
+function notify_header_ok(s) {
+	let i;
+	let c;
+	s = `${s}`;
+	if (length(s) > 200)
+		return false;
+	for (i = 0; i < length(s); i++) {
+		c = substr(s, i, 1);
+		if (c == chr(10) || c == chr(13))
+			return false;
+	}
+	return true;
+}
+
+function notify_status_of(id) {
+	let st;
+	if (!notify_id_ok(id))
+		return { last_ok: '', last_err: '', http: '', sent: '0', suppressed: '0' };
+	st = read_json_file('/tmp/tp-notify-state/' + id + '.status');
+	return {
+		last_ok: `${st.last_ok || ''}`,
+		last_err: `${st.last_err || ''}`,
+		http: `${st.http || ''}`,
+		sent: `${st.sent || 0}`,
+		suppressed: `${st.suppressed || 0}`
+	};
+}
+
+function list_notify() {
+	let out = [];
+	let r = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\([^=]*\\)=notify$/\\1/p'");
+	let id;
+	let typ;
+	let st;
+	if (!r.output)
+		return out;
+	for (id in split(r.output, '\n')) {
+		if (id == '' || !notify_id_ok(id))
+			continue;
+		typ = run_cmd(`uci -q get suricata.${id}.type`).output;
+		if (!notify_type_ok(typ))
+			continue;
+		st = notify_status_of(id);
+		push(out, {
+			id,
+			type: typ,
+			enabled: parse_enabled_flag(run_cmd(`uci -q get suricata.${id}.enabled`).output) || '0',
+			mode: run_cmd(`uci -q get suricata.${id}.mode`).output || 'digest',
+			min_severity: run_cmd(`uci -q get suricata.${id}.min_severity`).output || '1',
+			rate_limit: run_cmd(`uci -q get suricata.${id}.rate_limit`).output || '12',
+			interval: run_cmd(`uci -q get suricata.${id}.interval`).output || '3600',
+			classtype: run_cmd(`uci -q get suricata.${id}.classtype`).output || '',
+			sid_allow: run_cmd(`uci -q get suricata.${id}.sid_allow`).output || '',
+			sid_deny: run_cmd(`uci -q get suricata.${id}.sid_deny`).output || '',
+			include_lan: parse_enabled_flag(run_cmd(`uci -q get suricata.${id}.include_lan`).output) || '1',
+			chat_id: run_cmd(`uci -q get suricata.${id}.chat_id`).output || '',
+			bot_token_set: run_cmd(`uci -q get suricata.${id}.bot_token`).output != '' ? '1' : '0',
+			url: run_cmd(`uci -q get suricata.${id}.url`).output || '',
+			topic: run_cmd(`uci -q get suricata.${id}.topic`).output || '',
+			token_set: run_cmd(`uci -q get suricata.${id}.token`).output != '' ? '1' : '0',
+			header_set: run_cmd(`uci -q get suricata.${id}.header`).output != '' ? '1' : '0',
+			to: run_cmd(`uci -q get suricata.${id}.to`).output || '',
+			msmtp_account: run_cmd(`uci -q get suricata.${id}.msmtp_account`).output || 'suricata_notify',
+			last_ok: st.last_ok,
+			last_err: st.last_err,
+			http: st.http,
+			sent: st.sent,
+			suppressed: st.suppressed
+		});
+	}
+	return out;
+}
+
+function replace_notify(rows) {
+	let seen;
+	let i;
+	let row;
+	let id;
+	let typ;
+	let old;
+	let secrets;
+	let cur;
+	let en;
+	let mode;
+	let min_s;
+	let rate;
+	let interval;
+	if (type(rows) != 'array')
+		return 'invalid notify';
+	if (length(rows) > 8)
+		return 'invalid notify';
+	secrets = {};
+	cur = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.\\([^=]*\\)=notify$/\\1/p'");
+	if (cur.output) {
+		for (id in split(cur.output, '\n')) {
+			if (id == '' || !notify_id_ok(id))
+				continue;
+			secrets[id] = {
+				bot_token: run_cmd(`uci -q get suricata.${id}.bot_token`).output || '',
+				token: run_cmd(`uci -q get suricata.${id}.token`).output || '',
+				header: run_cmd(`uci -q get suricata.${id}.header`).output || ''
+			};
+		}
+	}
+	seen = {};
+	for (i = 0; i < length(rows); i++) {
+		row = rows[i];
+		if (type(row) != 'object')
+			return 'invalid notify';
+		id = trim(`${row.id || ''}`);
+		if (!notify_id_ok(id) || seen[id])
+			return 'invalid notify id';
+		seen[id] = 1;
+		typ = trim(`${row.type || ''}`);
+		if (!notify_type_ok(typ))
+			return 'invalid notify type';
+		mode = trim(`${row.mode || 'digest'}`);
+		if (mode != 'digest' && mode != 'realtime')
+			return 'invalid notify mode';
+		min_s = trim(`${row.min_severity || '1'}`);
+		if (min_s != '1' && min_s != '2' && min_s != '3')
+			return 'invalid notify severity';
+		rate = trim(`${row.rate_limit || '12'}`);
+		if (!match(rate, /^[0-9]+$/) || int(rate) > 1000)
+			return 'invalid notify rate';
+		interval = trim(`${row.interval || '3600'}`);
+		if (!match(interval, /^[0-9]+$/))
+			return 'invalid notify interval';
+		if (!notify_sid_list_ok(row.sid_allow) || !notify_sid_list_ok(row.sid_deny))
+			return 'invalid notify sid';
+		en = parse_enabled_flag(row.enabled);
+		if (en == '1') {
+			if ((typ == 'webhook' || typ == 'discord') && !notify_url_ok(row.url || ''))
+				return 'invalid notify url';
+			if (typ == 'ntfy' && trim(`${row.topic || ''}`) == '')
+				return 'invalid notify topic';
+			if (typ == 'telegram' && trim(`${row.chat_id || ''}`) == '')
+				return 'invalid notify telegram';
+			if (typ == 'email' && trim(`${row.to || ''}`) == '')
+				return 'invalid notify email';
+		}
+		if (typ == 'ntfy' && trim(`${row.url || ''}`) != '' && !notify_url_ok(row.url))
+			return 'invalid notify url';
+		if ((typ == 'webhook' || typ == 'discord') && trim(`${row.url || ''}`) != '' && !notify_url_ok(row.url))
+			return 'invalid notify url';
+		if (!notify_header_ok(row.header || ''))
+			return 'invalid notify header';
+	}
+	if (cur.output) {
+		for (id in split(cur.output, '\n')) {
+			if (id != '')
+				run_cmd(`uci -q delete suricata.${id}`);
+		}
+	}
+	for (i = 0; i < length(rows); i++) {
+		row = rows[i];
+		id = trim(`${row.id}`);
+		typ = trim(`${row.type}`);
+		en = parse_enabled_flag(row.enabled);
+		if (en == null)
+			en = '0';
+		old = secrets[id] || {};
+		run_cmd(`uci set suricata.${id}=notify`);
+		run_cmd(`uci set suricata.${id}.type=${shell_quote(typ)}`);
+		run_cmd(`uci set suricata.${id}.enabled=${en}`);
+		run_cmd(`uci set suricata.${id}.mode=${shell_quote(trim(`${row.mode || 'digest'}`))}`);
+		run_cmd(`uci set suricata.${id}.min_severity=${shell_quote(trim(`${row.min_severity || '1'}`))}`);
+		run_cmd(`uci set suricata.${id}.rate_limit=${shell_quote(trim(`${row.rate_limit || '12'}`))}`);
+		run_cmd(`uci set suricata.${id}.interval=${shell_quote(trim(`${row.interval || '3600'}`))}`);
+		run_cmd(`uci set suricata.${id}.classtype=${shell_quote(trim(`${row.classtype || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.sid_allow=${shell_quote(trim(`${row.sid_allow || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.sid_deny=${shell_quote(trim(`${row.sid_deny || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.include_lan=${parse_enabled_flag(row.include_lan) || '1'}`);
+		run_cmd(`uci set suricata.${id}.chat_id=${shell_quote(trim(`${row.chat_id || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.url=${shell_quote(trim(`${row.url || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.topic=${shell_quote(trim(`${row.topic || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.to=${shell_quote(trim(`${row.to || ''}`))}`);
+		run_cmd(`uci set suricata.${id}.msmtp_account=${shell_quote(trim(`${row.msmtp_account || 'suricata_notify'}`))}`);
+		if (trim(`${row.bot_token || ''}`) != '')
+			run_cmd(`uci set suricata.${id}.bot_token=${shell_quote(trim(`${row.bot_token}`))}`);
+		else if (old.bot_token)
+			run_cmd(`uci set suricata.${id}.bot_token=${shell_quote(old.bot_token)}`);
+		if (trim(`${row.token || ''}`) != '')
+			run_cmd(`uci set suricata.${id}.token=${shell_quote(trim(`${row.token}`))}`);
+		else if (old.token)
+			run_cmd(`uci set suricata.${id}.token=${shell_quote(old.token)}`);
+		if (trim(`${row.header || ''}`) != '')
+			run_cmd(`uci set suricata.${id}.header=${shell_quote(trim(`${row.header}`))}`);
+		else if (old.header)
+			run_cmd(`uci set suricata.${id}.header=${shell_quote(old.header)}`);
+	}
+	return null;
+}
+
 function get_config() {
 	let cfg = {};
 	for (let k in const_defaults)
@@ -303,6 +532,7 @@ function get_config() {
 	cfg.feeds = list_etopen_feeds();
 	cfg.pass = read_pass();
 	cfg.suppress = read_suppress();
+	cfg.notify = list_notify();
 	return cfg;
 }
 
@@ -878,6 +1108,49 @@ const methods = {
 		}
 	},
 
+	getNotify: {
+		call: function() {
+			try {
+				return { channels: list_notify() };
+			} catch (e) {
+				return { error: `get_notify ${e}` };
+			}
+		}
+	},
+
+	setNotify: {
+		args: { channels: [] },
+		call: function(req) {
+			let rows = req.args?.channels;
+			if (type(rows) != 'array')
+				return { error: 'invalid notify' };
+			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			let err = replace_notify(rows);
+			if (err)
+				return { error: err };
+			run_cmd('uci commit suricata');
+			return { ok: true, channels: list_notify() };
+		}
+	},
+
+	notifyTest: {
+		args: { id: '' },
+		call: function(req) {
+			let id = trim(`${req.args?.id || ''}`);
+			if (!notify_id_ok(id))
+				return { error: 'invalid id' };
+			if (!file_test('-x', '/usr/sbin/tp-notify'))
+				return { error: 'tp-notify not installed' };
+			let r = run_cmd('/usr/sbin/tp-notify --test ' + shell_quote(id));
+			let st = notify_status_of(id);
+			return {
+				ok: r.code == 0,
+				error: r.code == 0 ? '' : (st.last_err || 'send failed'),
+				status: st
+			};
+		}
+	},
+
 	getPolicies: {
 		call: function() {
 			try {
@@ -924,6 +1197,11 @@ const methods = {
 				let serr = replace_suppress(cfg.suppress);
 				if (serr)
 					return { error: serr };
+			}
+			if ('notify' in cfg) {
+				let nerr = replace_notify(cfg.notify);
+				if (nerr)
+					return { error: nerr };
 			}
 			for (let k in const_defaults) {
 				if (!(k in cfg))

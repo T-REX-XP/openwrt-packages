@@ -6,6 +6,7 @@ DB=/var/lib/threat-prevention/events.sqlite
 MAX=2000
 STATUS=/tmp/tp_status.json
 INGEST=/usr/sbin/tp-eve-ingest
+NOTIFY=/usr/sbin/tp-notify
 
 mkdir -p "$(dirname "$DB")" /tmp
 touch "$EVE" 2>/dev/null || true
@@ -23,5 +24,8 @@ write_status
 tail -n 0 -F "$EVE" 2>/dev/null | while IFS= read -r line; do
 	[ -n "$line" ] || continue
 	"$INGEST" "$line" "$DB" "$MAX" || true
+	if [ -x "$NOTIFY" ]; then
+		printf '%s\n' "$line" | "$NOTIFY" --enqueue >/dev/null 2>&1 || true
+	fi
 	write_status
 done

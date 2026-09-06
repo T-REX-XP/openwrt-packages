@@ -157,6 +157,12 @@ return baseclass.extend({
 				return { error: err };
 			cfg.suppress = this.normalizeSuppressList(raw.suppress);
 		}
+		if (raw.notify !== undefined) {
+			err = this.validateNotifyList(raw.notify);
+			if (err)
+				return { error: err };
+			cfg.notify = this.normalizeNotifyList(raw.notify);
+		}
 		return { config: cfg };
 	},
 
@@ -918,5 +924,183 @@ return baseclass.extend({
 				return 'invalid track';
 		}
 		return null;
+	},
+
+	NOTIFY_TYPES: [ 'telegram', 'ntfy', 'webhook', 'discord', 'email' ],
+
+	notifyTypeOk: function(t) {
+		return this.NOTIFY_TYPES.indexOf(String(t == null ? '' : t)) >= 0;
+	},
+
+	sanitizeNotifyId: function(id, type, idx) {
+		var s = String(id == null ? '' : id).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+		if (s.indexOf('n_') !== 0)
+			s = 'n_' + (s || String(type || 'ch'));
+		if (!/^n_[a-z0-9_]+$/.test(s) || s === 'n_main' || s === 'n_pass')
+			s = 'n_ch' + String(idx || 1);
+		if (s.length > 28)
+			s = s.substring(0, 28);
+		return s;
+	},
+
+	notifyUrlOk: function(url) {
+		var s = String(url == null ? '' : url).trim();
+		return /^https?:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+$/.test(s);
+	},
+
+	notifySidListOk: function(s) {
+		var parts;
+		var i;
+		var one;
+		var n = 0;
+		s = String(s == null ? '' : s).trim();
+		if (!s)
+			return true;
+		parts = s.split(/[ ,]+/);
+		for (i = 0; i < parts.length; i++) {
+			one = parts[i].trim();
+			if (!one)
+				continue;
+			if (!/^[0-9]+$/.test(one))
+				return false;
+			n++;
+			if (n > 32)
+				return false;
+		}
+		return true;
+	},
+
+	validateNotifyChannel: function(row) {
+		var typ;
+		var mode;
+		var min;
+		var rate;
+		var interval;
+		if (!row || typeof row !== 'object')
+			return 'invalid notify';
+		if (!this.sanitizeNotifyId(row.id, row.type, 1))
+			return 'invalid notify id';
+		typ = String(row.type || '');
+		if (!this.notifyTypeOk(typ))
+			return 'invalid notify type';
+		mode = String(row.mode || 'digest');
+		if (mode !== 'digest' && mode !== 'realtime')
+			return 'invalid notify mode';
+		min = String(row.min_severity || '1');
+		if (min !== '1' && min !== '2' && min !== '3')
+			return 'invalid notify severity';
+		rate = String(row.rate_limit == null ? '12' : row.rate_limit);
+		if (!/^[0-9]+$/.test(rate) || parseInt(rate, 10) > 1000)
+			return 'invalid notify rate';
+		interval = String(row.interval == null ? '3600' : row.interval);
+		if (!/^[0-9]+$/.test(interval))
+			return 'invalid notify interval';
+		if (!this.notifySidListOk(row.sid_allow) || !this.notifySidListOk(row.sid_deny))
+			return 'invalid notify sid';
+		if (this.normalizeFlag(row.enabled) === '1') {
+			if ((typ === 'webhook' || typ === 'discord') && !this.notifyUrlOk(row.url))
+				return 'invalid notify url';
+			if (typ === 'ntfy' && !String(row.topic || '').trim())
+				return 'invalid notify topic';
+			if (typ === 'telegram' && !String(row.chat_id || '').trim())
+				return 'invalid notify telegram';
+			if (typ === 'email' && !String(row.to || '').trim())
+				return 'invalid notify email';
+		}
+		if (typ === 'ntfy' && row.url && String(row.url).trim() && !this.notifyUrlOk(row.url))
+			return 'invalid notify url';
+		if ((typ === 'webhook' || typ === 'discord') && String(row.url || '').trim() && !this.notifyUrlOk(row.url))
+			return 'invalid notify url';
+		if (row.header && /[\r\n]/.test(String(row.header)))
+			return 'invalid notify header';
+		return null;
+	},
+
+	validateNotifyList: function(raw) {
+		var i;
+		var err;
+		var seen;
+		var id;
+		if (raw == null)
+			return null;
+		if (!Array.isArray(raw))
+			return 'invalid notify';
+		if (raw.length > 8)
+			return 'invalid notify';
+		seen = {};
+		for (i = 0; i < raw.length; i++) {
+			err = this.validateNotifyChannel(raw[i]);
+			if (err)
+				return err;
+			id = this.sanitizeNotifyId(raw[i].id, raw[i].type, i + 1);
+			if (seen[id])
+				return 'duplicate notify id';
+			seen[id] = 1;
+		}
+		return null;
+	},
+
+	normalizeNotifyList: function(raw) {
+		var i;
+		var row;
+		var out = [];
+		var used = {};
+		var id;
+		var n;
+		if (!Array.isArray(raw))
+			return out;
+		for (i = 0; i < raw.length && out.length < 8; i++) {
+			row = raw[i] || {};
+			id = this.sanitizeNotifyId(row.id, row.type, i + 1);
+			n = 2;
+			while (used[id]) {
+				id = this.sanitizeNotifyId((row.id || row.type || 'ch') + '_' + n, row.type, n);
+				n++;
+			}
+			used[id] = 1;
+			out.push({
+				id: id,
+				type: this.notifyTypeOk(row.type) ? String(row.type) : 'telegram',
+				enabled: this.normalizeFlag(row.enabled),
+				mode: (row.mode === 'realtime') ? 'realtime' : 'digest',
+				min_severity: (row.min_severity === '2' || row.min_severity === '3') ? String(row.min_severity) : '1',
+				rate_limit: String(row.rate_limit == null || row.rate_limit === '' ? '12' : row.rate_limit),
+				interval: String(row.interval == null || row.interval === '' ? '3600' : row.interval),
+				classtype: String(row.classtype == null ? '' : row.classtype).trim(),
+				sid_allow: String(row.sid_allow == null ? '' : row.sid_allow).trim(),
+				sid_deny: String(row.sid_deny == null ? '' : row.sid_deny).trim(),
+				include_lan: row.include_lan === undefined ? '1' : this.normalizeFlag(row.include_lan),
+				chat_id: String(row.chat_id == null ? '' : row.chat_id).trim(),
+				bot_token: String(row.bot_token == null ? '' : row.bot_token).trim(),
+				bot_token_set: this.normalizeFlag(row.bot_token_set),
+				url: String(row.url == null ? '' : row.url).trim(),
+				topic: String(row.topic == null ? '' : row.topic).trim(),
+				token: String(row.token == null ? '' : row.token).trim(),
+				token_set: this.normalizeFlag(row.token_set),
+				header: String(row.header == null ? '' : row.header).trim(),
+				header_set: this.normalizeFlag(row.header_set),
+				to: String(row.to == null ? '' : row.to).trim(),
+				msmtp_account: String(row.msmtp_account == null || row.msmtp_account === '' ? 'suricata_notify' : row.msmtp_account).trim(),
+				last_ok: String(row.last_ok == null ? '' : row.last_ok),
+				last_err: String(row.last_err == null ? '' : row.last_err),
+				http: String(row.http == null ? '' : row.http),
+				sent: String(row.sent == null ? '0' : row.sent),
+				suppressed: String(row.suppressed == null ? '0' : row.suppressed)
+			});
+		}
+		return out;
+	},
+
+	emptyNotify: function(type) {
+		return this.normalizeNotifyList([{
+			id: '',
+			type: type || 'telegram',
+			enabled: '0',
+			mode: 'digest',
+			min_severity: '1',
+			rate_limit: '12',
+			interval: '3600',
+			include_lan: '1'
+		}])[0];
 	}
 });

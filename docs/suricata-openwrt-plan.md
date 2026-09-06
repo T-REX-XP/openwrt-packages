@@ -8,6 +8,7 @@ Related:
 
 - [threat-prevention-openwrt-plan.md](threat-prevention-openwrt-plan.md) — earlier mapping (Snort3-first)
 - [ids-traffic-analysis-openwrt-research.md](ids-traffic-analysis-openwrt-research.md) — CM5 CPU / NPU / mirror
+- [suricata-alert-management-plan.md](suricata-alert-management-plan.md) — outbound notify (Telegram, ntfy, webhook, email)
 - Sibling review: `syno-router-review/docs/ThreatPrevention-1.3.3-0926-package-review.md`
 - Sibling rules inventory: `syno-router-review/docs/ThreatPrevention-1.3.3-0926-bundled-rules.md`
 

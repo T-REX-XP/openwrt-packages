@@ -7,6 +7,7 @@
 					"getStatus",
 					"getEvents",
 					"getConfig",
+					"getNotify",
 					"getRules",
 					"getRule",
 					"getPolicies"
@@ -19,6 +20,7 @@
 				"/tmp/tp_etopen.json": [ "read" ],
 				"/var/lib/threat-prevention/events.sqlite": [ "read" ],
 				"/var/lib/threat-prevention/rules.sqlite": [ "read" ],
+				"/usr/sbin/tp-notify": [ "exec" ],
 				"/usr/sbin/tp-eve-ingest": [ "exec" ],
 				"/usr/bin/suricata": [ "exec" ],
 				"/etc/init.d/suricata": [ "exec" ],
@@ -31,6 +33,8 @@
 			"ubus": {
 				"luci.suricata": [
 					"setConfig",
+					"setNotify",
+					"notifyTest",
 					"serviceControl",
 					"fetchRules",
 					"setRuleState",
@@ -42,6 +46,7 @@
 			},
 			"uci": [ "suricata" ],
 			"file": {
+				"/usr/sbin/tp-notify": [ "exec" ],
 				"/etc/init.d/suricata": [ "exec" ],
 				"/etc/init.d/tp-eventd": [ "exec" ],
 				"/etc/init.d/suricata-etopen": [ "exec" ],

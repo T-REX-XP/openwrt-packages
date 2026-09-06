@@ -788,10 +788,33 @@
 	word-break: normal;
 }
 
+.luci-app-suricata .tp-notify-card {
+	margin: 0 0 1rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	background: var(--background-color-medium);
+	min-width: 0;
+}
+
+.luci-app-suricata .tp-notify-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	margin-bottom: 0.75rem;
+}
+
+.luci-app-suricata .tp-notify-status {
+	margin: 0.5rem 0 0;
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+}
+
 @media (max-width: 768px) {
-	.luci-app-suricata .tp-status-grid,
-	.luci-app-suricata .tp-tune-grid {
-		grid-template-columns: 1fr;
+	.luci-app-suricata .tp-notify-head {
+		flex-direction: column;
+		align-items: stretch;
 	}
 }
 

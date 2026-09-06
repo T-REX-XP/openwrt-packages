@@ -166,3 +166,250 @@ grep -q 'drop http' "$POL_OUT/emerging-malware.rules" || { echo "classtype drop 
 grep -q 'sid:2020001' "$POL_OUT/emerging-malware.rules" && { echo "disabled SID still emitted"; cat "$POL_OUT/emerging-malware.rules"; exit 1; }
 
 echo "tp-rules-index tests ok"
+
+NOTIFY="$ROOT/files/usr/sbin/tp-notify"
+sh -n "$NOTIFY"
+
+NOTIFY_FAKE=$(mktemp -d)
+NOTIFY_STATE=$(mktemp -d)
+trap 'rm -f "$DB" "$RULES_DB" "$THRESH" "$POL_META" "$PASS_THRESH"; rm -rf "$RULES_DIR" "$FAKE" "$POL_FAKE" "$POL_OUT" "$PASS_FAKE" "$NOTIFY_FAKE" "$NOTIFY_STATE"' EXIT
+
+write_notify_uci() {
+	# $1 = extra get cases (optional file of case arms)
+	cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata")
+	printf '%s\n' 'suricata.n_telegram=notify' 'suricata.n_hook=notify'
+	;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo '123456:AA-SECRET-TOKEN' ;;
+"-q get suricata.n_telegram.chat_id") echo 999 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+"-q get suricata.n_hook.enabled") echo 1 ;;
+"-q get suricata.n_hook.type") echo webhook ;;
+"-q get suricata.n_hook.url") echo 'https://example.invalid/hook' ;;
+"-q get suricata.n_hook.header") ;;
+"-q get suricata.n_hook.min_severity") echo 1 ;;
+"-q get suricata.n_hook.mode") echo realtime ;;
+"-q get suricata.n_hook.rate_limit") echo 12 ;;
+"-q get suricata.n_hook.include_lan") echo 1 ;;
+"-q get suricata.n_hook.classtype") ;;
+"-q get suricata.n_hook.sid_allow") ;;
+"-q get suricata.n_hook.sid_deny") ;;
+"-q get suricata.n_hook.interval") echo 3600 ;;
+"-q get system.@system[0].hostname") echo testhost ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+	chmod +x "$NOTIFY_FAKE/uci"
+}
+
+run_notify() {
+	rm -rf "$NOTIFY_STATE"
+	mkdir -p "$NOTIFY_STATE"
+	PATH="$NOTIFY_FAKE:/usr/bin:/bin" \
+		TP_NOTIFY_DRY_RUN=1 \
+		TP_NOTIFY_STATE="$NOTIFY_STATE" \
+		TP_NOTIFY_HOST=testhost \
+		TP_NOTIFY_NOW=1700000000 \
+		"$NOTIFY" "$@"
+}
+
+write_notify_uci
+ALERT1=$(sed -n '2p' "$FIX")
+ALERT2=$(sed -n '3p' "$FIX")
+STATS=$(sed -n '1p' "$FIX")
+
+out=$(printf '%s\n' "$STATS" | run_notify)
+echo "$out" | grep -q SEND && { echo "stats line should not notify"; echo "$out"; exit 1; }
+
+out=$(printf '%s\n' "$ALERT1" | run_notify)
+echo "$out" | grep -q 'SEND telegram chat_id=999' || { echo "missing telegram send"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'SID 2100498' || { echo "missing sid in body"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'AA-SECRET-TOKEN' && { echo "token leaked"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'SEND webhook' || { echo "missing webhook send"; echo "$out"; exit 1; }
+echo "$out" | grep -q '"source":"suricata"' || { echo "webhook payload missing source"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'event_type' && { echo "raw eve leaked to webhook"; echo "$out"; exit 1; }
+
+st=$(PATH="$NOTIFY_FAKE:/usr/bin:/bin" TP_NOTIFY_STATE="$NOTIFY_STATE" TP_NOTIFY_DRY_RUN=1 "$NOTIFY" --status)
+echo "$st" | grep -q '"sent":1' || { echo "status sent missing"; echo "$st"; exit 1; }
+echo "$st" | grep -q SECRET && { echo "status leaked secret"; echo "$st"; exit 1; }
+
+# severity filter: min 1 skips severity 3
+SEV3='{"timestamp":"2026-08-31T12:00:03.000000+0000","event_type":"alert","src_ip":"203.0.113.10","src_port":1,"dest_ip":"192.168.8.50","dest_port":2,"proto":"TCP","alert":{"gid":1,"signature_id":9,"signature":"low","category":"not-suspicious","severity":3}}'
+out=$(printf '%s\n' "$SEV3" | run_notify)
+echo "$out" | grep -q SEND && { echo "severity 3 should be skipped"; echo "$out"; exit 1; }
+
+# classtype filter on telegram only — rewrite uci
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") echo web-application-attack ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+out=$(printf '%s\n' "$ALERT1" | run_notify)
+echo "$out" | grep -q SEND && { echo "classtype filter should skip trojan"; echo "$out"; exit 1; }
+out=$(printf '%s\n' "$ALERT2" | run_notify)
+echo "$out" | grep -q SEND || { echo "classtype filter should allow web-application-attack"; echo "$out"; exit 1; }
+
+# sid deny
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") echo 2100498 ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+out=$(printf '%s\n' "$ALERT1" | run_notify)
+echo "$out" | grep -q SEND && { echo "sid deny failed"; echo "$out"; exit 1; }
+
+# rate limit 1
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 1 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+rm -rf "$NOTIFY_STATE"
+mkdir -p "$NOTIFY_STATE"
+PATH="$NOTIFY_FAKE:/usr/bin:/bin" TP_NOTIFY_DRY_RUN=1 TP_NOTIFY_STATE="$NOTIFY_STATE" TP_NOTIFY_HOST=testhost TP_NOTIFY_NOW=1700000000 \
+	"$NOTIFY" "$ALERT1" >/dev/null
+out=$(PATH="$NOTIFY_FAKE:/usr/bin:/bin" TP_NOTIFY_DRY_RUN=1 TP_NOTIFY_STATE="$NOTIFY_STATE" TP_NOTIFY_HOST=testhost TP_NOTIFY_NOW=1700000000 \
+	"$NOTIFY" "$ALERT2")
+echo "$out" | grep -q SEND && { echo "rate limit should suppress second"; echo "$out"; exit 1; }
+st=$(PATH="$NOTIFY_FAKE:/usr/bin:/bin" TP_NOTIFY_STATE="$NOTIFY_STATE" "$NOTIFY" --status)
+echo "$st" | grep -q '"suppressed":1' || { echo "suppressed counter"; echo "$st"; exit 1; }
+
+# digest interval 0
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo digest ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 0 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+out=$(printf '%s\n%s\n' "$ALERT1" "$ALERT2" | run_notify)
+echo "$out" | grep -q digest || { echo "digest body missing"; echo "$out"; exit 1; }
+echo "$out" | grep -c 'SEND telegram' | grep -q '^[12]$' || { echo "digest send count"; echo "$out"; exit 1; }
+
+# include_lan redaction
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 1 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 0 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+out=$(printf '%s\n' "$ALERT1" | run_notify)
+echo "$out" | grep -q '192.168.8.0' || { echo "lan not redacted"; echo "$out"; exit 1; }
+echo "$out" | grep -q '192.168.8.50' && { echo "lan ip leaked"; echo "$out"; exit 1; }
+
+# disabled
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show suricata") echo 'suricata.n_telegram=notify' ;;
+"-q get suricata.n_telegram.enabled") echo 0 ;;
+"-q get suricata.n_telegram.type") echo telegram ;;
+"-q get suricata.n_telegram.bot_token") echo tok ;;
+"-q get suricata.n_telegram.chat_id") echo 1 ;;
+"-q get suricata.n_telegram.min_severity") echo 1 ;;
+"-q get suricata.n_telegram.mode") echo realtime ;;
+"-q get suricata.n_telegram.rate_limit") echo 12 ;;
+"-q get suricata.n_telegram.include_lan") echo 1 ;;
+"-q get suricata.n_telegram.classtype") ;;
+"-q get suricata.n_telegram.sid_allow") ;;
+"-q get suricata.n_telegram.sid_deny") ;;
+"-q get suricata.n_telegram.interval") echo 3600 ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+out=$(printf '%s\n' "$ALERT1" | run_notify)
+echo "$out" | grep -q SEND && { echo "disabled channel sent"; echo "$out"; exit 1; }
+
+echo "tp-notify tests ok"
+

@@ -160,6 +160,11 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /parseRuleRaw/);
 	assert.match(view, /id:\s*'tp-pass-local'/);
 	assert.match(view, /id:\s*'tp-suppress-table'/);
+	assert.match(view, /data-tab-title':\s*_\('Alerts'\)/);
+	assert.match(view, /callNotifyTest/);
+	assert.match(view, /function collectNotifyFromDom/);
+	assert.match(view, /id:\s*'tp-notify-list'/);
+	assert.match(view, /_\('Outbound alerts'\)/);
 	assert.match(view, /function labeledActionBtn/);
 	assert.match(view, /_\('Enable selected signatures'\)/);
 	assert.match(view, /_\('Disable selected signatures'\)/);
@@ -209,6 +214,13 @@ test('ucode still validates interface names', () => {
 	assert.ok(fnPos('replace_pass') < fnPos('get_config'), 'replace_pass before get_config');
 	assert.ok(fnPos('parse_enabled_flag') < fnPos('replace_policies'), 'parse_enabled_flag before replace_policies');
 	assert.match(ucode, /function replace_suppress/);
+	assert.match(ucode, /function list_notify/);
+	assert.match(ucode, /function replace_notify/);
+	assert.match(ucode, /getNotify:/);
+	assert.match(ucode, /notifyTest:/);
+	assert.ok(fnPos('notify_id_ok') < fnPos('list_notify'), 'notify_id_ok before list_notify');
+	assert.ok(fnPos('list_notify') < fnPos('get_config'), 'list_notify before get_config');
+	assert.ok(fnPos('replace_notify') < fnPos('get_config'), 'replace_notify before get_config');
 });
 
 test('rule query helpers', () => {
@@ -307,11 +319,31 @@ test('pass list and suppress helpers', () => {
 		rule_profile: 'small',
 		mode: 'ids',
 		pass: { local_nets: true, ips: '1.2.3.4' },
-		suppress: [{ sid: '2000354', ip: '10.0.0.1', track: 'by_dst' }]
+		suppress: [{ sid: '2000354', ip: '10.0.0.1', track: 'by_dst' }],
+		notify: [{ id: 'n_telegram', type: 'telegram', enabled: '0', chat_id: '1' }]
 	});
 	assert.equal(got.config.pass.local_nets, '1');
 	assert.deepEqual(got.config.pass.ips, ['1.2.3.4']);
 	assert.equal(got.config.suppress[0].track, 'by_dst');
+	assert.equal(got.config.notify[0].id, 'n_telegram');
+	assert.equal(got.config.notify[0].mode, 'digest');
+});
+
+test('notify helpers', () => {
+	assert.equal(core.sanitizeNotifyId('', 'telegram', 1), 'n_telegram');
+	assert.equal(core.notifyTypeOk('ntfy'), true);
+	assert.equal(core.notifyTypeOk('sms'), false);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '0', url: ''
+	}]), null);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '1', url: 'https://example.com/x'
+	}]), null);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '1', url: 'not-a-url'
+	}]), 'invalid notify url');
+	assert.equal(core.emptyNotify('email').type, 'email');
+	assert.equal(core.emptyNotify('email').enabled, '0');
 });
 
 test('known Suricata ruleset catalog', () => {
@@ -354,6 +386,7 @@ test('rules table keeps row actions and column classes', () => {
 	assert.match(css, /text-overflow:\s*ellipsis/);
 	assert.match(css, /tp-policy-inner/);
 	assert.match(css, /tp-policy-table \.tp-col-name/);
+	assert.match(css, /tp-notify-card/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);
