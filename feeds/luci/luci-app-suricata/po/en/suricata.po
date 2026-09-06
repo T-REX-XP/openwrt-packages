@@ -527,6 +527,36 @@ msgstr "Enable selected"
 msgid "Enable selected signatures"
 msgstr "Enable selected signatures"
 
+msgid "Enable selected rulesets"
+msgstr "Enable selected rulesets"
+
+msgid "Disable selected rulesets"
+msgstr "Disable selected rulesets"
+
+msgid "Selected rulesets enabled"
+msgstr "Selected rulesets enabled"
+
+msgid "Selected rulesets disabled"
+msgstr "Selected rulesets disabled"
+
+msgid "Tick one or more rows first."
+msgstr "Tick one or more rows first."
+
+msgid "Tick rulesets on the Ruleset policies tab."
+msgstr "Tick rulesets on the Ruleset policies tab."
+
+msgid "Selected rows set to %s"
+msgstr "Selected rows set to %s"
+
+msgid "Action for selected rows"
+msgstr "Action for selected rows"
+
+msgid "Apply the chosen action to selected rows"
+msgstr "Apply the chosen action to selected rows"
+
+msgid "Details"
+msgstr "Details"
+
 msgid "Selected signatures enabled"
 msgstr "Selected signatures enabled"
 
@@ -623,8 +653,11 @@ msgstr "Showing %s–%s of %s"
 msgid "Ruleset policies"
 msgstr "Ruleset policies"
 
-msgid "Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab."
-msgstr "Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab."
+msgid "Choose which signature files Suricata loads. The Enabled badge and Action column apply to the whole file."
+msgstr "Choose which signature files Suricata loads. The Enabled badge and Action column apply to the whole file."
+
+msgid "Tick rows for bulk changes. Enable or disable rulesets, then set Alert, Drop, Reject, or Pass. Drop and Reject only block in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes both lists and overrides the Small/Full profile on the Settings tab."
+msgstr "Tick rows for bulk changes. Enable or disable rulesets, then set Alert, Drop, Reject, or Pass. Drop and Reject only block in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes both lists and overrides the Small/Full profile on the Settings tab."
 
 msgid "Custom ruleset list is in use (profile: %s)."
 msgstr "Custom ruleset list is in use (profile: %s)."
@@ -821,5 +854,5 @@ msgstr "Watch only = detect and log. Prevention = inline blocking."
 msgid "How many rules to load"
 msgstr "How many rules to load"
 
-msgid "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix."
-msgstr "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix."
+msgid "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix."
+msgstr "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix."

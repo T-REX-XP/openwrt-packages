@@ -146,8 +146,16 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /iconActionEnabled\(st\.id, 'enable'\)/);
 	assert.match(view, /_\('Pass list'\)/);
 	assert.match(view, /_\('Suppress'\)/);
-	assert.match(view, /_\('Select all'\)/);
-	assert.match(view, /_\('Unselect all'\)/);
+	assert.match(view, /tp-policy-pick/);
+	assert.match(view, /tp-policy-inner/);
+	assert.match(view, /data-tab-title':\s*_\('Ruleset policies'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Classtype policies'\)/);
+	assert.match(view, /initTabGroup\(inner\.childNodes\)/);
+	assert.match(view, /_\('Enable selected rulesets'\)/);
+	assert.match(view, /_\('Disable selected rulesets'\)/);
+	assert.doesNotMatch(view, /labeledActionBtn\(_\('Select all'\)/);
+	assert.doesNotMatch(view, /labeledActionBtn\(_\('Unselect all'\)/);
+	assert.doesNotMatch(view, /input\.tp-rs-en/);
 	assert.match(view, /_\('GID'\)/);
 	assert.match(view, /parseRuleRaw/);
 	assert.match(view, /id:\s*'tp-pass-local'/);
@@ -344,6 +352,8 @@ test('rules table keeps row actions and column classes', () => {
 	assert.match(css, /position:\s*sticky/);
 	assert.match(css, /tp-col-msg/);
 	assert.match(css, /text-overflow:\s*ellipsis/);
+	assert.match(css, /tp-policy-inner/);
+	assert.match(css, /tp-policy-table \.tp-col-name/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

@@ -422,13 +422,35 @@ function collectTpSettings() {
 	});
 }
 
+function policyRowEnabled(tr) {
+	return !!(tr && tr.getAttribute('data-enabled') === '1');
+}
+
+function selectedPolicyRows(pane) {
+	var out = [];
+	var boxes;
+	var i;
+	var tr;
+
+	if (!pane)
+		return out;
+	boxes = pane.querySelectorAll('input.tp-policy-pick:checked');
+	for (i = 0; i < boxes.length; i++) {
+		tr = boxes[i].parentNode;
+		while (tr && tr.tagName !== 'TR')
+			tr = tr.parentNode;
+		if (tr)
+			out.push(tr);
+	}
+	return out;
+}
+
 function collectPolicies() {
 	var out = { rulesets: [], classtypes: [] };
 	var host = document.getElementById('tp-policy');
 	var rows;
 	var i;
 	var tr;
-	var en;
 	var act;
 
 	if (!host)
@@ -436,11 +458,10 @@ function collectPolicies() {
 	rows = host.querySelectorAll('tr.tp-rs-row');
 	for (i = 0; i < rows.length; i++) {
 		tr = rows[i];
-		en = tr.querySelector('input.tp-rs-en');
 		act = tr.querySelector('select');
 		out.rulesets.push({
-			file: en ? en.getAttribute('data-file') : '',
-			enabled: en && en.checked ? '1' : '0',
+			file: tr.getAttribute('data-file') || '',
+			enabled: policyRowEnabled(tr) ? '1' : '0',
 			action: act ? act.value : 'alert'
 		});
 	}
@@ -1673,12 +1694,16 @@ return view.extend({
 		function renderPolicy(p) {
 			var rulesets = (p && p.rulesets) || [];
 			var classtypes = (p && p.classtypes) || [];
-			var rsTable;
-			var clTable;
+			var rsPane;
+			var clPane;
+			var inner;
+			var actionBulk;
+			var selCount;
 			var modeNote;
+
 			policyBox.innerHTML = '';
-			policyBox.appendChild(cbiSection(_('Ruleset policies'),
-				_('Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab.'),
+			policyBox.appendChild(cbiSection(_('Policy'),
+				_('Tick rows for bulk changes. Enable or disable rulesets, then set Alert, Drop, Reject, or Pass. Drop and Reject only block in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes both lists and overrides the Small/Full profile on the Settings tab.'),
 				[]));
 			if (p && p.custom === '1')
 				policyBox.appendChild(E('p', { 'class': 'tp-help' },
@@ -1692,63 +1717,168 @@ return view.extend({
 				modeNote = E('p', { 'class': 'tp-help' },
 					_('Currently in Watch only. Drop/Reject policies will not block until you switch to Prevention on the Settings tab.'));
 			policyBox.appendChild(modeNote);
-			if (!rulesets.length) {
-				policyBox.appendChild(E('p', { 'class': 'tp-empty' },
-					_('No rule files indexed yet. Fetch rules on the Rules tab, then return here.')));
-			} else {
-				rsTable = E('table', { 'class': 'table tp-policy-table' }, [
-					E('tr', { 'class': 'tr table-titles' }, [
-						E('th', { 'class': 'th' }, _('Enabled')),
-						E('th', { 'class': 'th' }, _('Ruleset')),
-						E('th', { 'class': 'th' }, _('Signatures')),
-						E('th', { 'class': 'th' }, _('Action'))
-					])
-				]);
-				rulesets.forEach(function(row, idx) {
-					var en = E('input', {
-						type: 'checkbox',
-						'class': 'tp-rs-en',
-						'data-file': row.file
-					});
-					en.checked = row.enabled !== '0';
-					rsTable.appendChild(E('tr', { 'class': 'tr tp-rs-row' }, [
-						E('td', { 'class': 'td' }, [ en ]),
-						E('td', { 'class': 'td tp-mono' }, val(row.file)),
-						E('td', { 'class': 'td' }, val(row.count, '0')),
-						E('td', { 'class': 'td' }, [
-							actionSelect('tp-rs-act-' + idx, row.action || 'alert', false)
-						])
-					]));
-				});
-				policyBox.appendChild(rsTable);
+
+			function activePolicyPane() {
+				return policyBox.querySelector('.tp-policy-inner > .cbi-tab-active') ||
+					policyBox.querySelector('.tp-policy-inner > [data-tab]');
 			}
 
-			policyBox.appendChild(cbiSection(_('Classtype policies'),
-				_('Set a default action for a class of attacks (for example trojan-activity). A per-SID action on the Rules tab wins over this list. A file action wins over classtype when the SID has no override.'),
-				[]));
-			clTable = E('table', { 'class': 'table tp-policy-table' }, [
-				E('tr', { 'class': 'tr table-titles' }, [
-					E('th', { 'class': 'th' }, _('Classtype')),
-					E('th', { 'class': 'th' }, _('Action'))
-				])
-			]);
-			if (!classtypes.length) {
-				policyBox.appendChild(E('p', { 'class': 'tp-empty' }, _('No classtypes yet.')));
-			} else {
-				classtypes.forEach(function(row, idx) {
-					clTable.appendChild(E('tr', { 'class': 'tr tp-cl-row', 'data-name': row.name }, [
-						E('td', { 'class': 'td' }, val(row.name)),
-						E('td', { 'class': 'td' }, [
-							actionSelect('tp-cl-act-' + idx, row.action || 'alert', false)
-						])
-					]));
+			function paintPolicySel() {
+				var pane = activePolicyPane();
+				var n = selectedPolicyRows(pane).length;
+				var el = document.getElementById('tp-policy-sel-count');
+				if (el)
+					el.textContent = _('Selected: %s').format(n);
+			}
+
+			function syncPolicyHeader(pane) {
+				var header;
+				var boxes;
+				var on = 0;
+				var n;
+
+				if (!pane)
+					return;
+				header = pane.querySelector('input.tp-policy-select-all');
+				boxes = pane.querySelectorAll('input.tp-policy-pick');
+				for (n = 0; n < boxes.length; n++) {
+					if (boxes[n].checked)
+						on++;
+				}
+				if (!header)
+					return;
+				header.checked = boxes.length > 0 && on === boxes.length;
+				header.indeterminate = on > 0 && on < boxes.length;
+			}
+
+			function syncPolicyToolbar(tabId) {
+				var hide = tabId !== 'policy-rulesets';
+				var btns = policyBox.querySelectorAll('.tp-policy-rs-only');
+				var n;
+
+				for (n = 0; n < btns.length; n++)
+					btns[n].hidden = hide;
+				paintPolicySel();
+			}
+
+			function policyPick(pane) {
+				return E('input', {
+					type: 'checkbox',
+					'class': 'tp-policy-pick',
+					change: function() {
+						syncPolicyHeader(pane);
+						paintPolicySel();
+					}
 				});
-				policyBox.appendChild(clTable);
+			}
+
+			function policySelectAll(pane) {
+				return E('input', {
+					type: 'checkbox',
+					'class': 'tp-policy-select-all',
+					change: function() {
+						var on = this.checked;
+						var boxes = pane.querySelectorAll('input.tp-policy-pick');
+						var n;
+
+						this.indeterminate = false;
+						for (n = 0; n < boxes.length; n++)
+							boxes[n].checked = on;
+						paintPolicySel();
+					}
+				});
+			}
+
+			function policyHeader(pane) {
+				return E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th tp-col-check' }, [ policySelectAll(pane) ]),
+					E('th', { 'class': 'th tp-col-num' }, '#'),
+					E('th', { 'class': 'th tp-col-name' }, _('Name')),
+					E('th', { 'class': 'th tp-col-info' }, _('Details')),
+					E('th', { 'class': 'th tp-col-status' }, _('Enabled')),
+					E('th', { 'class': 'th tp-col-action' }, _('Action'))
+				]);
+			}
+
+			function setRsEnabled(tr, on) {
+				var cell;
+				var title;
+
+				if (!tr || !tr.classList.contains('tp-rs-row'))
+					return;
+				tr.setAttribute('data-enabled', on ? '1' : '0');
+				tr.classList.toggle('tp-rule--off', !on);
+				cell = tr.querySelector('.tp-col-status');
+				if (!cell)
+					return;
+				title = on ? _('Disable') : _('Enable');
+				cell.innerHTML = '';
+				cell.appendChild(E('button', {
+					'type': 'button',
+					'class': 'tp-status-btn',
+					'title': title,
+					'aria-label': title,
+					click: function(ev) {
+						ev.preventDefault();
+						setRsEnabled(tr, !policyRowEnabled(tr));
+					}
+				}, tpBadge(on ? 'yes' : 'no', on ? _('Enabled') : _('Disabled'))));
+			}
+
+			function policyGrid(pane, rows, kind) {
+				var table;
+				var isRs = kind === 'ruleset';
+
+				if (!rows.length) {
+					pane.appendChild(E('p', { 'class': 'tp-empty' },
+						isRs
+							? _('No rule files indexed yet. Fetch rules on the Rules tab, then return here.')
+							: _('No classtypes yet.')));
+					return;
+				}
+				table = E('table', { 'class': 'table tp-policy-table' }, [
+					policyHeader(pane)
+				]);
+				rows.forEach(function(row, idx) {
+					var on = isRs && row.enabled !== '0';
+					var trClass = 'tr ' + (isRs ? 'tp-rs-row' : 'tp-cl-row');
+					var name = isRs ? val(row.file) : val(row.name);
+					var attrs;
+					var tr;
+
+					if (isRs && !on)
+						trClass += ' tp-rule--off';
+					attrs = { 'class': trClass };
+					if (isRs) {
+						attrs['data-file'] = row.file || '';
+						attrs['data-enabled'] = on ? '1' : '0';
+					} else {
+						attrs['data-name'] = row.name || '';
+					}
+					tr = E('tr', attrs, [
+						E('td', { 'class': 'td tp-col-check' }, [ policyPick(pane) ]),
+						E('td', { 'class': 'td tp-col-num' }, String(idx + 1)),
+						E('td', { 'class': 'td tp-col-name tp-mono', 'title': name }, name),
+						E('td', { 'class': 'td tp-col-info' }, isRs ? val(row.count, '0') : '—'),
+						isRs
+							? E('td', { 'class': 'td tp-col-status' })
+							: E('td', { 'class': 'td tp-col-status tp-muted' }, '—'),
+						E('td', { 'class': 'td tp-col-action' }, [
+							actionSelect((isRs ? 'tp-rs-act-' : 'tp-cl-act-') + idx,
+								row.action || 'alert', false)
+						])
+					]);
+					table.appendChild(tr);
+					if (isRs)
+						setRsEnabled(tr, on);
+				});
+				pane.appendChild(E('div', { 'class': 'tp-rules-wrap' }, [ table ]));
 			}
 
 			function resetPolicies() {
 				var collected = collectPolicies();
 				var err;
+
 				collected.rulesets = [];
 				err = suricataCore.validatePolicies(collected);
 				if (err) {
@@ -1765,33 +1895,109 @@ return view.extend({
 				});
 			}
 
-			policyBox.appendChild(E('div', { 'class': 'tp-policy-actions' }, [
-				labeledActionBtn(_('Select all'), 'cbi-button',
-					_('Enable every ruleset in the list'),
-					function() {
-						var boxes = policyBox.querySelectorAll('input.tp-rs-en');
-						var n;
-						for (n = 0; n < boxes.length; n++)
-							boxes[n].checked = true;
-					}),
-				labeledActionBtn(_('Unselect all'), 'cbi-button',
-					_('Disable every ruleset in the list'),
-					function() {
-						var boxes = policyBox.querySelectorAll('input.tp-rs-en');
-						var n;
-						for (n = 0; n < boxes.length; n++)
-							boxes[n].checked = false;
-					}),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'title': _('Restore the Small or Full profile from Settings'),
-					click: function(ev) {
-						ev.preventDefault();
-						resetPolicies();
-					}
-				}, _('Reset rulesets to profile'))
+			function selectedOrWarn() {
+				var rows = selectedPolicyRows(activePolicyPane());
+
+				if (!rows.length) {
+					ui.addNotification(null, E('p', {}, _('Tick one or more rows first.')), 'error');
+					return null;
+				}
+				return rows;
+			}
+
+			function bulkRsEnabled(on) {
+				var rows = selectedOrWarn();
+				var n;
+				var changed = 0;
+
+				if (!rows)
+					return;
+				for (n = 0; n < rows.length; n++) {
+					if (!rows[n].classList.contains('tp-rs-row'))
+						continue;
+					setRsEnabled(rows[n], on);
+					changed++;
+				}
+				if (!changed) {
+					ui.addNotification(null, E('p', {}, _('Tick rulesets on the Ruleset policies tab.')), 'error');
+					return;
+				}
+				ui.addNotification(null, E('p', {},
+					on ? _('Selected rulesets enabled') : _('Selected rulesets disabled')), 4000);
+			}
+
+			function bulkSetAction() {
+				var rows = selectedOrWarn();
+				var action = actionBulk.value;
+				var n;
+				var sel;
+
+				if (!rows)
+					return;
+				if (!suricataCore.actionOk(action)) {
+					ui.addNotification(null, E('p', {}, _('Choose an action first.')), 'error');
+					return;
+				}
+				for (n = 0; n < rows.length; n++) {
+					sel = rows[n].querySelector('select');
+					if (sel)
+						sel.value = action;
+				}
+				ui.addNotification(null, E('p', {}, _('Selected rows set to %s').format(action)), 4000);
+			}
+
+			actionBulk = actionSelect('tp-policy-set-action', 'alert', false);
+			actionBulk.title = _('Action for selected rows');
+			selCount = E('span', { id: 'tp-policy-sel-count' }, _('Selected: %s').format(0));
+			policyBox.appendChild(E('div', { 'class': 'tp-rules-head' }, [
+				E('div', { 'class': 'tp-rules-actions' }, [
+					labeledActionBtn(_('Enable selected'), 'cbi-button-positive tp-policy-rs-only',
+						_('Enable selected rulesets'),
+						function() {
+							bulkRsEnabled(true);
+						}),
+					labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-policy-rs-only',
+						_('Disable selected rulesets'),
+						function() {
+							bulkRsEnabled(false);
+						}),
+					actionBulk,
+					labeledActionBtn(_('Set action'), 'cbi-button',
+						_('Apply the chosen action to selected rows'),
+						bulkSetAction),
+					labeledActionBtn(_('Reset rulesets to profile'), 'cbi-button tp-policy-rs-only',
+						_('Restore the Small or Full profile from Settings'),
+						resetPolicies)
+				]),
+				E('p', { 'class': 'tp-help' }, [ selCount ])
 			]));
+
+			rsPane = E('div', {
+				'data-tab': 'policy-rulesets',
+				'data-tab-title': _('Ruleset policies')
+			}, [
+				E('div', { 'class': 'cbi-section-descr' },
+					_('Choose which signature files Suricata loads. The Enabled badge and Action column apply to the whole file.'))
+			]);
+			clPane = E('div', {
+				'data-tab': 'policy-classtypes',
+				'data-tab-title': _('Classtype policies')
+			}, [
+				E('div', { 'class': 'cbi-section-descr' },
+					_('Set a default action for a class of attacks (for example trojan-activity). A per-SID action on the Rules tab wins over this list. A file action wins over classtype when the SID has no override.'))
+			]);
+			policyGrid(rsPane, rulesets, 'ruleset');
+			policyGrid(clPane, classtypes, 'classtype');
+			inner = E('div', { 'class': 'tp-policy-inner' }, [ rsPane, clPane ]);
+			policyBox.appendChild(inner);
+			ui.tabs.initTabGroup(inner.childNodes);
+			rsPane.addEventListener('cbi-tab-active', function() {
+				syncPolicyToolbar('policy-rulesets');
+			});
+			clPane.addEventListener('cbi-tab-active', function() {
+				syncPolicyToolbar('policy-classtypes');
+			});
+			syncPolicyToolbar('policy-rulesets');
 		}
 
 		function renderPass(p) {
@@ -1987,7 +2193,7 @@ return view.extend({
 						_('Watch only = detect and log. Prevention = inline blocking.')),
 					ipsWarn,
 					fieldRow('tp-profile', _('How many rules to load'), profile,
-						_('Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix.'))
+						_('Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix.'))
 				]));
 		}
 
