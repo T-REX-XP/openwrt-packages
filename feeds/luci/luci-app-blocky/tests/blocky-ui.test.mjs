@@ -73,6 +73,9 @@ test('inner Logs tabs and hero chrome', () => {
 	assert.match(css, /\.blocky-hero\b/);
 	assert.match(css, /\.blocky-lead\b/);
 	assert.match(css, /\.blocky-inner-tabs\b/);
+	assert.match(base, /blocky-inner-tabs-panes/);
+	assert.match(base, /initTabGroup\(wrap\.childNodes\)/);
+	assert.match(base, /'class': 'blocky-inner-tabs'/);
 	assert.match(base, /'type': 'button'/);
 	assert.match(base, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 });

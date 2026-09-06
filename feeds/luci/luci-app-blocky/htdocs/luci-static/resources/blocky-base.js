@@ -244,28 +244,18 @@ function canonicalTabHash(hash) {
 function clickInnerTab(host, dataTab) {
 	var menu;
 	var buttons;
-	var panes = [];
-	var kids;
 	var i;
-	var idx = -1;
 
 	if (!host)
 		return;
-	kids = host.children;
-	for (i = 0; i < kids.length; i++) {
-		if (kids[i].getAttribute && kids[i].getAttribute('data-tab'))
-			panes.push(kids[i]);
-	}
-	for (i = 0; i < panes.length; i++) {
-		if (panes[i].getAttribute('data-tab') === dataTab)
-			idx = i;
-	}
-	if (idx < 0)
-		return;
 	menu = host.querySelector(':scope > .cbi-tabmenu') || host.querySelector('.cbi-tabmenu');
 	buttons = menu ? menu.querySelectorAll('li') : [];
-	if (buttons[idx])
-		buttons[idx].click();
+	for (i = 0; i < buttons.length; i++) {
+		if (buttons[i].getAttribute('data-tab') === dataTab) {
+			buttons[i].click();
+			return;
+		}
+	}
 }
 
 function mountInnerTabs(panes) {
@@ -275,10 +265,11 @@ function mountInnerTabs(panes) {
 			'data-tab-title': pane.title
 		}, pane.nodes || [ pane.node ]);
 	});
-	var wrap = E('div', { 'class': 'blocky-inner-tabs' }, boxes);
+	var wrap = E('div', { 'class': 'blocky-inner-tabs-panes' }, boxes);
+	var host = E('div', { 'class': 'blocky-inner-tabs' }, [ wrap ]);
 
 	ui.tabs.initTabGroup(wrap.childNodes);
-	return wrap;
+	return host;
 }
 
 function notify(message, level) {
