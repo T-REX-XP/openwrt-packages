@@ -269,16 +269,32 @@
 .luci-app-suricata .tp-rules-table {
 	margin: 0.5rem 0;
 	table-layout: auto;
+	width: max-content;
+	min-width: 100%;
+}
+
+.luci-app-suricata .tp-rules-table .tr {
+	align-items: center;
+	min-width: 76rem;
+}
+
+.luci-app-suricata .tp-rules-table .th,
+.luci-app-suricata .tp-rules-table .td {
+	flex: 0 0 auto;
+	overflow: visible;
+	word-break: normal;
+	overflow-wrap: normal;
+	vertical-align: middle;
 }
 
 .luci-app-suricata .tp-rules-table .tp-col-check,
 .luci-app-suricata .tp-rules-table .tp-col-num,
-.luci-app-suricata .tp-rules-table .tp-col-sid {
-	flex: 0 0 auto;
-	width: 1%;
+.luci-app-suricata .tp-rules-table .tp-col-gid,
+.luci-app-suricata .tp-rules-table .tp-col-sid,
+.luci-app-suricata .tp-rules-table .tp-col-tuple,
+.luci-app-suricata .tp-rules-table .tp-col-status {
+	width: auto;
 	white-space: nowrap;
-	word-break: normal;
-	overflow-wrap: normal;
 }
 
 .luci-app-suricata .tp-rules-table .tp-col-num {
@@ -289,6 +305,54 @@
 
 .luci-app-suricata .tp-rules-table .tp-col-sid {
 	min-width: 7.5rem;
+}
+
+.luci-app-suricata .tp-rules-table .tp-col-msg {
+	flex: 1 1 16rem;
+	min-width: 14rem;
+	max-width: 28rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-suricata .tp-rules-table .tp-col-class {
+	flex: 0 1 9rem;
+	min-width: 7rem;
+	max-width: 12rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-suricata .tp-rules-table .tp-col-tags {
+	flex: 0 0 13rem;
+	min-width: 13rem;
+	max-width: 16rem;
+	overflow: visible;
+	white-space: normal;
+}
+
+.luci-app-suricata .tp-rules-table .tp-col-actions {
+	flex: 0 0 10.75rem;
+	width: 10.75rem;
+	min-width: 10.75rem;
+	white-space: nowrap;
+	overflow: visible;
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	background: var(--background-color-high, var(--background-color-medium));
+	box-shadow: -0.45rem 0 0.55rem -0.35rem var(--border-color-medium);
+}
+
+.luci-app-suricata .tp-rules-table .tr:nth-child(even) .tp-col-actions {
+	background: var(--background-color-low);
+}
+
+.luci-app-suricata .tp-rules-table .tr.table-titles .tp-col-actions {
+	z-index: 3;
+	background: var(--background-color-medium);
 }
 
 .luci-app-suricata .tp-rules-table .tr:nth-child(even) .td {
@@ -493,11 +557,13 @@
 	flex-wrap: wrap;
 	gap: 0.25rem;
 	align-items: center;
+	max-width: 16rem;
 }
 
 .luci-app-suricata .tp-tag-pill {
 	display: inline-flex;
 	align-items: center;
+	max-width: 100%;
 	padding: 0.15em 0.5em;
 	border-radius: 3px;
 	background: var(--tp-tag-fill, #00838f);
@@ -505,6 +571,8 @@
 	font-size: 0.78em;
 	line-height: 1.4;
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .luci-app-suricata .tp-tag-pill--sev {
@@ -536,13 +604,6 @@
 .luci-app-suricata .tp-col-tuple {
 	white-space: nowrap;
 	font-size: 0.82em;
-}
-
-.luci-app-suricata .tp-col-actions {
-	flex: 0 0 auto;
-	width: 1%;
-	white-space: nowrap;
-	min-width: 10rem;
 }
 
 .luci-app-suricata .tp-icon-row {

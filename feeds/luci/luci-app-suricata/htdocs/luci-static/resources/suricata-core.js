@@ -390,9 +390,6 @@ return baseclass.extend({
 				add(String(val).toLowerCase(), 'meta');
 		}
 
-		if (out.length < 3 && opts.classtype)
-			add(String(opts.classtype).toLowerCase(), 'meta');
-
 		extra = opts.tags;
 		if (Array.isArray(extra)) {
 			for (i = 0; i < extra.length && out.length < 4; i++) {

@@ -304,7 +304,8 @@ function ruleTagPills(row) {
 		return E('span', { 'class': 'tp-muted' }, '—');
 	for (i = 0; i < tags.length; i++)
 		kids.push(E('span', {
-			'class': 'tp-tag-pill tp-tag-pill--' + tags[i].tone
+			'class': 'tp-tag-pill tp-tag-pill--' + tags[i].tone,
+			'title': tags[i].label
 		}, tags[i].label));
 	return E('div', { 'class': 'tp-tag-pills' }, kids);
 }
@@ -1542,11 +1543,11 @@ return view.extend({
 					E('th', { 'class': 'th tp-col-tuple' }, _('SPort')),
 					E('th', { 'class': 'th tp-col-tuple' }, _('Destination')),
 					E('th', { 'class': 'th tp-col-tuple' }, _('DPort')),
-					E('th', { 'class': 'th' }, _('Message')),
-					E('th', { 'class': 'th' }, _('Category')),
-					E('th', { 'class': 'th' }, _('Status')),
-					E('th', { 'class': 'th' }, _('Tags')),
-					E('th', { 'class': 'th' }, _('Actions'))
+					E('th', { 'class': 'th tp-col-msg' }, _('Message')),
+					E('th', { 'class': 'th tp-col-class' }, _('Category')),
+					E('th', { 'class': 'th tp-col-status' }, _('Status')),
+					E('th', { 'class': 'th tp-col-tags' }, _('Tags')),
+					E('th', { 'class': 'th tp-col-actions' }, _('Actions'))
 				])
 			]);
 			list.forEach(function(row, idx) {
@@ -1594,8 +1595,8 @@ return view.extend({
 					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.sport)),
 					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.dst)),
 					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.dport)),
-					E('td', { 'class': 'td' }, val(row.msg)),
-					E('td', { 'class': 'td' }, val(row.classtype)),
+					E('td', { 'class': 'td tp-col-msg', 'title': val(row.msg) }, val(row.msg)),
+					E('td', { 'class': 'td tp-col-class', 'title': val(row.classtype) }, val(row.classtype)),
 					E('td', { 'class': 'td tp-col-status' }, [
 						E('button', {
 							'type': 'button',

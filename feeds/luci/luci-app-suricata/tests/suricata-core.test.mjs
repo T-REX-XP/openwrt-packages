@@ -248,6 +248,7 @@ test('parseRuleRaw and tune preview', () => {
 	const pills = core.displayRuleTags(raw, { classtype: 'trojan-activity' });
 	assert.ok(pills.some((t) => t.label === 'dns' && t.tone === 'proto'));
 	assert.ok(pills.some((t) => t.label === 'malware' && t.tone === 'meta'));
+	assert.ok(!pills.some((t) => t.label === 'trojan-activity'));
 });
 
 test('validateTune and tags', () => {
@@ -331,6 +332,18 @@ test('view has catalog picker', () => {
 	assert.match(view, /_\('Add from catalog'\)/);
 	assert.match(view, /_\('Add custom'\)/);
 	assert.match(view, /openTpCatalogModal/);
+});
+
+test('rules table keeps row actions and column classes', () => {
+	const css = readFileSync(join(res, 'suricata-theme.css'), 'utf8');
+	assert.match(view, /tp-col-msg/);
+	assert.match(view, /tp-col-tags/);
+	assert.match(view, /tp-col-actions/);
+	assert.match(view, /iconBtn\(_\('Edit'\), 'edit'/);
+	assert.match(css, /tp-col-actions/);
+	assert.match(css, /position:\s*sticky/);
+	assert.match(css, /tp-col-msg/);
+	assert.match(css, /text-overflow:\s*ellipsis/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

@@ -117,6 +117,10 @@ function normalize_value(k, v) {
 	return v;
 }
 
+function snort_log_dir() {
+	return normalize_value('log_dir', uci_get('snort', 'log_dir', '/var/log/snort'));
+}
+
 function validate_field(k, v) {
 	v = normalize_value(k, v);
 	if (index(FLAG_OPTS, k) >= 0) {
@@ -696,7 +700,7 @@ function get_config() {
 		snaplen: uci_get('snort', 'snaplen', '1518'),
 		logging: uci_get('snort', 'logging', '1'),
 		openappid: uci_get('snort', 'openappid', '0'),
-		log_dir: uci_get('snort', 'log_dir', '/var/log/snort'),
+		log_dir: snort_log_dir(),
 		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
 		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
 		oinkcode: uci_get('snort', 'oinkcode', ''),
@@ -723,12 +727,222 @@ function rules_info() {
 	};
 }
 
+function endpoint_host(ip, port, keep) {
+	ip = trim(`${ip}`);
+	port = trim(`${port}`);
+	if (keep && ip != '' && port != '' && port != '0')
+		return ip + '(' + port + ')';
+	return ip;
+}
+
+function sort_by_count(rows) {
+	let n = length(rows);
+	let i;
+	let j;
+	let best;
+	let tmp;
+	for (i = 0; i < n; i++) {
+		best = i;
+		j = i + 1;
+		while (j < n) {
+			if (rows[j].count > rows[best].count)
+				best = j;
+			j++;
+		}
+		if (best != i) {
+			tmp = rows[i];
+			rows[i] = rows[best];
+			rows[best] = tmp;
+		}
+	}
+	return rows;
+}
+
+function list_alert_json(dir) {
+	let files = [];
+	let r = run_cmd(`find -L ${shell_quote(dir)} -maxdepth 2 -type f -name '*alert_json.txt' 2>/dev/null`);
+	if (!r.output)
+		return files;
+	for (let line in split(r.output, '\n')) {
+		if (line != '')
+			push(files, line);
+	}
+	return files;
+}
+
+function lookup_triggered_rules(pairs) {
+	let out = [];
+	let bin = sqlite3_bin();
+	if (!file_test('-f', RULES_DB))
+		return out;
+	let seen = {};
+	for (let pair in pairs) {
+		let gid = trim(`${pair.gid}`);
+		let sid = trim(`${pair.sid}`);
+		if (!match(gid, /^[0-9]+$/) || !match(sid, /^[0-9]+$/))
+			continue;
+		let key = gid + ':' + sid;
+		if (seen[key])
+			continue;
+		seen[key] = 1;
+		let sql = 'SELECT gid, sid, file, msg, raw FROM rules WHERE gid = ' + gid +
+			' AND sid = ' + sid + ' LIMIT 1;';
+		let r = run_cmd(`${bin} -json ${shell_quote(RULES_DB)} ${shell_quote(sql)}`);
+		let rows = [];
+		if (r.code == 0 && r.output) {
+			try {
+				rows = json(r.output);
+			}
+			catch (e) {
+				rows = [];
+			}
+		}
+		if (type(rows) != 'array' || length(rows) < 1) {
+			push(out, {
+				gid,
+				sid,
+				file: '',
+				msg: '',
+				snippet: ''
+			});
+			continue;
+		}
+		let row = rows[0];
+		let raw = `${row.raw || ''}`;
+		if (length(raw) > 160)
+			raw = substr(raw, 0, 160);
+		push(out, {
+			gid: `${row.gid || gid}`,
+			sid: `${row.sid || sid}`,
+			file: `${row.file || ''}`,
+			msg: `${row.msg || ''}`,
+			snippet: raw
+		});
+		if (length(out) >= 40)
+			break;
+	}
+	return out;
+}
+
+function build_incident_report(limit, pattern) {
+	limit = int_arg(limit, 50, 1, 200);
+	pattern = trim(`${pattern}`);
+	if (length(pattern) > 64)
+		pattern = substr(pattern, 0, 64);
+	let log_dir = snort_log_dir();
+	let logging = uci_get('snort', 'logging', '1');
+	let files = list_alert_json(log_dir);
+	let file_info = [];
+	let buckets = {};
+	let total = 0;
+	let scanned = 0;
+	let max_lines = 4000;
+	let file;
+	let lines;
+	let line;
+	let obj;
+	let msg;
+	let src;
+	let dst;
+	let dir;
+	let gid;
+	let sid;
+	let key;
+	let hay;
+	let pat_lc = lc(pattern);
+	for (file in files) {
+		let bytes = int(run_cmd(`wc -c < ${shell_quote(file)}`).output) || 0;
+		let nlines = int(run_cmd(`wc -l < ${shell_quote(file)}`).output) || 0;
+		push(file_info, { path: file, bytes, lines: nlines });
+		total += nlines;
+		if (scanned >= max_lines)
+			continue;
+		let take = max_lines - scanned;
+		lines = run_cmd(`tail -n ${take} ${shell_quote(file)}`).output;
+		if (!lines)
+			continue;
+		for (line in split(lines, '\n')) {
+			if (line == '')
+				continue;
+			scanned++;
+			try {
+				obj = json(line);
+			}
+			catch (e) {
+				continue;
+			}
+			if (type(obj) != 'object')
+				continue;
+			msg = trim(`${obj.msg || ''}`);
+			dir = trim(`${obj.dir || ''}`);
+			gid = trim(`${obj.gid || ''}`);
+			sid = trim(`${obj.sid || ''}`);
+			src = endpoint_host(obj.src_addr, obj.src_port, dir == 'S2C');
+			dst = endpoint_host(obj.dst_addr, obj.dst_port, dir == 'C2S');
+			key = msg + '\t' + src + '\t' + dst + '\t' + dir + '\t' + gid + '\t' + sid;
+			if (pattern != '') {
+				hay = lc(key);
+				if (index(hay, pat_lc) < 0)
+					continue;
+			}
+			if (buckets[key])
+				buckets[key].count++;
+			else
+				buckets[key] = {
+					count: 1,
+					msg,
+					src,
+					dst,
+					dir,
+					gid,
+					sid
+				};
+		}
+	}
+	let rows = [];
+	let k;
+	for (k in buckets)
+		push(rows, buckets[k]);
+	rows = sort_by_count(rows);
+	if (length(rows) > limit) {
+		let clipped = [];
+		let i = 0;
+		while (i < limit) {
+			push(clipped, rows[i]);
+			i++;
+		}
+		rows = clipped;
+	}
+	let shown = 0;
+	for (let row in rows)
+		shown += row.count;
+	let status = '';
+	if (file_test('-x', '/usr/bin/snort-mgr'))
+		status = run_cmd('/usr/bin/snort-mgr status').output;
+	let fast = log_dir + '/alert_fast.txt';
+	return {
+		ok: true,
+		logging: logging == '1',
+		log_dir,
+		total,
+		scanned,
+		shown_events: shown,
+		limit,
+		pattern,
+		fast_alert: file_test('-f', fast) ? fast : '',
+		files: file_info,
+		incidents: rows,
+		rules: lookup_triggered_rules(rows),
+		status
+	};
+}
+
 const methods = {
 	getStatus: {
 		call: function() {
 			let running = run_cmd('pidof snort >/dev/null && echo 1 || echo 0').output == '1';
 			let pid = running ? first_pid(run_cmd('pidof snort').output) : '';
-			let log_dir = uci_get('snort', 'log_dir', '/var/log');
+			let log_dir = snort_log_dir();
 			let alert = `${log_dir}/alert_fast.txt`;
 			let alert_count = 0;
 			if (file_test('-f', alert))
