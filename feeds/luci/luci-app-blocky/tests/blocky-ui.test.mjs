@@ -14,6 +14,8 @@ const common = readFileSync(join(res, 'blocky-common.js'), 'utf8');
 const base = readFileSync(join(res, 'blocky-base.js'), 'utf8');
 const config = readFileSync(join(res, 'blocky-tab-config.js'), 'utf8');
 const lists = readFileSync(join(res, 'blocky-tab-blocklists.js'), 'utf8');
+const dashboard = readFileSync(join(res, 'blocky-tab-dashboard.js'), 'utf8');
+const controls = readFileSync(join(res, 'blocky-tab-controls.js'), 'utf8');
 const logs = readFileSync(join(res, 'blocky-tab-logs.js'), 'utf8');
 const css = readFileSync(join(res, 'blocky-theme.css'), 'utf8');
 
@@ -37,8 +39,9 @@ test('native Status / Settings / Query tabs', () => {
 	assert.match(common, /data-tab-title':\s*_\('Settings'\)/);
 	assert.match(common, /data-tab-title':\s*_\('Query'\)/);
 	assert.match(common, /data-tab-title':\s*_\('Logs'\)/);
-	assert.match(common, /title:\s*_\('Overview'\)/);
-	assert.match(common, /title:\s*_\('Statistics'\)/);
+	assert.doesNotMatch(common, /title:\s*_\('Overview'\)/);
+	assert.doesNotMatch(common, /title:\s*_\('Statistics'\)/);
+	assert.doesNotMatch(common, /mountInnerTabs\(/);
 	assert.match(common, /initTabGroup\(tabHost\.childNodes\)/);
 	assert.doesNotMatch(common, /renderTabs\(/);
 	assert.doesNotMatch(common, /blocky-tab-debug/);
@@ -80,10 +83,35 @@ test('inner Logs tabs and hero chrome', () => {
 	assert.match(base, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 });
 
+test('Block lists grid matches Suricata icon actions', () => {
+	assert.match(lists, /ICON_GLYPHS/);
+	assert.match(lists, /function iconBtn/);
+	assert.match(lists, /function labeledActionBtn/);
+	assert.match(lists, /blocky-icon-btn/);
+	assert.match(lists, /blocky-col-actions/);
+	assert.match(lists, /blocky-blocklists-wrap/);
+	assert.match(lists, /_\('Add'\)/);
+	assert.doesNotMatch(lists, /E\('svg'/);
+	assert.doesNotMatch(lists, /cbi-button-edit/);
+	assert.doesNotMatch(lists, /_\('Add blocklist'\)/);
+	assert.match(css, /\.blocky-icon-btn\b/);
+	assert.match(css, /\.blocky-col-actions\b/);
+	assert.match(css, /\.blocky-blocklists-wrap\b/);
+});
+
 test('no board-specific copy', () => {
 	assert.doesNotMatch(common, /CM5/);
 	assert.doesNotMatch(common, /2\.5 GbE/);
 	assert.doesNotMatch(config, /CM5/);
+});
+
+test('no init.d replica or always-green sync pill', () => {
+	assert.doesNotMatch(controls, /renderServiceControls/);
+	assert.doesNotMatch(controls, /Enable at boot/);
+	assert.doesNotMatch(dashboard, /renderServiceControls/);
+	assert.doesNotMatch(dashboard, /_\('Service status'\)/);
+	assert.match(lists, /UCI changed — sync to config.yml/);
+	assert.doesNotMatch(lists, /UCI and config.yml in sync/);
 });
 
 console.log(`\nResults: ${pass} passed, ${fail} failed`);

@@ -102,6 +102,39 @@ var safeString = Blocky.safeString,
 	bc = Blocky.bc,
 	bp = Blocky.bp;
 
+var ICON_GLYPHS = {
+	edit: '✎',
+	delete: '✕'
+};
+
+function iconBtn(title, kind, fn) {
+	return E('span', { 'class': 'blocky-icon-wrap', 'title': title }, [
+		E('button', {
+			'type': 'button',
+			'class': 'blocky-icon-btn blocky-icon-btn--' + kind,
+			'title': title,
+			'aria-label': title,
+			'click': ui.createHandlerFn(null, function(ev) {
+				ev.preventDefault();
+				return fn();
+			})
+		}, ICON_GLYPHS[kind] || '•')
+	]);
+}
+
+function labeledActionBtn(label, cls, title, fn) {
+	return E('button', {
+		'type': 'button',
+		'class': 'btn ' + cls,
+		'title': title,
+		'aria-label': title,
+		'click': ui.createHandlerFn(null, function(ev) {
+			ev.preventDefault();
+			return fn();
+		})
+	}, [ label ]);
+}
+
 function addBlocklistsFromPresets(presets, configYaml) {
 	if (!presets.length) {
 		notify(_('Select at least one catalog list.'), 'warning');
@@ -399,6 +432,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 	metricsText = safeString(metricsText);
 	configYaml = safeString(configYaml);
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
+	var tableWrap = E('div', { 'class': 'blocky-blocklists-wrap' }, [ tableHost ]);
 	var syncHost = E('div', { 'class': 'blocky-blocklists-sync-host' });
 
 	function listApplyOptions() {
@@ -418,7 +452,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 
 		replaceContent(syncHost, outOfSync
 			? blockyPill('warn', _('UCI changed — sync to config.yml'))
-			: blockyPill('yes', _('UCI and config.yml in sync')));
+			: '');
 	}
 
 	function repaintTable() {
@@ -434,22 +468,29 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 
 			replaceContent(tableHost, [
 				E('div', { 'class': 'tr table-titles' }, [
-					E('div', { 'class': 'th', 'style': 'width:4em' }, [ _('Enabled') ]),
-					E('div', { 'class': 'th', 'style': 'width:18%' }, [ _('Name') ]),
-					E('div', { 'class': 'th' }, [ _('URL') ]),
-					E('div', { 'class': 'th', 'style': 'width:7em' }, [ _('Rules') ]),
-					E('div', { 'class': 'th', 'style': 'width:10em' }, [ _('Actions') ])
+					E('div', { 'class': 'th blocky-col-num' }, '#'),
+					E('div', { 'class': 'th blocky-col-on' }, [ _('Enabled') ]),
+					E('div', { 'class': 'th blocky-col-name' }, [ _('Name') ]),
+					E('div', { 'class': 'th blocky-col-url' }, [ _('URL') ]),
+					E('div', { 'class': 'th blocky-col-rules' }, [ _('Rules') ]),
+					E('div', { 'class': 'th blocky-col-actions' }, [ _('Actions') ])
 				])
-			].concat(lists.map(function(entry) {
+			].concat(lists.map(function(entry, idx) {
 				var rules = resolveDenyCount(counts, entry);
 				var rulesLabel = rules != null
 					? formatNumber(rules)
 					: (entry.enabled ? _('pending') : '0');
+				var nameTip = entry.description
+					? entry.name + ' — ' + entry.description
+					: entry.name;
 
 				return E('div', { 'class': 'tr' }, [
-					E('div', { 'class': 'td' }, [
+					E('div', { 'class': 'td blocky-col-num' }, [ String(idx + 1) ]),
+					E('div', { 'class': 'td blocky-col-on' }, [
 						E('input', {
 							'type': 'checkbox',
+							'title': _('Enable %s').format(entry.name),
+							'aria-label': _('Enable %s').format(entry.name),
 							'checked': entry.enabled ? '' : null,
 							'change': ui.createHandlerFn(this, function(ev) {
 								return uci.load('blocky').then(function() {
@@ -465,32 +506,17 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 							})
 						})
 					]),
-					E('div', { 'class': 'td left' }, [
-						E('strong', {}, [ entry.name ]),
-						entry.description
-							? E('div', { 'class': 'blocky-note-soft' }, [ entry.description ])
-							: ''
-					]),
-					E('div', { 'class': 'td left' }, [
+					E('div', { 'class': 'td left blocky-col-name', 'title': nameTip }, [ entry.name ]),
+					E('div', { 'class': 'td left blocky-col-url', 'title': entry.url }, [
 						E('code', { 'class': 'blocky-list-url' }, [ entry.url ])
 					]),
-					E('div', { 'class': 'td left' }, [ rulesLabel ]),
-					E('div', { 'class': 'td' }, [
-						E('button', {
-							'type': 'button',
-							'class': 'cbi-button cbi-button-edit',
-							'click': ui.createHandlerFn(this, function(ev) {
-								ev.preventDefault();
+					E('div', { 'class': 'td blocky-col-rules' }, [ rulesLabel ]),
+					E('div', { 'class': 'td blocky-col-actions' }, [
+						E('div', { 'class': 'blocky-icon-row' }, [
+							iconBtn(_('Edit'), 'edit', function() {
 								openCustomBlocklistModal(refreshPage, entry, configYaml);
-							})
-						}, [ _('Edit') ]),
-						' ',
-						E('button', {
-							'type': 'button',
-							'class': 'cbi-button cbi-button-negative',
-							'click': ui.createHandlerFn(this, function(ev) {
-								ev.preventDefault();
-
+							}),
+							iconBtn(_('Delete'), 'delete', function() {
 								if (!confirm(_('Delete block list “%s”?').format(entry.name)))
 									return;
 
@@ -500,11 +526,9 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 								}).then(function() {
 									notify(_('Block list deleted.'));
 									return refreshPage();
-								}).catch(function(err) {
-									notify(err.message || String(err), 'danger');
 								});
 							})
-						}, [ _('Delete') ])
+						])
 					])
 				]);
 			})));
@@ -519,17 +543,13 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 			_('Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists.')
 		]),
 		syncHost,
-		tableHost,
 		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
 			E('div', { 'class': 'blocky-blocklists-toolbar-left' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button cbi-button-add',
-					'click': ui.createHandlerFn(this, function(ev) {
-						ev.preventDefault();
+				labeledActionBtn(_('Add'), 'cbi-button cbi-button-positive',
+					_('Add a catalog or custom block list'),
+					function() {
 						openNewBlocklistModal(refreshPage, catalogData, configYaml);
 					})
-				}, [ _('Add blocklist') ])
 			]),
 			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
 				actionButton(_('Update lists now'), function() {
@@ -540,7 +560,8 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					});
 				}, 'cbi-button-action', refreshPage)
 			])
-		])
+		]),
+		tableWrap
 	]);
 }
 

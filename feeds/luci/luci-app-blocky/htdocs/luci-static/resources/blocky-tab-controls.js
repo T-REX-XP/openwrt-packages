@@ -82,8 +82,6 @@ var safeString = Blocky.safeString,
 	fetchJson = Blocky.fetchJson,
 	blockyMetricsUrl = Blocky.blockyMetricsUrl,
 	fetchBlockyStats = Blocky.fetchBlockyStats,
-	runInit = Blocky.runInit,
-	isRunning = Blocky.isRunning,
 	execDnsmasqSync = Blocky.execDnsmasqSync,
 	shellQuote = Blocky.shellQuote,
 	blockyPill = Blocky.blockyPill,
@@ -215,30 +213,7 @@ function renderOperations(service, onRefresh) {
 	]);
 }
 
-function renderServiceControls(service, onRefresh) {
-	var refresh = onRefresh || function() {};
-
-	return E('div', { 'class': 'cbi-page-actions' }, [
-			actionButton(_('Start'), function() {
-				return runInit('start');
-			}, 'cbi-button-apply', refresh),
-			actionButton(_('Stop'), function() {
-				return runInit('stop');
-			}, 'cbi-button', refresh),
-			actionButton(_('Restart'), function() {
-				return runInit('restart');
-			}, 'cbi-button', refresh),
-			actionButton(_('Enable at boot'), function() {
-				return runInit('enable');
-			}, 'cbi-button', refresh),
-			actionButton(_('Disable at boot'), function() {
-				return runInit('disable');
-			}, 'cbi-button', refresh)
-		]);
-}
-
 return baseclass.extend({
 	renderBlockingControls: renderBlockingControls,
-	renderOperations: renderOperations,
-	renderServiceControls: renderServiceControls
+	renderOperations: renderOperations
 });

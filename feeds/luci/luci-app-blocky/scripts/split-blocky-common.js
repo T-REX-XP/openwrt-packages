@@ -49,7 +49,7 @@ const MODULES = {
 		'renderBlockySettingsForm', 'renderBlockySettingsPage', 'renderConfigYamlAdvanced'
 	]),
 	'blocky-tab-controls.js': new Set([
-		'renderBlockingControls', 'renderOperations', 'renderServiceControls'
+		'renderBlockingControls', 'renderOperations'
 	]),
 	'blocky-tab-query.js': new Set([
 		'renderQueryResult', 'renderQuery'

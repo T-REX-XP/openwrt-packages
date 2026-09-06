@@ -193,7 +193,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		{
 			label: _('Blocky service'),
 			ok: running,
-			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from the service actions below or reboot.')
+			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Not running. Start Blocky under System → Startup.')
 		},
 		{
 			label: _('Ad blocking'),
@@ -351,11 +351,7 @@ function renderDashboardStatsZone(statsResult, metricsPayload, status, service, 
 	var overview = tabStats.gatherOverviewMetrics(statsResult, metricsPayload);
 	var stats = statsResult && statsResult.ok ? statsResult.data : null;
 	var nodes = [
-		tabStats.renderDashboardSummaryGrid(overview, statsResult),
-		E('div', { 'class': 'blocky-dash-grid' }, [
-			tabStats.renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage),
-			tabStats.renderTopClientsPanel(statsResult, 10)
-		])
+		tabStats.renderDashboardSummaryGrid(overview, statsResult)
 	];
 
 	if (stats)
@@ -363,7 +359,7 @@ function renderDashboardStatsZone(statsResult, metricsPayload, status, service, 
 	else
 		nodes.push(E('div', { 'class': 'alert-message warning' }, [
 			statsResult && statsResult.disabled
-				? _('Statistics API is disabled. Add statistics.enable: true to /etc/blocky/config.yml and restart Blocky.')
+				? _('Statistics API is disabled. Enable in-memory statistics under Settings → Security, then Save & Apply.')
 				: _('Statistics are not available yet. Ensure Blocky is running and statistics are enabled.')
 		]));
 
@@ -753,13 +749,6 @@ function mountDashboardContent(host, data, refreshPage) {
 	var metricsPayload = unwrapFetchText(metrics);
 
 	host.replaceChildren(
-		E('div', { 'class': 'cbi-section' }, [
-			E('h3', {}, [ _('Service status') ]),
-			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Blocky filters DNS on the router. Clients keep using dnsmasq on port 53.')
-			]),
-			tabControls.renderServiceControls(service, refreshPage)
-		]),
 		E('div', { 'class': 'cbi-section' }, [
 			E('h3', {}, [ _('Blocking') ]),
 			tabControls.renderBlockingControls(status, refreshPage)

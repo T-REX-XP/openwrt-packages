@@ -867,7 +867,7 @@ function renderBlockyStatusBar(pageStatus, onJumpTab) {
 
 	return E('div', { 'class': 'blocky-status-bar', 'role': 'status' }, [
 		item(_('Blocky'), bar.serviceOk, bar.serviceOk
-			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Status'), 'status'),
+			? _('UDP/TCP :%d').format(dnsPort) : _('Not running'), 'status'),
 		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'status'),
 		item(_('Router DNS'), bar.dnsmasqOk, bar.dnsmasqOk
 			? _('dnsmasq → Blocky') : _('Enable in Settings'), 'settings'),

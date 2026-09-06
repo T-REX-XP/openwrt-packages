@@ -27,7 +27,6 @@ var loadBlockyPageData = Blocky.loadBlockyPageData,
 	unwrapFetchText = Blocky.unwrapFetchText,
 	EMPTY_BLOCKLIST_CATALOG = Blocky.EMPTY_BLOCKLIST_CATALOG,
 	notify = Blocky.notify,
-	clickInnerTab = Blocky.clickInnerTab,
 	mountInnerTabs = Blocky.mountInnerTabs,
 	canonicalTabHash = Blocky.canonicalTabHash,
 	BLOCKY_TAB_HASH = Blocky.BLOCKY_TAB_HASH;
@@ -53,8 +52,6 @@ function createBlockyView(options) {
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(data[4], '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var overviewHost = E('div', { 'class': 'blocky-dashboard' });
-			var statisticsHost = E('div', {});
-			var statusInner;
 			var logsHost = E('div', {});
 			var queryPanel = BlockyTabs.query.createQueryPanel();
 			var root;
@@ -65,7 +62,6 @@ function createBlockyView(options) {
 			var queryBox;
 			var logsBox;
 			var hero;
-			var initialHash = String(window.location.hash || '').replace(/^#/, '').toLowerCase();
 
 			function jumpTab(hash) {
 				var idx = BLOCKY_TAB_HASH[hash];
@@ -75,15 +71,13 @@ function createBlockyView(options) {
 				if (idx == null)
 					return;
 
-				window.location.hash = hash === 'statistics' ? 'statistics' : canonical;
+				window.location.hash = canonical;
 
 				buttons = tabHost ? tabHost.querySelectorAll(':scope > .cbi-tabmenu li') : [];
 				if (!buttons.length && tabHost)
 					buttons = tabHost.querySelectorAll('.cbi-tabmenu li');
 				if (buttons[idx])
 					buttons[idx].click();
-				if (hash === 'statistics' && statusInner)
-					clickInnerTab(statusInner, 'statistics');
 			}
 
 			function openDnsQuery(domain, recordType) {
@@ -99,7 +93,7 @@ function createBlockyView(options) {
 
 				hero.innerHTML = '';
 				if (!running)
-					note = _('Blocky is not running. Use Start on the Status tab, or enable it at boot from service actions.');
+					note = _('Blocky is not running. Start it under System → Startup.');
 				else if (!blocking)
 					note = _('The service is up, but blocking is off or paused. Use Enable blocking on Status.');
 				else
@@ -119,7 +113,6 @@ function createBlockyView(options) {
 					paintHero(pageStatus);
 					var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, fresh, refreshPage);
 					BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
-					statisticsHost.replaceChildren(BlockyTabs.stats.renderStatisticsTab(fresh, refreshPage));
 					listsBox.replaceChildren(BlockyTabs.blocklists.renderBlocklistsTab(
 						fresh[5],
 						refreshPage,
@@ -146,22 +139,9 @@ function createBlockyView(options) {
 
 			var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, data, refreshPage);
 			BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
-			statisticsHost.appendChild(BlockyTabs.stats.renderStatisticsTab(data, refreshPage));
 
 			statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
-			statusInner = mountInnerTabs([
-				{
-					id: 'overview',
-					title: _('Overview'),
-					nodes: [ overviewHost ]
-				},
-				{
-					id: 'statistics',
-					title: _('Statistics'),
-					nodes: [ statisticsHost ]
-				}
-			]);
-			statusBox.appendChild(statusInner);
+			statusBox.appendChild(overviewHost);
 
 			listsBox = E('div', { 'data-tab': 'blocklists', 'data-tab-title': _('Block lists') });
 			listsBox.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
@@ -222,8 +202,6 @@ function createBlockyView(options) {
 				if (buttons[defaultTab])
 					buttons[defaultTab].click();
 			}
-			if (initialHash === 'statistics')
-				clickInnerTab(statusInner, 'statistics');
 
 			return root;
 		},

@@ -150,11 +150,157 @@
 .blocky-dash-card { padding: 1em; flex: 1 1 18em; }
 .blocky-chart-card { margin: 0.75em 0 1em; padding: 1em; border-radius: 10px; }
 
-.blocky-blocklists-table .blocky-list-url {
+.luci-app-blocky .blocky-blocklists-wrap {
+	overflow-x: auto;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.luci-app-blocky .blocky-blocklists-table {
+	margin: 0.5rem 0;
+	table-layout: auto;
+	width: max-content;
+	min-width: 100%;
+}
+
+.luci-app-blocky .blocky-blocklists-table .tr {
+	align-items: center;
+	min-width: 52rem;
+}
+
+.luci-app-blocky .blocky-blocklists-table .th,
+.luci-app-blocky .blocky-blocklists-table .td {
+	flex: 0 0 auto;
+	overflow: visible;
+	word-break: normal;
+	overflow-wrap: normal;
+	vertical-align: middle;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-num,
+.luci-app-blocky .blocky-blocklists-table .blocky-col-on,
+.luci-app-blocky .blocky-blocklists-table .blocky-col-rules {
+	width: auto;
+	white-space: nowrap;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-num {
+	min-width: 2.75rem;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-on {
+	min-width: 4.5rem;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-name {
+	flex: 0 1 12rem;
+	min-width: 9rem;
+	max-width: 16rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-url {
+	flex: 1 1 16rem;
+	min-width: 14rem;
+	max-width: 32rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-list-url {
 	display: block;
 	font-size: 0.82em;
-	word-break: break-all;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	opacity: 0.88;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-rules {
+	min-width: 5.5rem;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.luci-app-blocky .blocky-blocklists-table .blocky-col-actions {
+	flex: 0 0 5.25rem;
+	width: 5.25rem;
+	min-width: 5.25rem;
+	white-space: nowrap;
+	overflow: visible;
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	background: var(--background-color-high, var(--background-color-medium));
+	box-shadow: -0.45rem 0 0.55rem -0.35rem var(--border-color-medium);
+}
+
+.luci-app-blocky .blocky-blocklists-table .tr:nth-child(even) .blocky-col-actions {
+	background: var(--background-color-low);
+}
+
+.luci-app-blocky .blocky-blocklists-table .tr.table-titles .blocky-col-actions {
+	z-index: 3;
+	background: var(--background-color-medium);
+}
+
+.luci-app-blocky .blocky-blocklists-table .tr:nth-child(even) .td {
+	background: var(--background-color-low);
+}
+
+.luci-app-blocky .blocky-icon-row {
+	display: inline-flex;
+	flex-wrap: nowrap;
+	gap: 0.2rem;
+	align-items: center;
+}
+
+.luci-app-blocky .blocky-icon-wrap {
+	display: inline-flex;
+	flex: 0 0 auto;
+}
+
+.luci-app-blocky .blocky-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.85rem;
+	height: 1.85rem;
+	padding: 0;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 3px;
+	background: var(--background-color-low);
+	color: var(--text-color-highest);
+	cursor: pointer;
+	font-size: 0.95rem;
+	line-height: 1;
+	flex: 0 0 auto;
+}
+
+.luci-app-blocky .blocky-icon-btn:hover,
+.luci-app-blocky .blocky-icon-btn:focus {
+	background: var(--background-color-medium);
+	border-color: var(--border-color-high, var(--border-color-medium));
+	color: var(--text-color-highest);
+}
+
+.luci-app-blocky .blocky-icon-btn--delete:hover,
+.luci-app-blocky .blocky-icon-btn--delete:focus {
+	border-color: var(--error-color-high, #c62828);
+	color: var(--error-color-high, #c62828);
+}
+
+.luci-app-blocky .blocky-icon-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+	color: var(--text-color-medium);
+	background: var(--background-color-medium);
+	pointer-events: none;
 }
 
 .blocky-blocklists-sync-host {
@@ -262,7 +408,7 @@
 }
 
 .blocky-blocklists-toolbar {
-	margin: 0.85em 0 0;
+	margin: 0.5em 0 0.75em;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.5em;
