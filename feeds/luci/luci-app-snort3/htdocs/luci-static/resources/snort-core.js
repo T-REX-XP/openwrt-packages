@@ -29,6 +29,7 @@ var SKIP_DEV_TYPES = { alias: 1, vrf: 1 };
 var SKIP_DEV_NAMES = { lo: 1 };
 
 var COMMUNITY_RULES_URL = 'https://www.snort.org/downloads/community/snort3-community-rules.tar.gz';
+var CATALOG_PATH = '/usr/share/luci-app-snort3/ruleset-catalog.json';
 var FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
 
 function truthyFlag(value) {
@@ -282,6 +283,7 @@ return baseclass.extend({
 	},
 
 	COMMUNITY_RULES_URL: COMMUNITY_RULES_URL,
+	CATALOG_PATH: CATALOG_PATH,
 
 	sanitizeFeedId: function(name) {
 		var id = String(name == null ? '' : name).toLowerCase()
@@ -368,55 +370,88 @@ return baseclass.extend({
 		return out;
 	},
 
+	parseCatalog: function(raw) {
+		var data = null;
+		var text = '';
+		var rows;
+		var i;
+		var row;
+		var out = [];
+
+		if (typeof raw === 'string')
+			text = raw.trim();
+		else if (raw && typeof raw === 'object') {
+			if (typeof raw.stdout === 'string')
+				text = String(raw.stdout).trim();
+			else if (Array.isArray(raw.rulesets))
+				data = raw;
+			else if (Array.isArray(raw))
+				data = { rulesets: raw };
+		}
+		if (!data && text) {
+			try {
+				data = JSON.parse(text);
+			}
+			catch (e) {
+				data = null;
+			}
+		}
+		rows = (data && Array.isArray(data.rulesets)) ? data.rulesets : [];
+		for (i = 0; i < rows.length; i++) {
+			row = rows[i] || {};
+			if (!row.id || !row.name || !row.url)
+				continue;
+			if (!FEED_URL_RE.test(String(row.url).trim()))
+				continue;
+			out.push({
+				id: String(row.id),
+				name: String(row.name),
+				url: String(row.url).trim(),
+				description: String(row.description == null ? '' : row.description),
+				homeUrl: String(row.homeUrl == null ? '' : row.homeUrl),
+				'default': !!row['default']
+			});
+		}
+		this._catalog = out;
+		return out;
+	},
+
+	knownFeeds: function(catalog) {
+		if (catalog !== undefined)
+			return this.parseCatalog(catalog);
+		return this._catalog || [];
+	},
+
 	defaultFeeds: function() {
+		var rows = this.knownFeeds();
+		var i;
+		var row;
+		for (i = 0; i < rows.length; i++) {
+			row = rows[i];
+			if (row['default'])
+				return [{
+					id: row.id,
+					name: row.name,
+					url: row.url,
+					enabled: '1',
+					description: row.description || ''
+				}];
+		}
+		if (rows[0])
+			return [{
+				id: rows[0].id,
+				name: rows[0].name,
+				url: rows[0].url,
+				enabled: '1',
+				description: rows[0].description || ''
+			}];
 		return [{
 			id: 'community',
 			name: 'Snort 3 community',
 			url: COMMUNITY_RULES_URL,
 			enabled: '1',
-			description: 'Free Snort 3 community ruleset'
+			description: 'Free Talos community rules for Snort 3'
 		}];
-	},
-
-	knownFeeds: function() {
-		return [
-			{
-				id: 'community',
-				name: 'Snort 3 community',
-				url: COMMUNITY_RULES_URL,
-				description: 'Free Talos community rules for Snort 3'
-			},
-			{
-				id: 'talos',
-				name: 'Talos subscriber snapshot',
-				url: 'https://www.snort.org/rules/snortrules-snapshot-31470.tar.gz?oinkcode={oinkcode}',
-				description: 'Registered/subscriber Talos rules. Needs an Oinkcode on this tab.'
-			},
-			{
-				id: 'feodo',
-				name: 'abuse.ch Feodo Tracker',
-				url: 'https://feodotracker.abuse.ch/downloads/feodotracker.tar.gz',
-				description: 'Botnet C2 hosts tracked by Feodo Tracker (Snort and Suricata).'
-			},
-			{
-				id: 'nf_local',
-				name: 'Networkforensic NF IDS',
-				url: 'https://networkforensic.dk/SNORT/NF-local.zip',
-				description: 'Community Snort rules from networkforensic.dk'
-			},
-			{
-				id: 'nf_scada',
-				name: 'Networkforensic SCADA',
-				url: 'https://networkforensic.dk/SNORT/NF-SCADA.zip',
-				description: 'SCADA/ICS signatures from networkforensic.dk'
-			},
-			{
-				id: 'nf_scanners',
-				name: 'Networkforensic scanners',
-				url: 'https://networkforensic.dk/SNORT/NF-Scanners.zip',
-				description: 'Known scanner and recon actor signatures'
-			}
-		];
 	},
 
 	unusedKnownFeeds: function(existing) {

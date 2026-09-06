@@ -8,6 +8,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const res = join(dir, '..', 'htdocs', 'luci-static', 'resources');
 const ucodePath = join(dir, '..', 'root', 'usr', 'share', 'rpcd', 'ucode', 'luci.snort3.uc');
 const viewPath = join(res, 'view', 'services', 'snort.js');
+const catalogPath = join(dir, '..', 'root', 'usr', 'share', 'luci-app-snort3', 'ruleset-catalog.json');
 
 function loadCore() {
 	let src = readFileSync(join(res, 'snort-core.js'), 'utf8');
@@ -20,6 +21,9 @@ function loadCore() {
 const core = loadCore();
 const ucode = readFileSync(ucodePath, 'utf8');
 const view = readFileSync(viewPath, 'utf8');
+const catalogJson = readFileSync(catalogPath, 'utf8');
+const catalog = JSON.parse(catalogJson);
+core.parseCatalog(catalog);
 let pass = 0;
 let fail = 0;
 
@@ -280,6 +284,8 @@ test('pass and suppress helpers', () => {
 });
 
 test('known Snort ruleset catalog', () => {
+	assert.equal(core.CATALOG_PATH, '/usr/share/luci-app-snort3/ruleset-catalog.json');
+	assert.ok(Array.isArray(catalog.rulesets));
 	const cat = core.knownFeeds();
 	assert.ok(cat.length >= 5);
 	assert.ok(cat.every((f) => /^https:\/\//.test(f.url)));
@@ -289,6 +295,10 @@ test('known Snort ruleset catalog', () => {
 	const unused = core.unusedKnownFeeds(core.defaultFeeds());
 	assert.ok(unused.every((f) => f.id !== 'community'));
 	assert.ok(unused.some((f) => f.id === 'nf_local'));
+	const coreSrc = readFileSync(join(res, 'snort-core.js'), 'utf8');
+	assert.doesNotMatch(coreSrc, /networkforensic\.dk/);
+	assert.match(catalogJson, /networkforensic\.dk/);
+	assert.match(view, /fs\.read\(snortCore\.CATALOG_PATH\)/);
 });
 
 test('view has catalog, pass, suppress, policy', () => {

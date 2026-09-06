@@ -4,6 +4,7 @@
 var FLAG_OPTS = [ 'enabled' ];
 
 var ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
+var CATALOG_PATH = '/usr/share/luci-app-threat-prevention/ruleset-catalog.json';
 
 var FEED_URL_RE = /^https:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%{}$-]+$/;
 
@@ -35,6 +36,7 @@ return baseclass.extend({
 	FORM_KEYS: FORM_KEYS,
 	REQUIRED_FORM_KEYS: REQUIRED_FORM_KEYS,
 	ETOPEN_OFFICIAL: ETOPEN_OFFICIAL,
+	CATALOG_PATH: CATALOG_PATH,
 
 	unwrapNet: function(val) {
 		val = String(val == null ? '' : val).trim();
@@ -703,7 +705,81 @@ return baseclass.extend({
 		return out;
 	},
 
+	parseCatalog: function(raw) {
+		var data = null;
+		var text = '';
+		var rows;
+		var i;
+		var row;
+		var out = [];
+
+		if (typeof raw === 'string')
+			text = raw.trim();
+		else if (raw && typeof raw === 'object') {
+			if (typeof raw.stdout === 'string')
+				text = String(raw.stdout).trim();
+			else if (Array.isArray(raw.rulesets))
+				data = raw;
+			else if (Array.isArray(raw))
+				data = { rulesets: raw };
+		}
+		if (!data && text) {
+			try {
+				data = JSON.parse(text);
+			}
+			catch (e) {
+				data = null;
+			}
+		}
+		rows = (data && Array.isArray(data.rulesets)) ? data.rulesets : [];
+		for (i = 0; i < rows.length; i++) {
+			row = rows[i] || {};
+			if (!row.id || !row.name || !row.url)
+				continue;
+			if (!FEED_URL_RE.test(String(row.url).trim()))
+				continue;
+			out.push({
+				id: String(row.id),
+				name: String(row.name),
+				url: String(row.url).trim(),
+				description: String(row.description == null ? '' : row.description),
+				homeUrl: String(row.homeUrl == null ? '' : row.homeUrl),
+				'default': !!row['default']
+			});
+		}
+		this._catalog = out;
+		return out;
+	},
+
+	knownFeeds: function(catalog) {
+		if (catalog !== undefined)
+			return this.parseCatalog(catalog);
+		return this._catalog || [];
+	},
+
 	defaultFeeds: function() {
+		var rows = this.knownFeeds();
+		var i;
+		var row;
+		for (i = 0; i < rows.length; i++) {
+			row = rows[i];
+			if (row['default'])
+				return [{
+					id: row.id,
+					name: row.name,
+					url: row.url,
+					enabled: '1',
+					description: row.description || ''
+				}];
+		}
+		if (rows[0])
+			return [{
+				id: rows[0].id,
+				name: rows[0].name,
+				url: rows[0].url,
+				enabled: '1',
+				description: rows[0].description || ''
+			}];
 		return [{
 			id: 'official',
 			name: 'Official ET Open 8.0',
@@ -711,107 +787,6 @@ return baseclass.extend({
 			enabled: '1',
 			description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
 		}];
-	},
-
-	knownFeeds: function() {
-		return [
-			{
-				id: 'official',
-				name: 'Official ET Open 8.0',
-				url: ETOPEN_OFFICIAL,
-				description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
-			},
-			{
-				id: 'urlhaus',
-				name: 'abuse.ch URLhaus',
-				url: 'https://urlhaus.abuse.ch/downloads/urlhaus_suricata.tar.gz',
-				description: 'Malicious URLs used for malware distribution'
-			},
-			{
-				id: 'feodo',
-				name: 'abuse.ch Feodo Tracker',
-				url: 'https://feodotracker.abuse.ch/downloads/feodotracker.tar.gz',
-				description: 'Botnet C2 hosts tracked by Feodo Tracker'
-			},
-			{
-				id: 'sslbl',
-				name: 'abuse.ch SSL Blacklist',
-				url: 'https://sslbl.abuse.ch/blacklist/sslblacklist_tls_cert.tar.gz',
-				description: 'SSL certificates used by botnet C2 servers'
-			},
-			{
-				id: 'sslbl_ja3',
-				name: 'abuse.ch SSLBL JA3',
-				url: 'https://sslbl.abuse.ch/blacklist/ja3_fingerprints.tar.gz',
-				description: 'JA3 fingerprints for malicious TLS clients'
-			},
-			{
-				id: 'antiphishing',
-				name: 'Antiphishing',
-				url: 'https://raw.githubusercontent.com/julioliraup/Antiphishing/refs/heads/main/antiphishing.tar.gz',
-				description: 'Phishing URLs and domains (Phishstats / OpenPhish)'
-			},
-			{
-				id: 'trafficid',
-				name: 'OISF Traffic ID',
-				url: 'https://openinfosecfoundation.org/rules/trafficid/trafficid.rules',
-				description: 'Identify common application traffic'
-			},
-			{
-				id: 'pawpatrules',
-				name: 'PAW Patrules',
-				url: 'https://rules.pawpatrules.fr/suricata/paw-patrules.tar.gz',
-				description: 'Suspicious tools, lateral movement, and known actors'
-			},
-			{
-				id: 'ptopen',
-				name: 'Positive Technologies Open',
-				url: 'https://rules.ptsecurity.com/files/ptopen.rules.tar.gz',
-				description: 'PT Expert Security Center open rules'
-			},
-			{
-				id: 'lateral',
-				name: 'Stamus lateral movement',
-				url: 'https://ti.stamus-networks.io/open/stamus-lateral-rules.tar.gz',
-				description: 'Windows lateral-movement detections from Stamus Networks'
-			},
-			{
-				id: 'etnetera',
-				name: 'Etnetera aggressive IP',
-				url: 'https://security.etnetera.cz/feeds/etn_aggressive.rules',
-				description: 'Aggressive IP blacklist as Suricata rules'
-			},
-			{
-				id: 'hunting',
-				name: 'Travis Green hunting',
-				url: 'https://github.com/travisbgreen/hunting-rules/raw/master/hunting.rules.tar.gz',
-				description: 'Heuristic hunting rules (not performance-focused)'
-			},
-			{
-				id: 'nmap',
-				name: 'NMAP scan detection',
-				url: 'https://raw.githubusercontent.com/aleksibovellan/opnsense-suricata-nmaps/main/local.rules',
-				description: 'Detect NMAP scans by window size, flags, and timing'
-			},
-			{
-				id: 'ipfire_dbl',
-				name: 'IPFire DBL',
-				url: 'https://dbl.ipfire.org/lists/suricata.tar.gz',
-				description: 'IPFire domain blocklist for malware and phishing'
-			},
-			{
-				id: 'hunters',
-				name: 'The Hunters Ledger',
-				url: 'https://the-hunters-ledger.com/feeds/suricata/hunters-ledger.rules',
-				description: 'Community detections from original malware investigations'
-			},
-			{
-				id: 'nf_suricata',
-				name: 'Networkforensic Suricata',
-				url: 'https://networkforensic.dk/SNORT/NF-Suricata.zip',
-				description: 'Community Suricata rules from networkforensic.dk'
-			}
-		];
 	},
 
 	unusedKnownFeeds: function(existing) {

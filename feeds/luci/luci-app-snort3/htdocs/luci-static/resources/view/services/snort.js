@@ -4,6 +4,7 @@
 'require ui';
 'require poll';
 'require network';
+'require fs';
 'require snort-core as snortCore';
 
 var callGetStatus = rpc.declare({
@@ -98,6 +99,28 @@ var callSetPolicies = rpc.declare({
 
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
+}
+
+function snortCatalogEntry(feed) {
+	var rows = snortCore.knownFeeds();
+	var i;
+	var id = feed && feed.id;
+	var url = feed && feed.url;
+	for (i = 0; i < rows.length; i++) {
+		if ((id && rows[i].id === id) || (url && rows[i].url === url))
+			return rows[i];
+	}
+	return feed || {};
+}
+
+function snortCatalogName(feed) {
+	var row = snortCatalogEntry(feed);
+	return row.name ? _(row.name) : '';
+}
+
+function snortCatalogDesc(feed) {
+	var row = snortCatalogEntry(feed);
+	return row.description ? _(row.description) : '';
 }
 
 var snortFeeds = [];
@@ -485,7 +508,8 @@ return view.extend({
 			callUpdateStatus(),
 			L.resolveDefault(network.getDevices(), []),
 			L.resolveDefault(network.getNetwork('lan'), null),
-			callGetPolicies()
+			callGetPolicies(),
+			L.resolveDefault(fs.read(snortCore.CATALOG_PATH), '')
 		]);
 	},
 
@@ -497,6 +521,7 @@ return view.extend({
 		var netDevices = data[4] || [];
 		var lanCidr = lanCidrFromNet(data[5]);
 		var policies = data[6] || {};
+		snortCore.parseCatalog(data[7]);
 		snortFeeds = snortCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : snortCore.defaultFeeds()
 		);
@@ -928,7 +953,7 @@ return view.extend({
 			snortFeeds = snortFeeds.concat([feed]);
 			return persistSnortFeeds().then(function() {
 				paintSnortFeeds();
-				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Update rules.').format(feed.name)), 4000);
+				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Update rules.').format(snortCatalogName(feed))), 4000);
 			});
 		}
 
@@ -943,11 +968,11 @@ return view.extend({
 			}
 			sel = E('select', { id: 'snort-catalog' });
 			for (i = 0; i < unused.length; i++)
-				sel.appendChild(E('option', { value: unused[i].id }, unused[i].name));
+				sel.appendChild(E('option', { value: unused[i].id }, snortCatalogName(unused[i])));
 			note = E('p', { 'class': 'snort-help', id: 'snort-catalog-note' });
 			function paintNote() {
 				var item = unused.filter(function(x) { return x.id === sel.value; })[0];
-				note.textContent = item ? item.description : '';
+				note.textContent = item ? snortCatalogDesc(item) : '';
 			}
 			sel.addEventListener('change', paintNote);
 			paintNote();
@@ -1010,9 +1035,9 @@ return view.extend({
 							})
 						]),
 						E('div', { 'class': 'td' }, [
-							E('strong', {}, entry.name),
-							entry.description
-								? E('div', { 'class': 'snort-feed-note' }, entry.description)
+							E('strong', {}, snortCatalogName(entry)),
+							snortCatalogDesc(entry)
+								? E('div', { 'class': 'snort-feed-note' }, snortCatalogDesc(entry))
 								: ''
 						]),
 						E('div', { 'class': 'td' }, [
@@ -1033,7 +1058,7 @@ return view.extend({
 								'class': 'btn cbi-button cbi-button-negative',
 								click: function(ev) {
 									ev.preventDefault();
-									if (!window.confirm(_('Delete rule feed “%s”?').format(entry.name)))
+									if (!window.confirm(_('Delete rule feed “%s”?').format(snortCatalogName(entry))))
 										return;
 									snortFeeds = snortFeeds.filter(function(f) {
 										return f.id !== entry.id;

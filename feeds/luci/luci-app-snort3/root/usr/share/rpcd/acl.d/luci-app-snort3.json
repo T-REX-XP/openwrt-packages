@@ -14,6 +14,7 @@
 			},
 			"uci": [ "snort" ],
 			"file": {
+				"/usr/share/luci-app-snort3/ruleset-catalog.json": [ "read" ],
 				"/usr/bin/snort": [ "exec" ],
 				"/etc/init.d/snort": [ "exec" ],
 				"/var/log/alert_fast.txt": [ "read" ],

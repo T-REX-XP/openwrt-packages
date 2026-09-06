@@ -14,6 +14,7 @@
 			},
 			"uci": [ "suricata" ],
 			"file": {
+				"/usr/share/luci-app-threat-prevention/ruleset-catalog.json": [ "read" ],
 				"/tmp/tp_status.json": [ "read" ],
 				"/tmp/tp_etopen.json": [ "read" ],
 				"/var/lib/threat-prevention/events.sqlite": [ "read" ],

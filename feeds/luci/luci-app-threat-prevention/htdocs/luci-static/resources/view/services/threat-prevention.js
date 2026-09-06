@@ -4,6 +4,7 @@
 'require ui';
 'require poll';
 'require network';
+'require fs';
 'require threat-prevention-core as tpCore';
 
 var callGetStatus = rpc.declare({
@@ -101,6 +102,28 @@ var callReindexRules = rpc.declare({
 
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
+}
+
+function tpCatalogEntry(feed) {
+	var rows = tpCore.knownFeeds();
+	var i;
+	var id = feed && feed.id;
+	var url = feed && feed.url;
+	for (i = 0; i < rows.length; i++) {
+		if ((id && rows[i].id === id) || (url && rows[i].url === url))
+			return rows[i];
+	}
+	return feed || {};
+}
+
+function tpCatalogName(feed) {
+	var row = tpCatalogEntry(feed);
+	return row.name ? _(row.name) : '';
+}
+
+function tpCatalogDesc(feed) {
+	var row = tpCatalogEntry(feed);
+	return row.description ? _(row.description) : '';
 }
 
 var settingsFeeds = [];
@@ -476,7 +499,8 @@ return view.extend({
 			callGetConfig(),
 			L.resolveDefault(network.getDevices(), []),
 			L.resolveDefault(network.getNetwork('lan'), null),
-			callGetPolicies()
+			callGetPolicies(),
+			L.resolveDefault(fs.read(tpCore.CATALOG_PATH), '')
 		]);
 	},
 
@@ -487,6 +511,7 @@ return view.extend({
 		var netDevices = data[3] || [];
 		var lanCidr = lanCidrFromNet(data[4]);
 		var policies = data[5] || {};
+		tpCore.parseCatalog(data[6]);
 		settingsFeeds = tpCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : tpCore.defaultFeeds()
 		);
@@ -681,7 +706,7 @@ return view.extend({
 			settingsFeeds = settingsFeeds.concat([feed]);
 			return persistTpFeeds().then(function() {
 				paintTpFeeds();
-				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Fetch now.').format(feed.name)), 4000);
+				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Fetch now.').format(tpCatalogName(feed))), 4000);
 			});
 		}
 
@@ -696,11 +721,11 @@ return view.extend({
 			}
 			sel = E('select', { id: 'tp-catalog' });
 			for (i = 0; i < unused.length; i++)
-				sel.appendChild(E('option', { value: unused[i].id }, unused[i].name));
+				sel.appendChild(E('option', { value: unused[i].id }, tpCatalogName(unused[i])));
 			note = E('p', { 'class': 'tp-help', id: 'tp-catalog-note' });
 			function paintNote() {
 				var item = unused.filter(function(x) { return x.id === sel.value; })[0];
-				note.textContent = item ? item.description : '';
+				note.textContent = item ? tpCatalogDesc(item) : '';
 			}
 			sel.addEventListener('change', paintNote);
 			paintNote();
@@ -766,9 +791,9 @@ return view.extend({
 							})
 						]),
 						E('div', { 'class': 'td' }, [
-							E('strong', {}, entry.name),
-							entry.description
-								? E('div', { 'class': 'tp-feed-note' }, entry.description)
+							E('strong', {}, tpCatalogName(entry)),
+							tpCatalogDesc(entry)
+								? E('div', { 'class': 'tp-feed-note' }, tpCatalogDesc(entry))
 								: ''
 						]),
 						E('div', { 'class': 'td' }, [
@@ -789,7 +814,7 @@ return view.extend({
 								'class': 'btn cbi-button cbi-button-negative',
 								click: function(ev) {
 									ev.preventDefault();
-									if (!window.confirm(_('Delete rule feed “%s”?').format(entry.name)))
+									if (!window.confirm(_('Delete rule feed “%s”?').format(tpCatalogName(entry))))
 										return;
 									settingsFeeds = settingsFeeds.filter(function(f) {
 										return f.id !== entry.id;

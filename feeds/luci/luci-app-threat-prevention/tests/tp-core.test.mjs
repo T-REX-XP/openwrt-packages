@@ -8,6 +8,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const res = join(dir, '..', 'htdocs', 'luci-static', 'resources');
 const viewPath = join(res, 'view', 'services', 'threat-prevention.js');
 const ucodePath = join(dir, '..', 'root', 'usr', 'share', 'rpcd', 'ucode', 'luci.threat-prevention.uc');
+const catalogPath = join(dir, '..', 'root', 'usr', 'share', 'luci-app-threat-prevention', 'ruleset-catalog.json');
 
 function loadCore() {
 	let src = readFileSync(join(res, 'threat-prevention-core.js'), 'utf8');
@@ -20,6 +21,9 @@ function loadCore() {
 const core = loadCore();
 const view = readFileSync(viewPath, 'utf8');
 const ucode = readFileSync(ucodePath, 'utf8');
+const catalogJson = readFileSync(catalogPath, 'utf8');
+const catalog = JSON.parse(catalogJson);
+core.parseCatalog(catalog);
 let pass = 0;
 let fail = 0;
 
@@ -302,6 +306,8 @@ test('pass list and suppress helpers', () => {
 });
 
 test('known Suricata ruleset catalog', () => {
+	assert.equal(core.CATALOG_PATH, '/usr/share/luci-app-threat-prevention/ruleset-catalog.json');
+	assert.ok(Array.isArray(catalog.rulesets));
 	const cat = core.knownFeeds();
 	assert.ok(cat.length >= 10);
 	assert.ok(cat.every((f) => /^https:\/\//.test(f.url)));
@@ -313,6 +319,10 @@ test('known Suricata ruleset catalog', () => {
 	const unused = core.unusedKnownFeeds(core.defaultFeeds());
 	assert.ok(unused.every((f) => f.id !== 'official'));
 	assert.ok(unused.some((f) => f.id === 'urlhaus'));
+	const coreSrc = readFileSync(join(res, 'threat-prevention-core.js'), 'utf8');
+	assert.doesNotMatch(coreSrc, /networkforensic\.dk/);
+	assert.match(catalogJson, /networkforensic\.dk/);
+	assert.match(view, /fs\.read\(tpCore\.CATALOG_PATH\)/);
 });
 
 test('view has catalog picker', () => {
