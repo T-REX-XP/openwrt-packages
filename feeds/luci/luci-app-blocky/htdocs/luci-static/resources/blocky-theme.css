@@ -303,10 +303,6 @@
 	pointer-events: none;
 }
 
-.blocky-blocklists-sync-host {
-	margin: 0.35em 0 0.75em;
-}
-
 .blocky-upstream-groups-list {
 	display: flex;
 	flex-direction: column;

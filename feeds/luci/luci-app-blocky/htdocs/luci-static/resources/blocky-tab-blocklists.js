@@ -68,7 +68,6 @@ var safeString = Blocky.safeString,
 	execBlockyListsSync = Blocky.execBlockyListsSync,
 	execBlockyListsSyncConfirmed = Blocky.execBlockyListsSyncConfirmed,
 	execBlockyListsRefresh = Blocky.execBlockyListsRefresh,
-	blocklistsSyncNeeded = Blocky.blocklistsSyncNeeded,
 	loadBlocklistCatalog = Blocky.loadBlocklistCatalog,
 	blockyCloseModal = Blocky.blockyCloseModal,
 	blockyOpenModal = Blocky.blockyOpenModal,
@@ -86,7 +85,6 @@ var safeString = Blocky.safeString,
 	runInit = Blocky.runInit,
 	execDnsmasqSync = Blocky.execDnsmasqSync,
 	shellQuote = Blocky.shellQuote,
-	blockyPill = Blocky.blockyPill,
 	blockyStatusDetail = Blocky.blockyStatusDetail,
 	blockyLegendDot = Blocky.blockyLegendDot,
 	blockyChartColor = Blocky.blockyChartColor,
@@ -433,7 +431,6 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 	configYaml = safeString(configYaml);
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
 	var tableWrap = E('div', { 'class': 'blocky-blocklists-wrap' }, [ tableHost ]);
-	var syncHost = E('div', { 'class': 'blocky-blocklists-sync-host' });
 
 	function listApplyOptions() {
 		return { configYaml: configYaml };
@@ -447,19 +444,9 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 		return mergeDenyCounts(fromStats, fromMetrics);
 	}
 
-	function repaintSyncPill(lists) {
-		var outOfSync = configYaml && blocklistsSyncNeeded(lists, configYaml);
-
-		replaceContent(syncHost, outOfSync
-			? blockyPill('warn', _('UCI changed — sync to config.yml'))
-			: '');
-	}
-
 	function repaintTable() {
 		return loadUciBlocklists().then(function(lists) {
 			var counts = denyCountsMap();
-
-			repaintSyncPill(lists);
 
 			if (!lists.length) {
 				replaceContent(tableHost, E('em', {}, [ _('No block lists configured.') ]));
@@ -542,7 +529,6 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 		E('p', { 'class': 'cbi-section-descr' }, [
 			_('Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists.')
 		]),
-		syncHost,
 		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
 			E('div', { 'class': 'blocky-blocklists-toolbar-left' }, [
 				labeledActionBtn(_('Add'), 'cbi-button cbi-button-positive',

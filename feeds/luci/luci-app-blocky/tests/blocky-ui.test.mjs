@@ -105,13 +105,15 @@ test('no board-specific copy', () => {
 	assert.doesNotMatch(config, /CM5/);
 });
 
-test('no init.d replica or always-green sync pill', () => {
+test('no init.d replica or UCI/YAML sync badge', () => {
 	assert.doesNotMatch(controls, /renderServiceControls/);
 	assert.doesNotMatch(controls, /Enable at boot/);
 	assert.doesNotMatch(dashboard, /renderServiceControls/);
 	assert.doesNotMatch(dashboard, /_\('Service status'\)/);
-	assert.match(lists, /UCI changed — sync to config.yml/);
+	assert.doesNotMatch(lists, /UCI changed — sync to config.yml/);
 	assert.doesNotMatch(lists, /UCI and config.yml in sync/);
+	assert.doesNotMatch(lists, /repaintSyncPill/);
+	assert.doesNotMatch(css, /blocky-blocklists-sync-host/);
 });
 
 console.log(`\nResults: ${pass} passed, ${fail} failed`);
