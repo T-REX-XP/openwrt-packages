@@ -568,18 +568,6 @@ function saveSnortSettings(apply) {
 	});
 }
 
-function runService(action, okMsg) {
-	return callServiceControl(action).then(function(res) {
-		var err = rpcFail(res, _('Service control failed'));
-		if (err)
-			return Promise.reject(new Error(err));
-		ui.addNotification(null, E('p', {}, okMsg), 4000);
-		return res;
-	}).catch(function(e) {
-		ui.addNotification(null, E('p', {}, e.message || e), 'error');
-	});
-}
-
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -684,43 +672,6 @@ return view.extend({
 			statusBox.appendChild(E('div', { 'class': 'snort-next' }, [
 				E('strong', {}, _('What to do next')),
 				E('ol', {}, steps.map(function(s) { return E('li', {}, s); }))
-			]));
-			statusBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button cbi-button-apply',
-					'title': _('Start the Snort service'),
-					click: function() {
-						runService('start', _('Snort started'));
-					}
-				}, _('Start')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					'title': _('Stop the Snort service'),
-					click: function() {
-						runService('stop', _('Snort stopped'));
-					}
-				}, _('Stop')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					'title': _('Restart the Snort service'),
-					click: function() {
-						runService('restart', _('Snort restarted'));
-					}
-				}, _('Restart')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					'title': st.enabled_boot
-						? _('Do not start Snort at boot')
-						: _('Start Snort automatically at boot'),
-					click: function() {
-						runService(st.enabled_boot ? 'disable' : 'enable',
-							st.enabled_boot ? _('Auto-start disabled') : _('Auto-start enabled'));
-					}
-				}, st.enabled_boot ? _('Disable at boot') : _('Enable at boot'))
 			]));
 		}
 

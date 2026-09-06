@@ -1026,50 +1026,6 @@ return view.extend({
 				E('strong', {}, _('What to do next')),
 				E('ol', {}, steps.map(function(s) { return E('li', {}, s); }))
 			]));
-			statusBox.appendChild(E('div', { 'class': 'cbi-page-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button cbi-button-apply',
-					click: function() {
-						callServiceControl('start').then(function(res) {
-							if (res && res.ok === false)
-								ui.addNotification(null, E('p', {}, res.output || _('Start failed')), 'error');
-							else
-								ui.addNotification(null, E('p', {}, _('Suricata started')), 4000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Start')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					click: function() {
-						callServiceControl('stop').then(function(res) {
-							if (res && res.ok === false)
-								ui.addNotification(null, E('p', {}, res.output || _('Stop failed')), 'error');
-							else
-								ui.addNotification(null, E('p', {}, _('Suricata stopped')), 4000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Stop')),
-				E('button', {
-					'type': 'button',
-					'class': 'cbi-button',
-					click: function() {
-						callServiceControl('restart').then(function(res) {
-							if (res && res.ok === false)
-								ui.addNotification(null, E('p', {}, res.output || _('Restart failed')), 'error');
-							else
-								ui.addNotification(null, E('p', {}, _('Suricata restarted')), 4000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Restart'))
-			]));
 		}
 
 		function renderEvents(list) {

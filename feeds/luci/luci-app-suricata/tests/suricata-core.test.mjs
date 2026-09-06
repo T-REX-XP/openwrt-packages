@@ -194,6 +194,9 @@ test('view uses network devices select and footer save', () => {
 	assert.ok(buttons.length >= 3, 'expected settings/service buttons');
 	for (const m of buttons)
 		assert.match(m[1], /'type':\s*'button'/);
+	assert.doesNotMatch(view, /_\('Start'\)/);
+	assert.doesNotMatch(view, /_\('Stop'\)/);
+	assert.doesNotMatch(view, /_\('Restart'\)/);
 });
 
 test('ucode still validates interface names', () => {
