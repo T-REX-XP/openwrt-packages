@@ -41,8 +41,9 @@ fi
 
 echo ""
 echo ">> syntax: snort helper scripts"
-if sh -n "$ROOT/root/usr/sbin/snort-rules-index" && sh -n "$ROOT/root/usr/sbin/snort-rules-apply"; then
-	echo "ok: snort-rules-index / snort-rules-apply"
+if sh -n "$ROOT/root/usr/sbin/snort-rules-index" && sh -n "$ROOT/root/usr/sbin/snort-rules-apply" && \
+   sh -n "$ROOT/root/usr/sbin/snort-notify" && sh -n "$ROOT/root/etc/init.d/snort-notify"; then
+	echo "ok: snort-rules-index / snort-rules-apply / snort-notify"
 else
 	FAIL=1
 fi

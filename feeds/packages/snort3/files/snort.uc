@@ -158,6 +158,8 @@ alert_json = {
     gid sid rev
     action
     msg
+    class
+    priority
   ]],
 }
 

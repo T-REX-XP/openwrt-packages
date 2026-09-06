@@ -206,12 +206,84 @@
 
 .luci-app-suricata .tp-feeds-table {
 	margin: 0.5rem 0;
+	table-layout: auto;
+	width: max-content;
+	min-width: 100%;
+}
+
+.luci-app-suricata .tp-feeds-wrap {
+	overflow-x: auto;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.luci-app-suricata .tp-feeds-table .tr {
+	align-items: center;
+	min-width: 46rem;
+}
+
+.luci-app-suricata .tp-feeds-table .th,
+.luci-app-suricata .tp-feeds-table .td {
+	flex: 0 0 auto;
+	overflow: visible;
+	word-break: normal;
+	overflow-wrap: normal;
+	vertical-align: middle;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-num,
+.luci-app-suricata .tp-feeds-table .tp-col-on {
+	width: auto;
+	white-space: nowrap;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-num {
+	min-width: 2.75rem;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-on {
+	min-width: 4.5rem;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-name {
+	flex: 0 1 12rem;
+	min-width: 9rem;
+	max-width: 16rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-url {
+	flex: 1 1 16rem;
+	min-width: 14rem;
+	max-width: 32rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-suricata .tp-feeds-table .tp-col-actions {
+	flex: 0 0 5.25rem;
+	width: 5.25rem;
+	min-width: 5.25rem;
+	white-space: nowrap;
+	overflow: visible;
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	background: var(--background-color-high, var(--background-color-medium));
+	box-shadow: -0.45rem 0 0.55rem -0.35rem var(--border-color-medium);
 }
 
 .luci-app-suricata .tp-feed-url {
 	display: block;
 	font-size: 0.82em;
-	word-break: break-all;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-family: var(--font-mono, monospace);
 	color: var(--text-color-high);
 }
@@ -696,8 +768,36 @@
 	min-width: 0;
 }
 
-.luci-app-suricata .tp-policy-inner > .cbi-tabmenu {
+.luci-app-suricata .tp-policy-inner > .cbi-tabmenu,
+.luci-app-suricata .tp-rules-inner > .cbi-tabmenu {
 	margin: 0.5rem 0 0.75rem;
+}
+
+.luci-app-suricata .tp-rules-inner {
+	margin-top: 0.35rem;
+	min-width: 0;
+}
+
+.luci-app-suricata .tp-rule-bulk {
+	display: none;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.luci-app-suricata .tp-rule-bulk.is-on {
+	display: flex;
+}
+
+.luci-app-suricata .tp-labeled-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.luci-app-suricata .tp-btn-glyph {
+	font-size: 0.95em;
+	line-height: 1;
 }
 
 .luci-app-suricata .tp-policy-table {

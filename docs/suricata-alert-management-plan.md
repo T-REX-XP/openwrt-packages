@@ -1,7 +1,7 @@
 # Suricata alert management — plan
 
 **Date:** 2026-09-06  
-**Status:** P1 dispatcher + P2 LuCI Alerts in-tree (`tp-notify`, `luci-app-suricata` Alerts tab).  
+**Status:** P1 dispatcher + P2 LuCI Alerts in-tree (`tp-notify`, `luci-app-suricata` Alerts tab). P4 Snort reuse in-tree (`TP_NOTIFY_UCI=snort`, `luci-app-snort3` Notify tab).  
 **Goal:** Let an operator configure **outbound notifications** for Suricata alerts (Telegram, email, webhook, push) on ImmortalWrt / Orange Pi CM5, without turning the router into a SIEM.
 
 Related:
@@ -329,8 +329,9 @@ rpcd: new methods `getNotify`, `setNotify`, `notifyTest`. Helpers **above** firs
 
 ### P4 — optional niceties (only if P2 is used)
 
-- Quiet hours, LAN redaction, MCU high-severity one-liner (via existing `mcudd` path — **not** a new RDCP opcode).
-- Snort3 `alert_json` reuse of the same `tp-notify` (same slim JSON). Do not block P1 on Snort.
+- Quiet hours, MCU high-severity one-liner (via existing `mcudd` path — **not** a new RDCP opcode).
+- [x] LAN redaction (`include_lan`).
+- [x] Snort3 `alert_json` reuse of the same `tp-notify` (`TP_NOTIFY_UCI=snort`, `snort-notify` tailer, LuCI **Notify** tab). Independent UCI from Suricata; both engines can notify if both run.
 
 ---
 

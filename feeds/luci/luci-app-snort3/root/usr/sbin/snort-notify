@@ -1,0 +1,21 @@
+#!/bin/sh
+# Tail Snort alert_json and enqueue tp-notify (UCI package snort).
+
+NOTIFY=/usr/sbin/tp-notify
+log_dir=$(uci -q get snort.snort.log_dir 2>/dev/null || echo /var/log/snort)
+case "$log_dir" in
+	/var/log|/var/log/) log_dir=/var/log/snort ;;
+esac
+ALERT=${SNORT_NOTIFY_FILE:-$log_dir/alert_json.txt}
+
+mkdir -p "$log_dir"
+touch "$ALERT" 2>/dev/null || true
+
+# BusyBox tail -F
+tail -n 0 -F "$ALERT" 2>/dev/null | while IFS= read -r line; do
+	[ -n "$line" ] || continue
+	if [ -x "$NOTIFY" ]; then
+		printf '%s\n' "$line" | TP_NOTIFY_UCI=snort TP_NOTIFY_ENGINE=Snort \
+			"$NOTIFY" --enqueue >/dev/null 2>&1 || true
+	fi
+done

@@ -316,6 +316,62 @@ test('view has catalog, pass, suppress, policy', () => {
 	assert.match(ucode, /snort-rules-apply/);
 	assert.ok(ucode.indexOf('function list_rulesets') < ucode.indexOf('function get_config'));
 	assert.match(ucode, /find -L \/etc\/snort\/rules/);
+	assert.match(ucode, /function list_notify/);
+	assert.match(ucode, /function replace_notify/);
+	assert.match(ucode, /notifyTest:/);
+	assert.ok(ucode.indexOf('function notify_id_ok') < ucode.indexOf('function list_notify'));
+	assert.ok(ucode.indexOf('function list_notify') < ucode.indexOf('function get_config'));
+	assert.ok(ucode.indexOf('function replace_notify') < ucode.indexOf('function get_config'));
+	assert.match(ucode, /TP_NOTIFY_UCI=snort/);
+	assert.match(view, /data-tab-title':\s*_\('Notify'\)/);
+	assert.match(view, /id:\s*'snort-notify-list'/);
+	assert.doesNotMatch(view, /admin\/services\/suricata/);
+});
+
+test('notify helpers', () => {
+	assert.equal(core.sanitizeNotifyId('', 'telegram', 1), 'n_telegram');
+	assert.equal(core.notifyTypeOk('ntfy'), true);
+	assert.equal(core.notifyTypeOk('sms'), false);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '0', url: ''
+	}]), null);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '1', url: 'https://example.com/x'
+	}]), null);
+	assert.equal(core.validateNotifyList([{
+		id: 'n_hook', type: 'webhook', enabled: '1', url: 'not-a-url'
+	}]), 'invalid notify url');
+	assert.equal(core.emptyNotify('email').type, 'email');
+	assert.equal(core.emptyNotify('email').enabled, '0');
+	assert.equal(core.emptyNotify('email').msmtp_account, 'snort_notify');
+	const raw = {
+		enabled: true,
+		manual: false,
+		logging: true,
+		openappid: false,
+		interface: 'br-lan',
+		home_net: '192.168.8.0/24',
+		external_net: 'any',
+		mode: 'ids',
+		method: 'afpacket',
+		action: 'alert',
+		snaplen: '1518',
+		log_dir: '/var/log',
+		config_dir: '/etc/snort',
+		temp_dir: '/var/snort.d',
+		oinkcode: '',
+		pass: { local_nets: true, ips: '192.168.8.10' },
+		suppress: [{ sid: '1', ip: '1.2.3.4', track: 'by_src' }],
+		notify: [{ id: 'n_telegram', type: 'telegram', enabled: '0', chat_id: '1' }]
+	};
+	const got = core.collectSettings(raw);
+	assert.equal(got.error, undefined);
+	assert.equal(got.config.pass.local_nets, '1');
+	assert.equal(got.config.suppress[0].sid, '1');
+	assert.equal(got.config.notify[0].id, 'n_telegram');
+	assert.equal(got.config.notify[0].mode, 'digest');
+	const css = readFileSync(join(res, 'snort-theme.css'), 'utf8');
+	assert.match(css, /snort-notify-card/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

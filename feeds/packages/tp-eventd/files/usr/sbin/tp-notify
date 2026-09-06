@@ -1,21 +1,29 @@
 #!/bin/sh
-# Filter Suricata EVE alerts and send Telegram / ntfy / webhook / Discord / email.
+# Filter Suricata EVE or Snort alert_json and send Telegram / ntfy / webhook / Discord / email.
 # Usage:
-#   echo '<eve-json>' | tp-notify              # process one line (sync)
-#   echo '<eve-json>' | tp-notify --enqueue    # queue + background worker
+#   echo '<json>' | tp-notify                  # process one line (sync)
+#   echo '<json>' | tp-notify --enqueue        # queue + background worker
 #   tp-notify --test <section-id>              # synthetic alert, skip filters
 #   tp-notify --status                         # JSON status (no secrets)
 #
+# UCI package: TP_NOTIFY_UCI=suricata|snort (default suricata)
 # Test hooks: TP_NOTIFY_DRY_RUN=1 TP_NOTIFY_STATE=dir TP_NOTIFY_NOW=epoch
 #             TP_NOTIFY_HOST=name TP_NOTIFY_CURL=curl TP_NOTIFY_MSMTP=msmtp
+#             TP_NOTIFY_ENGINE=Snort|Suricata
 
+UCI_PKG=${TP_NOTIFY_UCI:-suricata}
+case "$UCI_PKG" in
+	snort|suricata) ;;
+	*) UCI_PKG=suricata ;;
+esac
 STATE=${TP_NOTIFY_STATE:-/tmp/tp-notify-state}
-QDIR=${TP_NOTIFY_QUEUE:-/tmp/tp-notify-queue}
-LOCK=${TP_NOTIFY_LOCK:-/tmp/tp-notify.worker.lock}
+QDIR=${TP_NOTIFY_QUEUE:-/tmp/tp-notify-queue-$UCI_PKG}
+LOCK=${TP_NOTIFY_LOCK:-/tmp/tp-notify.$UCI_PKG.worker.lock}
 DRY=${TP_NOTIFY_DRY_RUN:-0}
 CURL=${TP_NOTIFY_CURL:-curl}
 MSMTP=${TP_NOTIFY_MSMTP:-msmtp}
 HOST=${TP_NOTIFY_HOST:-}
+ENGINE=${TP_NOTIFY_ENGINE:-}
 TP_HTTP=000
 
 now_epoch() {
@@ -78,7 +86,36 @@ uci_q() {
 }
 
 list_notify_ids() {
-	uci -q show suricata 2>/dev/null | sed -n 's/^suricata\.\([^=]*\)=notify$/\1/p'
+	uci -q show "$UCI_PKG" 2>/dev/null | sed -n "s/^${UCI_PKG}\\.\\([^=]*\\)=notify$/\\1/p"
+}
+
+engine_name() {
+	if [ -n "$ENGINE" ]; then
+		printf '%s' "$ENGINE"
+		return
+	fi
+	if [ "$UCI_PKG" = snort ]; then
+		printf '%s' Snort
+	else
+		printf '%s' Suricata
+	fi
+}
+
+source_name() {
+	engine_name | tr 'A-Z' 'a-z'
+}
+
+json_pick() {
+	_line=$1
+	shift
+	for _path in "$@"; do
+		_v=$(json_get "$_line" "$_path")
+		if [ -n "$_v" ]; then
+			printf '%s' "$_v"
+			return 0
+		fi
+	done
+	return 1
 }
 
 host_name() {
@@ -110,7 +147,7 @@ redact_ip() {
 }
 
 status_path() {
-	printf '%s/%s.status' "$STATE" "$1"
+	printf '%s/%s.%s.status' "$STATE" "$UCI_PKG" "$1"
 }
 
 read_status_field() {
@@ -156,7 +193,7 @@ rate_ok() {
 	limit=$2
 	[ -n "$limit" ] || limit=12
 	[ "$limit" -gt 0 ] 2>/dev/null || return 0
-	rf="$STATE/$id.rate"
+	rf="$STATE/${UCI_PKG}.$id.rate"
 	n=$(now_epoch)
 	mkdir -p "$STATE"
 	w=0
@@ -183,19 +220,19 @@ text_alert() {
 		printf '%s' "$DIGEST_TEXT"
 		return
 	fi
-	printf 'Suricata %s\nSID %s %s\n%s %s:%s -> %s:%s (%s)\nseverity %s class %s' \
-		"$(host_name)" "$A_SID" "$A_MSG" "$A_PROTO" "$A_SRC" "$A_SPORT" \
+	printf '%s %s\nSID %s %s\n%s %s:%s -> %s:%s (%s)\nseverity %s class %s' \
+		"$(engine_name)" "$(host_name)" "$A_SID" "$A_MSG" "$A_PROTO" "$A_SRC" "$A_SPORT" \
 		"$A_DST" "$A_DPORT" "$A_TS" "$A_SEV" "$A_CLS"
 }
 
 json_alert() {
 	if [ -n "$DIGEST_TEXT" ]; then
-		printf '{"source":"suricata","host":"%s","mode":"digest","message":"%s"}' \
-			"$(json_esc "$(host_name)")" "$(json_esc "$DIGEST_TEXT")"
+		printf '{"source":"%s","host":"%s","mode":"digest","message":"%s"}' \
+			"$(json_esc "$(source_name)")" "$(json_esc "$(host_name)")" "$(json_esc "$DIGEST_TEXT")"
 		return
 	fi
-	printf '{"source":"suricata","host":"%s","ts":"%s","sid":%s,"gid":%s,"msg":"%s","classtype":"%s","severity":%s,"src":"%s","sport":"%s","dst":"%s","dport":"%s","proto":"%s"}' \
-		"$(json_esc "$(host_name)")" "$(json_esc "$A_TS")" "${A_SID:-0}" "${A_GID:-1}" \
+	printf '{"source":"%s","host":"%s","ts":"%s","sid":%s,"gid":%s,"msg":"%s","classtype":"%s","severity":%s,"src":"%s","sport":"%s","dst":"%s","dport":"%s","proto":"%s"}' \
+		"$(json_esc "$(source_name)")" "$(json_esc "$(host_name)")" "$(json_esc "$A_TS")" "${A_SID:-0}" "${A_GID:-1}" \
 		"$(json_esc "$A_MSG")" "$(json_esc "$A_CLS")" "${A_SEV:-3}" \
 		"$(json_esc "$A_SRC")" "$(json_esc "$A_SPORT")" \
 		"$(json_esc "$A_DST")" "$(json_esc "$A_DPORT")" "$(json_esc "$A_PROTO")"
@@ -266,12 +303,12 @@ send_ntfy() {
 	mkdir -p "$STATE"
 	if [ -n "$token" ]; then
 		TP_HTTP=$("$CURL" -sS --max-time 8 --retry 0 -o "$out" -w '%{http_code}' \
-			-H "Title: Suricata" -H "Priority: $pri" \
+			-H "Title: $(engine_name)" -H "Priority: $pri" \
 			-H "Authorization: Bearer $token" \
 			-d "$body" "$url" 2>/dev/null || echo 000)
 	else
 		TP_HTTP=$("$CURL" -sS --max-time 8 --retry 0 -o "$out" -w '%{http_code}' \
-			-H "Title: Suricata" -H "Priority: $pri" \
+			-H "Title: $(engine_name)" -H "Priority: $pri" \
 			-d "$body" "$url" 2>/dev/null || echo 000)
 	fi
 	rm -f "$out"
@@ -332,8 +369,8 @@ send_discord() {
 send_email() {
 	to=$1
 	account=$2
-	[ -n "$account" ] || account=suricata_notify
-	subj="[Suricata] SID $A_SID $A_MSG"
+	[ -n "$account" ] || account=${UCI_PKG}_notify
+	subj="[$(engine_name)] SID $A_SID $A_MSG"
 	body=$(text_alert)
 	if [ "$DRY" = 1 ]; then
 		echo "SEND email to=$to account=$account"
@@ -358,16 +395,16 @@ channel_ready() {
 	typ=$2
 	case "$typ" in
 		telegram)
-			[ -n "$(uci_q suricata.$id.bot_token)" ] && [ -n "$(uci_q suricata.$id.chat_id)" ]
+			[ -n "$(uci_q ${UCI_PKG}.$id.bot_token)" ] && [ -n "$(uci_q ${UCI_PKG}.$id.chat_id)" ]
 			;;
 		ntfy)
-			[ -n "$(uci_q suricata.$id.topic)" ]
+			[ -n "$(uci_q ${UCI_PKG}.$id.topic)" ]
 			;;
 		webhook|discord)
-			[ -n "$(uci_q suricata.$id.url)" ]
+			[ -n "$(uci_q ${UCI_PKG}.$id.url)" ]
 			;;
 		email)
-			[ -n "$(uci_q suricata.$id.to)" ]
+			[ -n "$(uci_q ${UCI_PKG}.$id.to)" ]
 			;;
 		*)
 			return 1
@@ -392,21 +429,21 @@ in_list() {
 
 filter_match() {
 	id=$1
-	min=$(uci_q suricata.$id.min_severity)
+	min=$(uci_q ${UCI_PKG}.$id.min_severity)
 	[ -n "$min" ] || min=1
 	sev=${A_SEV:-3}
 	case "$sev" in [0-9]*) ;; *) sev=3 ;; esac
 	case "$min" in [0-9]*) ;; *) min=1 ;; esac
 	[ "$sev" -le "$min" ] || return 1
-	cls_f=$(uci_q suricata.$id.classtype)
+	cls_f=$(uci_q ${UCI_PKG}.$id.classtype)
 	if [ -n "$cls_f" ]; then
 		in_list "$A_CLS" "$cls_f" || return 1
 	fi
-	allow=$(uci_q suricata.$id.sid_allow)
+	allow=$(uci_q ${UCI_PKG}.$id.sid_allow)
 	if [ -n "$allow" ]; then
 		in_list "$A_SID" "$allow" || return 1
 	fi
-	deny=$(uci_q suricata.$id.sid_deny)
+	deny=$(uci_q ${UCI_PKG}.$id.sid_deny)
 	if [ -n "$deny" ]; then
 		in_list "$A_SID" "$deny" && return 1
 	fi
@@ -415,7 +452,7 @@ filter_match() {
 
 apply_redact() {
 	id=$1
-	inc=$(uci_q suricata.$id.include_lan)
+	inc=$(uci_q ${UCI_PKG}.$id.include_lan)
 	[ -n "$inc" ] || inc=1
 	if [ "$inc" = 0 ]; then
 		A_SRC=$(redact_ip "$A_SRC")
@@ -429,12 +466,12 @@ digest_append() {
 	printf '%s|%s|%s|%s|%s|%s\n' \
 		"$(safe_field "$A_SID")" "$(safe_field "$A_MSG")" "$(safe_field "$A_CLS")" \
 		"$(safe_field "$A_SRC")" "$(safe_field "$A_DST")" "$(safe_field "$A_SEV")" \
-		>> "$STATE/$id.digest"
+		>> "$STATE/${UCI_PKG}.$id.digest"
 }
 
 digest_body() {
 	id=$1
-	df="$STATE/$id.digest"
+	df="$STATE/${UCI_PKG}.$id.digest"
 	[ -f "$df" ] || return 0
 	awk -F'|' -v host="$(host_name)" '
 	{
@@ -462,7 +499,7 @@ digest_due() {
 	[ -n "$interval" ] || interval=3600
 	case "$interval" in [0-9]*) ;; *) interval=3600 ;; esac
 	[ "$interval" -eq 0 ] && return 0
-	lf="$STATE/$id.flush"
+	lf="$STATE/${UCI_PKG}.$id.flush"
 	n=$(now_epoch)
 	if [ ! -f "$lf" ]; then
 		echo "$n" > "$lf"
@@ -480,26 +517,26 @@ mark_flush() {
 
 do_send() {
 	id=$1
-	typ=$(uci_q suricata.$id.type)
+	typ=$(uci_q ${UCI_PKG}.$id.type)
 	TP_HTTP=000
 	ok=1
 	case "$typ" in
 		telegram)
-			send_telegram "$(uci_q suricata.$id.bot_token)" "$(uci_q suricata.$id.chat_id)" || ok=0
+			send_telegram "$(uci_q ${UCI_PKG}.$id.bot_token)" "$(uci_q ${UCI_PKG}.$id.chat_id)" || ok=0
 			;;
 		ntfy)
-			base=$(uci_q suricata.$id.url)
+			base=$(uci_q ${UCI_PKG}.$id.url)
 			[ -n "$base" ] || base=https://ntfy.sh
-			send_ntfy "$base" "$(uci_q suricata.$id.topic)" "$(uci_q suricata.$id.token)" || ok=0
+			send_ntfy "$base" "$(uci_q ${UCI_PKG}.$id.topic)" "$(uci_q ${UCI_PKG}.$id.token)" || ok=0
 			;;
 		webhook)
-			send_webhook "$(uci_q suricata.$id.url)" "$(uci_q suricata.$id.header)" || ok=0
+			send_webhook "$(uci_q ${UCI_PKG}.$id.url)" "$(uci_q ${UCI_PKG}.$id.header)" || ok=0
 			;;
 		discord)
-			send_discord "$(uci_q suricata.$id.url)" || ok=0
+			send_discord "$(uci_q ${UCI_PKG}.$id.url)" || ok=0
 			;;
 		email)
-			send_email "$(uci_q suricata.$id.to)" "$(uci_q suricata.$id.msmtp_account)" || ok=0
+			send_email "$(uci_q ${UCI_PKG}.$id.to)" "$(uci_q ${UCI_PKG}.$id.msmtp_account)" || ok=0
 			;;
 		*)
 			ok=0
@@ -521,9 +558,9 @@ do_send() {
 
 flush_digest() {
 	id=$1
-	df="$STATE/$id.digest"
+	df="$STATE/${UCI_PKG}.$id.digest"
 	[ -f "$df" ] || return 0
-	limit=$(uci_q suricata.$id.rate_limit)
+	limit=$(uci_q ${UCI_PKG}.$id.rate_limit)
 	[ -n "$limit" ] || limit=12
 	if ! rate_ok "$id" "$limit"; then
 		inc_suppressed "$id"
@@ -552,9 +589,9 @@ flush_digest() {
 dispatch_channel() {
 	id=$1
 	skip_filter=$2
-	en=$(uci_q suricata.$id.enabled)
+	en=$(uci_q ${UCI_PKG}.$id.enabled)
 	[ "$en" = 1 ] || return 0
-	typ=$(uci_q suricata.$id.type)
+	typ=$(uci_q ${UCI_PKG}.$id.type)
 	case "$typ" in
 		telegram|ntfy|webhook|discord|email) ;;
 		*) return 0 ;;
@@ -564,19 +601,19 @@ dispatch_channel() {
 		filter_match "$id" || return 0
 	fi
 	apply_redact "$id"
-	mode=$(uci_q suricata.$id.mode)
+	mode=$(uci_q ${UCI_PKG}.$id.mode)
 	[ -n "$mode" ] || mode=digest
 	if [ "$skip_filter" = 1 ]; then
 		mode=realtime
 	fi
 	if [ "$mode" = digest ]; then
 		digest_append "$id"
-		interval=$(uci_q suricata.$id.interval)
+		interval=$(uci_q ${UCI_PKG}.$id.interval)
 		[ -n "$interval" ] || interval=3600
 		digest_due "$id" "$interval" && flush_digest "$id"
 		return 0
 	fi
-	limit=$(uci_q suricata.$id.rate_limit)
+	limit=$(uci_q ${UCI_PKG}.$id.rate_limit)
 	[ -n "$limit" ] || limit=12
 	if ! rate_ok "$id" "$limit"; then
 		inc_suppressed "$id"
@@ -588,19 +625,32 @@ dispatch_channel() {
 parse_alert() {
 	line=$1
 	et=$(json_get "$line" '@.event_type')
-	[ "$et" = alert ] || return 1
-	A_TS=$(json_get "$line" '@.timestamp')
-	A_SRC=$(json_get "$line" '@.src_ip')
-	A_DST=$(json_get "$line" '@.dest_ip')
-	A_SPORT=$(json_get "$line" '@.src_port')
-	A_DPORT=$(json_get "$line" '@.dest_port')
-	A_PROTO=$(json_get "$line" '@.proto')
-	A_SID=$(json_get "$line" '@.alert.signature_id')
-	A_GID=$(json_get "$line" '@.alert.gid')
-	A_MSG=$(json_get "$line" '@.alert.signature')
-	A_CLS=$(json_get "$line" '@.alert.category')
-	A_SEV=$(json_get "$line" '@.alert.severity')
-	[ -n "$A_SID" ] || return 1
+	if [ "$et" = alert ]; then
+		A_TS=$(json_get "$line" '@.timestamp')
+		A_SRC=$(json_get "$line" '@.src_ip')
+		A_DST=$(json_get "$line" '@.dest_ip')
+		A_SPORT=$(json_get "$line" '@.src_port')
+		A_DPORT=$(json_get "$line" '@.dest_port')
+		A_PROTO=$(json_get "$line" '@.proto')
+		A_SID=$(json_get "$line" '@.alert.signature_id')
+		A_GID=$(json_get "$line" '@.alert.gid')
+		A_MSG=$(json_get "$line" '@.alert.signature')
+		A_CLS=$(json_get "$line" '@.alert.category')
+		A_SEV=$(json_get "$line" '@.alert.severity')
+		[ -n "$A_SID" ] || return 1
+		return 0
+	fi
+	A_SID=$(json_pick "$line" '@.sid' '@.alert.signature_id') || return 1
+	A_TS=$(json_pick "$line" '@.timestamp' || true)
+	A_SRC=$(json_pick "$line" '@.src_addr' '@.src_ip' || true)
+	A_DST=$(json_pick "$line" '@.dst_addr' '@.dest_ip' || true)
+	A_SPORT=$(json_pick "$line" '@.src_port' || true)
+	A_DPORT=$(json_pick "$line" '@.dst_port' '@.dest_port' || true)
+	A_PROTO=$(json_pick "$line" '@.proto' || true)
+	A_GID=$(json_pick "$line" '@.gid' '@.alert.gid' || true)
+	A_MSG=$(json_pick "$line" '@.msg' '@.alert.signature' || true)
+	A_CLS=$(json_pick "$line" '@.class' '@.alert.category' || true)
+	A_SEV=$(json_pick "$line" '@.priority' '@.alert.severity' || true)
 	return 0
 }
 
@@ -640,6 +690,10 @@ dump_status() {
 }
 
 synthetic_line() {
+	if [ "$UCI_PKG" = snort ]; then
+		printf '%s' '{"timestamp":"1970-01-01T00:00:00.000000+0000","proto":"TCP","src_addr":"203.0.113.10","src_port":443,"dst_addr":"192.168.8.1","dst_port":1,"gid":1,"sid":1,"rev":1,"action":"allow","msg":"Snort notify test","class":"not-suspicious","priority":1}'
+		return
+	fi
 	printf '%s' '{"timestamp":"1970-01-01T00:00:00.000000+0000","event_type":"alert","src_ip":"203.0.113.10","src_port":443,"dest_ip":"192.168.8.1","dest_port":1,"proto":"TCP","alert":{"gid":1,"signature_id":1,"signature":"Suricata notify test","category":"not-suspicious","severity":1}}'
 }
 

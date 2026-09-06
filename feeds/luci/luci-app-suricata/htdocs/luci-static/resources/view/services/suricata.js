@@ -183,7 +183,15 @@ var ICON_GLYPHS = {
 	disable: '✕',
 	review: '▤',
 	expire: '▣',
-	edit: '✎'
+	edit: '✎',
+	delete: '✕',
+	add: '+',
+	catalog: '☰',
+	fetch: '↓',
+	search: '⌕',
+	prev: '‹',
+	next: '›',
+	reindex: '↻'
 };
 
 function iconActionEnabled(statusId, kind) {
@@ -228,17 +236,21 @@ function iconBtn(title, kind, fn, enabled) {
 	]);
 }
 
-function labeledActionBtn(label, cls, title, fn) {
+function labeledActionBtn(label, cls, title, fn, kind) {
+	var kids = [];
+	if (kind && ICON_GLYPHS[kind])
+		kids.push(E('span', { 'class': 'tp-btn-glyph', 'aria-hidden': 'true' }, ICON_GLYPHS[kind]));
+	kids.push(E('span', {}, label));
 	return E('button', {
 		'type': 'button',
-		'class': 'btn ' + cls,
+		'class': 'btn tp-labeled-btn ' + cls,
 		'title': title,
 		'aria-label': title,
 		click: function(ev) {
 			ev.preventDefault();
 			fn();
 		}
-	}, label);
+	}, kids);
 }
 
 var ruleActionBusy = false;
@@ -845,30 +857,41 @@ return view.extend({
 
 		function paintTpFeeds() {
 			var table;
+			var toolbar;
+			var enabledCount = 0;
 			if (!tpFeedsHost)
 				return;
 			tpFeedsHost.innerHTML = '';
-			tpFeedsHost.appendChild(cbiSection(_('Rule feeds'),
-				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. Official ET Open is the usual starting point. Use Add from catalog for public sets, or Add custom for your own URL.'),
-				[]));
+			tpFeedsHost.appendChild(E('p', { 'class': 'cbi-section-descr' }, [
+				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. Official ET Open is the usual starting point. Use Add from catalog for public sets, or Add custom for your own URL.')
+			]));
 			table = E('div', { 'class': 'table tp-feeds-table' }, [
 				E('div', { 'class': 'tr table-titles' }, [
-					E('div', { 'class': 'th' }, _('Enabled')),
-					E('div', { 'class': 'th' }, _('Name')),
-					E('div', { 'class': 'th' }, _('URL')),
-					E('div', { 'class': 'th' }, _('Actions'))
+					E('div', { 'class': 'th tp-col-num' }, '#'),
+					E('div', { 'class': 'th tp-col-on' }, _('Enabled')),
+					E('div', { 'class': 'th tp-col-name' }, _('Name')),
+					E('div', { 'class': 'th tp-col-url' }, _('URL')),
+					E('div', { 'class': 'th tp-col-actions' }, _('Actions'))
 				])
 			]);
 			if (!settingsFeeds.length) {
 				tpFeedsHost.appendChild(E('p', {},
 					_('No rule feeds. Add the official ET Open URL or a custom HTTPS feed.')));
 			} else {
-				settingsFeeds.forEach(function(entry) {
+				settingsFeeds.forEach(function(entry, idx) {
 					var on = entry.enabled !== '0';
+					var nameTip = tpCatalogDesc(entry)
+						? tpCatalogName(entry) + ' — ' + tpCatalogDesc(entry)
+						: tpCatalogName(entry);
+					if (on)
+						enabledCount++;
 					table.appendChild(E('div', { 'class': 'tr' }, [
-						E('div', { 'class': 'td' }, [
+						E('div', { 'class': 'td tp-col-num' }, String(idx + 1)),
+						E('div', { 'class': 'td tp-col-on' }, [
 							E('input', {
 								type: 'checkbox',
+								title: _('Enable %s').format(tpCatalogName(entry)),
+								'aria-label': _('Enable %s').format(tpCatalogName(entry)),
 								checked: on ? 'checked' : null,
 								change: function() {
 									entry.enabled = this.checked ? '1' : '0';
@@ -879,30 +902,16 @@ return view.extend({
 								}
 							})
 						]),
-						E('div', { 'class': 'td' }, [
-							E('strong', {}, tpCatalogName(entry)),
-							tpCatalogDesc(entry)
-								? E('div', { 'class': 'tp-feed-note' }, tpCatalogDesc(entry))
-								: ''
-						]),
-						E('div', { 'class': 'td' }, [
+						E('div', { 'class': 'td left tp-col-name', title: nameTip }, tpCatalogName(entry)),
+						E('div', { 'class': 'td left tp-col-url', title: entry.url }, [
 							E('code', { 'class': 'tp-feed-url' }, entry.url)
 						]),
-						E('div', { 'class': 'td' }, [
-							E('button', {
-								'type': 'button',
-								'class': 'btn cbi-button cbi-button-edit',
-								click: function(ev) {
-									ev.preventDefault();
+						E('div', { 'class': 'td tp-col-actions' }, [
+							E('div', { 'class': 'tp-icon-row' }, [
+								iconBtn(_('Edit'), 'edit', function() {
 									openTpFeedModal(entry);
-								}
-							}, _('Edit')),
-							' ',
-							E('button', {
-								'type': 'button',
-								'class': 'btn cbi-button cbi-button-negative',
-								click: function(ev) {
-									ev.preventDefault();
+								}, true),
+								iconBtn(_('Delete'), 'delete', function() {
 									if (!window.confirm(_('Delete rule feed “%s”?').format(tpCatalogName(entry))))
 										return;
 									settingsFeeds = settingsFeeds.filter(function(f) {
@@ -914,52 +923,54 @@ return view.extend({
 									}).catch(function(e) {
 										ui.addNotification(null, E('p', {}, e.message || e), 'error');
 									});
-								}
-							}, _('Delete'))
+								}, true)
+							])
 						])
 					]));
 				});
-				tpFeedsHost.appendChild(table);
+				tpFeedsHost.appendChild(E('div', { 'class': 'tp-feeds-wrap' }, [ table ]));
 			}
-			tpFeedsHost.appendChild(E('div', { 'class': 'tp-feeds-toolbar' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button cbi-button-add',
-					'title': _('Add a custom HTTPS tarball, zip, or .rules URL'),
-					click: function(ev) {
-						ev.preventDefault();
+			toolbar = [
+				labeledActionBtn(_('Add custom'), 'cbi-button cbi-button-positive',
+					_('Add a custom HTTPS tarball, zip, or .rules URL'),
+					function() {
 						openTpFeedModal(null);
-					}
-				}, _('Add custom')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'title': _('Pick a public ruleset from Emerging Threats, abuse.ch, or the Suricata rule index'),
-					click: function(ev) {
-						ev.preventDefault();
+					}, 'add'),
+				labeledActionBtn(_('Add from catalog'), 'cbi-button',
+					_('Pick a public ruleset from Emerging Threats, abuse.ch, or the Suricata rule index'),
+					function() {
 						openTpCatalogModal();
-					}
-				}, _('Add from catalog')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button cbi-button-apply',
-					'title': _('Download enabled feeds now'),
-					click: function(ev) {
-						ev.preventDefault();
+					}, 'catalog')
+			];
+			if (enabledCount)
+				toolbar.push(labeledActionBtn(_('Fetch now'), 'cbi-button cbi-button-apply',
+					_('Download enabled feeds now'),
+					function() {
 						runTpFetch();
-					}
-				}, _('Fetch now'))
-			]));
+					}, 'fetch'));
+			tpFeedsHost.appendChild(E('div', { 'class': 'tp-feeds-toolbar' }, toolbar));
 		}
 
 		function ensureRulesLayout() {
+			var feedsPane;
+			var mgmtPane;
+			var inner;
 			if (tpFeedsHost)
 				return;
 			rulesBox.innerHTML = '';
 			tpFeedsHost = E('div', { 'class': 'tp-feeds-section' });
 			tpSidHost = E('div', { 'class': 'tp-sid-section' });
-			rulesBox.appendChild(tpFeedsHost);
-			rulesBox.appendChild(tpSidHost);
+			feedsPane = E('div', {
+				'data-tab': 'rule-feeds',
+				'data-tab-title': _('Rule feeds')
+			}, [ tpFeedsHost ]);
+			mgmtPane = E('div', {
+				'data-tab': 'rule-mgmt',
+				'data-tab-title': _('Rules management')
+			}, [ tpSidHost ]);
+			inner = E('div', { 'class': 'tp-rules-inner' }, [ feedsPane, mgmtPane ]);
+			rulesBox.appendChild(inner);
+			ui.tabs.initTabGroup(inner.childNodes);
 			paintTpFeeds();
 		}
 
@@ -1381,9 +1392,9 @@ return view.extend({
 
 			ensureRulesLayout();
 			tpSidHost.innerHTML = '';
-			tpSidHost.appendChild(cbiSection(_('Rules management'),
-				_('Tick rows for bulk changes, or use the icons on a row. Status and action changes stay when feeds are fetched again.'),
-				[]));
+			tpSidHost.appendChild(E('p', { 'class': 'cbi-section-descr' }, [
+				_('Tick rows for bulk changes, or use the icons on a row. Status and action changes stay when feeds are fetched again.')
+			]));
 
 			search = E('input', {
 				type: 'search',
@@ -1437,9 +1448,13 @@ return view.extend({
 			}
 
 			function paintSel() {
+				var n = Object.keys(selectedSids).length;
 				var el = document.getElementById('tp-sel-count');
+				var bulk = document.getElementById('tp-rule-bulk');
 				if (el)
-					el.textContent = _('Selected: %s').format(Object.keys(selectedSids).length);
+					el.textContent = _('Selected: %s').format(n);
+				if (bulk)
+					bulk.classList.toggle('is-on', n > 0);
 			}
 
 			function runBulkStatus(status, msg) {
@@ -1543,43 +1558,45 @@ return view.extend({
 
 			tpSidHost.appendChild(E('div', { 'class': 'tp-rules-head' }, [
 				E('div', { 'class': 'tp-rules-actions' }, [
-					labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
-						_('Enable selected signatures'),
-						function() {
-							runBulkStatus('enabled', _('Selected signatures enabled'));
-						}),
-					labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
-						_('Disable selected signatures'),
-						function() {
-							runBulkStatus('disabled', _('Selected signatures disabled'));
-						}),
-					labeledActionBtn(_('Review selected'), 'cbi-button',
-						_('Mark selected signatures for review'),
-						function() {
-							runBulkStatus('review', _('Selected signatures set to review'));
-						}),
-					labeledActionBtn(_('Expire selected'), 'cbi-button',
-						_('Expire selected signatures'),
-						function() {
-							runBulkStatus('expired', _('Selected signatures expired'));
-						}),
-					actionBulk,
-					labeledActionBtn(_('Set action'), 'cbi-button',
-						_('Apply the chosen action to selected signatures'),
-						function() {
-							runBulkAction();
-						}),
+					E('div', { 'id': 'tp-rule-bulk', 'class': 'tp-rule-bulk' }, [
+						labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+							_('Enable selected signatures'),
+							function() {
+								runBulkStatus('enabled', _('Selected signatures enabled'));
+							}, 'enable'),
+						labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+							_('Disable selected signatures'),
+							function() {
+								runBulkStatus('disabled', _('Selected signatures disabled'));
+							}, 'disable'),
+						labeledActionBtn(_('Review selected'), 'cbi-button',
+							_('Mark selected signatures for review'),
+							function() {
+								runBulkStatus('review', _('Selected signatures set to review'));
+							}, 'review'),
+						labeledActionBtn(_('Expire selected'), 'cbi-button',
+							_('Expire selected signatures'),
+							function() {
+								runBulkStatus('expired', _('Selected signatures expired'));
+							}, 'expire'),
+						actionBulk,
+						labeledActionBtn(_('Set action'), 'cbi-button',
+							_('Apply the chosen action to selected signatures'),
+							function() {
+								runBulkAction();
+							}, 'edit')
+					]),
 					labeledActionBtn(_('Reindex signatures'), 'cbi-button',
 						_('Rebuild the local signature index'),
 						function() {
 							runReindex();
-						})
+						}, 'reindex')
 				]),
 				E('div', { 'class': 'tp-rules-search' }, [
 					search,
 					labeledActionBtn(_('Search'), 'cbi-button cbi-button-apply',
 						_('Apply search and filters'),
-						applyFilters)
+						applyFilters, 'search')
 				])
 			]));
 			tpSidHost.appendChild(E('div', { 'class': 'tp-toolbar' }, [
@@ -1729,33 +1746,25 @@ return view.extend({
 
 			from = total ? (rulesState.offset + 1) : 0;
 			to = rulesState.offset + list.length;
-			tpSidHost.appendChild(E('div', { 'class': 'tp-pager' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'disabled': rulesState.offset <= 0 ? true : null,
-					click: function(ev) {
-						ev.preventDefault();
-						if (rulesState.offset <= 0)
-							return;
-						rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
-						loadRules();
-					}
-				}, _('Previous')),
-				E('span', {}, _('Showing %s–%s of %s').format(from, to, total)),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'disabled': (rulesState.offset + list.length) >= total ? true : null,
-					click: function(ev) {
-						ev.preventDefault();
-						if ((rulesState.offset + list.length) >= total)
-							return;
-						rulesState.offset += rulesState.limit;
-						loadRules();
-					}
-				}, _('Next'))
-			]));
+			(function() {
+				var pager = [ E('span', {}, _('Showing %s–%s of %s').format(from, to, total)) ];
+				if (rulesState.offset > 0)
+					pager.unshift(labeledActionBtn(_('Previous'), 'cbi-button',
+						_('Previous page'),
+						function() {
+							rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
+							loadRules();
+						}, 'prev'));
+				if ((rulesState.offset + list.length) < total)
+					pager.push(labeledActionBtn(_('Next'), 'cbi-button',
+						_('Next page'),
+						function() {
+							rulesState.offset += rulesState.limit;
+							loadRules();
+						}, 'next'));
+				tpSidHost.appendChild(E('div', { 'class': 'tp-pager' }, pager));
+			})();
+			paintSel();
 		}
 
 		function renderPolicy(p) {

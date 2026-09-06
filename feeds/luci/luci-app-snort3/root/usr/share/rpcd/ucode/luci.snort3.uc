@@ -264,6 +264,248 @@ function replace_suppress(rows) {
 	return null;
 }
 
+function read_json_file(path) {
+	if (!file_test('-f', path))
+		return {};
+	let raw = readfile(path);
+	if (!raw)
+		return {};
+	try {
+		return json(raw);
+	} catch (e) {
+		return {};
+	}
+}
+
+function notify_type_ok(t) {
+	return t == 'telegram' || t == 'ntfy' || t == 'webhook' || t == 'discord' || t == 'email';
+}
+
+function notify_id_ok(id) {
+	return match(`${id}`, /^n_[A-Za-z0-9_]+$/);
+}
+
+function notify_url_ok(url) {
+	let s = trim(`${url}`);
+	if (s == '')
+		return false;
+	return match(s, /^https?:\/\/[-A-Za-z0-9._~:/?#@!$&()*+,;=%]+$/) != null;
+}
+
+function notify_sid_list_ok(s) {
+	let one;
+	let n;
+	s = trim(`${s}`);
+	if (s == '')
+		return true;
+	n = 0;
+	for (one in split(s, /[ ,]+/)) {
+		one = trim(`${one}`);
+		if (one == '')
+			continue;
+		if (!match(one, /^[0-9]+$/))
+			return false;
+		n++;
+		if (n > 32)
+			return false;
+	}
+	return true;
+}
+
+function notify_header_ok(s) {
+	let i;
+	let c;
+	s = `${s}`;
+	if (length(s) > 200)
+		return false;
+	for (i = 0; i < length(s); i++) {
+		c = substr(s, i, 1);
+		if (c == chr(10) || c == chr(13))
+			return false;
+	}
+	return true;
+}
+
+function notify_status_of(id) {
+	let st;
+	if (!notify_id_ok(id))
+		return { last_ok: '', last_err: '', http: '', sent: '0', suppressed: '0' };
+	st = read_json_file('/tmp/tp-notify-state/snort.' + id + '.status');
+	return {
+		last_ok: `${st.last_ok || ''}`,
+		last_err: `${st.last_err || ''}`,
+		http: `${st.http || ''}`,
+		sent: `${st.sent || 0}`,
+		suppressed: `${st.suppressed || 0}`
+	};
+}
+
+function list_notify() {
+	let out = [];
+	let r = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=notify$/\\1/p'");
+	let id;
+	let typ;
+	let st;
+	if (!r.output)
+		return out;
+	for (id in split(r.output, '\n')) {
+		if (id == '' || !notify_id_ok(id))
+			continue;
+		typ = run_cmd(`uci -q get snort.${id}.type`).output;
+		if (!notify_type_ok(typ))
+			continue;
+		st = notify_status_of(id);
+		push(out, {
+			id,
+			type: typ,
+			enabled: parse_enabled_flag(run_cmd(`uci -q get snort.${id}.enabled`).output) || '0',
+			mode: run_cmd(`uci -q get snort.${id}.mode`).output || 'digest',
+			min_severity: run_cmd(`uci -q get snort.${id}.min_severity`).output || '1',
+			rate_limit: run_cmd(`uci -q get snort.${id}.rate_limit`).output || '12',
+			interval: run_cmd(`uci -q get snort.${id}.interval`).output || '3600',
+			classtype: run_cmd(`uci -q get snort.${id}.classtype`).output || '',
+			sid_allow: run_cmd(`uci -q get snort.${id}.sid_allow`).output || '',
+			sid_deny: run_cmd(`uci -q get snort.${id}.sid_deny`).output || '',
+			include_lan: parse_enabled_flag(run_cmd(`uci -q get snort.${id}.include_lan`).output) || '1',
+			chat_id: run_cmd(`uci -q get snort.${id}.chat_id`).output || '',
+			bot_token_set: run_cmd(`uci -q get snort.${id}.bot_token`).output != '' ? '1' : '0',
+			url: run_cmd(`uci -q get snort.${id}.url`).output || '',
+			topic: run_cmd(`uci -q get snort.${id}.topic`).output || '',
+			token_set: run_cmd(`uci -q get snort.${id}.token`).output != '' ? '1' : '0',
+			header_set: run_cmd(`uci -q get snort.${id}.header`).output != '' ? '1' : '0',
+			to: run_cmd(`uci -q get snort.${id}.to`).output || '',
+			msmtp_account: run_cmd(`uci -q get snort.${id}.msmtp_account`).output || 'snort_notify',
+			last_ok: st.last_ok,
+			last_err: st.last_err,
+			http: st.http,
+			sent: st.sent,
+			suppressed: st.suppressed
+		});
+	}
+	return out;
+}
+
+function replace_notify(rows) {
+	let seen;
+	let i;
+	let row;
+	let id;
+	let typ;
+	let old;
+	let secrets;
+	let cur;
+	let en;
+	let mode;
+	let min_s;
+	let rate;
+	let interval;
+	if (type(rows) != 'array')
+		return 'invalid notify';
+	if (length(rows) > 8)
+		return 'invalid notify';
+	secrets = {};
+	cur = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=notify$/\\1/p'");
+	if (cur.output) {
+		for (id in split(cur.output, '\n')) {
+			if (id == '' || !notify_id_ok(id))
+				continue;
+			secrets[id] = {
+				bot_token: run_cmd(`uci -q get snort.${id}.bot_token`).output || '',
+				token: run_cmd(`uci -q get snort.${id}.token`).output || '',
+				header: run_cmd(`uci -q get snort.${id}.header`).output || ''
+			};
+		}
+	}
+	seen = {};
+	for (i = 0; i < length(rows); i++) {
+		row = rows[i];
+		if (type(row) != 'object')
+			return 'invalid notify';
+		id = trim(`${row.id || ''}`);
+		if (!notify_id_ok(id) || seen[id])
+			return 'invalid notify id';
+		seen[id] = 1;
+		typ = trim(`${row.type || ''}`);
+		if (!notify_type_ok(typ))
+			return 'invalid notify type';
+		mode = trim(`${row.mode || 'digest'}`);
+		if (mode != 'digest' && mode != 'realtime')
+			return 'invalid notify mode';
+		min_s = trim(`${row.min_severity || '1'}`);
+		if (min_s != '1' && min_s != '2' && min_s != '3')
+			return 'invalid notify severity';
+		rate = trim(`${row.rate_limit || '12'}`);
+		if (!match(rate, /^[0-9]+$/) || int(rate) > 1000)
+			return 'invalid notify rate';
+		interval = trim(`${row.interval || '3600'}`);
+		if (!match(interval, /^[0-9]+$/))
+			return 'invalid notify interval';
+		if (!notify_sid_list_ok(row.sid_allow) || !notify_sid_list_ok(row.sid_deny))
+			return 'invalid notify sid';
+		en = parse_enabled_flag(row.enabled);
+		if (en == '1') {
+			if ((typ == 'webhook' || typ == 'discord') && !notify_url_ok(row.url || ''))
+				return 'invalid notify url';
+			if (typ == 'ntfy' && trim(`${row.topic || ''}`) == '')
+				return 'invalid notify topic';
+			if (typ == 'telegram' && trim(`${row.chat_id || ''}`) == '')
+				return 'invalid notify telegram';
+			if (typ == 'email' && trim(`${row.to || ''}`) == '')
+				return 'invalid notify email';
+		}
+		if (typ == 'ntfy' && trim(`${row.url || ''}`) != '' && !notify_url_ok(row.url))
+			return 'invalid notify url';
+		if ((typ == 'webhook' || typ == 'discord') && trim(`${row.url || ''}`) != '' && !notify_url_ok(row.url))
+			return 'invalid notify url';
+		if (!notify_header_ok(row.header || ''))
+			return 'invalid notify header';
+	}
+	if (cur.output) {
+		for (id in split(cur.output, '\n')) {
+			if (id != '')
+				run_cmd(`uci -q delete snort.${id}`);
+		}
+	}
+	for (i = 0; i < length(rows); i++) {
+		row = rows[i];
+		id = trim(`${row.id}`);
+		typ = trim(`${row.type}`);
+		en = parse_enabled_flag(row.enabled);
+		if (en == null)
+			en = '0';
+		old = secrets[id] || {};
+		run_cmd(`uci set snort.${id}=notify`);
+		run_cmd(`uci set snort.${id}.type=${shell_quote(typ)}`);
+		run_cmd(`uci set snort.${id}.enabled=${en}`);
+		run_cmd(`uci set snort.${id}.mode=${shell_quote(trim(`${row.mode || 'digest'}`))}`);
+		run_cmd(`uci set snort.${id}.min_severity=${shell_quote(trim(`${row.min_severity || '1'}`))}`);
+		run_cmd(`uci set snort.${id}.rate_limit=${shell_quote(trim(`${row.rate_limit || '12'}`))}`);
+		run_cmd(`uci set snort.${id}.interval=${shell_quote(trim(`${row.interval || '3600'}`))}`);
+		run_cmd(`uci set snort.${id}.classtype=${shell_quote(trim(`${row.classtype || ''}`))}`);
+		run_cmd(`uci set snort.${id}.sid_allow=${shell_quote(trim(`${row.sid_allow || ''}`))}`);
+		run_cmd(`uci set snort.${id}.sid_deny=${shell_quote(trim(`${row.sid_deny || ''}`))}`);
+		run_cmd(`uci set snort.${id}.include_lan=${parse_enabled_flag(row.include_lan) || '1'}`);
+		run_cmd(`uci set snort.${id}.chat_id=${shell_quote(trim(`${row.chat_id || ''}`))}`);
+		run_cmd(`uci set snort.${id}.url=${shell_quote(trim(`${row.url || ''}`))}`);
+		run_cmd(`uci set snort.${id}.topic=${shell_quote(trim(`${row.topic || ''}`))}`);
+		run_cmd(`uci set snort.${id}.to=${shell_quote(trim(`${row.to || ''}`))}`);
+		run_cmd(`uci set snort.${id}.msmtp_account=${shell_quote(trim(`${row.msmtp_account || 'snort_notify'}`))}`);
+		if (trim(`${row.bot_token || ''}`) != '')
+			run_cmd(`uci set snort.${id}.bot_token=${shell_quote(trim(`${row.bot_token}`))}`);
+		else if (old.bot_token)
+			run_cmd(`uci set snort.${id}.bot_token=${shell_quote(old.bot_token)}`);
+		if (trim(`${row.token || ''}`) != '')
+			run_cmd(`uci set snort.${id}.token=${shell_quote(trim(`${row.token}`))}`);
+		else if (old.token)
+			run_cmd(`uci set snort.${id}.token=${shell_quote(old.token)}`);
+		if (trim(`${row.header || ''}`) != '')
+			run_cmd(`uci set snort.${id}.header=${shell_quote(trim(`${row.header}`))}`);
+		else if (old.header)
+			run_cmd(`uci set snort.${id}.header=${shell_quote(old.header)}`);
+	}
+	return null;
+}
+
 const RULES_DB = '/var/lib/snort/rules.sqlite';
 
 function sqlite3_bin() {
@@ -578,6 +820,8 @@ function feed_id_ok(id) {
 		return false;
 	if (match(`${id}`, /^s[0-9]+$/))
 		return false;
+	if (match(`${id}`, /^n_/))
+		return false;
 	return true;
 }
 
@@ -706,7 +950,8 @@ function get_config() {
 		oinkcode: uci_get('snort', 'oinkcode', ''),
 		feeds: list_rulesets(),
 		pass: read_pass(),
-		suppress: read_suppress()
+		suppress: read_suppress(),
+		notify: list_notify()
 	};
 }
 
@@ -1006,8 +1251,13 @@ const methods = {
 				if (serr)
 					return { error: serr };
 			}
+			if ('notify' in cfg) {
+				let nerr = replace_notify(cfg.notify);
+				if (nerr)
+					return { error: nerr };
+			}
 			for (let k in cfg) {
-				if (k == 'feeds' || k == 'pass' || k == 'suppress')
+				if (k == 'feeds' || k == 'pass' || k == 'suppress' || k == 'notify')
 					continue;
 				let err = validate_field(k, cfg[k]);
 				if (err)
@@ -1034,6 +1284,12 @@ const methods = {
 					output: 'snort.snort.enabled is 0; enable the service in Settings first'
 				};
 			let r = run_cmd(`/etc/init.d/snort ${action}`);
+			if (file_test('-x', '/etc/init.d/snort-notify')) {
+				if (action == 'start' || action == 'restart')
+					run_cmd('/etc/init.d/snort-notify restart');
+				else if (action == 'stop')
+					run_cmd('/etc/init.d/snort-notify stop');
+			}
 			return { ok: r.code == 0, output: r.output };
 		}
 	},
@@ -1199,6 +1455,49 @@ const methods = {
 			if (file_test('-x', '/usr/sbin/snort-rules-apply'))
 				run_cmd('/usr/sbin/snort-rules-apply');
 			return { ok: true, policies: get_policies() };
+		}
+	},
+
+	getNotify: {
+		call: function() {
+			try {
+				return { channels: list_notify() };
+			} catch (e) {
+				return { error: `get_notify ${e}` };
+			}
+		}
+	},
+
+	setNotify: {
+		args: { channels: [] },
+		call: function(req) {
+			let rows = req.args?.channels;
+			if (type(rows) != 'array')
+				return { error: 'invalid notify' };
+			run_cmd('uci -q get snort.snort >/dev/null || uci set snort.snort=snort');
+			let err = replace_notify(rows);
+			if (err)
+				return { error: err };
+			run_cmd('uci commit snort');
+			return { ok: true, channels: list_notify() };
+		}
+	},
+
+	notifyTest: {
+		args: { id: '' },
+		call: function(req) {
+			let id = trim(`${req.args?.id || ''}`);
+			if (!notify_id_ok(id))
+				return { error: 'invalid id' };
+			if (!file_test('-x', '/usr/sbin/tp-notify'))
+				return { error: 'tp-notify not installed' };
+			let r = run_cmd('TP_NOTIFY_UCI=snort TP_NOTIFY_ENGINE=Snort /usr/sbin/tp-notify --test ' + shell_quote(id));
+			let st = notify_status_of(id);
+			return {
+				ok: r.code == 0,
+				error: r.code == 0 ? '' : (st.last_err || 'send failed'),
+				status: st
+			};
 		}
 	}
 };

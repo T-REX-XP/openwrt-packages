@@ -97,6 +97,13 @@ var callSetPolicies = rpc.declare({
 	expect: { '': {} }
 });
 
+var callNotifyTest = rpc.declare({
+	object: 'luci.snort3',
+	method: 'notifyTest',
+	params: [ 'id' ],
+	expect: { '': {} }
+});
+
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
@@ -125,6 +132,7 @@ function snortCatalogDesc(feed) {
 
 var snortFeeds = [];
 var settingsSuppress = [];
+var settingsNotify = [];
 
 function cbiSection(title, descr, body) {
 	return E('div', { 'class': 'cbi-section' }, [
@@ -163,7 +171,16 @@ var ICON_GLYPHS = {
 	enable: '✓',
 	disable: '✕',
 	review: '▤',
-	expire: '▣'
+	expire: '▣',
+	edit: '✎',
+	delete: '✕',
+	add: '+',
+	catalog: '☰',
+	fetch: '↓',
+	search: '⌕',
+	prev: '‹',
+	next: '›',
+	reindex: '↻'
 };
 
 function iconActionEnabled(statusId, kind) {
@@ -208,17 +225,21 @@ function iconBtn(title, kind, fn, enabled) {
 	]);
 }
 
-function labeledActionBtn(label, cls, title, fn) {
+function labeledActionBtn(label, cls, title, fn, kind) {
+	var kids = [];
+	if (kind && ICON_GLYPHS[kind])
+		kids.push(E('span', { 'class': 'snort-btn-glyph', 'aria-hidden': 'true' }, ICON_GLYPHS[kind]));
+	kids.push(E('span', {}, label));
 	return E('button', {
 		'type': 'button',
-		'class': 'btn ' + cls,
+		'class': 'btn snort-labeled-btn ' + cls,
 		'title': title,
 		'aria-label': title,
 		click: function(ev) {
 			ev.preventDefault();
 			fn();
 		}
-	}, label);
+	}, kids);
 }
 
 var ruleActionBusy = false;
@@ -362,6 +383,62 @@ function elVal(id) {
 	return document.getElementById(id);
 }
 
+function notifyCardVal(card, name) {
+	var el = card.querySelector('[data-nf="' + name + '"]');
+	if (!el)
+		return '';
+	if (el.type === 'checkbox')
+		return el.checked ? '1' : '0';
+	return el.value;
+}
+
+function collectNotifyFromDom() {
+	var host = document.getElementById('snort-notify-list');
+	var cards;
+	var i;
+	var card;
+	var out = [];
+	var typ;
+	var url;
+	if (!host)
+		return settingsNotify.slice();
+	cards = host.querySelectorAll('.snort-notify-card');
+	for (i = 0; i < cards.length; i++) {
+		card = cards[i];
+		typ = notifyCardVal(card, 'type') || 'telegram';
+		url = '';
+		if (typ === 'ntfy')
+			url = notifyCardVal(card, 'url');
+		else if (typ === 'webhook' || typ === 'discord')
+			url = notifyCardVal(card, 'url2');
+		out.push({
+			id: card.getAttribute('data-id') || '',
+			type: typ,
+			enabled: notifyCardVal(card, 'enabled'),
+			mode: notifyCardVal(card, 'mode'),
+			min_severity: notifyCardVal(card, 'min_severity'),
+			rate_limit: notifyCardVal(card, 'rate_limit'),
+			interval: notifyCardVal(card, 'interval'),
+			classtype: notifyCardVal(card, 'classtype'),
+			sid_allow: notifyCardVal(card, 'sid_allow'),
+			sid_deny: notifyCardVal(card, 'sid_deny'),
+			include_lan: notifyCardVal(card, 'include_lan'),
+			chat_id: notifyCardVal(card, 'chat_id'),
+			bot_token: notifyCardVal(card, 'bot_token'),
+			url: url,
+			topic: notifyCardVal(card, 'topic'),
+			token: notifyCardVal(card, 'token'),
+			header: notifyCardVal(card, 'header'),
+			to: notifyCardVal(card, 'to'),
+			msmtp_account: notifyCardVal(card, 'msmtp_account'),
+			bot_token_set: card.getAttribute('data-bot-set') || '0',
+			token_set: card.getAttribute('data-token-set') || '0',
+			header_set: card.getAttribute('data-header-set') || '0'
+		});
+	}
+	return out;
+}
+
 function collectSnortSettings() {
 	var enabled = elVal('snort-enabled');
 	var logging = elVal('snort-logging');
@@ -412,7 +489,8 @@ function collectSnortSettings() {
 			ips: document.getElementById('snort-pass-ips')
 				? document.getElementById('snort-pass-ips').value : ''
 		},
-		suppress: settingsSuppress
+		suppress: settingsSuppress,
+		notify: collectNotifyFromDom()
 	});
 }
 
@@ -526,6 +604,7 @@ return view.extend({
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : snortCore.defaultFeeds()
 		);
 		settingsSuppress = snortCore.normalizeSuppressList(cfg.suppress || []);
+		settingsNotify = snortCore.normalizeNotifyList(cfg.notify || []);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -548,6 +627,7 @@ return view.extend({
 		var policyBox = E('div', { 'data-tab': 'policy', 'data-tab-title': _('Policy') });
 		var passBox = E('div', { 'data-tab': 'pass', 'data-tab-title': _('Pass list') });
 		var suppressBox = E('div', { 'data-tab': 'suppress', 'data-tab-title': _('Suppress') });
+		var notifyBox = E('div', { 'data-tab': 'notify', 'data-tab-title': _('Notify') });
 
 		function paintHero(st) {
 			var note;
@@ -1747,6 +1827,238 @@ return view.extend({
 			paintSuppress();
 		}
 
+		function notifyTypeLabel(t) {
+			if (t === 'telegram')
+				return _('Telegram');
+			if (t === 'ntfy')
+				return _('ntfy');
+			if (t === 'webhook')
+				return _('Webhook');
+			if (t === 'discord')
+				return _('Discord');
+			if (t === 'email')
+				return _('Email');
+			return t;
+		}
+
+		function nfEl(name, node) {
+			node.setAttribute('data-nf', name);
+			return node;
+		}
+
+		function paintNotify() {
+			var host = document.getElementById('snort-notify-list');
+			if (!host)
+				return;
+			host.innerHTML = '';
+			if (!settingsNotify.length) {
+				host.appendChild(E('p', { 'class': 'snort-empty' },
+					_('No channels yet. Add Telegram, ntfy, a webhook, Discord, or email. Leave them off until you have tested.')));
+				return;
+			}
+			settingsNotify.forEach(function(row, idx) {
+				var enabled = E('input', { type: 'checkbox' });
+				var typeSel;
+				var mode;
+				var sev;
+				var card;
+				var secretHint;
+				enabled.checked = row.enabled === '1';
+				nfEl('enabled', enabled);
+				typeSel = nfEl('type', E('select', {}, snortCore.NOTIFY_TYPES.map(function(t) {
+					return E('option', { value: t }, notifyTypeLabel(t));
+				})));
+				typeSel.value = row.type;
+				mode = nfEl('mode', E('select', {}, [
+					E('option', { value: 'digest' }, _('Digest (summary)')),
+					E('option', { value: 'realtime' }, _('Realtime (each alert)'))
+				]));
+				mode.value = row.mode || 'digest';
+				sev = nfEl('sevskip', E('select', {}, [
+					E('option', { value: '1' }, _('High only')),
+					E('option', { value: '2' }, _('High and medium')),
+					E('option', { value: '3' }, _('All severities'))
+				]));
+				nfEl('min_severity', sev);
+				sev.value = row.min_severity || '1';
+				secretHint = row.bot_token_set === '1' || row.token_set === '1' || row.header_set === '1'
+					? _('Saved. Leave blank to keep.')
+					: '';
+				card = E('div', {
+					'class': 'snort-notify-card',
+					'data-id': row.id,
+					'data-bot-set': row.bot_token_set || '0',
+					'data-token-set': row.token_set || '0',
+					'data-header-set': row.header_set || '0'
+				}, [
+					E('div', { 'class': 'snort-notify-head' }, [
+						E('strong', {}, notifyTypeLabel(row.type)),
+						E('code', { 'class': 'snort-mono' }, row.id),
+						labeledActionBtn(_('Test'), 'cbi-button',
+							_('Send a synthetic test to this channel'),
+							function() {
+								var live = collectNotifyFromDom();
+								var err = snortCore.validateNotifyList(live);
+								if (err) {
+									ui.addNotification(null, E('p', {}, err), 'error');
+									return;
+								}
+								return callSetConfig({ notify: snortCore.normalizeNotifyList(live) }).then(function(res) {
+									if (res && res.error)
+										throw new Error(res.error);
+									return callNotifyTest(row.id);
+								}).then(function(out) {
+									if (out && out.ok === false)
+										throw new Error(out.error || _('Send failed'));
+									ui.addNotification(null, E('p', {}, _('Test sent.')), 'info');
+								}).catch(function(e) {
+									ui.addNotification(null, E('p', {}, e.message || e), 'error');
+								});
+							}),
+						labeledActionBtn(_('Remove'), 'cbi-button-negative',
+							_('Remove this channel'),
+							function() {
+								settingsNotify = collectNotifyFromDom();
+								settingsNotify.splice(idx, 1);
+								settingsNotify = snortCore.normalizeNotifyList(settingsNotify);
+								paintNotify();
+							})
+					]),
+					fieldRow('', _('Enable'), enabled,
+						_('No messages are sent until this is on and you Save & Apply.')),
+					fieldRow('', _('Type'), typeSel, ''),
+					fieldRow('', _('Delivery'), mode,
+						_('Digest sends at most one summary per interval. Realtime sends each match, still capped by the hourly limit.')),
+					fieldRow('', _('Minimum severity'), sev,
+						_('Start with high only. Snort 1 is high.')),
+					fieldRow('', _('Hourly limit'),
+						nfEl('rate_limit', E('input', { type: 'number', min: '1', max: '1000', value: row.rate_limit || '12' })),
+						_('Extra matches are dropped and counted as suppressed.')),
+					fieldRow('', _('Digest interval (seconds)'),
+						nfEl('interval', E('input', { type: 'number', min: '0', value: row.interval || '3600' })),
+						_('Used when delivery is Digest. 3600 is one hour.')),
+					E('div', { 'class': 'snort-nf-telegram snort-nf-type' }, [
+						fieldRow('', _('Chat ID'),
+							nfEl('chat_id', E('input', { type: 'text', value: row.chat_id || '', placeholder: '-100…' })),
+							_('User or group id from the Telegram bot.')),
+						fieldRow('', _('Bot token'),
+							nfEl('bot_token', E('input', {
+								type: 'password',
+								value: '',
+								placeholder: secretHint || _('From BotFather')
+							})),
+							_('Create a bot with BotFather. Token is stored in UCI and included in backups.'))
+					]),
+					E('div', { 'class': 'snort-nf-ntfy snort-nf-type' }, [
+						fieldRow('', _('Server'),
+							nfEl('url', E('input', {
+								type: 'text',
+								value: row.type === 'ntfy' ? (row.url || 'https://ntfy.sh') : (row.url || ''),
+								placeholder: 'https://ntfy.sh'
+							})),
+							_('Public ntfy.sh or your own server. Use a long random topic on the public server.')),
+						fieldRow('', _('Topic'),
+							nfEl('topic', E('input', { type: 'text', value: row.topic || '' })),
+							''),
+						fieldRow('', _('Access token'),
+							nfEl('token', E('input', { type: 'password', value: '', placeholder: secretHint })),
+							_('Optional. Needed for a private ntfy server.'))
+					]),
+					E('div', { 'class': 'snort-nf-webhook snort-nf-discord snort-nf-type' }, [
+						fieldRow('', _('HTTPS URL'),
+							nfEl('url2', E('input', {
+								type: 'text',
+								value: (row.type === 'webhook' || row.type === 'discord') ? (row.url || '') : '',
+								placeholder: 'https://'
+							})),
+							_('JSON POST for webhook; Discord incoming webhook for Discord. Not the raw alert line.')),
+						fieldRow('', _('Extra header'),
+							nfEl('header', E('input', {
+								type: 'text',
+								value: '',
+								placeholder: row.header_set === '1' ? secretHint : 'Authorization: Bearer …'
+							})),
+							_('Optional. One header, for example an authorization bearer.'))
+					]),
+					E('div', { 'class': 'snort-nf-email snort-nf-type' }, [
+						fieldRow('', _('To'),
+							nfEl('to', E('input', { type: 'text', value: row.to || '', placeholder: 'ops@example.com' })),
+							_('Install and configure msmtp first. Password stays in /etc/msmtprc, not here.')),
+						fieldRow('', _('msmtp account'),
+							nfEl('msmtp_account', E('input', {
+								type: 'text',
+								value: row.msmtp_account || 'snort_notify'
+							})),
+							'')
+					]),
+					fieldRow('', _('Classtypes'),
+						nfEl('classtype', E('input', {
+							type: 'text',
+							value: row.classtype || '',
+							placeholder: 'trojan-activity, attempted-admin'
+						})),
+						_('Empty means every classtype that passes severity.')),
+					fieldRow('', _('Allow SIDs'),
+						nfEl('sid_allow', E('input', { type: 'text', value: row.sid_allow || '' })),
+						_('Empty means all SIDs. Space or comma separated.')),
+					fieldRow('', _('Deny SIDs'),
+						nfEl('sid_deny', E('input', { type: 'text', value: row.sid_deny || '' })),
+						''),
+					fieldRow('', _('Include full addresses'),
+						nfEl('include_lan', E('input', { type: 'checkbox' })),
+						_('Off redacts the last IPv4 octet in the message.')),
+					E('p', { 'class': 'snort-notify-status' },
+						row.last_err
+							? _('Last error: %s (suppressed %s)').format(row.last_err, row.suppressed || '0')
+							: _('Sent %s, suppressed %s.').format(row.sent || '0', row.suppressed || '0'))
+				]);
+				card.querySelector('[data-nf="include_lan"]').checked = row.include_lan !== '0';
+				function syncType() {
+					var t = typeSel.value;
+					var blocks = card.querySelectorAll('.snort-nf-type');
+					var b;
+					var j;
+					for (j = 0; j < blocks.length; j++) {
+						b = blocks[j];
+						b.style.display = b.classList.contains('snort-nf-' + t) ? '' : 'none';
+					}
+				}
+				typeSel.addEventListener('change', syncType);
+				syncType();
+				host.appendChild(card);
+			});
+		}
+
+		function renderNotify() {
+			var typeAdd = E('select', { id: 'snort-notify-add-type' }, [
+				E('option', { value: 'telegram' }, _('Telegram')),
+				E('option', { value: 'ntfy' }, _('ntfy')),
+				E('option', { value: 'webhook' }, _('Webhook')),
+				E('option', { value: 'discord' }, _('Discord')),
+				E('option', { value: 'email' }, _('Email'))
+			]);
+			notifyBox.innerHTML = '';
+			notifyBox.appendChild(cbiSection(_('Outbound alerts'),
+				_('Snort only writes logs. This tab sends high-severity matches to a phone or mailbox. Start with digest and high severity. Secrets are stored in UCI and will be in backups.'),
+				[
+					E('p', { 'class': 'snort-help' },
+						_('Telegram uses BotFather. ntfy needs a long random topic on ntfy.sh, or your own server. Email needs the msmtp package. Webhooks receive a short JSON record, not packet payloads.'))
+				]));
+			notifyBox.appendChild(E('div', { 'class': 'snort-policy-actions' }, [
+				typeAdd,
+				labeledActionBtn(_('Add channel'), 'cbi-button-positive',
+					_('Add a notification channel'),
+					function() {
+						settingsNotify = collectNotifyFromDom();
+						settingsNotify.push(snortCore.emptyNotify(typeAdd.value));
+						settingsNotify = snortCore.normalizeNotifyList(settingsNotify);
+						paintNotify();
+					})
+			]));
+			notifyBox.appendChild(E('div', { id: 'snort-notify-list' }));
+			paintNotify();
+		}
+
 		renderStatus(status);
 		renderAlerts(alerts);
 		renderSettings(cfg);
@@ -1754,9 +2066,10 @@ return view.extend({
 		renderPolicy(policies);
 		renderPass(cfg.pass);
 		renderSuppress();
+		renderNotify();
 
 		var tabHost = E('div', { 'class': 'snort-tab-host' }, [
-			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, alertsBox
+			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, alertsBox, notifyBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);

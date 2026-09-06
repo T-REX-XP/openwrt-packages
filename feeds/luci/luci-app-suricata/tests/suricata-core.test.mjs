@@ -109,6 +109,15 @@ test('view uses network devices select and footer save', () => {
 	assert.doesNotMatch(view, /id:\s*'tp-url-preset'/);
 	assert.doesNotMatch(view, /id:\s*'tp-url'/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Rule feeds'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Rules management'\)/);
+	assert.match(view, /tp-rules-inner/);
+	assert.match(view, /id': 'tp-rule-bulk'/);
+	assert.match(view, /labeledActionBtn\(_\('Search'\)/);
+	assert.match(view, /applyFilters, 'search'\)/);
+	assert.match(view, /'prev'\)/);
+	assert.match(view, /'next'\)/);
+	assert.match(view, /iconBtn\(_\('Delete'\), 'delete'/);
 	assert.match(view, /_\('Add'\)/);
 	assert.match(view, /_\('Fetch now'\)/);
 	assert.match(view, /callSetConfig\(\{ feeds:/);
@@ -218,6 +227,7 @@ test('ucode still validates interface names', () => {
 	assert.match(ucode, /function replace_notify/);
 	assert.match(ucode, /getNotify:/);
 	assert.match(ucode, /notifyTest:/);
+	assert.match(ucode, /tp-notify-state\/suricata\./);
 	assert.ok(fnPos('notify_id_ok') < fnPos('list_notify'), 'notify_id_ok before list_notify');
 	assert.ok(fnPos('list_notify') < fnPos('get_config'), 'list_notify before get_config');
 	assert.ok(fnPos('replace_notify') < fnPos('get_config'), 'replace_notify before get_config');
@@ -385,6 +395,9 @@ test('rules table keeps row actions and column classes', () => {
 	assert.match(css, /tp-col-msg/);
 	assert.match(css, /text-overflow:\s*ellipsis/);
 	assert.match(css, /tp-policy-inner/);
+	assert.match(css, /tp-rules-inner/);
+	assert.match(css, /tp-rule-bulk/);
+	assert.match(css, /tp-labeled-btn/);
 	assert.match(css, /tp-policy-table \.tp-col-name/);
 	assert.match(css, /tp-notify-card/);
 });

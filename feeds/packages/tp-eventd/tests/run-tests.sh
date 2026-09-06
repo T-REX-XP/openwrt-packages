@@ -411,5 +411,36 @@ chmod +x "$NOTIFY_FAKE/uci"
 out=$(printf '%s\n' "$ALERT1" | run_notify)
 echo "$out" | grep -q SEND && { echo "disabled channel sent"; echo "$out"; exit 1; }
 
+# Snort alert_json (flat fields, no event_type)
+cat > "$NOTIFY_FAKE/uci" <<'UCI'
+#!/bin/sh
+case "$*" in
+"-q show snort") echo 'snort.n_telegram=notify' ;;
+"-q get snort.n_telegram.enabled") echo 1 ;;
+"-q get snort.n_telegram.type") echo telegram ;;
+"-q get snort.n_telegram.bot_token") echo '123456:AA-SECRET-TOKEN' ;;
+"-q get snort.n_telegram.chat_id") echo 999 ;;
+"-q get snort.n_telegram.min_severity") echo 1 ;;
+"-q get snort.n_telegram.mode") echo realtime ;;
+"-q get snort.n_telegram.rate_limit") echo 12 ;;
+"-q get snort.n_telegram.include_lan") echo 1 ;;
+"-q get snort.n_telegram.classtype") ;;
+"-q get snort.n_telegram.sid_allow") ;;
+"-q get snort.n_telegram.sid_deny") ;;
+"-q get snort.n_telegram.interval") echo 3600 ;;
+"-q get system.@system[0].hostname") echo testhost ;;
+*) exit 0 ;;
+esac
+exit 0
+UCI
+chmod +x "$NOTIFY_FAKE/uci"
+SNORT_ALERT='{"timestamp":"2026-08-31T12:00:01.000000+0000","proto":"TCP","src_addr":"203.0.113.10","src_port":443,"dst_addr":"192.168.8.50","dst_port":80,"gid":1,"sid":2100498,"rev":1,"action":"allow","msg":"TEST snort","class":"trojan-activity","priority":1}'
+out=$(printf '%s\n' "$SNORT_ALERT" | PATH="$NOTIFY_FAKE:/usr/bin:/bin" \
+	TP_NOTIFY_DRY_RUN=1 TP_NOTIFY_STATE="$NOTIFY_STATE" TP_NOTIFY_HOST=testhost \
+	TP_NOTIFY_NOW=1700000000 TP_NOTIFY_UCI=snort TP_NOTIFY_ENGINE=Snort "$NOTIFY")
+echo "$out" | grep -q 'SEND telegram chat_id=999' || { echo "missing snort telegram send"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'Snort testhost' || { echo "missing Snort engine label"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'AA-SECRET-TOKEN' && { echo "snort token leaked"; echo "$out"; exit 1; }
+
 echo "tp-notify tests ok"
 

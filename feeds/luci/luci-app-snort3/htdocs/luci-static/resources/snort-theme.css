@@ -446,3 +446,33 @@
 @keyframes snort-spin {
 	to { transform: rotate(360deg); }
 }
+
+.luci-app-snort3 .snort-notify-card {
+	margin: 0 0 1rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	background: var(--background-color-medium);
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-notify-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	margin-bottom: 0.75rem;
+}
+
+.luci-app-snort3 .snort-notify-status {
+	margin: 0.5rem 0 0;
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+	.luci-app-snort3 .snort-notify-head {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}

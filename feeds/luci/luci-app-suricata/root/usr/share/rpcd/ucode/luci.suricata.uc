@@ -337,7 +337,9 @@ function notify_status_of(id) {
 	let st;
 	if (!notify_id_ok(id))
 		return { last_ok: '', last_err: '', http: '', sent: '0', suppressed: '0' };
-	st = read_json_file('/tmp/tp-notify-state/' + id + '.status');
+	st = read_json_file('/tmp/tp-notify-state/suricata.' + id + '.status');
+	if (`${st.last_ok || ''}` == '' && `${st.last_err || ''}` == '' && `${st.http || ''}` == '')
+		st = read_json_file('/tmp/tp-notify-state/' + id + '.status');
 	return {
 		last_ok: `${st.last_ok || ''}`,
 		last_err: `${st.last_err || ''}`,
