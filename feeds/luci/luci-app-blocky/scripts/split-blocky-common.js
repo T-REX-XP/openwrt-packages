@@ -41,7 +41,7 @@ const MODULES = {
 		'applyBlockyChartPathTheme', 'blockyAttachThemeSync', 'blockyInjectStyles',
 		'renderAdBlockerPipeline', 'buildQueriesChartUnderlay', 'buildQueriesChartAxisLabels',
 		'renderDashboardStatsZone', 'renderRealtimeMetrics', 'mountDashboardContent',
-		'attachDashboardHostState', 'registerStatsPoll'
+		'mountStatisticsContent', 'attachDashboardHostState', 'registerStatsPoll'
 	]),
 	'blocky-tab-config.js': new Set([
 		'renderApiSecuritySection', 'renderRouterDnsIntegration', 'settingsRow', 'settingsPanel',
@@ -49,7 +49,7 @@ const MODULES = {
 		'renderBlockySettingsForm', 'renderBlockySettingsPage', 'renderConfigYamlAdvanced'
 	]),
 	'blocky-tab-controls.js': new Set([
-		'renderBlockingControls', 'renderOperations'
+		'renderBlockingGlance', 'renderBlockingControls', 'renderOperations'
 	]),
 	'blocky-tab-query.js': new Set([
 		'renderQueryResult', 'renderQuery'

@@ -52,11 +52,13 @@ function createBlockyView(options) {
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(data[4], '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
 			var overviewHost = E('div', { 'class': 'blocky-dashboard' });
+			var statsHost = E('div', { 'class': 'blocky-dashboard' });
 			var logsHost = E('div', {});
 			var queryPanel = BlockyTabs.query.createQueryPanel();
 			var root;
 			var tabHost;
 			var statusBox;
+			var statsBox;
 			var listsBox;
 			var settingsBox;
 			var queryBox;
@@ -113,6 +115,7 @@ function createBlockyView(options) {
 					paintHero(pageStatus);
 					var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, fresh, refreshPage);
 					BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
+					BlockyTabs.dashboard.mountStatisticsContent(statsHost, fresh, refreshPage);
 					listsBox.replaceChildren(BlockyTabs.blocklists.renderBlocklistsTab(
 						fresh[5],
 						refreshPage,
@@ -140,9 +143,13 @@ function createBlockyView(options) {
 
 			var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, data, refreshPage);
 			BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
+			BlockyTabs.dashboard.mountStatisticsContent(statsHost, data, refreshPage);
 
 			statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
 			statusBox.appendChild(overviewHost);
+
+			statsBox = E('div', { 'data-tab': 'statistics', 'data-tab-title': _('Statistics') });
+			statsBox.appendChild(statsHost);
 
 			listsBox = E('div', { 'data-tab': 'blocklists', 'data-tab-title': _('Block lists') });
 			listsBox.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
@@ -161,11 +168,11 @@ function createBlockyView(options) {
 
 			if (!statsPollRegistered) {
 				statsPollRegistered = true;
-				BlockyTabs.dashboard.registerStatsPoll(overviewHost, refreshPage);
+				BlockyTabs.dashboard.registerStatsPoll(overviewHost, refreshPage, statsHost);
 			}
 
 			tabHost = E('div', { 'class': 'blocky-tab-host' }, [
-				statusBox, listsBox, settingsBox, queryBox, logsBox
+				statusBox, statsBox, listsBox, settingsBox, queryBox, logsBox
 			]);
 
 			root = E('div', { 'class': 'luci-app-blocky' }, [
@@ -179,6 +186,9 @@ function createBlockyView(options) {
 
 			statusBox.addEventListener('cbi-tab-active', function() {
 				window.location.hash = 'status';
+			});
+			statsBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'statistics';
 			});
 			listsBox.addEventListener('cbi-tab-active', function() {
 				window.location.hash = 'blocklists';

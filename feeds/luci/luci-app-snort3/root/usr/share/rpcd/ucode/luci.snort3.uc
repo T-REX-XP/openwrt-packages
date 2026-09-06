@@ -1302,13 +1302,25 @@ const methods = {
 				limit = 1;
 			if (limit > 200)
 				limit = 200;
-			let log_dir = uci_get('snort', 'log_dir', '/var/log');
+			let log_dir = snort_log_dir();
 			let alert = `${log_dir}/alert_fast.txt`;
 			let alerts = '';
 			if (file_test('-f', alert))
 				alerts = run_cmd(`tail -n ${limit} ${shell_quote(alert)}`).output;
-			let logs = run_cmd(`logread -e snort | tail -n 20`).output;
-			return { alerts, logs };
+			return { alerts };
+		}
+	},
+
+	getLogs: {
+		args: { limit: 100 },
+		call: function(req) {
+			let limit = int(req.args?.limit) || 100;
+			if (limit < 1)
+				limit = 1;
+			if (limit > 500)
+				limit = 500;
+			let logs = run_cmd(`logread -e snort | tail -n ${limit}`).output;
+			return { logs };
 		}
 	},
 

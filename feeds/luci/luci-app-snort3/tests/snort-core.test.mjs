@@ -342,6 +342,14 @@ test('view has catalog, pass, suppress, policy', () => {
 	assert.ok(ucode.indexOf('function list_notify') < ucode.indexOf('function get_config'));
 	assert.ok(ucode.indexOf('function replace_notify') < ucode.indexOf('function get_config'));
 	assert.match(ucode, /TP_NOTIFY_UCI=snort/);
+	assert.match(ucode, /getLogs:/);
+	assert.match(ucode, /logread -e snort/);
+	assert.doesNotMatch(ucode, /return \{ alerts, logs \}/);
+	assert.match(view, /data-tab-title':\s*_\('Alerts'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Logs'\)/);
+	assert.match(view, /function renderLogs/);
+	assert.match(view, /callGetLogs\(100\)/);
+	assert.doesNotMatch(view, /cbiSection\(_\('Snort system logs'/);
 	assert.match(view, /data-tab-title':\s*_\('Notify'\)/);
 	assert.match(view, /id:\s*'snort-notify-list'/);
 	assert.doesNotMatch(view, /admin\/services\/suricata/);

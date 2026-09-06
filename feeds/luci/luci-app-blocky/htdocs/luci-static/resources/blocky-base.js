@@ -188,20 +188,22 @@ var BLOCKY_TAB_HASH = {
 	'status': 0,
 	'dashboard': 0,
 	'controls': 0,
-	'statistics': 0,
-	'blocklists': 1,
-	'block-lists': 1,
-	'settings': 2,
-	'configuration': 2,
-	'config': 2,
-	'query': 3,
-	'dns-query': 3,
-	'logs': 4,
-	'debug': 4
+	'overview': 0,
+	'statistics': 1,
+	'blocklists': 2,
+	'block-lists': 2,
+	'settings': 3,
+	'configuration': 3,
+	'config': 3,
+	'query': 4,
+	'dns-query': 4,
+	'logs': 5,
+	'debug': 5
 };
 
 var BLOCKY_TAB_HASH_KEYS = [
 	'status',
+	'statistics',
 	'blocklists',
 	'settings',
 	'query',
@@ -231,9 +233,7 @@ function canonicalTabHash(hash) {
 		return 'logs';
 	if (hash === 'configuration' || hash === 'config')
 		return 'settings';
-	if (hash === 'dashboard' || hash === 'controls')
-		return 'status';
-	if (hash === 'statistics')
+	if (hash === 'dashboard' || hash === 'controls' || hash === 'overview')
 		return 'status';
 	if (hash === 'block-lists' || hash === 'dns-query')
 		return hash === 'block-lists' ? 'blocklists' : 'query';

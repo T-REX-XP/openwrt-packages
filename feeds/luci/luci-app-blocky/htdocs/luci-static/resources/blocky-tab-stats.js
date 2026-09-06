@@ -196,11 +196,10 @@ function renderStatRow(label, value) {
 	]);
 }
 
-function renderGeneralStatisticsPanel(overview, statsResult, status, service, refreshPage) {
+function renderGeneralStatisticsPanel(overview, statsResult, status, service) {
 	var running = isRunning(service);
 	var blocking = !!(status && status.enabled && !(status.autoEnableInSec > 0));
 	var paused = !!(status && status.autoEnableInSec > 0);
-	var refresh = refreshPage || function() {};
 	var rows = [
 		renderStatRow(_('DNS queries'), formatNumber(overview.totalQueries)),
 		renderStatRow(_('Blocked by filters'), formatNumber(overview.blockedQueries)),
@@ -228,18 +227,7 @@ function renderGeneralStatisticsPanel(overview, statsResult, status, service, re
 				overview.hasPrometheus ? blockyPill('warn', _('Prometheus')) :
 					blockyPill('no', _('Limited'))
 		]),
-		E('div', { 'class': 'blocky-stat-table' }, rows),
-		E('div', { 'class': 'blocky-btn-grid' }, [
-			actionButton(_('Enable blocking'), function() {
-				return blockyApi('/blocking/enable');
-			}, 'cbi-button-action', refresh),
-			actionButton(_('Pause 5m'), function() {
-				return blockyApi('/blocking/disable?duration=5m');
-			}, 'cbi-button-action', refresh),
-			actionButton(_('Clear cache'), function() {
-				return blockyApi('/cache/flush', 'POST');
-			}, 'cbi-button-action', refresh)
-		])
+		E('div', { 'class': 'blocky-stat-table' }, rows)
 	]);
 }
 
@@ -578,12 +566,7 @@ function renderCacheWidget(stats, onRefresh) {
 			''
 		]),
 		E('div', { 'class': 'blocky-metric-val' }, [ formatNumber(entries) ]),
-		E('small', {}, [ _('Cached responses') ]),
-		E('div', { 'class': 'blocky-btn-grid' }, [
-			actionButton(_('Clear cache'), function() {
-				return blockyApi('/cache/flush', 'POST');
-			}, 'cbi-button-action', onRefresh)
-		])
+		E('small', {}, [ _('Cached responses') ])
 	]);
 }
 
@@ -647,14 +630,13 @@ function renderStatsDashboard(statsResult, onRefresh) {
 	]);
 }
 
-function renderStatusDashboard(status, service, onRefresh) {
+function renderStatusDashboard(status, service) {
 	var paused = status && status.autoEnableInSec > 0;
 	var running = isRunning(service);
 	var blockingTailHost = E('span', { 'class': 'blocky-pill-note' });
 	var blockingPillHost = E('span', {});
 	var headPillHost = E('span', {});
 	var statusDescrHost = E('p', { 'class': 'blocky-note-soft' });
-	var refresh = onRefresh || function() {};
 
 	function paintStatus(next) {
 		var en = next && next.enabled;
@@ -715,56 +697,17 @@ function renderStatusDashboard(status, service, onRefresh) {
 						])
 					])
 					: ''
-			]),
-			E('div', { 'class': 'blocky-btn-grid' }, [
-				actionButton(_('Pause %s').format(_('5 minutes')), function() {
-					return blockyApi('/blocking/disable?duration=5m');
-				}, 'cbi-button-action', refresh),
-				actionButton(_('Pause %s').format(_('15 minutes')), function() {
-					return blockyApi('/blocking/disable?duration=15m');
-				}, 'cbi-button-action', refresh),
-				actionButton(_('Pause %s').format(_('30 minutes')), function() {
-					return blockyApi('/blocking/disable?duration=30m');
-				}, 'cbi-button-action', refresh),
-				actionButton(_('Disable'), function() {
-					return blockyApi('/blocking/disable');
-				}, 'cbi-button-negative', refresh)
-			])
-		]),
-		E('div', { 'class': 'blocky-dash-card' }, [
-			E('div', { 'class': 'blocky-dash-card-head' }, [
-				E('strong', {}, [ _('Operations') ]),
-				''
-			]),
-			E('p', { 'class': 'blocky-note-soft' }, [
-				_('Perform maintenance operations on the DNS server.')
-			]),
-			E('div', { 'class': 'blocky-btn-grid' }, [
-				actionButton(_('Clear DNS cache'), function() {
-					return blockyApi('/cache/flush', 'POST');
-				}, 'cbi-button-action', refresh),
-				actionButton(_('Reload allow/deny lists'), function() {
-					return execBlockyListsSync().then(function() {
-						return refreshBlockyLists();
-					});
-				}, 'cbi-button-action', refresh)
 			])
 		])
 	]);
 }
 
 function renderStatisticsTab(data, refreshPage) {
-	var service = data[0];
-	var status = data[1];
-	var metricsPayload = unwrapFetchText(data[3]);
-	var statsResult = data[5];
-
 	return E('div', { 'class': 'blocky-statistics-tab' }, [
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('24-hour in-memory statistics from Blocky /api/stats. For live Prometheus counter deltas, see Status → Overview.')
+			_('24-hour in-memory statistics and live Prometheus charts.')
 		]),
-		renderStatusDashboard(status, service, refreshPage),
-		renderStatsDashboard(statsResult, refreshPage)
+		renderStatsDashboard(data[5], refreshPage)
 	]);
 }
 

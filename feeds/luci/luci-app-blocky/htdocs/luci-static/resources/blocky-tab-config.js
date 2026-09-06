@@ -746,7 +746,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 					settingsRow(_('DNS rebinding protection'), '', state.rebindingEnable),
 					settingsRow(_('Prometheus metrics'), '', state.prometheusEnable),
 					settingsRow(_('Metrics path'), '', state.prometheusPath),
-					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Status 24h widgets.'), state.statisticsEnable)
+					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Statistics tab 24h widgets.'), state.statisticsEnable)
 				]
 			)
 		},

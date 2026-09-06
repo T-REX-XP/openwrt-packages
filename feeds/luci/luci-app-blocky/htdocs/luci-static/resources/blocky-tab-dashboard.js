@@ -184,6 +184,9 @@ function renderServiceStatus(pageStatus) {
 	var boot = !!st.enabled_boot;
 	var dnsPort = (st.ports && st.ports.dns) || 5353;
 	var forwarding = !!st.dnsmasq_forward;
+	var blocking = st.blocking || {};
+	var paused = blocking.autoEnableInSec > 0;
+	var blockingOn = !!blocking.enabled && !paused;
 	var steps = [];
 	var rows;
 
@@ -192,6 +195,14 @@ function renderServiceStatus(pageStatus) {
 			label: _('Engine'),
 			ok: running,
 			detail: running ? _('Running') : _('Not running')
+		},
+		{
+			label: _('Blocking'),
+			ok: blockingOn,
+			warn: paused,
+			detail: paused
+				? _('Paused — resumes in %s').format(formatDuration(blocking.autoEnableInSec))
+				: (blockingOn ? _('Enabled') : _('Off'))
 		},
 		{
 			label: _('Start at boot'),
@@ -214,8 +225,10 @@ function renderServiceStatus(pageStatus) {
 
 	if (!running)
 		steps.push(_('Open Settings, tick Enable Blocky, and click Save & Apply.'));
+	else if (!blockingOn)
+		steps.push(_('Turn blocking on below, or open Statistics to refresh lists and flush the cache.'));
 	else
-		steps.push(_('Edit lists on Block lists. Change resolvers on Settings.'));
+		steps.push(_('Edit lists on Block lists. Charts and maintenance are on Statistics.'));
 
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Service status') ]),
@@ -223,7 +236,8 @@ function renderServiceStatus(pageStatus) {
 			return E('div', { 'class': 'tr' }, [
 				E('div', { 'class': 'td left', 'style': 'width:34%' }, [ row.label ]),
 				E('div', { 'class': 'td left' }, [
-					blockyPill(row.ok ? 'yes' : 'no', row.ok ? _('OK') : _('Check')),
+					blockyPill(row.warn ? 'warn' : (row.ok ? 'yes' : 'no'),
+						row.warn ? _('Paused') : (row.ok ? _('OK') : _('Check'))),
 					blockyStatusDetail(row.detail)
 				])
 			]);
@@ -406,23 +420,16 @@ function buildQueriesChartAxisLabels(series, maxY, W, H, padL, padR, padT, padB)
 	return E('g', { 'class': 'blocky-chart-axis' }, axisTexts);
 }
 
-function renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage) {
-	var overview = tabStats.gatherOverviewMetrics(statsResult, metricsPayload);
-	var stats = statsResult && statsResult.ok ? statsResult.data : null;
-	var nodes = [
-		tabStats.renderDashboardSummaryGrid(overview, statsResult)
-	];
+function renderDashboardStatsZone(statsResult, metricsPayload) {
+	return E('div', { 'class': 'blocky-dash-stats-zone' }, [
+		tabStats.renderOverview(statsResult, metricsPayload)
+	]);
+}
 
-	if (stats)
-		nodes.push(tabStats.renderStatsDashboard(statsResult, refreshPage));
-	else
-		nodes.push(E('div', { 'class': 'alert-message warning' }, [
-			statsResult && statsResult.disabled
-				? _('Statistics API is disabled. Enable in-memory statistics under Settings → Security, then Save & Apply.')
-				: _('Statistics are not available yet. Ensure Blocky is running and statistics are enabled.')
-		]));
-
-	return E('div', { 'class': 'blocky-dash-stats-zone' }, nodes);
+function renderStatisticsChartsZone(statsResult, refreshPage) {
+	return E('div', { 'class': 'blocky-stats-dashboard-zone' }, [
+		tabStats.renderStatsDashboard(statsResult, refreshPage)
+	]);
 }
 
 function renderRealtimeMetrics(initialMetricsText) {
@@ -791,7 +798,7 @@ function renderRealtimeMetrics(initialMetricsText) {
 			mixHost
 		]),
 		E('p', { 'class': 'cbi-section-descr blocky-live-metrics-footnote' }, [
-			_('For 24h rankings use the stats widgets above. This chart tracks Prometheus counter deltas while the page stays open.')
+			_('Hourly rankings above are the last 24 hours. This chart tracks Prometheus counter deltas while the page stays open.')
 		])
 	]);
 }
@@ -799,41 +806,36 @@ function renderRealtimeMetrics(initialMetricsText) {
 function mountDashboardContent(host, data, refreshPage) {
 	var service = data[0];
 	var status = data[1];
-	var config = data[2];
 	var metrics = data[3];
-	var dnsFwd = data[4];
 	var statsResult = data[5];
-	var adblockService = data[6];
-	var dnsFwdRaw = blockyCliStdout(execResultStdout(dnsFwd, '0\n'));
 	var metricsPayload = unwrapFetchText(metrics);
 
 	host.replaceChildren(
 		renderServiceStatus(data[9] || {}),
-		E('div', { 'class': 'cbi-section' }, [
-			E('h3', {}, [ _('Blocking') ]),
-			tabControls.renderBlockingControls(status, refreshPage)
-		]),
-		renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage),
-		renderAdBlockerPipeline(status, service, dnsFwdRaw, config, statsResult, adblockService),
-		E('div', { 'class': 'blocky-dash-full blocky-live-metrics-section' }, [
-			E('div', { 'class': 'blocky-dash-section-head' }, [
-				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Live metrics') ]),
-				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
-					_('Prometheus counter deltas while this page stays open.')
-				])
-			]),
-			renderRealtimeMetrics(metricsPayload)
-		]),
-		tabControls.renderOperations(service, refreshPage)
+		renderDashboardStatsZone(statsResult, metricsPayload),
+		tabControls.renderBlockingGlance(status, refreshPage)
 	);
 
 	return {
 		service: service,
 		status: status,
-		config: config,
 		metricsPayload: metricsPayload,
 		statsResult: statsResult
 	};
+}
+
+function mountStatisticsContent(host, data, refreshPage) {
+	var service = data[0];
+	var metricsPayload = unwrapFetchText(data[3]);
+	var statsResult = data[5];
+
+	host.replaceChildren(
+		tabControls.renderOperations(service, refreshPage),
+		renderStatisticsChartsZone(statsResult, refreshPage),
+		E('div', { 'class': 'blocky-dash-full blocky-live-metrics-section' }, [
+			renderRealtimeMetrics(metricsPayload)
+		])
+	);
 }
 
 function attachDashboardHostState(host, service, status, refreshPage) {
@@ -842,7 +844,7 @@ function attachDashboardHostState(host, service, status, refreshPage) {
 	host._blockyRefresh = refreshPage;
 }
 
-function registerStatsPoll(dashboardHost, refreshPage) {
+function registerStatsPoll(dashboardHost, refreshPage, statsHost) {
 	poll.add(function() {
 		return Promise.all([
 			fetchBlockyStats(),
@@ -851,16 +853,18 @@ function registerStatsPoll(dashboardHost, refreshPage) {
 			var sr = results[0];
 			var metricsPayload = unwrapFetchText(results[1]);
 			var statsZone = dashboardHost.querySelector('.blocky-dash-stats-zone');
-			var service = dashboardHost._blockyService;
-			var status = dashboardHost._blockyStatus;
+			var chartsZone = statsHost ? statsHost.querySelector('.blocky-stats-dashboard-zone') : null;
+			var refresh = typeof dashboardHost._blockyRefresh === 'function'
+				? dashboardHost._blockyRefresh
+				: (refreshPage || function() {});
 
 			if (!sr.ok || !sr.data)
 				return;
 
-			if (statsZone && typeof dashboardHost._blockyRefresh === 'function')
-				statsZone.replaceWith(renderDashboardStatsZone(sr, metricsPayload, status, service, dashboardHost._blockyRefresh));
-			else if (statsZone)
-				statsZone.replaceWith(renderDashboardStatsZone(sr, metricsPayload, status, service, function() {}));
+			if (statsZone)
+				statsZone.replaceWith(renderDashboardStatsZone(sr, metricsPayload));
+			if (chartsZone)
+				chartsZone.replaceWith(renderStatisticsChartsZone(sr, refresh));
 		});
 	}, 45);
 }
@@ -879,8 +883,10 @@ return baseclass.extend({
 	buildQueriesChartUnderlay: buildQueriesChartUnderlay,
 	buildQueriesChartAxisLabels: buildQueriesChartAxisLabels,
 	renderDashboardStatsZone: renderDashboardStatsZone,
+	renderStatisticsChartsZone: renderStatisticsChartsZone,
 	renderRealtimeMetrics: renderRealtimeMetrics,
 	mountDashboardContent: mountDashboardContent,
+	mountStatisticsContent: mountStatisticsContent,
 	attachDashboardHostState: attachDashboardHostState,
 	registerStatsPoll: registerStatsPoll
 });

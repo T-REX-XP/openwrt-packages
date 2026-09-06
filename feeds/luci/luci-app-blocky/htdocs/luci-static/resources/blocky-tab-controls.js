@@ -100,47 +100,13 @@ var safeString = Blocky.safeString,
 	bc = Blocky.bc,
 	bp = Blocky.bp;
 
-function renderBlockingControls(status, onRefresh) {
+function renderBlockingGlance(status, onRefresh) {
 	var refresh = onRefresh || function() {};
 	var pauseNoteHost = E('p', { 'class': 'blocky-note-soft' });
 	var pause = E('select', { 'class': 'cbi-input-select' },
 		PAUSE_PRESETS.map(function(preset) {
 			return E('option', { 'value': preset[0] }, [ preset[1] ]);
 		}));
-	var customPause = E('input', {
-		'type': 'text',
-		'class': 'cbi-input-text',
-		'placeholder': '45m',
-		'style': 'width:7em',
-		'pattern': '^[0-9]+[smhd]?$'
-	});
-	var groups = E('input', {
-		'type': 'text',
-		'class': 'cbi-input-text',
-		'placeholder': 'ads,malware',
-		'style': 'min-width:16em'
-	});
-
-	function pauseDuration() {
-		var value = customPause.value.trim() || pause.value;
-
-		if (!value.match(/^[0-9]+[smhd]?$/))
-			throw new Error(_('Pause duration must look like 5m, 1h, or 0.'));
-
-		return value;
-	}
-
-	function groupQuery() {
-		var value = groups.value.trim();
-
-		if (!value)
-			return '';
-
-		if (!value.match(/^[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*$/))
-			throw new Error(_('Groups must be comma-separated names using letters, numbers, dots, dashes, or underscores.'));
-
-		return '&groups=' + encodeURIComponent(value);
-	}
 
 	function paintPauseNote(next) {
 		if (next && next.autoEnableInSec > 0) {
@@ -161,9 +127,9 @@ function renderBlockingControls(status, onRefresh) {
 	paintPauseNote(status);
 
 	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Blocking Controls') ]),
+		E('h3', {}, [ _('Blocking') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Controls mirror the Blocky API: enable blocking, disable it temporarily, or disable specific groups.')
+			_('Turn filtering on or off without stopping Blocky.')
 		]),
 		pauseNoteHost,
 		E('p', {}, [
@@ -175,20 +141,17 @@ function renderBlockingControls(status, onRefresh) {
 				return blockyApi('/blocking/disable');
 			}, 'cbi-button-negative', refresh),
 			' ',
-			E('label', { 'style': 'margin-left:1em' }, [ _('Preset'), ' ', pause ]),
-			' ',
-			E('label', {}, [ _('Custom'), ' ', customPause ]),
-			' ',
-			E('label', {}, [ _('Groups'), ' ', groups ]),
+			E('label', {}, [ _('Duration'), ' ', pause ]),
 			' ',
 			actionButton(_('Pause'), function() {
-				return blockyApi('/blocking/disable?duration=' + encodeURIComponent(pauseDuration()) + groupQuery());
+				return blockyApi('/blocking/disable?duration=' + encodeURIComponent(pause.value));
 			}, 'cbi-button-action', refresh)
-		]),
-		status && status.disabledGroups && status.disabledGroups.length
-			? E('p', {}, [ _('Currently disabled groups: %s').format(status.disabledGroups.join(', ')) ])
-			: ''
+		])
 	]);
+}
+
+function renderBlockingControls(status, onRefresh) {
+	return renderBlockingGlance(status, onRefresh);
 }
 
 function renderOperations(service, onRefresh) {
@@ -197,7 +160,7 @@ function renderOperations(service, onRefresh) {
 	return E('div', { 'class': 'cbi-section' }, [
 		E('h3', {}, [ _('Operations') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Maintenance actions are restricted to the local Blocky service and API endpoint.')
+			_('Refresh denylists in Blocky or flush the DNS cache.')
 		]),
 		E('p', {}, [
 			actionButton(_('Refresh lists'), function() {
@@ -214,6 +177,7 @@ function renderOperations(service, onRefresh) {
 }
 
 return baseclass.extend({
+	renderBlockingGlance: renderBlockingGlance,
 	renderBlockingControls: renderBlockingControls,
 	renderOperations: renderOperations
 });

@@ -40,6 +40,13 @@ var callGetAlerts = rpc.declare({
 	expect: { '': {} }
 });
 
+var callGetLogs = rpc.declare({
+	object: 'luci.snort3',
+	method: 'getLogs',
+	params: [ 'limit' ],
+	expect: { '': {} }
+});
+
 var callUpdateRules = rpc.declare({
 	object: 'luci.snort3',
 	method: 'updateRules',
@@ -183,7 +190,8 @@ var ICON_GLYPHS = {
 	reindex: '↻',
 	link: '↔',
 	clean: '⌫',
-	test: '?'
+	test: '?',
+	refresh: '↻'
 };
 
 function iconActionEnabled(statusId, kind) {
@@ -574,6 +582,7 @@ return view.extend({
 			callGetStatus(),
 			callGetConfig(),
 			callGetAlerts(50),
+			callGetLogs(100),
 			callUpdateStatus(),
 			L.resolveDefault(network.getDevices(), []),
 			L.resolveDefault(network.getNetwork('lan'), null),
@@ -586,11 +595,12 @@ return view.extend({
 		var status = data[0] || {};
 		var cfg = data[1] || {};
 		var alerts = data[2] || {};
-		var upd = data[3] || {};
-		var netDevices = data[4] || [];
-		var lanCidr = lanCidrFromNet(data[5]);
-		var policies = data[6] || {};
-		snortCore.parseCatalog(data[7]);
+		var serviceLogs = data[3] || {};
+		var upd = data[4] || {};
+		var netDevices = data[5] || [];
+		var lanCidr = lanCidrFromNet(data[6]);
+		var policies = data[7] || {};
+		snortCore.parseCatalog(data[8]);
 		snortFeeds = snortCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : snortCore.defaultFeeds()
 		);
@@ -613,6 +623,7 @@ return view.extend({
 
 		var statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
 		var alertsBox = E('div', { 'data-tab': 'alerts', 'data-tab-title': _('Alerts') });
+		var logsBox = E('div', { 'data-tab': 'logs', 'data-tab-title': _('Logs') });
 		var settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
 		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
 		var policyBox = E('div', { 'data-tab': 'policy', 'data-tab-title': _('Policy') });
@@ -677,7 +688,6 @@ return view.extend({
 
 		function renderAlerts(a) {
 			var text = (a && a.alerts) ? a.alerts : '';
-			var logs = (a && a.logs) ? a.logs : '';
 			alertsBox.innerHTML = '';
 			alertsBox.appendChild(cbiSection(_('Recent alerts'),
 				_('The last 50 fast-alert lines. Empty is normal until Snort is running and rules are installed.'),
@@ -694,35 +704,49 @@ return view.extend({
 			else
 				alertsBox.appendChild(E('pre', { 'class': 'snort-alert-box' }, text));
 			alertsBox.appendChild(E('div', { 'class': 'snort-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					click: function() {
+				labeledActionBtn(_('Refresh'), 'cbi-button',
+					_('Reload recent alerts'),
+					function() {
 						callGetAlerts(50).then(function(next) {
 							renderAlerts(next || {});
 						}).catch(function(e) {
 							ui.addNotification(null, E('p', {}, e.message || e), 'error');
 						});
-					}
-				}, _('Refresh'))
+					}, 'refresh')
 			]));
-			alertsBox.appendChild(cbiSection(_('Snort system logs'),
-				_('The last 20 logread lines from the Snort service.'),
+		}
+
+		function renderLogs(a) {
+			var logs = (a && a.logs) ? a.logs : '';
+			logsBox.innerHTML = '';
+			logsBox.appendChild(cbiSection(_('Service log'),
+				_('The last 100 logread lines from the Snort service.'),
 				[]));
 			if (!logs)
-				alertsBox.appendChild(E('p', {}, _('No logs')));
+				logsBox.appendChild(E('p', {}, _('No logs')));
 			else
-				alertsBox.appendChild(E('pre', { 'class': 'snort-log-box' }, logs));
-			alertsBox.appendChild(E('h3', {}, _('Actions')));
-			alertsBox.appendChild(E('p', { 'class': 'snort-help' },
-				_('View detailed reports via SSH with the command:')));
-			alertsBox.appendChild(E('pre', { 'class': 'snort-hint' },
-				'snort-mgr report -v (requires coreutils-sort package)'));
-			alertsBox.appendChild(E('p', { 'class': 'snort-help' }, _('Log files:')));
-			alertsBox.appendChild(E('ul', { 'class': 'snort-help' }, [
-				E('li', {}, [ E('code', {}, '/var/log/alert_fast.txt'), ' — ', _('Fast alerts') ]),
-				E('li', {}, [ E('code', {}, '/var/log/*alert_json.txt'), ' — ', _('Detailed JSON alerts') ])
+				logsBox.appendChild(E('pre', { 'class': 'snort-log-box' }, logs));
+			logsBox.appendChild(E('div', { 'class': 'snort-actions' }, [
+				labeledActionBtn(_('Refresh'), 'cbi-button',
+					_('Reload Snort system logs'),
+					function() {
+						callGetLogs(100).then(function(next) {
+							renderLogs(next || {});
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}, 'refresh')
 			]));
+			logsBox.appendChild(cbiSection(_('Log files'),
+				_('View detailed reports via SSH with the command:'),
+				[
+					E('pre', { 'class': 'snort-hint' },
+						'snort-mgr report -v (requires coreutils-sort package)'),
+					E('ul', { 'class': 'snort-help' }, [
+						E('li', {}, [ E('code', {}, '/var/log/snort/alert_fast.txt'), ' — ', _('Fast alerts') ]),
+						E('li', {}, [ E('code', {}, '/var/log/snort/alert_json.txt'), ' — ', _('Detailed JSON alerts') ])
+					])
+				]));
 		}
 
 		function renderSettings(c) {
@@ -2037,6 +2061,7 @@ return view.extend({
 
 		renderStatus(status);
 		renderAlerts(alerts);
+		renderLogs(serviceLogs);
 		renderSettings(cfg);
 		renderRules(status, upd);
 		renderPolicy(policies);
@@ -2045,16 +2070,22 @@ return view.extend({
 		renderNotify();
 
 		var tabHost = E('div', { 'class': 'snort-tab-host' }, [
-			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, alertsBox, notifyBox
+			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, alertsBox, logsBox, notifyBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);
 
 		poll.add(function() {
-			return Promise.all([ callGetStatus(), callGetAlerts(50), callUpdateStatus() ]).then(function(next) {
+			return Promise.all([
+				callGetStatus(),
+				callGetAlerts(50),
+				callUpdateStatus(),
+				callGetLogs(100)
+			]).then(function(next) {
 				renderStatus(next[0] || {});
 				renderAlerts(next[1] || {});
 				paintSnortUpdate(next[0] || {}, next[2] || {});
+				renderLogs(next[3] || {});
 			});
 		}, 8);
 

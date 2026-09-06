@@ -35,6 +35,7 @@ function test(name, fn) {
 
 test('native Status / Settings / Query tabs', () => {
 	assert.match(common, /data-tab-title':\s*_\('Status'\)/);
+	assert.match(common, /data-tab-title':\s*_\('Statistics'\)/);
 	assert.match(common, /data-tab-title':\s*_\('Block lists'\)/);
 	assert.match(common, /data-tab-title':\s*_\('Settings'\)/);
 	assert.match(common, /data-tab-title':\s*_\('Query'\)/);
@@ -127,6 +128,33 @@ test('service enable matches Snort/Suricata', () => {
 	assert.doesNotMatch(lists, /UCI and config.yml in sync/);
 	assert.doesNotMatch(lists, /repaintSyncPill/);
 	assert.doesNotMatch(css, /blocky-blocklists-sync-host/);
+});
+
+test('Status is glance-only; Statistics holds charts and operations', () => {
+	const mountStatus = dashboard.slice(
+		dashboard.indexOf('function mountDashboardContent'),
+		dashboard.indexOf('function mountStatisticsContent')
+	);
+	const mountStats = dashboard.slice(
+		dashboard.indexOf('function mountStatisticsContent'),
+		dashboard.indexOf('function attachDashboardHostState')
+	);
+
+	assert.match(mountStatus, /renderServiceStatus/);
+	assert.match(mountStatus, /renderDashboardStatsZone/);
+	assert.match(mountStatus, /renderBlockingGlance/);
+	assert.doesNotMatch(mountStatus, /renderOperations/);
+	assert.doesNotMatch(mountStatus, /renderRealtimeMetrics/);
+	assert.doesNotMatch(mountStatus, /renderAdBlockerPipeline/);
+	assert.doesNotMatch(mountStatus, /renderStatsDashboard/);
+	assert.match(mountStats, /renderOperations/);
+	assert.match(mountStats, /renderStatisticsChartsZone/);
+	assert.match(mountStats, /renderRealtimeMetrics/);
+	assert.match(controls, /function renderBlockingGlance/);
+	assert.match(controls, /_\('Refresh lists'\)/);
+	assert.match(controls, /_\('Flush cache'\)/);
+	assert.doesNotMatch(controls, /Maintenance actions are restricted/);
+	assert.match(base, /'statistics': 1/);
 });
 
 console.log(`\nResults: ${pass} passed, ${fail} failed`);
