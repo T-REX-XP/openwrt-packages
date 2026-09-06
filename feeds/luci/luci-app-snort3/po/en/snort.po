@@ -435,3 +435,614 @@ msgstr "Advanced paths"
 msgid "External range, usually any or !$HOME_NET"
 msgstr "External range, usually any or !$HOME_NET"
 
+msgid "Review"
+msgstr "Review"
+
+msgid "Expired"
+msgstr "Expired"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "Already enabled"
+msgstr "Already enabled"
+
+msgid "Already disabled"
+msgstr "Already disabled"
+
+msgid "Already set to review"
+msgstr "Already set to review"
+
+msgid "Already expired"
+msgstr "Already expired"
+
+msgid "Enabling signature… Restarting Snort…"
+msgstr "Enabling signature… Restarting Snort…"
+
+msgid "Disabling signature… Restarting Snort…"
+msgstr "Disabling signature… Restarting Snort…"
+
+msgid "Marking signature for review… Restarting Snort…"
+msgstr "Marking signature for review… Restarting Snort…"
+
+msgid "Expiring signature… Restarting Snort…"
+msgstr "Expiring signature… Restarting Snort…"
+
+msgid "Updating signature… Restarting Snort…"
+msgstr "Updating signature… Restarting Snort…"
+
+msgid "Signature enabled"
+msgstr "Signature enabled"
+
+msgid "Signature disabled"
+msgstr "Signature disabled"
+
+msgid "Signature set to review"
+msgstr "Signature set to review"
+
+msgid "Signature expired"
+msgstr "Signature expired"
+
+msgid "Signature updated"
+msgstr "Signature updated"
+
+msgid "Not running"
+msgstr "Not running"
+
+msgid "Failed to save policies"
+msgstr "Failed to save policies"
+
+msgid "Snort watches LAN traffic for known attacks. Start in watch-only mode. Download or update signatures on the Rules tab before you expect alerts."
+msgstr "Snort watches LAN traffic for known attacks. Start in watch-only mode. Download or update signatures on the Rules tab before you expect alerts."
+
+msgid "Policy"
+msgstr "Policy"
+
+msgid "Pass list"
+msgstr "Pass list"
+
+msgid "Suppress"
+msgstr "Suppress"
+
+msgid "The Snort engine is not installed on this router."
+msgstr "The Snort engine is not installed on this router."
+
+msgid "Watching %s in %s mode."
+msgstr "Watching %s in %s mode."
+
+msgid "Protection is off. Enable it on the Settings tab, then Save & Apply."
+msgstr "Protection is off. Enable it on the Settings tab, then Save & Apply."
+
+msgid "Service status"
+msgstr "Service status"
+
+msgid "Watch-only mode records matches. Prevention mode tries to block them and can slow a fast LAN."
+msgstr "Watch-only mode records matches. Prevention mode tries to block them and can slow a fast LAN."
+
+msgid "Watching"
+msgstr "Watching"
+
+msgid "Prevention (IPS)"
+msgstr "Prevention (IPS)"
+
+msgid "Watch only (IDS)"
+msgstr "Watch only (IDS)"
+
+msgid "Start at boot"
+msgstr "Start at boot"
+
+msgid "Yes"
+msgstr "Yes"
+
+msgid "No"
+msgstr "No"
+
+msgid "Process"
+msgstr "Process"
+
+msgid "Install the Snort 3 packages, then reload this page."
+msgstr "Install the Snort 3 packages, then reload this page."
+
+msgid "Open Settings, tick Enable Snort, and click Save & Apply."
+msgstr "Open Settings, tick Enable Snort, and click Save & Apply."
+
+msgid "On the Rules tab, keep at least one feed enabled and click Update rules."
+msgstr "On the Rules tab, keep at least one feed enabled and click Update rules."
+
+msgid "New matches appear on the Alerts tab."
+msgstr "New matches appear on the Alerts tab."
+
+msgid "What to do next"
+msgstr "What to do next"
+
+msgid "Start the Snort service"
+msgstr "Start the Snort service"
+
+msgid "Stop the Snort service"
+msgstr "Stop the Snort service"
+
+msgid "Restart the Snort service"
+msgstr "Restart the Snort service"
+
+msgid "Do not start Snort at boot"
+msgstr "Do not start Snort at boot"
+
+msgid "Start Snort automatically at boot"
+msgstr "Start Snort automatically at boot"
+
+msgid "Recent alerts"
+msgstr "Recent alerts"
+
+msgid "The last 50 fast-alert lines. Empty is normal until Snort is running and rules are installed."
+msgstr "The last 50 fast-alert lines. Empty is normal until Snort is running and rules are installed."
+
+msgid "No alerts yet."
+msgstr "No alerts yet."
+
+msgid "Enable Snort on Settings and Save & Apply."
+msgstr "Enable Snort on Settings and Save & Apply."
+
+msgid "On Rules, click Update rules so signatures are downloaded."
+msgstr "On Rules, click Update rules so signatures are downloaded."
+
+msgid "Wait for LAN traffic."
+msgstr "Wait for LAN traffic."
+
+msgid "Snort system logs"
+msgstr "Snort system logs"
+
+msgid "The last 20 logread lines from the Snort service."
+msgstr "The last 20 logread lines from the Snort service."
+
+msgid "Watch only — log attacks (recommended)"
+msgstr "Watch only — log attacks (recommended)"
+
+msgid "Prevention — try to block attacks"
+msgstr "Prevention — try to block attacks"
+
+msgid "Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device."
+msgstr "Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device."
+
+msgid "AF_PACKET (recommended)"
+msgstr "AF_PACKET (recommended)"
+
+msgid "NFQ (prevention only)"
+msgstr "NFQ (prevention only)"
+
+msgid "Service"
+msgstr "Service"
+
+msgid "Turn Snort on, then Save & Apply. Update rules on the Rules tab if you have not already."
+msgstr "Turn Snort on, then Save & Apply. Update rules on the Rules tab if you have not already."
+
+msgid "Start the Snort service with this configuration."
+msgstr "Start the Snort service with this configuration."
+
+msgid "Network"
+msgstr "Network"
+
+msgid "Watch the LAN bridge so devices behind the router are covered. Pick the Linux device (br-lan), not the UCI name “lan”."
+msgstr "Watch the LAN bridge so devices behind the router are covered. Pick the Linux device (br-lan), not the UCI name “lan”."
+
+msgid "Listen on"
+msgstr "Listen on"
+
+msgid "Usually br-lan."
+msgstr "Usually br-lan."
+
+msgid "Home network"
+msgstr "Home network"
+
+msgid "IPv4 prefix treated as trusted (HOME_NET). Use LAN subnet fills the live LAN prefix when LuCI can read it."
+msgstr "IPv4 prefix treated as trusted (HOME_NET). Use LAN subnet fills the live LAN prefix when LuCI can read it."
+
+msgid "Outside network"
+msgstr "Outside network"
+
+msgid "EXTERNAL_NET. Use any for the whole internet, or !$HOME_NET to exclude your LAN."
+msgstr "EXTERNAL_NET. Use any for the whole internet, or !$HOME_NET to exclude your LAN."
+
+msgid "Detection"
+msgstr "Detection"
+
+msgid "Watch only records matches. Prevention tries to drop them and can slow a fast LAN. The generated config always includes /etc/snort/snort.lua, then applies the settings below."
+msgstr "Watch only records matches. Prevention tries to drop them and can slow a fast LAN. The generated config always includes /etc/snort/snort.lua, then applies the settings below."
+
+msgid "Watch only = detect and log. Prevention = inline blocking."
+msgstr "Watch only = detect and log. Prevention = inline blocking."
+
+msgid "Bytes per packet"
+msgstr "Bytes per packet"
+
+msgid "Capture length (0–65535). 1518 is enough for typical Ethernet."
+msgstr "Capture length (0–65535). 1518 is enough for typical Ethernet."
+
+msgid "Default rule action"
+msgstr "Default rule action"
+
+msgid "Alert logs a match. Block/drop/reject are for prevention mode."
+msgstr "Alert logs a match. Block/drop/reject are for prevention mode."
+
+msgid "OpenAppID"
+msgstr "OpenAppID"
+
+msgid "Optional application identification if the openappid package is installed."
+msgstr "Optional application identification if the openappid package is installed."
+
+msgid "Write alert files"
+msgstr "Write alert files"
+
+msgid "Fast alerts and JSON events under the log directory."
+msgstr "Fast alerts and JSON events under the log directory."
+
+msgid "Where alert files are stored."
+msgstr "Where alert files are stored."
+
+msgid "Config directory"
+msgstr "Config directory"
+
+msgid "Snort configuration files."
+msgstr "Snort configuration files."
+
+msgid "Download directory"
+msgstr "Download directory"
+
+msgid "Temporary files and unpacked rule tarballs."
+msgstr "Temporary files and unpacked rule tarballs."
+
+msgid "Failed to save rule feeds"
+msgstr "Failed to save rule feeds"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Optional description"
+msgstr "Optional description"
+
+msgid "Edit rule feed"
+msgstr "Edit rule feed"
+
+msgid "Add rule feed"
+msgstr "Add rule feed"
+
+msgid "Short label shown in the table."
+msgstr "Short label shown in the table."
+
+msgid "URL"
+msgstr "URL"
+
+msgid "HTTPS tarball, zip, or .rules file. Put {oinkcode} in the URL if this feed needs a subscriber code."
+msgstr "HTTPS tarball, zip, or .rules file. Put {oinkcode} in the URL if this feed needs a subscriber code."
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Optional. Shown under the name."
+msgstr "Optional. Shown under the name."
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "A feed with this name already exists"
+msgstr "A feed with this name already exists"
+
+msgid "Rule feeds saved"
+msgstr "Rule feeds saved"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Added “%s”. Tick enabled feeds and click Update rules."
+msgstr "Added “%s”. Tick enabled feeds and click Update rules."
+
+msgid "Every catalog ruleset is already in the list."
+msgstr "Every catalog ruleset is already in the list."
+
+msgid "Add from catalog"
+msgstr "Add from catalog"
+
+msgid "Ruleset"
+msgstr "Ruleset"
+
+msgid "Public feeds from Talos, abuse.ch, and Networkforensic. After adding, click Update rules."
+msgstr "Public feeds from Talos, abuse.ch, and Networkforensic. After adding, click Update rules."
+
+msgid "Add"
+msgstr "Add"
+
+msgid "No rule feeds. Add the Snort 3 community URL or a subscription tarball."
+msgstr "No rule feeds. Add the Snort 3 community URL or a subscription tarball."
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete rule feed “%s”?"
+msgstr "Delete rule feed “%s”?"
+
+msgid "Rule feed deleted"
+msgstr "Rule feed deleted"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Add a custom HTTPS tarball, zip, or .rules URL"
+msgstr "Add a custom HTTPS tarball, zip, or .rules URL"
+
+msgid "Add custom"
+msgstr "Add custom"
+
+msgid "Pick a public ruleset from Emerging Threats, abuse.ch, or Networkforensic"
+msgstr "Pick a public ruleset from Emerging Threats, abuse.ch, or Networkforensic"
+
+msgid "Download enabled rule feeds in the background"
+msgstr "Download enabled rule feeds in the background"
+
+msgid "Rule feeds"
+msgstr "Rule feeds"
+
+msgid "A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode. Use Add from catalog for public sets."
+msgstr "A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode. Use Add from catalog for public sets."
+
+msgid "From snort.org. Leave empty for community rules."
+msgstr "From snort.org. Leave empty for community rules."
+
+msgid "Signatures"
+msgstr "Signatures"
+
+msgid "Search downloaded rules by SID, message, or file. Enable and disable take effect after Snort restarts (a few seconds)."
+msgstr "Search downloaded rules by SID, message, or file. Enable and disable take effect after Snort restarts (a few seconds)."
+
+msgid "SID or message"
+msgstr "SID or message"
+
+msgid "All files"
+msgstr "All files"
+
+msgid "All classes"
+msgstr "All classes"
+
+msgid "All statuses"
+msgstr "All statuses"
+
+msgid "Selected: %s"
+msgstr "Selected: %s"
+
+msgid "Tick one or more signatures first."
+msgstr "Tick one or more signatures first."
+
+msgid "Updating signatures"
+msgstr "Updating signatures"
+
+msgid "Updating %s signatures… Restarting Snort…"
+msgstr "Updating %s signatures… Restarting Snort…"
+
+msgid "Failed to update signatures"
+msgstr "Failed to update signatures"
+
+msgid "Updating signature"
+msgstr "Updating signature"
+
+msgid "Failed to update signature"
+msgstr "Failed to update signature"
+
+msgid "Indexing rules"
+msgstr "Indexing rules"
+
+msgid "Reading signature files…"
+msgstr "Reading signature files…"
+
+msgid "Rule index updated"
+msgstr "Rule index updated"
+
+msgid "Enable selected"
+msgstr "Enable selected"
+
+msgid "Enable selected signatures"
+msgstr "Enable selected signatures"
+
+msgid "Selected signatures enabled"
+msgstr "Selected signatures enabled"
+
+msgid "Disable selected"
+msgstr "Disable selected"
+
+msgid "Disable selected signatures"
+msgstr "Disable selected signatures"
+
+msgid "Selected signatures disabled"
+msgstr "Selected signatures disabled"
+
+msgid "Review selected"
+msgstr "Review selected"
+
+msgid "Mark selected signatures for review"
+msgstr "Mark selected signatures for review"
+
+msgid "Selected signatures set to review"
+msgstr "Selected signatures set to review"
+
+msgid "Expire selected"
+msgstr "Expire selected"
+
+msgid "Expire selected signatures"
+msgstr "Expire selected signatures"
+
+msgid "Selected signatures expired"
+msgstr "Selected signatures expired"
+
+msgid "Reindex signatures"
+msgstr "Reindex signatures"
+
+msgid "Rebuild the local signature index"
+msgstr "Rebuild the local signature index"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Apply search and filters"
+msgstr "Apply search and filters"
+
+msgid "Indexed: %s · Disabled: %s"
+msgstr "Indexed: %s · Disabled: %s"
+
+msgid "No rule index yet. Update rules on this tab, then reindex."
+msgstr "No rule index yet. Update rules on this tab, then reindex."
+
+msgid "No matching signatures."
+msgstr "No matching signatures."
+
+msgid "GID"
+msgstr "GID"
+
+msgid "SID:rev"
+msgstr "SID:rev"
+
+msgid "Proto"
+msgstr "Proto"
+
+msgid "Source"
+msgstr "Source"
+
+msgid "SPort"
+msgstr "SPort"
+
+msgid "Destination"
+msgstr "Destination"
+
+msgid "DPort"
+msgstr "DPort"
+
+msgid "Message"
+msgstr "Message"
+
+msgid "Disable"
+msgstr "Disable"
+
+msgid "Enable"
+msgstr "Enable"
+
+msgid "Expire"
+msgstr "Expire"
+
+msgid "Previous page"
+msgstr "Previous page"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Showing %s–%s of %s"
+msgstr "Showing %s–%s of %s"
+
+msgid "Next page"
+msgstr "Next page"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Ruleset policies"
+msgstr "Ruleset policies"
+
+msgid "Choose which signature files Snort loads. Unticked files are skipped. Use Select all or Unselect all, then Save & Apply."
+msgstr "Choose which signature files Snort loads. Unticked files are skipped. Use Select all or Unselect all, then Save & Apply."
+
+msgid "No rule files indexed yet. Update rules on the Rules tab, then reindex."
+msgstr "No rule files indexed yet. Update rules on the Rules tab, then reindex."
+
+msgid "Select all"
+msgstr "Select all"
+
+msgid "Enable every ruleset in the list"
+msgstr "Enable every ruleset in the list"
+
+msgid "Unselect all"
+msgstr "Unselect all"
+
+msgid "Disable every ruleset in the list"
+msgstr "Disable every ruleset in the list"
+
+msgid "Addresses that Snort will not alert on. Auto entries are resolved when you Save & Apply. Use the footer to write the list."
+msgstr "Addresses that Snort will not alert on. Auto entries are resolved when you Save & Apply. Use the footer to write the list."
+
+msgid "Local networks"
+msgstr "Local networks"
+
+msgid "Add the LAN address."
+msgstr "Add the LAN address."
+
+msgid "WAN gateways"
+msgstr "WAN gateways"
+
+msgid "Add the current default-route gateway."
+msgstr "Add the current default-route gateway."
+
+msgid "WAN DNS servers"
+msgstr "WAN DNS servers"
+
+msgid "Add nameservers learned on WAN."
+msgstr "Add nameservers learned on WAN."
+
+msgid "VPN addresses"
+msgstr "VPN addresses"
+
+msgid "Add addresses on WireGuard, Tailscale, and tun interfaces."
+msgstr "Add addresses on WireGuard, Tailscale, and tun interfaces."
+
+msgid "Custom addresses"
+msgstr "Custom addresses"
+
+msgid "One IPv4/IPv6 address or prefix per line."
+msgstr "One IPv4/IPv6 address or prefix per line."
+
+msgid "No host suppressions yet. Add a SID and IP to ignore a false positive."
+msgstr "No host suppressions yet. Add a SID and IP to ignore a false positive."
+
+msgid "SID"
+msgstr "SID"
+
+msgid "Track"
+msgstr "Track"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "Remove this suppression"
+msgstr "Remove this suppression"
+
+msgid "Source IP"
+msgstr "Source IP"
+
+msgid "Destination IP"
+msgstr "Destination IP"
+
+msgid "LAN false positive"
+msgstr "LAN false positive"
+
+msgid "Suppression lists"
+msgstr "Suppression lists"
+
+msgid "Ignore a signature for one host. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally."
+msgstr "Ignore a signature for one host. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally."
+
+msgid "Signature ID to ignore."
+msgstr "Signature ID to ignore."
+
+msgid "Usually 1."
+msgstr "Usually 1."
+
+msgid "IP address"
+msgstr "IP address"
+
+msgid "Host or prefix that should not match."
+msgstr "Host or prefix that should not match."
+
+msgid "Source or destination of the flow."
+msgstr "Source or destination of the flow."
+
+msgid "Optional note for your reference."
+msgstr "Optional note for your reference."
+
+msgid "Add this suppression to the list"
+msgstr "Add this suppression to the list"

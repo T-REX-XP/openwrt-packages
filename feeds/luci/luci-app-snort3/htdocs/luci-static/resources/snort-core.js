@@ -378,6 +378,71 @@ return baseclass.extend({
 		}];
 	},
 
+	knownFeeds: function() {
+		return [
+			{
+				id: 'community',
+				name: 'Snort 3 community',
+				url: COMMUNITY_RULES_URL,
+				description: 'Free Talos community rules for Snort 3'
+			},
+			{
+				id: 'talos',
+				name: 'Talos subscriber snapshot',
+				url: 'https://www.snort.org/rules/snortrules-snapshot-31470.tar.gz?oinkcode={oinkcode}',
+				description: 'Registered/subscriber Talos rules. Needs an Oinkcode on this tab.'
+			},
+			{
+				id: 'feodo',
+				name: 'abuse.ch Feodo Tracker',
+				url: 'https://feodotracker.abuse.ch/downloads/feodotracker.tar.gz',
+				description: 'Botnet C2 hosts tracked by Feodo Tracker (Snort and Suricata).'
+			},
+			{
+				id: 'nf_local',
+				name: 'Networkforensic NF IDS',
+				url: 'https://networkforensic.dk/SNORT/NF-local.zip',
+				description: 'Community Snort rules from networkforensic.dk'
+			},
+			{
+				id: 'nf_scada',
+				name: 'Networkforensic SCADA',
+				url: 'https://networkforensic.dk/SNORT/NF-SCADA.zip',
+				description: 'SCADA/ICS signatures from networkforensic.dk'
+			},
+			{
+				id: 'nf_scanners',
+				name: 'Networkforensic scanners',
+				url: 'https://networkforensic.dk/SNORT/NF-Scanners.zip',
+				description: 'Known scanner and recon actor signatures'
+			}
+		];
+	},
+
+	unusedKnownFeeds: function(existing) {
+		var have = {};
+		var i;
+		var out = [];
+		var catalog = this.knownFeeds();
+		var row;
+		if (Array.isArray(existing)) {
+			for (i = 0; i < existing.length; i++) {
+				row = existing[i] || {};
+				if (row.url)
+					have[String(row.url)] = 1;
+				if (row.id)
+					have[String(row.id)] = 1;
+			}
+		}
+		for (i = 0; i < catalog.length; i++) {
+			row = catalog[i];
+			if (have[row.url] || have[row.id])
+				continue;
+			out.push(row);
+		}
+		return out;
+	},
+
 	sanitizeRuleQuery: function(q) {
 		q = String(q == null ? '' : q).trim();
 		if (q.length > 64)

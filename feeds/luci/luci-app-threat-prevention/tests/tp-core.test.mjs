@@ -301,5 +301,25 @@ test('pass list and suppress helpers', () => {
 	assert.equal(got.config.suppress[0].track, 'by_dst');
 });
 
+test('known Suricata ruleset catalog', () => {
+	const cat = core.knownFeeds();
+	assert.ok(cat.length >= 10);
+	assert.ok(cat.every((f) => /^https:\/\//.test(f.url)));
+	assert.ok(cat.some((f) => f.url === core.ETOPEN_OFFICIAL));
+	assert.ok(cat.some((f) => /urlhaus/.test(f.url)));
+	assert.ok(cat.some((f) => /antiphishing/.test(f.url)));
+	assert.ok(cat.some((f) => /networkforensic\.dk/.test(f.url)));
+	assert.ok(cat.some((f) => /dbl\.ipfire\.org/.test(f.url)));
+	const unused = core.unusedKnownFeeds(core.defaultFeeds());
+	assert.ok(unused.every((f) => f.id !== 'official'));
+	assert.ok(unused.some((f) => f.id === 'urlhaus'));
+});
+
+test('view has catalog picker', () => {
+	assert.match(view, /_\('Add from catalog'\)/);
+	assert.match(view, /_\('Add custom'\)/);
+	assert.match(view, /openTpCatalogModal/);
+});
+
 console.log(`Results: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

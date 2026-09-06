@@ -567,29 +567,6 @@ function commit_rule_states() {
 		run_cmd('/etc/init.d/snort restart');
 }
 
-function get_config() {
-	return {
-		enabled: uci_get('snort', 'enabled', '0'),
-		manual: uci_get('snort', 'manual', '0'),
-		interface: uci_get('snort', 'interface', 'br-lan'),
-		home_net: uci_get('snort', 'home_net', '192.168.8.0/24'),
-		external_net: uci_get('snort', 'external_net', 'any'),
-		mode: uci_get('snort', 'mode', 'ids'),
-		method: uci_get('snort', 'method', 'afpacket'),
-		action: uci_get('snort', 'action', 'alert'),
-		snaplen: uci_get('snort', 'snaplen', '1518'),
-		logging: uci_get('snort', 'logging', '1'),
-		openappid: uci_get('snort', 'openappid', '0'),
-		log_dir: uci_get('snort', 'log_dir', '/var/log/snort'),
-		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
-		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
-		oinkcode: uci_get('snort', 'oinkcode', ''),
-		feeds: list_rulesets(),
-		pass: read_pass(),
-		suppress: read_suppress()
-	};
-}
-
 function feed_id_ok(id) {
 	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
 		return false;
@@ -630,7 +607,7 @@ function list_rulesets() {
 	let r = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=ruleset$/\\1/p'");
 	if (r.output) {
 		for (let line in split(r.output, '\n')) {
-			if (line == '' || line == 'snort' || line == 'nfq')
+			if (line == '' || line == 'snort' || line == 'nfq' || line == 'pass')
 				continue;
 			let name = run_cmd(`uci -q get snort.${line}.name`).output || line;
 			let url = run_cmd(`uci -q get snort.${line}.url`).output;
@@ -672,7 +649,7 @@ function replace_rulesets(feeds) {
 		if (name == '' || !feed_url_ok(url))
 			return 'invalid feed';
 		let id = trim(`${feed.id || ''}`);
-		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq')
+		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq' || id == 'pass')
 			id = 'ruleset' + i;
 		if (seen[id])
 			return 'duplicate feed id';
@@ -682,14 +659,14 @@ function replace_rulesets(feeds) {
 	let cur = run_cmd("uci -q show snort | sed -n 's/^snort\\.\\([^=]*\\)=ruleset$/\\1/p'");
 	if (cur.output) {
 		for (let line in split(cur.output, '\n')) {
-			if (line != '' && line != 'snort' && line != 'nfq')
+			if (line != '' && line != 'snort' && line != 'nfq' && line != 'pass')
 				run_cmd(`uci -q delete snort.${line}`);
 		}
 	}
 	i = 0;
 	for (let feed in feeds) {
 		let id = trim(`${feed.id || ''}`);
-		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq')
+		if (!feed_id_ok(id) || id == 'snort' || id == 'nfq' || id == 'pass')
 			id = 'ruleset' + i;
 		let enabled = `${feed.enabled}`;
 		if (enabled == 'true' || enabled == '1' || enabled == 'on' || enabled == 'yes')
@@ -704,6 +681,29 @@ function replace_rulesets(feeds) {
 		i++;
 	}
 	return null;
+}
+
+function get_config() {
+	return {
+		enabled: uci_get('snort', 'enabled', '0'),
+		manual: uci_get('snort', 'manual', '0'),
+		interface: uci_get('snort', 'interface', 'br-lan'),
+		home_net: uci_get('snort', 'home_net', '192.168.8.0/24'),
+		external_net: uci_get('snort', 'external_net', 'any'),
+		mode: uci_get('snort', 'mode', 'ids'),
+		method: uci_get('snort', 'method', 'afpacket'),
+		action: uci_get('snort', 'action', 'alert'),
+		snaplen: uci_get('snort', 'snaplen', '1518'),
+		logging: uci_get('snort', 'logging', '1'),
+		openappid: uci_get('snort', 'openappid', '0'),
+		log_dir: uci_get('snort', 'log_dir', '/var/log/snort'),
+		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
+		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
+		oinkcode: uci_get('snort', 'oinkcode', ''),
+		feeds: list_rulesets(),
+		pass: read_pass(),
+		suppress: read_suppress()
+	};
 }
 
 function rules_info() {
@@ -757,7 +757,11 @@ const methods = {
 
 	getConfig: {
 		call: function() {
-			return get_config();
+			try {
+				return get_config();
+			} catch (e) {
+				return { error: `get_config ${e}` };
+			}
 		}
 	},
 

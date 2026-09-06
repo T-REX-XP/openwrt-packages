@@ -255,5 +255,57 @@ test('legacy pcap and /var/log are remapped', () => {
 	assert.equal(core.validateField('method', 'pcap'), null);
 });
 
+test('parseRuleRaw extracts 5-tuple', () => {
+	const parsed = core.parseRuleRaw(
+		'alert tcp $HOME_NET any -> $EXTERNAL_NET 443 (msg:"tls"; sid:2100001; rev:2;)'
+	);
+	assert.equal(parsed.proto, 'tcp');
+	assert.equal(parsed.src, '$HOME_NET');
+	assert.equal(parsed.sport, 'any');
+	assert.equal(parsed.dst, '$EXTERNAL_NET');
+	assert.equal(parsed.dport, '443');
+	assert.equal(parsed.sid, '2100001');
+	assert.equal(parsed.rev, '2');
+});
+
+test('pass and suppress helpers', () => {
+	assert.equal(core.validPassIp('192.168.8.10'), true);
+	assert.equal(core.validPassIp('10.0.0.0/8'), true);
+	assert.equal(core.validPassIp('not-an-ip'), false);
+	const pass = core.normalizePass({ local_nets: true, ips: '192.168.8.10, 10.0.0.1' });
+	assert.equal(pass.local_nets, '1');
+	assert.deepEqual(pass.ips, ['192.168.8.10', '10.0.0.1']);
+	assert.equal(core.validateSuppressList([{ sid: '1', ip: '1.2.3.4', track: 'by_src' }]), null);
+	assert.equal(core.validateSuppressList([{ sid: 'x', ip: '1.2.3.4' }]), 'invalid sid');
+});
+
+test('known Snort ruleset catalog', () => {
+	const cat = core.knownFeeds();
+	assert.ok(cat.length >= 5);
+	assert.ok(cat.every((f) => /^https:\/\//.test(f.url)));
+	assert.ok(cat.some((f) => /snort3-community-rules/.test(f.url)));
+	assert.ok(cat.some((f) => /networkforensic\.dk/.test(f.url)));
+	assert.ok(cat.some((f) => /feodotracker/.test(f.url)));
+	const unused = core.unusedKnownFeeds(core.defaultFeeds());
+	assert.ok(unused.every((f) => f.id !== 'community'));
+	assert.ok(unused.some((f) => f.id === 'nf_local'));
+});
+
+test('view has catalog, pass, suppress, policy', () => {
+	assert.match(view, /_\('Add from catalog'\)/);
+	assert.match(view, /_\('Add custom'\)/);
+	assert.match(view, /openSnortCatalogModal/);
+	assert.match(view, /data-tab-title':\s*_\('Pass list'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Suppress'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Policy'\)/);
+	assert.match(view, /_\('GID'\)/);
+	assert.match(view, /_\('Select all'\)/);
+	assert.match(ucode, /function parse_enabled_flag/);
+	assert.ok(ucode.indexOf('function parse_enabled_flag') < ucode.indexOf('function read_pass'));
+	assert.match(ucode, /snort-rules-index/);
+	assert.match(ucode, /snort-rules-apply/);
+	assert.ok(ucode.indexOf('function list_rulesets') < ucode.indexOf('function get_config'));
+});
+
 console.log(`Results: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

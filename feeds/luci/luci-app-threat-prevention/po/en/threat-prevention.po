@@ -79,3 +79,747 @@ msgstr "Previous"
 
 msgid "Next"
 msgstr "Next"
+
+msgid "Review"
+msgstr "Review"
+
+msgid "Expired"
+msgstr "Expired"
+
+msgid "Already enabled"
+msgstr "Already enabled"
+
+msgid "Already disabled"
+msgstr "Already disabled"
+
+msgid "Already set to review"
+msgstr "Already set to review"
+
+msgid "Already expired"
+msgstr "Already expired"
+
+msgid "Enabling signature… Applying Suricata policy…"
+msgstr "Enabling signature… Applying Suricata policy…"
+
+msgid "Disabling signature… Applying Suricata policy…"
+msgstr "Disabling signature… Applying Suricata policy…"
+
+msgid "Marking signature for review… Applying Suricata policy…"
+msgstr "Marking signature for review… Applying Suricata policy…"
+
+msgid "Expiring signature… Applying Suricata policy…"
+msgstr "Expiring signature… Applying Suricata policy…"
+
+msgid "Updating signature… Applying Suricata policy…"
+msgstr "Updating signature… Applying Suricata policy…"
+
+msgid "Signature enabled"
+msgstr "Signature enabled"
+
+msgid "Signature disabled"
+msgstr "Signature disabled"
+
+msgid "Signature set to review"
+msgstr "Signature set to review"
+
+msgid "Signature expired"
+msgstr "Signature expired"
+
+msgid "Signature updated"
+msgstr "Signature updated"
+
+msgid "Unchanged"
+msgstr "Unchanged"
+
+msgid "Alert"
+msgstr "Alert"
+
+msgid "Drop"
+msgstr "Drop"
+
+msgid "Reject"
+msgstr "Reject"
+
+msgid "Pass"
+msgstr "Pass"
+
+msgid "Not installed"
+msgstr "Not installed"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Not running"
+msgstr "Not running"
+
+msgid "Settings form is not ready."
+msgstr "Settings form is not ready."
+
+msgid "Service control failed"
+msgstr "Service control failed"
+
+msgid "Watches devices on your LAN for known attacks using Suricata and Emerging Threats Open. Start in watch-only mode, then download rules on the Rules tab."
+msgstr "Watches devices on your LAN for known attacks using Suricata and Emerging Threats Open. Start in watch-only mode, then download rules on the Rules tab."
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Policy"
+msgstr "Policy"
+
+msgid "Pass list"
+msgstr "Pass list"
+
+msgid "Suppress"
+msgstr "Suppress"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Fetching rules"
+msgstr "Fetching rules"
+
+msgid "Downloading enabled feeds…"
+msgstr "Downloading enabled feeds…"
+
+msgid "Fetch failed"
+msgstr "Fetch failed"
+
+msgid "Rule fetch timed out"
+msgstr "Rule fetch timed out"
+
+msgid "Rules updated"
+msgstr "Rules updated"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Optional description"
+msgstr "Optional description"
+
+msgid "Edit rule feed"
+msgstr "Edit rule feed"
+
+msgid "Add rule feed"
+msgstr "Add rule feed"
+
+msgid "Short label shown in the table."
+msgstr "Short label shown in the table."
+
+msgid "URL"
+msgstr "URL"
+
+msgid "Must be an https:// address of a .tar.gz, .zip, or .rules file."
+msgstr "Must be an https:// address of a .tar.gz, .zip, or .rules file."
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Optional. Shown under the name."
+msgstr "Optional. Shown under the name."
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "A feed with this name already exists"
+msgstr "A feed with this name already exists"
+
+msgid "Rule feeds saved"
+msgstr "Rule feeds saved"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Added “%s”. Tick enabled feeds and click Fetch now."
+msgstr "Added “%s”. Tick enabled feeds and click Fetch now."
+
+msgid "Every catalog ruleset is already in the list."
+msgstr "Every catalog ruleset is already in the list."
+
+msgid "Add from catalog"
+msgstr "Add from catalog"
+
+msgid "Ruleset"
+msgstr "Ruleset"
+
+msgid "Public feeds from Emerging Threats, abuse.ch, and the Suricata rule index. After adding, click Fetch now."
+msgstr "Public feeds from Emerging Threats, abuse.ch, and the Suricata rule index. After adding, click Fetch now."
+
+msgid "Add"
+msgstr "Add"
+
+msgid "Rule feeds"
+msgstr "Rule feeds"
+
+msgid "A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. Official ET Open is the usual starting point. Use Add from catalog for public sets, or Add custom for your own URL."
+msgstr "A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. Official ET Open is the usual starting point. Use Add from catalog for public sets, or Add custom for your own URL."
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "No rule feeds. Add the official ET Open URL or a custom HTTPS feed."
+msgstr "No rule feeds. Add the official ET Open URL or a custom HTTPS feed."
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete rule feed “%s”?"
+msgstr "Delete rule feed “%s”?"
+
+msgid "Rule feed deleted"
+msgstr "Rule feed deleted"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Add a custom HTTPS tarball, zip, or .rules URL"
+msgstr "Add a custom HTTPS tarball, zip, or .rules URL"
+
+msgid "Add custom"
+msgstr "Add custom"
+
+msgid "Pick a public ruleset from Emerging Threats, abuse.ch, or the Suricata rule index"
+msgstr "Pick a public ruleset from Emerging Threats, abuse.ch, or the Suricata rule index"
+
+msgid "Download enabled feeds now"
+msgstr "Download enabled feeds now"
+
+msgid "Fetch now"
+msgstr "Fetch now"
+
+msgid "The Suricata engine is not installed on this router."
+msgstr "The Suricata engine is not installed on this router."
+
+msgid "Watching %s in %s mode."
+msgstr "Watching %s in %s mode."
+
+msgid "Protection is off. Enable it on the Settings tab, then Save & Apply."
+msgstr "Protection is off. Enable it on the Settings tab, then Save & Apply."
+
+msgid "Service status"
+msgstr "Service status"
+
+msgid "This is a watch-only intrusion detector by default. It records suspicious traffic; it does not block it unless you switch to prevention mode."
+msgstr "This is a watch-only intrusion detector by default. It records suspicious traffic; it does not block it unless you switch to prevention mode."
+
+msgid "Engine"
+msgstr "Engine"
+
+msgid "Watching"
+msgstr "Watching"
+
+msgid "Mode"
+msgstr "Mode"
+
+msgid "Prevention (IPS)"
+msgstr "Prevention (IPS)"
+
+msgid "Watch only (IDS)"
+msgstr "Watch only (IDS)"
+
+msgid "Alerts stored"
+msgstr "Alerts stored"
+
+msgid "Rule set"
+msgstr "Rule set"
+
+msgid "Downloading…"
+msgstr "Downloading…"
+
+msgid "Never downloaded"
+msgstr "Never downloaded"
+
+msgid "Install the Suricata packages, then reload this page."
+msgstr "Install the Suricata packages, then reload this page."
+
+msgid "Open Settings, tick Enable protection, and click Save & Apply."
+msgstr "Open Settings, tick Enable protection, and click Save & Apply."
+
+msgid "Open the Rules tab and click Fetch now so signatures are on the router."
+msgstr "Open the Rules tab and click Fetch now so signatures are on the router."
+
+msgid "Leave this running. New matches appear on the Events tab."
+msgstr "Leave this running. New matches appear on the Events tab."
+
+msgid "What to do next"
+msgstr "What to do next"
+
+msgid "Start failed"
+msgstr "Start failed"
+
+msgid "Suricata started"
+msgstr "Suricata started"
+
+msgid "Start"
+msgstr "Start"
+
+msgid "Stop failed"
+msgstr "Stop failed"
+
+msgid "Suricata stopped"
+msgstr "Suricata stopped"
+
+msgid "Stop"
+msgstr "Stop"
+
+msgid "Restart failed"
+msgstr "Restart failed"
+
+msgid "Suricata restarted"
+msgstr "Suricata restarted"
+
+msgid "Restart"
+msgstr "Restart"
+
+msgid "Recent alerts"
+msgstr "Recent alerts"
+
+msgid "Each row is a signature that matched traffic on the watched interface. Empty is normal on a quiet network."
+msgstr "Each row is a signature that matched traffic on the watched interface. Empty is normal on a quiet network."
+
+msgid "No alerts yet."
+msgstr "No alerts yet."
+
+msgid "Enable protection on Settings and Save & Apply."
+msgstr "Enable protection on Settings and Save & Apply."
+
+msgid "On Rules, click Fetch now so signatures are downloaded."
+msgstr "On Rules, click Fetch now so signatures are downloaded."
+
+msgid "Wait for LAN traffic. Harmless probes may appear first."
+msgstr "Wait for LAN traffic. Harmless probes may appear first."
+
+msgid "Time"
+msgstr "Time"
+
+msgid "SID"
+msgstr "SID"
+
+msgid "Class"
+msgstr "Class"
+
+msgid "Src"
+msgstr "Src"
+
+msgid "Dst"
+msgstr "Dst"
+
+msgid "Message"
+msgstr "Message"
+
+msgid "Vendor classtype"
+msgstr "Vendor classtype"
+
+msgid "e.g. 1"
+msgstr "e.g. 1"
+
+msgid "Add a tag (key:value)"
+msgstr "Add a tag (key:value)"
+
+msgid "Rules management"
+msgstr "Rules management"
+
+msgid "SID %s"
+msgstr "SID %s"
+
+msgid "Tunings are stored on the router and kept when feeds are fetched again."
+msgstr "Tunings are stored on the router and kept when feeds are fetched again."
+
+msgid "Rule"
+msgstr "Rule"
+
+msgid "Category"
+msgstr "Category"
+
+msgid "Operator label. Empty keeps the vendor classtype."
+msgstr "Operator label. Empty keeps the vendor classtype."
+
+msgid "Priority"
+msgstr "Priority"
+
+msgid "1–255. Stored with the SID; Suricata still uses the vendor rule text."
+msgstr "1–255. Stored with the SID; Suricata still uses the vendor rule text."
+
+msgid "Target"
+msgstr "Target"
+
+msgid "src_ip or dest_ip. Stored with the SID."
+msgstr "src_ip or dest_ip. Stored with the SID."
+
+msgid "Threshold"
+msgstr "Threshold"
+
+msgid "Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60."
+msgstr "Applied in threshold.config, for example type limit, track by_src, count 1, seconds 60."
+
+msgid "Tags"
+msgstr "Tags"
+
+msgid "Use key:value tags."
+msgstr "Use key:value tags."
+
+msgid "Saving signature… Applying Suricata policy…"
+msgstr "Saving signature… Applying Suricata policy…"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Rule tuning saved"
+msgstr "Rule tuning saved"
+
+msgid "Tick rows for bulk changes, or use the icons on a row. Status and action changes stay when feeds are fetched again."
+msgstr "Tick rows for bulk changes, or use the icons on a row. Status and action changes stay when feeds are fetched again."
+
+msgid "Search by Rule SID, Class Type, Message or other attributes…"
+msgstr "Search by Rule SID, Class Type, Message or other attributes…"
+
+msgid "All files"
+msgstr "All files"
+
+msgid "All classes"
+msgstr "All classes"
+
+msgid "All states"
+msgstr "All states"
+
+msgid "Action for selected signatures"
+msgstr "Action for selected signatures"
+
+msgid "Selected: %s"
+msgstr "Selected: %s"
+
+msgid "Tick one or more signatures first."
+msgstr "Tick one or more signatures first."
+
+msgid "Updating signatures"
+msgstr "Updating signatures"
+
+msgid "Updating %s signatures… Applying Suricata policy…"
+msgstr "Updating %s signatures… Applying Suricata policy…"
+
+msgid "Choose an action first."
+msgstr "Choose an action first."
+
+msgid "Setting action on %s signatures… Applying Suricata policy…"
+msgstr "Setting action on %s signatures… Applying Suricata policy…"
+
+msgid "Selected signatures set to %s"
+msgstr "Selected signatures set to %s"
+
+msgid "Updating signature"
+msgstr "Updating signature"
+
+msgid "Indexing rules"
+msgstr "Indexing rules"
+
+msgid "Reading signature files…"
+msgstr "Reading signature files…"
+
+msgid "Rule index updated"
+msgstr "Rule index updated"
+
+msgid "Enable selected"
+msgstr "Enable selected"
+
+msgid "Enable selected signatures"
+msgstr "Enable selected signatures"
+
+msgid "Selected signatures enabled"
+msgstr "Selected signatures enabled"
+
+msgid "Disable selected"
+msgstr "Disable selected"
+
+msgid "Disable selected signatures"
+msgstr "Disable selected signatures"
+
+msgid "Selected signatures disabled"
+msgstr "Selected signatures disabled"
+
+msgid "Review selected"
+msgstr "Review selected"
+
+msgid "Mark selected signatures for review"
+msgstr "Mark selected signatures for review"
+
+msgid "Selected signatures set to review"
+msgstr "Selected signatures set to review"
+
+msgid "Expire selected"
+msgstr "Expire selected"
+
+msgid "Expire selected signatures"
+msgstr "Expire selected signatures"
+
+msgid "Selected signatures expired"
+msgstr "Selected signatures expired"
+
+msgid "Set action"
+msgstr "Set action"
+
+msgid "Apply the chosen action to selected signatures"
+msgstr "Apply the chosen action to selected signatures"
+
+msgid "Reindex signatures"
+msgstr "Reindex signatures"
+
+msgid "Rebuild the local signature index"
+msgstr "Rebuild the local signature index"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Apply search and filters"
+msgstr "Apply search and filters"
+
+msgid "Indexed: %s · Disabled: %s"
+msgstr "Indexed: %s · Disabled: %s"
+
+msgid "No rule index yet. Fetch rules from this tab, then reindex."
+msgstr "No rule index yet. Fetch rules from this tab, then reindex."
+
+msgid "No matching signatures."
+msgstr "No matching signatures."
+
+msgid "GID"
+msgstr "GID"
+
+msgid "SID:rev"
+msgstr "SID:rev"
+
+msgid "Proto"
+msgstr "Proto"
+
+msgid "Source"
+msgstr "Source"
+
+msgid "SPort"
+msgstr "SPort"
+
+msgid "Destination"
+msgstr "Destination"
+
+msgid "DPort"
+msgstr "DPort"
+
+msgid "Disable"
+msgstr "Disable"
+
+msgid "Enable"
+msgstr "Enable"
+
+msgid "Edit signature"
+msgstr "Edit signature"
+
+msgid "Expire"
+msgstr "Expire"
+
+msgid "Showing %s–%s of %s"
+msgstr "Showing %s–%s of %s"
+
+msgid "Ruleset policies"
+msgstr "Ruleset policies"
+
+msgid "Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab."
+msgstr "Choose which signature files Suricata loads, and the default action for each file. Enable a ruleset, then set Alert or Drop. Drop and Reject only block traffic in Prevention mode; in Watch only they are logged as alerts. Save & Apply writes this list and overrides the Small/Full profile on the Settings tab."
+
+msgid "Custom ruleset list is in use (profile: %s)."
+msgstr "Custom ruleset list is in use (profile: %s)."
+
+msgid "Showing defaults from the %s profile. Save & Apply to keep a custom list."
+msgstr "Showing defaults from the %s profile. Save & Apply to keep a custom list."
+
+msgid "Prevention mode is on. Drop/Reject policies can block matching traffic."
+msgstr "Prevention mode is on. Drop/Reject policies can block matching traffic."
+
+msgid "Currently in Watch only. Drop/Reject policies will not block until you switch to Prevention on the Settings tab."
+msgstr "Currently in Watch only. Drop/Reject policies will not block until you switch to Prevention on the Settings tab."
+
+msgid "No rule files indexed yet. Fetch rules on the Rules tab, then return here."
+msgstr "No rule files indexed yet. Fetch rules on the Rules tab, then return here."
+
+msgid "Signatures"
+msgstr "Signatures"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Classtype policies"
+msgstr "Classtype policies"
+
+msgid "Set a default action for a class of attacks (for example trojan-activity). A per-SID action on the Rules tab wins over this list. A file action wins over classtype when the SID has no override."
+msgstr "Set a default action for a class of attacks (for example trojan-activity). A per-SID action on the Rules tab wins over this list. A file action wins over classtype when the SID has no override."
+
+msgid "Classtype"
+msgstr "Classtype"
+
+msgid "No classtypes yet."
+msgstr "No classtypes yet."
+
+msgid "Rulesets reset to the profile on the Settings tab"
+msgstr "Rulesets reset to the profile on the Settings tab"
+
+msgid "Select all"
+msgstr "Select all"
+
+msgid "Enable every ruleset in the list"
+msgstr "Enable every ruleset in the list"
+
+msgid "Unselect all"
+msgstr "Unselect all"
+
+msgid "Disable every ruleset in the list"
+msgstr "Disable every ruleset in the list"
+
+msgid "Restore the Small or Full profile from Settings"
+msgstr "Restore the Small or Full profile from Settings"
+
+msgid "Reset rulesets to profile"
+msgstr "Reset rulesets to profile"
+
+msgid "Addresses that Suricata will not alert on or block. Auto entries are resolved when you Save & Apply. Use the footer to write the list."
+msgstr "Addresses that Suricata will not alert on or block. Auto entries are resolved when you Save & Apply. Use the footer to write the list."
+
+msgid "Local networks"
+msgstr "Local networks"
+
+msgid "Add the LAN prefix (excluding WAN)."
+msgstr "Add the LAN prefix (excluding WAN)."
+
+msgid "WAN gateways"
+msgstr "WAN gateways"
+
+msgid "Add the current default-route gateway."
+msgstr "Add the current default-route gateway."
+
+msgid "WAN DNS servers"
+msgstr "WAN DNS servers"
+
+msgid "Add nameservers learned on WAN."
+msgstr "Add nameservers learned on WAN."
+
+msgid "VPN addresses"
+msgstr "VPN addresses"
+
+msgid "Add addresses on WireGuard, Tailscale, and tun interfaces."
+msgstr "Add addresses on WireGuard, Tailscale, and tun interfaces."
+
+msgid "Custom addresses"
+msgstr "Custom addresses"
+
+msgid "One IPv4/IPv6 address or prefix per line. These are never blocked."
+msgstr "One IPv4/IPv6 address or prefix per line. These are never blocked."
+
+msgid "No host suppressions yet. Add a SID and IP to ignore a false positive."
+msgstr "No host suppressions yet. Add a SID and IP to ignore a false positive."
+
+msgid "Track"
+msgstr "Track"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "Remove this suppression"
+msgstr "Remove this suppression"
+
+msgid "Source IP"
+msgstr "Source IP"
+
+msgid "Destination IP"
+msgstr "Destination IP"
+
+msgid "LAN false positive"
+msgstr "LAN false positive"
+
+msgid "Suppression lists"
+msgstr "Suppression lists"
+
+msgid "Ignore a signature for one host. This is the usual fix for a noisy SID on a trusted device. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally."
+msgstr "Ignore a signature for one host. This is the usual fix for a noisy SID on a trusted device. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally."
+
+msgid "Signature ID to ignore."
+msgstr "Signature ID to ignore."
+
+msgid "Usually 1."
+msgstr "Usually 1."
+
+msgid "IP address"
+msgstr "IP address"
+
+msgid "Host or prefix that should not match."
+msgstr "Host or prefix that should not match."
+
+msgid "Source or destination of the flow."
+msgstr "Source or destination of the flow."
+
+msgid "Optional note for your reference."
+msgstr "Optional note for your reference."
+
+msgid "Add this suppression to the list"
+msgstr "Add this suppression to the list"
+
+msgid "LAN subnet from Status → Network"
+msgstr "LAN subnet from Status → Network"
+
+msgid "Watch only — log attacks (recommended)"
+msgstr "Watch only — log attacks (recommended)"
+
+msgid "Prevention — try to block attacks"
+msgstr "Prevention — try to block attacks"
+
+msgid "Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device."
+msgstr "Prevention mode sits in the packet path and can slow a fast LAN. Stay on Watch only unless you have tested blocking on this device."
+
+msgid "Small — malware, C2, and web server rules"
+msgstr "Small — malware, C2, and web server rules"
+
+msgid "Full — every ET Open rule"
+msgstr "Full — every ET Open rule"
+
+msgid "Service"
+msgstr "Service"
+
+msgid "Turn protection on, then Save & Apply. Download rules on the Rules tab if you have not already."
+msgstr "Turn protection on, then Save & Apply. Download rules on the Rules tab if you have not already."
+
+msgid "Enable protection"
+msgstr "Enable protection"
+
+msgid "Start Suricata and load this configuration."
+msgstr "Start Suricata and load this configuration."
+
+msgid "Network"
+msgstr "Network"
+
+msgid "Watch the LAN bridge so phones, PCs, and IoT behind the router are covered. Do not pick the UCI name “lan” — pick the Linux device such as br-lan."
+msgstr "Watch the LAN bridge so phones, PCs, and IoT behind the router are covered. Do not pick the UCI name “lan” — pick the Linux device such as br-lan."
+
+msgid "Listen on"
+msgstr "Listen on"
+
+msgid "Usually br-lan. This is the Linux device name, not the firewall zone."
+msgstr "Usually br-lan. This is the Linux device name, not the firewall zone."
+
+msgid "Home network"
+msgstr "Home network"
+
+msgid "IPv4 prefix treated as trusted (HOME_NET), for example 192.168.8.0/24. Square brackets are optional. Use LAN subnet fills the live LAN prefix when LuCI can read it."
+msgstr "IPv4 prefix treated as trusted (HOME_NET), for example 192.168.8.0/24. Square brackets are optional. Use LAN subnet fills the live LAN prefix when LuCI can read it."
+
+msgid "Detection"
+msgstr "Detection"
+
+msgid "Watch only records matches. Prevention tries to drop them. Rule size is independent of feeds — feeds are on the Rules tab."
+msgstr "Watch only records matches. Prevention tries to drop them. Rule size is independent of feeds — feeds are on the Rules tab."
+
+msgid "Watch only = detect and log. Prevention = inline blocking."
+msgstr "Watch only = detect and log. Prevention = inline blocking."
+
+msgid "How many rules to load"
+msgstr "How many rules to load"
+
+msgid "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix."
+msgstr "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix."

@@ -852,7 +852,7 @@ return view.extend({
 				fieldRow('snort-feed-name', _('Name'), nameIn,
 					_('Short label shown in the table.')),
 				fieldRow('snort-feed-url', _('URL'), urlIn,
-					_('HTTPS tarball. Put {oinkcode} in the URL if this feed needs a subscriber code.')),
+					_('HTTPS tarball, zip, or .rules file. Put {oinkcode} in the URL if this feed needs a subscriber code.')),
 				fieldRow('snort-feed-desc', _('Description'), descIn,
 					_('Optional. Shown under the name.')),
 				E('div', { 'class': 'right' }, [
@@ -901,6 +901,77 @@ return view.extend({
 							});
 						}
 					}, _('Save'))
+				])
+			]);
+		}
+
+		function addSnortCatalogFeed(item) {
+			var feed = {
+				id: snortCore.sanitizeFeedId(item.id || item.name),
+				name: item.name,
+				url: item.url,
+				enabled: '1',
+				description: item.description || ''
+			};
+			var err = snortCore.validateFeed(feed);
+			var next;
+			if (err) {
+				ui.addNotification(null, E('p', {}, err), 'error');
+				return Promise.reject(new Error(err));
+			}
+			feed = snortCore.normalizeFeeds([feed])[0];
+			next = snortCore.validateFeeds(snortFeeds.concat([feed]));
+			if (next) {
+				ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
+				return Promise.reject(new Error(next));
+			}
+			snortFeeds = snortFeeds.concat([feed]);
+			return persistSnortFeeds().then(function() {
+				paintSnortFeeds();
+				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Update rules.').format(feed.name)), 4000);
+			});
+		}
+
+		function openSnortCatalogModal() {
+			var unused = snortCore.unusedKnownFeeds(snortFeeds);
+			var sel;
+			var note;
+			var i;
+			if (!unused.length) {
+				ui.addNotification(null, E('p', {}, _('Every catalog ruleset is already in the list.')), 4000);
+				return;
+			}
+			sel = E('select', { id: 'snort-catalog' });
+			for (i = 0; i < unused.length; i++)
+				sel.appendChild(E('option', { value: unused[i].id }, unused[i].name));
+			note = E('p', { 'class': 'snort-help', id: 'snort-catalog-note' });
+			function paintNote() {
+				var item = unused.filter(function(x) { return x.id === sel.value; })[0];
+				note.textContent = item ? item.description : '';
+			}
+			sel.addEventListener('change', paintNote);
+			paintNote();
+			ui.showModal(_('Add from catalog'), [
+				fieldRow('snort-catalog', _('Ruleset'), sel,
+					_('Public feeds from Talos, abuse.ch, and Networkforensic. After adding, click Update rules.')),
+				note,
+				E('div', { 'class': 'right' }, [
+					E('button', {
+						'type': 'button',
+						'class': 'btn',
+						click: ui.hideModal
+					}, _('Cancel')),
+					' ',
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button-positive',
+						click: function() {
+							var item = unused.filter(function(x) { return x.id === sel.value; })[0];
+							if (!item)
+								return;
+							addSnortCatalogFeed(item).then(ui.hideModal).catch(function() {});
+						}
+					}, _('Add'))
 				])
 			]);
 		}
@@ -984,11 +1055,21 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button cbi-button-add',
+					'title': _('Add a custom HTTPS tarball, zip, or .rules URL'),
 					click: function(ev) {
 						ev.preventDefault();
 						openSnortFeedModal(null);
 					}
-				}, _('Add'))
+				}, _('Add custom')),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'title': _('Pick a public ruleset from Emerging Threats, abuse.ch, or Networkforensic'),
+					click: function(ev) {
+						ev.preventDefault();
+						openSnortCatalogModal();
+					}
+				}, _('Add from catalog'))
 			]));
 		}
 
@@ -1090,7 +1171,7 @@ return view.extend({
 				placeholder: _('Enter your Oinkcode if you have one')
 			});
 			rulesBox.appendChild(cbiSection(_('Rule feeds'),
-				_('A feed is an HTTPS address of a rules tarball. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode and {oinkcode} in the URL.'),
+				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode. Use Add from catalog for public sets.'),
 				[
 					snortFeedsHost,
 					fieldRow('snort-oink', _('Oinkcode'), oink,
@@ -1106,15 +1187,551 @@ return view.extend({
 		function renderRules(st, u) {
 			ensureSnortRulesLayout();
 			paintSnortUpdate(st, u);
+			if (!sidLayoutReady) {
+				sidLayoutReady = true;
+				loadRules().catch(function() {});
+			}
+		}
+
+		function loadRules() {
+			return callGetRules(
+				snortCore.sanitizeRuleQuery(rulesState.query),
+				rulesState.classtype,
+				rulesState.file,
+				rulesState.state,
+				rulesState.offset,
+				snortCore.clampRuleLimit(rulesState.limit)
+			).then(function(res) {
+				paintSidTable(res || {});
+				return res;
+			});
+		}
+
+		function paintSidTable(res) {
+			var list = (res && res.rules) || [];
+			var total = (res && res.total) || 0;
+			var indexed = !!(res && res.indexed);
+			var indexedCount = (res && res.indexed_count) || 0;
+			var disabledCount = (res && res.disabled_count) || 0;
+			var files = (res && res.files) || [];
+			var classtypes = (res && res.classtypes) || [];
+			var search;
+			var fileSel;
+			var classSel;
+			var stateSel;
+			var table;
+			var tableWrap;
+			var headerCb;
+			var liveSids = {};
+			var from;
+			var to;
+			var i;
+
+			if (!snortSidHost)
+				return;
+			snortSidHost.innerHTML = '';
+
+			search = E('input', {
+				type: 'search',
+				id: 'snort-rule-q',
+				placeholder: _('SID or message'),
+				value: rulesState.query
+			});
+			fileSel = E('select', { id: 'snort-rule-file' }, [
+				E('option', { value: '' }, _('All files'))
+			]);
+			for (i = 0; i < files.length; i++)
+				fileSel.appendChild(E('option', { value: files[i] }, files[i]));
+			fileSel.value = rulesState.file;
+			classSel = E('select', { id: 'snort-rule-class' }, [
+				E('option', { value: '' }, _('All classes'))
+			]);
+			for (i = 0; i < classtypes.length; i++)
+				classSel.appendChild(E('option', { value: classtypes[i] }, classtypes[i]));
+			classSel.value = rulesState.classtype;
+			stateSel = E('select', { id: 'snort-rule-state' }, [
+				E('option', { value: 'all' }, _('All statuses')),
+				E('option', { value: 'enabled' }, _('Enabled')),
+				E('option', { value: 'disabled' }, _('Disabled')),
+				E('option', { value: 'review' }, _('Review')),
+				E('option', { value: 'expired' }, _('Expired'))
+			]);
+			stateSel.value = rulesState.state;
+
+			function applyFilters(ev) {
+				if (ev)
+					ev.preventDefault();
+				rulesState.query = search.value;
+				rulesState.file = fileSel.value;
+				rulesState.classtype = classSel.value;
+				rulesState.state = stateSel.value;
+				rulesState.offset = 0;
+				loadRules().catch(function(e) {
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+				});
+			}
+
+			function selectedList() {
+				return snortCore.normalizeSidList(Object.keys(selectedSids));
+			}
+
+			function paintSel() {
+				var el = document.getElementById('snort-sel-count');
+				if (el)
+					el.textContent = _('Selected: %s').format(Object.keys(selectedSids).length);
+			}
+
+			function runBulkStatus(status, msg) {
+				var sids = selectedList();
+				var n;
+				if (!sids) {
+					ui.addNotification(null, E('p', {}, _('Tick one or more signatures first.')), 'error');
+					return;
+				}
+				n = sids.length;
+				withProgress(_('Updating signatures'),
+					_('Updating %s signatures… Restarting Snort…').format(n),
+					function() {
+						return callSetRuleStates(sids, '1', '', status).then(function(out) {
+							var err = rpcFail(out, _('Failed to update signatures'));
+							if (err)
+								return Promise.reject(new Error(err));
+							selectedSids = {};
+							return loadRules();
+						});
+					}).then(function() {
+					ui.addNotification(null, E('p', {}, msg), 4000);
+				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+					loadRules();
+				});
+			}
+
+			function runOneStatus(sid, gid, status) {
+				withProgress(_('Updating signature'), ruleStatusBusyMsg(status), function() {
+					return callSetRuleStates([sid], gid || '1', '', status).then(function(out) {
+						var err = rpcFail(out, _('Failed to update signature'));
+						if (err)
+							return Promise.reject(new Error(err));
+						return loadRules();
+					});
+				}).then(function() {
+					ui.addNotification(null, E('p', {}, ruleStatusDoneMsg(status)), 4000);
+				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+					loadRules();
+				});
+			}
+
+			function runReindex() {
+				withProgress(_('Indexing rules'), _('Reading signature files…'), function() {
+					return callReindexRules().then(function(out) {
+						if (out && out.error && !out.ok)
+							return Promise.reject(new Error(out.error || out.output));
+						rulesState.offset = 0;
+						selectedSids = {};
+						return loadRules();
+					});
+				}).then(function() {
+					ui.addNotification(null, E('p', {}, _('Rule index updated')), 4000);
+				}).catch(function(e) {
+					if (isBusyErr(e))
+						return;
+					ui.addNotification(null, E('p', {}, e.message || e), 'error');
+				});
+			}
+
+			search.addEventListener('keydown', function(ev) {
+				if (ev.key === 'Enter')
+					applyFilters(ev);
+			});
+
+			snortSidHost.appendChild(E('div', { 'class': 'snort-rules-head' }, [
+				E('div', { 'class': 'snort-rules-actions' }, [
+					labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+						_('Enable selected signatures'),
+						function() {
+							runBulkStatus('enabled', _('Selected signatures enabled'));
+						}),
+					labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+						_('Disable selected signatures'),
+						function() {
+							runBulkStatus('disabled', _('Selected signatures disabled'));
+						}),
+					labeledActionBtn(_('Review selected'), 'cbi-button',
+						_('Mark selected signatures for review'),
+						function() {
+							runBulkStatus('review', _('Selected signatures set to review'));
+						}),
+					labeledActionBtn(_('Expire selected'), 'cbi-button',
+						_('Expire selected signatures'),
+						function() {
+							runBulkStatus('expired', _('Selected signatures expired'));
+						}),
+					labeledActionBtn(_('Reindex signatures'), 'cbi-button',
+						_('Rebuild the local signature index'),
+						function() {
+							runReindex();
+						})
+				]),
+				E('div', { 'class': 'snort-rules-search' }, [
+					search,
+					labeledActionBtn(_('Search'), 'cbi-button cbi-button-apply',
+						_('Apply search and filters'),
+						applyFilters)
+				])
+			]));
+			snortSidHost.appendChild(E('div', { 'class': 'snort-toolbar' }, [
+				fileSel, classSel, stateSel
+			]));
+			snortSidHost.appendChild(E('p', { 'class': 'snort-help' }, [
+				_('Indexed: %s · Disabled: %s').format(indexedCount, disabledCount),
+				' · ',
+				E('span', { id: 'snort-sel-count' }, _('Selected: %s').format(Object.keys(selectedSids).length))
+			]));
+
+			if (!indexed) {
+				snortSidHost.appendChild(E('p', {},
+					_('No rule index yet. Update rules on this tab, then reindex.')));
+				return;
+			}
+			if (!list.length) {
+				snortSidHost.appendChild(E('p', {}, _('No matching signatures.')));
+				return;
+			}
+
+			headerCb = E('input', {
+				type: 'checkbox',
+				id: 'snort-rule-select-all',
+				change: function() {
+					var on = this.checked;
+					var boxes = snortSidHost.querySelectorAll('input.snort-rule-pick');
+					var n;
+					for (n = 0; n < boxes.length; n++) {
+						boxes[n].checked = on;
+						if (on)
+							selectedSids[boxes[n].getAttribute('data-sid')] = '1';
+						else
+							delete selectedSids[boxes[n].getAttribute('data-sid')];
+					}
+					paintSel();
+				}
+			});
+			table = E('table', { 'class': 'table snort-rules-table' }, [
+				E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th snort-col-check' }, [ headerCb ]),
+					E('th', { 'class': 'th snort-col-num' }, '#'),
+					E('th', { 'class': 'th snort-col-gid' }, _('GID')),
+					E('th', { 'class': 'th snort-col-sid' }, _('SID:rev')),
+					E('th', { 'class': 'th snort-col-tuple' }, _('Proto')),
+					E('th', { 'class': 'th snort-col-tuple' }, _('Source')),
+					E('th', { 'class': 'th snort-col-tuple' }, _('SPort')),
+					E('th', { 'class': 'th snort-col-tuple' }, _('Destination')),
+					E('th', { 'class': 'th snort-col-tuple' }, _('DPort')),
+					E('th', { 'class': 'th' }, _('Message')),
+					E('th', { 'class': 'th' }, _('Status')),
+					E('th', { 'class': 'th' }, _('Actions'))
+				])
+			]);
+			list.forEach(function(row, idx) {
+				var sid = String(row.sid || '');
+				var gid = String(row.gid || '1');
+				var st = ruleStatusInfo(row);
+				var parsed = snortCore.parseRuleRaw(row.raw);
+				var pick;
+				var trClass = 'tr';
+				var statusTitle = st.on ? _('Disable') : _('Enable');
+				liveSids[sid] = 1;
+				pick = E('input', {
+					type: 'checkbox',
+					'class': 'snort-rule-pick',
+					'data-sid': sid,
+					checked: selectedSids[sid] ? 'checked' : null,
+					change: function() {
+						if (this.checked)
+							selectedSids[sid] = gid;
+						else
+							delete selectedSids[sid];
+						paintSel();
+					}
+				});
+				if (!st.on)
+					trClass += ' snort-rule--off';
+				table.appendChild(E('tr', { 'class': trClass }, [
+					E('td', { 'class': 'td snort-col-check' }, [ pick ]),
+					E('td', { 'class': 'td snort-col-num' }, String(rulesState.offset + idx + 1)),
+					E('td', { 'class': 'td snort-col-gid snort-mono' }, gid),
+					E('td', { 'class': 'td snort-col-sid snort-mono' }, sid + ':' + val(row.rev, '0')),
+					E('td', { 'class': 'td snort-col-tuple snort-mono' }, val(parsed.proto)),
+					E('td', { 'class': 'td snort-col-tuple snort-mono' }, val(parsed.src)),
+					E('td', { 'class': 'td snort-col-tuple snort-mono' }, val(parsed.sport)),
+					E('td', { 'class': 'td snort-col-tuple snort-mono' }, val(parsed.dst)),
+					E('td', { 'class': 'td snort-col-tuple snort-mono' }, val(parsed.dport)),
+					E('td', { 'class': 'td' }, val(row.msg)),
+					E('td', { 'class': 'td snort-col-status' }, [
+						E('button', {
+							'type': 'button',
+							'class': 'snort-status-btn',
+							'title': statusTitle,
+							'aria-label': statusTitle,
+							click: function(ev) {
+								ev.preventDefault();
+								runOneStatus(sid, gid, st.on ? 'disabled' : 'enabled');
+							}
+						}, snortBadge(st.kind, st.label))
+					]),
+					E('td', { 'class': 'td snort-col-actions' }, [
+						E('div', { 'class': 'snort-icon-row' }, [
+							iconBtn(_('Enable'), 'enable', function() {
+								runOneStatus(sid, gid, 'enabled');
+							}, iconActionEnabled(st.id, 'enable')),
+							iconBtn(_('Disable'), 'disable', function() {
+								runOneStatus(sid, gid, 'disabled');
+							}, iconActionEnabled(st.id, 'disable')),
+							iconBtn(_('Review'), 'review', function() {
+								runOneStatus(sid, gid, 'review');
+							}, iconActionEnabled(st.id, 'review')),
+							iconBtn(_('Expire'), 'expire', function() {
+								runOneStatus(sid, gid, 'expired');
+							}, iconActionEnabled(st.id, 'expire'))
+						])
+					])
+				]));
+			});
+			Object.keys(selectedSids).forEach(function(sid) {
+				if (!liveSids[sid])
+					delete selectedSids[sid];
+			});
+			paintSel();
+			tableWrap = E('div', { 'class': 'snort-rules-wrap' }, [ table ]);
+			snortSidHost.appendChild(tableWrap);
+			from = total ? (rulesState.offset + 1) : 0;
+			to = rulesState.offset + list.length;
+			snortSidHost.appendChild(E('div', { 'class': 'snort-pager' }, [
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'title': _('Previous page'),
+					'disabled': rulesState.offset <= 0 ? true : null,
+					click: function(ev) {
+						ev.preventDefault();
+						if (rulesState.offset <= 0)
+							return;
+						rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
+						loadRules();
+					}
+				}, _('Previous')),
+				E('span', {}, _('Showing %s–%s of %s').format(from, to, total)),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'title': _('Next page'),
+					'disabled': (rulesState.offset + list.length) >= total ? true : null,
+					click: function(ev) {
+						ev.preventDefault();
+						if ((rulesState.offset + list.length) >= total)
+							return;
+						rulesState.offset += rulesState.limit;
+						loadRules();
+					}
+				}, _('Next'))
+			]));
+		}
+
+		function renderPolicy(p) {
+			var rulesets = (p && p.rulesets) || [];
+			var rsTable;
+			policyBox.innerHTML = '';
+			policyBox.appendChild(cbiSection(_('Ruleset policies'),
+				_('Choose which signature files Snort loads. Unticked files are skipped. Use Select all or Unselect all, then Save & Apply.'),
+				[]));
+			if (!rulesets.length) {
+				policyBox.appendChild(E('p', { 'class': 'snort-empty' },
+					_('No rule files indexed yet. Update rules on the Rules tab, then reindex.')));
+				return;
+			}
+			rsTable = E('table', { 'class': 'table', id: 'snort-policy' }, [
+				E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th' }, _('Enabled')),
+					E('th', { 'class': 'th' }, _('Ruleset')),
+					E('th', { 'class': 'th' }, _('Signatures'))
+				])
+			]);
+			rulesets.forEach(function(row) {
+				var en = E('input', {
+					type: 'checkbox',
+					'class': 'snort-rs-en',
+					'data-file': row.file
+				});
+				en.checked = row.enabled !== '0';
+				rsTable.appendChild(E('tr', { 'class': 'tr snort-rs-row' }, [
+					E('td', { 'class': 'td' }, [ en ]),
+					E('td', { 'class': 'td snort-mono' }, row.file),
+					E('td', { 'class': 'td' }, val(row.count, '0'))
+				]));
+			});
+			policyBox.appendChild(rsTable);
+			policyBox.appendChild(E('div', { 'class': 'snort-policy-actions' }, [
+				labeledActionBtn(_('Select all'), 'cbi-button',
+					_('Enable every ruleset in the list'),
+					function() {
+						var boxes = policyBox.querySelectorAll('input.snort-rs-en');
+						var n;
+						for (n = 0; n < boxes.length; n++)
+							boxes[n].checked = true;
+					}),
+				labeledActionBtn(_('Unselect all'), 'cbi-button',
+					_('Disable every ruleset in the list'),
+					function() {
+						var boxes = policyBox.querySelectorAll('input.snort-rs-en');
+						var n;
+						for (n = 0; n < boxes.length; n++)
+							boxes[n].checked = false;
+					})
+			]));
+		}
+
+		function renderPass(p) {
+			var localCb;
+			var gwCb;
+			var dnsCb;
+			var vpnCb;
+			var ips;
+			p = snortCore.normalizePass(p);
+			passBox.innerHTML = '';
+			localCb = E('input', { type: 'checkbox', id: 'snort-pass-local' });
+			gwCb = E('input', { type: 'checkbox', id: 'snort-pass-gw' });
+			dnsCb = E('input', { type: 'checkbox', id: 'snort-pass-dns' });
+			vpnCb = E('input', { type: 'checkbox', id: 'snort-pass-vpn' });
+			localCb.checked = p.local_nets === '1';
+			gwCb.checked = p.wan_gateway === '1';
+			dnsCb.checked = p.wan_dns === '1';
+			vpnCb.checked = p.vpn_addrs === '1';
+			ips = E('textarea', {
+				id: 'snort-pass-ips',
+				rows: 5,
+				placeholder: '192.168.1.10\n10.0.0.0/8'
+			}, (p.ips || []).join('\n'));
+			passBox.appendChild(cbiSection(_('Pass list'),
+				_('Addresses that Snort will not alert on. Auto entries are resolved when you Save & Apply. Use the footer to write the list.'),
+				[
+					fieldRow('snort-pass-local', _('Local networks'), localCb,
+						_('Add the LAN address.')),
+					fieldRow('snort-pass-gw', _('WAN gateways'), gwCb,
+						_('Add the current default-route gateway.')),
+					fieldRow('snort-pass-dns', _('WAN DNS servers'), dnsCb,
+						_('Add nameservers learned on WAN.')),
+					fieldRow('snort-pass-vpn', _('VPN addresses'), vpnCb,
+						_('Add addresses on WireGuard, Tailscale, and tun interfaces.')),
+					fieldRow('snort-pass-ips', _('Custom addresses'), ips,
+						_('One IPv4/IPv6 address or prefix per line.'))
+				]));
+		}
+
+		function paintSuppress() {
+			var host = document.getElementById('snort-suppress-table');
+			var table;
+			if (!host)
+				return;
+			host.innerHTML = '';
+			if (!settingsSuppress.length) {
+				host.appendChild(E('p', { 'class': 'snort-empty' },
+					_('No host suppressions yet. Add a SID and IP to ignore a false positive.')));
+				return;
+			}
+			table = E('table', { 'class': 'table' }, [
+				E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th' }, _('SID')),
+					E('th', { 'class': 'th' }, _('GID')),
+					E('th', { 'class': 'th' }, _('Track')),
+					E('th', { 'class': 'th' }, _('IP')),
+					E('th', { 'class': 'th' }, _('Description')),
+					E('th', { 'class': 'th' }, _('Actions'))
+				])
+			]);
+			settingsSuppress.forEach(function(row, idx) {
+				table.appendChild(E('tr', { 'class': 'tr' }, [
+					E('td', { 'class': 'td snort-mono' }, row.sid),
+					E('td', { 'class': 'td snort-mono' }, row.gid || '1'),
+					E('td', { 'class': 'td' }, row.track),
+					E('td', { 'class': 'td snort-mono' }, row.ip),
+					E('td', { 'class': 'td' }, val(row.comment, '')),
+					E('td', { 'class': 'td' }, [
+						labeledActionBtn(_('Delete'), 'cbi-button-negative',
+							_('Remove this suppression'),
+							function() {
+								settingsSuppress.splice(idx, 1);
+								paintSuppress();
+							})
+					])
+				]));
+			});
+			host.appendChild(table);
+		}
+
+		function renderSuppress() {
+			var sidIn = E('input', { type: 'text', id: 'snort-sup-sid', placeholder: '2020001' });
+			var gidIn = E('input', { type: 'text', id: 'snort-sup-gid', value: '1' });
+			var ipIn = E('input', { type: 'text', id: 'snort-sup-ip', placeholder: '192.168.8.50' });
+			var trackIn = E('select', { id: 'snort-sup-track' }, [
+				E('option', { value: 'by_src' }, _('Source IP')),
+				E('option', { value: 'by_dst' }, _('Destination IP'))
+			]);
+			var commentIn = E('input', {
+				type: 'text', id: 'snort-sup-comment',
+				placeholder: _('LAN false positive')
+			});
+			suppressBox.innerHTML = '';
+			suppressBox.appendChild(cbiSection(_('Suppression lists'),
+				_('Ignore a signature for one host. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally.'),
+				[
+					fieldRow('snort-sup-sid', _('SID'), sidIn, _('Signature ID to ignore.')),
+					fieldRow('snort-sup-gid', _('GID'), gidIn, _('Usually 1.')),
+					fieldRow('snort-sup-ip', _('IP address'), ipIn, _('Host or prefix that should not match.')),
+					fieldRow('snort-sup-track', _('Track'), trackIn, _('Source or destination of the flow.')),
+					fieldRow('snort-sup-comment', _('Description'), commentIn, _('Optional note for your reference.'))
+				]));
+			suppressBox.appendChild(E('div', { 'class': 'snort-policy-actions' }, [
+				labeledActionBtn(_('Add'), 'cbi-button-positive',
+					_('Add this suppression to the list'),
+					function() {
+						var next = {
+							sid: sidIn.value,
+							gid: gidIn.value || '1',
+							ip: ipIn.value,
+							track: trackIn.value,
+							comment: commentIn.value
+						};
+						var err = snortCore.validateSuppressList([next]);
+						if (err) {
+							ui.addNotification(null, E('p', {}, err), 'error');
+							return;
+						}
+						settingsSuppress = snortCore.normalizeSuppressList(settingsSuppress.concat([next]));
+						sidIn.value = '';
+						ipIn.value = '';
+						commentIn.value = '';
+						paintSuppress();
+					})
+			]));
+			suppressBox.appendChild(E('div', { id: 'snort-suppress-table' }));
+			paintSuppress();
 		}
 
 		renderStatus(status);
 		renderAlerts(alerts);
 		renderSettings(cfg);
 		renderRules(status, upd);
+		renderPolicy(policies);
+		renderPass(cfg.pass);
+		renderSuppress();
 
 		var tabHost = E('div', { 'class': 'snort-tab-host' }, [
-			statusBox, settingsBox, rulesBox, alertsBox
+			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, alertsBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);
@@ -1123,7 +1740,7 @@ return view.extend({
 			return Promise.all([ callGetStatus(), callGetAlerts(50), callUpdateStatus() ]).then(function(next) {
 				renderStatus(next[0] || {});
 				renderAlerts(next[1] || {});
-				renderRules(next[0] || {}, next[2] || {});
+				paintSnortUpdate(next[0] || {}, next[2] || {});
 			});
 		}, 8);
 

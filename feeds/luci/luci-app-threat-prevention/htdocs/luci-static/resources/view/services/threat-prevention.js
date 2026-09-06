@@ -605,7 +605,7 @@ return view.extend({
 				fieldRow('tp-feed-name', _('Name'), nameIn,
 					_('Short label shown in the table.')),
 				fieldRow('tp-feed-url', _('URL'), urlIn,
-					_('Must be an https:// address of a .tar.gz rules archive or a .rules file.')),
+					_('Must be an https:// address of a .tar.gz, .zip, or .rules file.')),
 				fieldRow('tp-feed-desc', _('Description'), descIn,
 					_('Optional. Shown under the name.')),
 				E('div', { 'class': 'right' }, [
@@ -658,13 +658,84 @@ return view.extend({
 			]);
 		}
 
+		function addTpCatalogFeed(item) {
+			var feed = {
+				id: tpCore.sanitizeFeedId(item.id || item.name),
+				name: item.name,
+				url: item.url,
+				enabled: '1',
+				description: item.description || ''
+			};
+			var err = tpCore.validateFeed(feed);
+			var next;
+			if (err) {
+				ui.addNotification(null, E('p', {}, err), 'error');
+				return Promise.reject(new Error(err));
+			}
+			feed = tpCore.normalizeFeeds([feed])[0];
+			next = tpCore.validateFeeds(settingsFeeds.concat([feed]));
+			if (next) {
+				ui.addNotification(null, E('p', {}, _('A feed with this name already exists')), 'error');
+				return Promise.reject(new Error(next));
+			}
+			settingsFeeds = settingsFeeds.concat([feed]);
+			return persistTpFeeds().then(function() {
+				paintTpFeeds();
+				ui.addNotification(null, E('p', {}, _('Added “%s”. Tick enabled feeds and click Fetch now.').format(feed.name)), 4000);
+			});
+		}
+
+		function openTpCatalogModal() {
+			var unused = tpCore.unusedKnownFeeds(settingsFeeds);
+			var sel;
+			var note;
+			var i;
+			if (!unused.length) {
+				ui.addNotification(null, E('p', {}, _('Every catalog ruleset is already in the list.')), 4000);
+				return;
+			}
+			sel = E('select', { id: 'tp-catalog' });
+			for (i = 0; i < unused.length; i++)
+				sel.appendChild(E('option', { value: unused[i].id }, unused[i].name));
+			note = E('p', { 'class': 'tp-help', id: 'tp-catalog-note' });
+			function paintNote() {
+				var item = unused.filter(function(x) { return x.id === sel.value; })[0];
+				note.textContent = item ? item.description : '';
+			}
+			sel.addEventListener('change', paintNote);
+			paintNote();
+			ui.showModal(_('Add from catalog'), [
+				fieldRow('tp-catalog', _('Ruleset'), sel,
+					_('Public feeds from Emerging Threats, abuse.ch, and the Suricata rule index. After adding, click Fetch now.')),
+				note,
+				E('div', { 'class': 'right' }, [
+					E('button', {
+						'type': 'button',
+						'class': 'btn',
+						click: ui.hideModal
+					}, _('Cancel')),
+					' ',
+					E('button', {
+						'type': 'button',
+						'class': 'btn cbi-button-positive',
+						click: function() {
+							var item = unused.filter(function(x) { return x.id === sel.value; })[0];
+							if (!item)
+								return;
+							addTpCatalogFeed(item).then(ui.hideModal).catch(function() {});
+						}
+					}, _('Add'))
+				])
+			]);
+		}
+
 		function paintTpFeeds() {
 			var table;
 			if (!tpFeedsHost)
 				return;
 			tpFeedsHost.innerHTML = '';
 			tpFeedsHost.appendChild(cbiSection(_('Rule feeds'),
-				_('A feed is an HTTPS address of a rules tarball. Tick Enabled for feeds to download. Official ET Open is the usual starting point.'),
+				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. Official ET Open is the usual starting point. Use Add from catalog for public sets, or Add custom for your own URL.'),
 				[]));
 			table = E('div', { 'class': 'table tp-feeds-table' }, [
 				E('div', { 'class': 'tr table-titles' }, [
@@ -740,14 +811,25 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button cbi-button-add',
+					'title': _('Add a custom HTTPS tarball, zip, or .rules URL'),
 					click: function(ev) {
 						ev.preventDefault();
 						openTpFeedModal(null);
 					}
-				}, _('Add')),
+				}, _('Add custom')),
+				E('button', {
+					'type': 'button',
+					'class': 'btn cbi-button',
+					'title': _('Pick a public ruleset from Emerging Threats, abuse.ch, or the Suricata rule index'),
+					click: function(ev) {
+						ev.preventDefault();
+						openTpCatalogModal();
+					}
+				}, _('Add from catalog')),
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button cbi-button-apply',
+					'title': _('Download enabled feeds now'),
 					click: function(ev) {
 						ev.preventDefault();
 						runTpFetch();

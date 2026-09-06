@@ -40,6 +40,14 @@ else
 fi
 
 echo ""
+echo ">> syntax: snort helper scripts"
+if sh -n "$ROOT/root/usr/sbin/snort-rules-index" && sh -n "$ROOT/root/usr/sbin/snort-rules-apply"; then
+	echo "ok: snort-rules-index / snort-rules-apply"
+else
+	FAIL=1
+fi
+
+echo ""
 if [ "$FAIL" -eq 0 ]; then
 	echo "All tests passed."
 else

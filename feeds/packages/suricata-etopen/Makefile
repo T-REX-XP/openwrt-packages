@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=suricata-etopen
 PKG_VERSION:=1.0
-PKG_RELEASE:=6
+PKG_RELEASE:=7
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -19,7 +19,7 @@ define Package/suricata-etopen
   CATEGORY:=Network
   SUBMENU:=Routing and Redirection
   TITLE:=ET Open rules fetcher for Suricata 8
-  DEPENDS:=+uclient-fetch +ca-bundle
+  DEPENDS:=+uclient-fetch +ca-bundle +unzip
   PKGARCH:=all
 endef
 

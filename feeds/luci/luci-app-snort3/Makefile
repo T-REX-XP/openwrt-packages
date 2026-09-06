@@ -7,7 +7,7 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI for Snort3 IDS/IPS
-LUCI_DEPENDS:=+luci-base +snort3 +sqlite3
+LUCI_DEPENDS:=+luci-base +snort3 +sqlite3 +unzip
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=3.6

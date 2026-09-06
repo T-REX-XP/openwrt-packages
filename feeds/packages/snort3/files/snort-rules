@@ -23,6 +23,7 @@ collect_rulesets() {
 		[ -n "$sec" ] || continue
 		[ "$sec" = snort ] && continue
 		[ "$sec" = nfq ] && continue
+		[ "$sec" = pass ] && continue
 		en=$(uci -q get "snort.${sec}.enabled" 2>/dev/null || echo 1)
 		[ "$en" = 0 ] && continue
 		url=$(uci -q get "snort.${sec}.url" 2>/dev/null || true)
@@ -49,14 +50,26 @@ stash_old_rules() {
 install_rules_blob() {
 	local blob="$1"
 	local dest="$2"
-	local work
+	local work n
 	work=$(mktemp -d)
 	if tar -tzf "$blob" >/dev/null 2>&1; then
 		tar xzf "$blob" -C "$work" || { rm -rf "$work"; return 1; }
-		find "$work" -type f \( -iname 'includes.rules' -o ! -iname '*.rules' \) -delete
+	elif tar -tJf "$blob" >/dev/null 2>&1; then
+		tar xJf "$blob" -C "$work" || { rm -rf "$work"; return 1; }
+	elif command -v unzip >/dev/null 2>&1 && unzip -l "$blob" >/dev/null 2>&1; then
+		unzip -oq "$blob" -d "$work" || { rm -rf "$work"; return 1; }
+	else
+		cp "$blob" "$dest/$(basename "$blob" | sed 's/\.[^.]*$//').rules"
+		rm -rf "$work"
+		return 0
+	fi
+	find "$work" -type f \( -iname 'includes.rules' -o ! -iname '*.rules' \) -delete
+	n=$(find "$work" -type f -iname '*.rules' | wc -l | tr -d ' ')
+	if [ "${n:-0}" -gt 0 ]; then
 		find "$work" -type f -iname '*.rules' -exec cp {} "$dest/" \;
 	else
-		cp "$blob" "$dest/$(basename "$blob" .tar.gz).rules"
+		rm -rf "$work"
+		return 1
 	fi
 	rm -rf "$work"
 	return 0

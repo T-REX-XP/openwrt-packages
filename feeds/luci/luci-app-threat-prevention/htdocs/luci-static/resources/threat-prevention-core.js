@@ -713,6 +713,131 @@ return baseclass.extend({
 		}];
 	},
 
+	knownFeeds: function() {
+		return [
+			{
+				id: 'official',
+				name: 'Official ET Open 8.0',
+				url: ETOPEN_OFFICIAL,
+				description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
+			},
+			{
+				id: 'urlhaus',
+				name: 'abuse.ch URLhaus',
+				url: 'https://urlhaus.abuse.ch/downloads/urlhaus_suricata.tar.gz',
+				description: 'Malicious URLs used for malware distribution'
+			},
+			{
+				id: 'feodo',
+				name: 'abuse.ch Feodo Tracker',
+				url: 'https://feodotracker.abuse.ch/downloads/feodotracker.tar.gz',
+				description: 'Botnet C2 hosts tracked by Feodo Tracker'
+			},
+			{
+				id: 'sslbl',
+				name: 'abuse.ch SSL Blacklist',
+				url: 'https://sslbl.abuse.ch/blacklist/sslblacklist_tls_cert.tar.gz',
+				description: 'SSL certificates used by botnet C2 servers'
+			},
+			{
+				id: 'sslbl_ja3',
+				name: 'abuse.ch SSLBL JA3',
+				url: 'https://sslbl.abuse.ch/blacklist/ja3_fingerprints.tar.gz',
+				description: 'JA3 fingerprints for malicious TLS clients'
+			},
+			{
+				id: 'antiphishing',
+				name: 'Antiphishing',
+				url: 'https://raw.githubusercontent.com/julioliraup/Antiphishing/refs/heads/main/antiphishing.tar.gz',
+				description: 'Phishing URLs and domains (Phishstats / OpenPhish)'
+			},
+			{
+				id: 'trafficid',
+				name: 'OISF Traffic ID',
+				url: 'https://openinfosecfoundation.org/rules/trafficid/trafficid.rules',
+				description: 'Identify common application traffic'
+			},
+			{
+				id: 'pawpatrules',
+				name: 'PAW Patrules',
+				url: 'https://rules.pawpatrules.fr/suricata/paw-patrules.tar.gz',
+				description: 'Suspicious tools, lateral movement, and known actors'
+			},
+			{
+				id: 'ptopen',
+				name: 'Positive Technologies Open',
+				url: 'https://rules.ptsecurity.com/files/ptopen.rules.tar.gz',
+				description: 'PT Expert Security Center open rules'
+			},
+			{
+				id: 'lateral',
+				name: 'Stamus lateral movement',
+				url: 'https://ti.stamus-networks.io/open/stamus-lateral-rules.tar.gz',
+				description: 'Windows lateral-movement detections from Stamus Networks'
+			},
+			{
+				id: 'etnetera',
+				name: 'Etnetera aggressive IP',
+				url: 'https://security.etnetera.cz/feeds/etn_aggressive.rules',
+				description: 'Aggressive IP blacklist as Suricata rules'
+			},
+			{
+				id: 'hunting',
+				name: 'Travis Green hunting',
+				url: 'https://github.com/travisbgreen/hunting-rules/raw/master/hunting.rules.tar.gz',
+				description: 'Heuristic hunting rules (not performance-focused)'
+			},
+			{
+				id: 'nmap',
+				name: 'NMAP scan detection',
+				url: 'https://raw.githubusercontent.com/aleksibovellan/opnsense-suricata-nmaps/main/local.rules',
+				description: 'Detect NMAP scans by window size, flags, and timing'
+			},
+			{
+				id: 'ipfire_dbl',
+				name: 'IPFire DBL',
+				url: 'https://dbl.ipfire.org/lists/suricata.tar.gz',
+				description: 'IPFire domain blocklist for malware and phishing'
+			},
+			{
+				id: 'hunters',
+				name: 'The Hunters Ledger',
+				url: 'https://the-hunters-ledger.com/feeds/suricata/hunters-ledger.rules',
+				description: 'Community detections from original malware investigations'
+			},
+			{
+				id: 'nf_suricata',
+				name: 'Networkforensic Suricata',
+				url: 'https://networkforensic.dk/SNORT/NF-Suricata.zip',
+				description: 'Community Suricata rules from networkforensic.dk'
+			}
+		];
+	},
+
+	unusedKnownFeeds: function(existing) {
+		var have = {};
+		var i;
+		var out = [];
+		var catalog = this.knownFeeds();
+		var row;
+		if (Array.isArray(existing)) {
+			for (i = 0; i < existing.length; i++) {
+				row = existing[i] || {};
+				if (row.url)
+					have[String(row.url)] = 1;
+				if (row.id)
+					have[String(row.id)] = 1;
+			}
+		}
+		for (i = 0; i < catalog.length; i++) {
+			row = catalog[i];
+			if (have[row.url] || have[row.id])
+				continue;
+			out.push(row);
+		}
+		return out;
+	},
+
 	validPassIp: function(s) {
 		s = String(s == null ? '' : s).trim();
 		if (!s || s.length > 64)
