@@ -795,6 +795,10 @@
 	gap: 0.35rem;
 }
 
+.luci-app-suricata .tp-labeled-btn[hidden] {
+	display: none !important;
+}
+
 .luci-app-suricata .tp-btn-glyph {
 	font-size: 0.95em;
 	line-height: 1;

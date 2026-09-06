@@ -186,6 +186,12 @@ test('view uses network devices select and advanced paths', () => {
 	assert.match(view, /data-tab-title':\s*_\('Rules management'\)/);
 	assert.match(view, /snort-rules-inner/);
 	assert.match(view, /id': 'snort-rule-bulk'/);
+	assert.match(view, /snort-bulk-enable/);
+	assert.match(view, /snort-bulk-disable/);
+	assert.match(view, /'data-status': st.id/);
+	assert.match(view, /iconActionEnabled\(st, 'enable'\)/);
+	assert.match(view, /iconActionEnabled\(st, 'disable'\)/);
+	assert.match(view, /enBtn.hidden = !canEnable/);
 	assert.match(view, /labeledActionBtn\(_\('Search'\)/);
 	assert.match(view, /applyFilters, 'search'\)/);
 	assert.match(view, /'prev'\)/);

@@ -1336,10 +1336,35 @@ return view.extend({
 				var n = Object.keys(selectedSids).length;
 				var el = document.getElementById('snort-sel-count');
 				var bulk = document.getElementById('snort-rule-bulk');
+				var canEnable = false;
+				var canDisable = false;
+				var boxes = snortSidHost.querySelectorAll('input.snort-rule-pick:checked');
+				var i;
+				var tr;
+				var st;
+				var enBtn;
+				var disBtn;
+
 				if (el)
 					el.textContent = _('Selected: %s').format(n);
 				if (bulk)
 					bulk.classList.toggle('is-on', n > 0);
+				for (i = 0; i < boxes.length; i++) {
+					tr = boxes[i].parentNode;
+					while (tr && tr.tagName !== 'TR')
+						tr = tr.parentNode;
+					st = tr ? tr.getAttribute('data-status') : '';
+					if (iconActionEnabled(st, 'enable'))
+						canEnable = true;
+					if (iconActionEnabled(st, 'disable'))
+						canDisable = true;
+				}
+				enBtn = bulk && bulk.querySelector('.snort-bulk-enable');
+				disBtn = bulk && bulk.querySelector('.snort-bulk-disable');
+				if (enBtn)
+					enBtn.hidden = !canEnable;
+				if (disBtn)
+					disBtn.hidden = !canDisable;
 			}
 
 			function runBulkStatus(status, msg) {
@@ -1417,12 +1442,12 @@ return view.extend({
 			snortSidHost.appendChild(E('div', { 'class': 'snort-rules-head' }, [
 				E('div', { 'class': 'snort-rules-actions' }, [
 					E('div', { 'id': 'snort-rule-bulk', 'class': 'snort-rule-bulk' }, [
-						labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+						labeledActionBtn(_('Enable selected'), 'cbi-button-positive snort-bulk-enable',
 							_('Enable selected signatures'),
 							function() {
 								runBulkStatus('enabled', _('Selected signatures enabled'));
 							}, 'enable'),
-						labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+						labeledActionBtn(_('Disable selected'), 'cbi-button-negative snort-bulk-disable',
 							_('Disable selected signatures'),
 							function() {
 								runBulkStatus('disabled', _('Selected signatures disabled'));
@@ -1527,7 +1552,7 @@ return view.extend({
 				});
 				if (!st.on)
 					trClass += ' snort-rule--off';
-				table.appendChild(E('tr', { 'class': trClass }, [
+				table.appendChild(E('tr', { 'class': trClass, 'data-status': st.id }, [
 					E('td', { 'class': 'td snort-col-check' }, [ pick ]),
 					E('td', { 'class': 'td snort-col-num' }, String(rulesState.offset + idx + 1)),
 					E('td', { 'class': 'td snort-col-gid snort-mono' }, gid),

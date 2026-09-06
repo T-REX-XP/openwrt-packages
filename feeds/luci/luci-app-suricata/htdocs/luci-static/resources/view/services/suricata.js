@@ -1410,10 +1410,35 @@ return view.extend({
 				var n = Object.keys(selectedSids).length;
 				var el = document.getElementById('tp-sel-count');
 				var bulk = document.getElementById('tp-rule-bulk');
+				var canEnable = false;
+				var canDisable = false;
+				var boxes = tpSidHost.querySelectorAll('input.tp-rule-pick:checked');
+				var i;
+				var tr;
+				var st;
+				var enBtn;
+				var disBtn;
+
 				if (el)
 					el.textContent = _('Selected: %s').format(n);
 				if (bulk)
 					bulk.classList.toggle('is-on', n > 0);
+				for (i = 0; i < boxes.length; i++) {
+					tr = boxes[i].parentNode;
+					while (tr && tr.tagName !== 'TR')
+						tr = tr.parentNode;
+					st = tr ? tr.getAttribute('data-status') : '';
+					if (iconActionEnabled(st, 'enable'))
+						canEnable = true;
+					if (iconActionEnabled(st, 'disable'))
+						canDisable = true;
+				}
+				enBtn = bulk && bulk.querySelector('.tp-bulk-enable');
+				disBtn = bulk && bulk.querySelector('.tp-bulk-disable');
+				if (enBtn)
+					enBtn.hidden = !canEnable;
+				if (disBtn)
+					disBtn.hidden = !canDisable;
 			}
 
 			function runBulkStatus(status, msg) {
@@ -1518,12 +1543,12 @@ return view.extend({
 			tpSidHost.appendChild(E('div', { 'class': 'tp-rules-head' }, [
 				E('div', { 'class': 'tp-rules-actions' }, [
 					E('div', { 'id': 'tp-rule-bulk', 'class': 'tp-rule-bulk' }, [
-						labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+						labeledActionBtn(_('Enable selected'), 'cbi-button-positive tp-bulk-enable',
 							_('Enable selected signatures'),
 							function() {
 								runBulkStatus('enabled', _('Selected signatures enabled'));
 							}, 'enable'),
-						labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+						labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-bulk-disable',
 							_('Disable selected signatures'),
 							function() {
 								runBulkStatus('disabled', _('Selected signatures disabled'));
@@ -1640,7 +1665,7 @@ return view.extend({
 					trClass += ' tp-rule--off';
 				if (row.in_profile === false)
 					trClass += ' tp-rule--unloaded';
-				table.appendChild(E('tr', { 'class': trClass }, [
+				table.appendChild(E('tr', { 'class': trClass, 'data-status': st.id }, [
 					E('td', { 'class': 'td tp-col-check' }, [ pick ]),
 					E('td', { 'class': 'td tp-col-num' }, String(rulesState.offset + idx + 1)),
 					E('td', { 'class': 'td tp-col-gid tp-mono' }, gid),
@@ -1760,10 +1785,32 @@ return view.extend({
 
 			function paintPolicySel() {
 				var pane = activePolicyPane();
-				var n = selectedPolicyRows(pane).length;
+				var rows = selectedPolicyRows(pane);
+				var n = rows.length;
 				var el = document.getElementById('tp-policy-sel-count');
+				var onRs = !!(pane && pane.getAttribute('data-tab') === 'policy-rulesets');
+				var canEnable = false;
+				var canDisable = false;
+				var i;
+				var enBtn;
+				var disBtn;
+
 				if (el)
 					el.textContent = _('Selected: %s').format(n);
+				if (onRs) {
+					for (i = 0; i < rows.length; i++) {
+						if (policyRowEnabled(rows[i]))
+							canDisable = true;
+						else
+							canEnable = true;
+					}
+				}
+				enBtn = policyBox.querySelector('.tp-policy-bulk-enable');
+				disBtn = policyBox.querySelector('.tp-policy-bulk-disable');
+				if (enBtn)
+					enBtn.hidden = !canEnable;
+				if (disBtn)
+					disBtn.hidden = !canDisable;
 			}
 
 			function syncPolicyHeader(pane) {
@@ -1858,6 +1905,7 @@ return view.extend({
 						setRsEnabled(tr, !policyRowEnabled(tr));
 					}
 				}, tpBadge(on ? 'yes' : 'no', on ? _('Enabled') : _('Disabled'))));
+				paintPolicySel();
 			}
 
 			function policyGrid(pane, rows, kind) {
@@ -1986,12 +2034,12 @@ return view.extend({
 			selCount = E('span', { id: 'tp-policy-sel-count' }, _('Selected: %s').format(0));
 			policyBox.appendChild(E('div', { 'class': 'tp-rules-head' }, [
 				E('div', { 'class': 'tp-rules-actions' }, [
-					labeledActionBtn(_('Enable selected'), 'cbi-button-positive tp-policy-rs-only',
+					labeledActionBtn(_('Enable selected'), 'cbi-button-positive tp-policy-rs-only tp-policy-bulk-enable',
 						_('Enable selected rulesets'),
 						function() {
 							bulkRsEnabled(true);
 						}, 'enable'),
-					labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-policy-rs-only',
+					labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-policy-rs-only tp-policy-bulk-disable',
 						_('Disable selected rulesets'),
 						function() {
 							bulkRsEnabled(false);

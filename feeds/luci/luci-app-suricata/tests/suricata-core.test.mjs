@@ -134,6 +134,13 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /_\('Rules management'\)/);
 	assert.match(view, /_\('Enable selected'\)/);
 	assert.match(view, /_\('Disable selected'\)/);
+	assert.match(view, /tp-bulk-enable/);
+	assert.match(view, /tp-bulk-disable/);
+	assert.match(view, /tp-policy-bulk-enable/);
+	assert.match(view, /tp-policy-bulk-disable/);
+	assert.match(view, /'data-status': st.id/);
+	assert.match(view, /iconActionEnabled\(st, 'enable'\)/);
+	assert.match(view, /enBtn.hidden = !canEnable/);
 	assert.match(view, /callSetPolicies\(policies\)/);
 	assert.match(view, /function collectPolicies/);
 	assert.doesNotMatch(view, /_\('Save policies'\)/);

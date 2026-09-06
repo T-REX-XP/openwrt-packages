@@ -53,6 +53,7 @@ fi
 if [ -x /usr/sbin/blocky-dnsmasq-sync ]; then
 	uci -q show blocky.main >/dev/null 2>&1 || uci set blocky.main=blocky
 	uci -q set blocky.main.dnsmasq_forward='1'
+	uci -q get blocky.main.enabled >/dev/null 2>&1 || uci -q set blocky.main.enabled='1'
 	uci -q commit blocky
 fi
 

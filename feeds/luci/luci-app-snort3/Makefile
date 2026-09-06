@@ -11,7 +11,7 @@ LUCI_DEPENDS:=+luci-base +snort3 +sqlite3 +unzip +tp-eventd
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=3.6
-PKG_RELEASE:=19
+PKG_RELEASE:=20
 
 PKG_LICENSE:=GPL-2.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>

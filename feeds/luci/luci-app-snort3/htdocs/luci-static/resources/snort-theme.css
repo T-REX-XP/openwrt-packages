@@ -503,6 +503,10 @@
 	gap: 0.35rem;
 }
 
+.luci-app-snort3 .snort-labeled-btn[hidden] {
+	display: none !important;
+}
+
 .luci-app-snort3 .snort-btn-glyph {
 	font-size: 0.95em;
 	line-height: 1;

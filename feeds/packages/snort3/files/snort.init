@@ -17,6 +17,19 @@ validate_snort_section() {
 		'interface:string'
 }
 
+# ujail stages NEEDED of /usr/bin/snort only. libdaq dlopen()s every
+# /usr/lib/daq/*.so at startup, so extra plugin libs must be mounted
+# explicitly (daq_nfq.so needs libmnl even in AF_PACKET IDS mode).
+snort_jail_mount_lib() {
+	local p="$1"
+	local real
+	[ -e "$p" ] || return 0
+	procd_add_jail_mount "$p"
+	real=$(readlink -f "$p" 2>/dev/null) || return 0
+	[ -n "$real" ] && [ "$real" != "$p" ] && [ -e "$real" ] && \
+		procd_add_jail_mount "$real"
+}
+
 start_service() {
 	# If you wish to use application-managed PID file:
 	# output.logdir, in the snort lua config, determines the PID file location.
@@ -59,8 +72,13 @@ start_service() {
 		chown -R snort:snort "$config_dir" "$temp_dir" "$log_dir"
 		[ -n "$config_file" ] && [ -f "$config_file" ] && chown snort:snort "$config_file"
 		chmod 0750 "$temp_dir" 2>/dev/null || true
-		procd_add_jail snort log
+		# procfs+sysfs: hwloc CPU topology (without them Snort logs
+		# "failed to find sysfs cpu topology" and CPU pin EINVAL).
+		procd_add_jail snort log procfs sysfs
 		procd_add_jail_mount "$config_dir" /usr/lib/daq /usr/lib/snort /usr/share/lua
+		snort_jail_mount_lib /usr/lib/libmnl.so.0
+		snort_jail_mount_lib /usr/lib/libnetfilter_queue.so.1
+		snort_jail_mount_lib /usr/lib/libnfnetlink.so.0
 		procd_add_jail_mount_rw "$temp_dir" "$log_dir" /var/snort.d
 		procd_set_param capabilities /etc/capabilities/snort.json
 		procd_set_param user snort
