@@ -54,6 +54,15 @@ else
 fi
 
 echo ""
+echo ">> node: blocky-ui.test.mjs"
+if command -v node >/dev/null 2>&1; then
+	node ./blocky-ui.test.mjs || FAIL=1
+else
+	echo "SKIP: node not found"
+	FAIL=1
+fi
+
+echo ""
 echo ">> node: blocky-status.test.mjs"
 if command -v node >/dev/null 2>&1; then
 	node ./blocky-status.test.mjs || FAIL=1

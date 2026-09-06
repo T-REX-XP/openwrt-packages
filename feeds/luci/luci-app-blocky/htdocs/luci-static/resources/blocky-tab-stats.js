@@ -454,6 +454,7 @@ function renderStatsTopLists(stats, rowLimit) {
 
 	function tabButton(key, label) {
 		return E('button', {
+			'type': 'button',
 			'class': 'cbi-button ' + (tabState.key === key ? 'cbi-button-action' : ''),
 			'click': function(ev) {
 				ev.preventDefault();
@@ -760,7 +761,7 @@ function renderStatisticsTab(data, refreshPage) {
 
 	return E('div', { 'class': 'blocky-statistics-tab' }, [
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('24-hour in-memory statistics from Blocky /api/stats. For live Prometheus counter deltas, see the Dashboard tab.')
+			_('24-hour in-memory statistics from Blocky /api/stats. For live Prometheus counter deltas, see Status → Overview.')
 		]),
 		renderStatusDashboard(status, service, refreshPage),
 		renderStatsDashboard(statsResult, refreshPage)

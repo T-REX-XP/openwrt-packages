@@ -193,7 +193,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		{
 			label: _('Blocky service'),
 			ok: running,
-			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from the Dashboard controls below or reboot.')
+			detail: running ? _('Listening on UDP/TCP port %d').format(port) : _('Start Blocky from the service actions below or reboot.')
 		},
 		{
 			label: _('Ad blocking'),
@@ -208,7 +208,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 			ok: forwarding && running,
 			detail: forwarding
 				? _('Clients → dnsmasq :53 → Blocky %s').format('127.0.0.1#' + String(port))
-				: _('Enable Router DNS integration under Services → Blocky → Configuration')
+				: _('Enable Router DNS integration under Services → Blocky → Settings')
 		},
 		{
 			label: _('Block lists loaded'),
@@ -216,7 +216,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 			detail: denyEntries > 0
 				? _('%s denylist entries in memory').format(formatNumber(denyEntries))
 				: (running && blocking && !statsReady
-					? _('Lists loading in background — refresh dashboard in a minute')
+					? _('Lists loading in background — refresh this page in a minute')
 					: _('Lists still loading or statistics unavailable — try Refresh lists'))
 		},
 		{
@@ -661,6 +661,7 @@ function renderRealtimeMetrics(initialMetricsText) {
 	for (i = 0; i < REALTIME_WINDOWS.length; i++) {
 		(function(win) {
 			var btn = E('button', {
+				'type': 'button',
 				'class': state.windowKey === win[0] ? activeCls : idleCls,
 				'click': function(ev) {
 					ev.preventDefault();
@@ -752,6 +753,17 @@ function mountDashboardContent(host, data, refreshPage) {
 	var metricsPayload = unwrapFetchText(metrics);
 
 	host.replaceChildren(
+		E('div', { 'class': 'cbi-section' }, [
+			E('h3', {}, [ _('Service status') ]),
+			E('p', { 'class': 'cbi-section-descr' }, [
+				_('Blocky filters DNS on the router. Clients keep using dnsmasq on port 53.')
+			]),
+			tabControls.renderServiceControls(service, refreshPage)
+		]),
+		E('div', { 'class': 'cbi-section' }, [
+			E('h3', {}, [ _('Blocking') ]),
+			tabControls.renderBlockingControls(status, refreshPage)
+		]),
 		renderDashboardStatsZone(statsResult, metricsPayload, status, service, refreshPage),
 		renderAdBlockerPipeline(status, service, dnsFwdRaw, config, statsResult, adblockService),
 		E('div', { 'class': 'blocky-dash-full blocky-live-metrics-section' }, [
@@ -763,19 +775,7 @@ function mountDashboardContent(host, data, refreshPage) {
 			]),
 			renderRealtimeMetrics(metricsPayload)
 		]),
-		E('div', { 'class': 'blocky-dash-full blocky-dash-controls-section' }, [
-			E('div', { 'class': 'blocky-dash-section-head' }, [
-				E('h3', { 'class': 'blocky-dash-panel-title' }, [ _('Controls') ]),
-				E('p', { 'class': 'blocky-dash-panel-subtitle' }, [
-					_('Blocking, list maintenance, cache flush, and OpenWrt service actions.')
-				])
-			]),
-			E('div', { 'class': 'blocky-dash-controls-grid' }, [
-				tabControls.renderBlockingControls(status, refreshPage),
-				tabControls.renderOperations(service, refreshPage),
-				tabControls.renderServiceControls(service, refreshPage)
-			])
-		])
+		tabControls.renderOperations(service, refreshPage)
 	);
 
 	return {

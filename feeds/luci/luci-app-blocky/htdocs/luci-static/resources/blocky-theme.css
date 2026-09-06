@@ -47,6 +47,68 @@
 	}
 }
 
+.luci-app-blocky .cbi-section {
+	margin-bottom: 1.5rem;
+}
+
+.luci-app-blocky .blocky-lead {
+	color: var(--text-color-medium);
+}
+
+.luci-app-blocky .blocky-hero {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem 1.25rem;
+	margin: 0.75rem 0 1rem;
+	padding: 0.75rem 1rem;
+	background: var(--background-color-medium);
+	border: 1px solid var(--border-color-medium);
+	border-radius: 4px;
+	min-width: 0;
+}
+
+.luci-app-blocky .blocky-hero-copy {
+	flex: 1 1 12rem;
+	min-width: 0;
+	color: var(--text-color-highest);
+}
+
+.luci-app-blocky .blocky-hero-note {
+	display: block;
+	margin-top: 0.2rem;
+	color: var(--text-color-medium);
+	font-size: 0.9em;
+}
+
+.luci-app-blocky .blocky-tab-host {
+	min-width: 0;
+}
+
+.luci-app-blocky .blocky-inner-tabs {
+	margin-top: 0.35rem;
+	min-width: 0;
+}
+
+.luci-app-blocky .blocky-inner-tabs > .cbi-tabmenu {
+	margin: 0.5rem 0 0.75rem;
+}
+
+.luci-app-blocky .cbi-page-actions {
+	margin: 0.5rem 0 1rem;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+.luci-app-blocky .cbi-value {
+	padding: 0.35rem 0;
+}
+
+.luci-app-blocky .cbi-section-node .cbi-value-title {
+	font-weight: 600;
+}
+
 .blocky-pill {
 	display: inline-block;
 	font-weight: 700;

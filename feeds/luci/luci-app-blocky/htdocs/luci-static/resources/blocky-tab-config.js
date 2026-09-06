@@ -107,7 +107,7 @@ function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 	var localBind = isLoopbackHost(httpEp.host);
 
 	var body = [
-		E('p', { 'class': 'blocky-config-section-descr' }, [
+		E('p', { 'class': 'cbi-section-descr' }, [
 			_('Blocky v0.32.x does not support API keys or built-in HTTP authentication. Keep ports.http bound to 127.0.0.1 so only processes on the router (LuCI, local scripts) can reach /api and /metrics.')
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, [
@@ -156,7 +156,7 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	paintForward(dnsFwdRaw);
 
 	var body = [
-		E('p', { 'class': 'blocky-config-section-descr' }, [
+		E('p', { 'class': 'cbi-section-descr' }, [
 			_('Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings.').format(String(port))
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, [
@@ -175,7 +175,7 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 			}, 'cbi-button-negative', refreshForward)
 		]),
 		E('p', { 'class': 'blocky-note-soft' }, [
-			_('After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Dashboard.')
+			_('After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Status tab.')
 		])
 	];
 
@@ -187,13 +187,15 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	].concat(body));
 }
 
-function settingsRow(label, descr, control) {
-	return E('div', { 'class': 'blocky-settings-row' }, [
-		E('div', { 'class': 'blocky-settings-meta' }, [
-			E('label', { 'class': 'blocky-settings-label' }, [ label ]),
-			descr ? E('p', { 'class': 'blocky-settings-hint' }, [ descr ]) : ''
-		]),
-		E('div', { 'class': 'blocky-settings-control' }, [ control ])
+function settingsRow(label, descr, control, id) {
+	if (id && control && !control.id)
+		control.id = id;
+	return E('div', { 'class': 'cbi-value' }, [
+		E('label', { 'class': 'cbi-value-title', 'for': id || null }, [ label ]),
+		E('div', { 'class': 'cbi-value-field' }, [
+			control,
+			descr ? E('div', { 'class': 'cbi-value-description' }, [ descr ]) : ''
+		])
 	]);
 }
 
@@ -211,15 +213,15 @@ function settingsPanel(title, descr, rows) {
 
 function configSectionPage(title, descr, rows) {
 	var nodes = [
-		E('h3', { 'class': 'blocky-config-section-title' }, [ title ])
+		E('h3', {}, [ title ])
 	];
 
 	if (descr)
-		nodes.push(E('p', { 'class': 'blocky-config-section-descr' }, [ descr ]));
+		nodes.push(E('p', { 'class': 'cbi-section-descr' }, [ descr ]));
 
-	nodes.push(E('div', { 'class': 'blocky-config-section-form' }, rows));
+	nodes.push(E('div', { 'class': 'cbi-section-node' }, rows));
 
-	return E('div', { 'class': 'blocky-config-section' }, nodes);
+	return E('div', { 'class': 'cbi-section' }, nodes);
 }
 
 function renderBlockyConfigLayout(sections, toolbar, activeIndex) {
@@ -256,10 +258,7 @@ function renderBlockyConfigLayout(sections, toolbar, activeIndex) {
 
 	return E('div', { 'class': 'blocky-config-layout' }, [
 		E('aside', { 'class': 'blocky-config-sidebar' }, [ nav ]),
-		E('div', { 'class': 'blocky-config-content' }, [
-			toolbar,
-			mainHost
-		])
+		E('div', { 'class': 'blocky-config-content' }, [ mainHost ])
 	]);
 }
 
@@ -583,35 +582,9 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 		blockingSection: parsed.blockingSection
 	};
 
-	function saveHandler(restart) {
-		return saveBlockySettingsForm(state, configYaml, restart).then(function() {
-			notify(restart
-				? _('Settings saved and Blocky restarted.')
-				: _('Settings saved.'));
-			if (typeof refreshPage === 'function')
-				return refreshPage();
-		}).catch(function(err) {
-			notify(err.message || String(err), 'danger');
-		});
-	}
-
-	var toolbar = E('div', { 'class': 'blocky-settings-toolbar' }, [
-		E('button', {
-			'class': 'cbi-button cbi-button-save',
-			'click': ui.createHandlerFn(this, function(ev) {
-				ev.preventDefault();
-				return saveHandler(false);
-			})
-		}, [ _('Save settings') ]),
-		' ',
-		E('button', {
-			'class': 'cbi-button cbi-button-apply',
-			'click': ui.createHandlerFn(this, function(ev) {
-				ev.preventDefault();
-				return saveHandler(true);
-			})
-		}, [ _('Save & restart Blocky') ])
-	]);
+	Blocky.setSettingsApplyHandler(function(restart) {
+		return saveBlockySettingsForm(state, configYaml, restart);
+	});
 
 	var sections = [
 		{
@@ -751,7 +724,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 					settingsRow(_('DNS rebinding protection'), '', state.rebindingEnable),
 					settingsRow(_('Prometheus metrics'), '', state.prometheusEnable),
 					settingsRow(_('Metrics path'), '', state.prometheusPath),
-					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Dashboard 24h widgets.'), state.statisticsEnable)
+					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Status 24h widgets.'), state.statisticsEnable)
 				]
 			)
 		},
@@ -768,14 +741,14 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 	];
 
 	return E('div', { 'class': 'blocky-settings-page' }, [
-		renderBlockyConfigLayout(sections, toolbar, 0)
+		renderBlockyConfigLayout(sections, null, 0)
 	]);
 }
 
 function renderBlockySettingsPage(configYaml, dnsFwdRaw, uciAccess, refreshPage) {
 	return E('div', { 'class': 'blocky-config-page' }, [
-		E('p', { 'class': 'cbi-section-descr blocky-config-intro' }, [
-			_('Choose a settings section on the left. Block list URLs stay under the Block lists tab.')
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Choose a settings section on the left. Use footer Save & Apply to write config.yml and restart Blocky. Block list URLs stay under the Block lists tab.')
 		]),
 		renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage)
 	]);
@@ -787,16 +760,14 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 		'style': 'width:100%; min-height:22em; font-family:monospace'
 	}, [ content || '' ]);
 
-	function saveYaml(restart) {
+	function saveYaml() {
 		if (!editor.value.trim()) {
 			notify(_('Configuration cannot be empty.'), 'danger');
 			return;
 		}
 
-		return applyBlockyConfigYaml(editor.value, { restart: restart }).then(function() {
-			notify(restart
-				? _('Configuration saved and Blocky restarted.')
-				: _('Configuration saved.'));
+		return applyBlockyConfigYaml(editor.value, { restart: true }).then(function() {
+			notify(_('YAML applied and Blocky restarted.'));
 			if (typeof refreshPage === 'function')
 				return refreshPage();
 		}).catch(function(err) {
@@ -804,26 +775,20 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 		});
 	}
 
+	editor.id = 'blocky-settings-yaml';
 	var buttons = E('p', {}, [
 		E('button', {
-			'class': 'cbi-button cbi-button-save',
+			'type': 'button',
+			'class': 'btn cbi-button cbi-button-action',
 			'click': ui.createHandlerFn(this, function(ev) {
 				ev.preventDefault();
-				return saveYaml(false);
+				return saveYaml();
 			})
-		}, [ _('Save YAML') ]),
-		' ',
-		E('button', {
-			'class': 'cbi-button cbi-button-apply',
-			'click': ui.createHandlerFn(this, function(ev) {
-				ev.preventDefault();
-				return saveYaml(true);
-			})
-		}, [ _('Save YAML & restart') ])
+		}, [ _('Apply this YAML') ])
 	]);
 	var body = [
-		E('p', { 'class': 'blocky-config-section-descr' }, [
-			_('Edit %s directly. Prefer the settings sections — the blocking: section is overwritten when block lists sync.').format(CONFIG_PATH)
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Edit %s directly. Footer Save & Apply writes the Settings form, not this editor. The blocking: section is overwritten when block lists sync.').format(CONFIG_PATH)
 		]),
 		editor,
 		buttons

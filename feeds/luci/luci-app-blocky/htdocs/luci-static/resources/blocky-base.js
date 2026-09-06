@@ -185,29 +185,101 @@ function blockyRpcError(res, fallback) {
 }
 
 var BLOCKY_TAB_HASH = {
+	'status': 0,
 	'dashboard': 0,
-	'statistics': 1,
-	'blocklists': 2,
-	'block-lists': 2,
-	'configuration': 3,
-	'config': 3,
 	'controls': 0,
-	'query': 4,
-	'dns-query': 4,
-	'logs': 5,
-	'debug': 6
+	'statistics': 0,
+	'blocklists': 1,
+	'block-lists': 1,
+	'settings': 2,
+	'configuration': 2,
+	'config': 2,
+	'query': 3,
+	'dns-query': 3,
+	'logs': 4,
+	'debug': 4
 };
 
 var BLOCKY_TAB_HASH_KEYS = [
-	'dashboard',
-	'statistics',
+	'status',
 	'blocklists',
-	'configuration',
+	'settings',
 	'query',
-	'logs',
-	'debug'
+	'logs'
 ];
 
+
+var settingsApplyHandler = null;
+
+function setSettingsApplyHandler(fn) {
+	settingsApplyHandler = typeof fn === 'function' ? fn : null;
+}
+
+function runSettingsApply(restart) {
+	if (typeof settingsApplyHandler !== 'function')
+		return Promise.reject(new Error(_('Settings form is not ready.')));
+
+	return Promise.resolve().then(function() {
+		return settingsApplyHandler(!!restart);
+	});
+}
+
+function canonicalTabHash(hash) {
+	hash = safeString(hash).replace(/^#/, '').toLowerCase();
+
+	if (hash === 'debug')
+		return 'logs';
+	if (hash === 'configuration' || hash === 'config')
+		return 'settings';
+	if (hash === 'dashboard' || hash === 'controls')
+		return 'status';
+	if (hash === 'statistics')
+		return 'status';
+	if (hash === 'block-lists' || hash === 'dns-query')
+		return hash === 'block-lists' ? 'blocklists' : 'query';
+
+	return hash;
+}
+
+function clickInnerTab(host, dataTab) {
+	var menu;
+	var buttons;
+	var panes = [];
+	var kids;
+	var i;
+	var idx = -1;
+
+	if (!host)
+		return;
+	kids = host.children;
+	for (i = 0; i < kids.length; i++) {
+		if (kids[i].getAttribute && kids[i].getAttribute('data-tab'))
+			panes.push(kids[i]);
+	}
+	for (i = 0; i < panes.length; i++) {
+		if (panes[i].getAttribute('data-tab') === dataTab)
+			idx = i;
+	}
+	if (idx < 0)
+		return;
+	menu = host.querySelector(':scope > .cbi-tabmenu') || host.querySelector('.cbi-tabmenu');
+	buttons = menu ? menu.querySelectorAll('li') : [];
+	if (buttons[idx])
+		buttons[idx].click();
+}
+
+function mountInnerTabs(panes) {
+	var boxes = panes.map(function(pane) {
+		return E('div', {
+			'data-tab': pane.id,
+			'data-tab-title': pane.title
+		}, pane.nodes || [ pane.node ]);
+	});
+	var wrap = E('div', { 'class': 'blocky-inner-tabs' }, boxes);
+
+	ui.tabs.initTabGroup(wrap.childNodes);
+	return wrap;
+}
 
 function notify(message, level) {
 	ui.addNotification(null, E('p', {}, [ message ]), level || 'info');
@@ -215,7 +287,8 @@ function notify(message, level) {
 
 function actionButton(label, fn, style, onSuccess) {
 	return E('button', {
-		'class': 'cbi-button ' + (style || 'cbi-button-action'),
+		'type': 'button',
+		'class': 'btn cbi-button ' + (style || 'cbi-button-action'),
 		'click': ui.createHandlerFn(this, function(ev) {
 			ev.preventDefault();
 
@@ -803,12 +876,12 @@ function renderBlockyStatusBar(pageStatus, onJumpTab) {
 
 	return E('div', { 'class': 'blocky-status-bar', 'role': 'status' }, [
 		item(_('Blocky'), bar.serviceOk, bar.serviceOk
-			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Dashboard'), 'dashboard'),
-		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'dashboard'),
+			? _('UDP/TCP :%d').format(dnsPort) : _('Start from Status'), 'status'),
+		item(_('Blocking'), bar.blockingOk || bar.blockingPaused, blockingDetail, 'status'),
 		item(_('Router DNS'), bar.dnsmasqOk, bar.dnsmasqOk
-			? _('dnsmasq → Blocky') : _('Enable in Configuration'), 'configuration'),
+			? _('dnsmasq → Blocky') : _('Enable in Settings'), 'settings'),
 		item(_('HTTP API'), bar.apiOk, bar.apiOk
-			? _(':%d reachable').format(bar.ports.http || 4000) : _('Not reachable'), 'debug'),
+			? _(':%d reachable').format(bar.ports.http || 4000) : _('Not reachable'), 'logs'),
 		bar.version ? E('span', { 'class': 'blocky-status-bar-version' }, [
 			_('Blocky %s').format(bar.version)
 		]) : ''
@@ -857,6 +930,11 @@ return baseclass.extend({
 	blockyRpcError: blockyRpcError,
 	notify: notify,
 	actionButton: actionButton,
+	setSettingsApplyHandler: setSettingsApplyHandler,
+	runSettingsApply: runSettingsApply,
+	canonicalTabHash: canonicalTabHash,
+	clickInnerTab: clickInnerTab,
+	mountInnerTabs: mountInnerTabs,
 	replaceContent: replaceContent,
 	appendContentNode: appendContentNode,
 	applyBlockyApiAccess: applyBlockyApiAccess,

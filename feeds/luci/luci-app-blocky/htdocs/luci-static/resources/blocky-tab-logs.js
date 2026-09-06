@@ -10,6 +10,7 @@ var safeString = Blocky.safeString,
 	callBlockyGetLogs = Blocky.callBlockyGetLogs,
 	notify = Blocky.notify,
 	replaceContent = Blocky.replaceContent,
+	mountInnerTabs = Blocky.mountInnerTabs,
 	bp = Blocky.bp;
 
 var QUERY_LOG_COPY_MAX_ROWS = 2000;
@@ -33,43 +34,6 @@ function copyPlainText(text, okMessage, failMessage) {
 
 	done(false);
 	return Promise.resolve();
-}
-
-function renderLogsSubTabs(panels, activeIndex) {
-	var navItems = [];
-	var mainHost = E('div', { 'class': 'blocky-logs-subtab-main' });
-	var nav = E('nav', { 'class': 'blocky-logs-subtabs', 'role': 'navigation' });
-
-	function activate(index) {
-		if (!panels[index])
-			return;
-
-		navItems.forEach(function(item, pos) {
-			item.classList.toggle('active', pos === index);
-		});
-		replaceContent(mainHost, panels[index].content);
-
-		if (typeof panels[index].onShow === 'function')
-			panels[index].onShow();
-	}
-
-	panels.forEach(function(panel, index) {
-		var item = E('button', {
-			'type': 'button',
-			'class': 'blocky-logs-subtab-item' + (index === activeIndex ? ' active' : ''),
-			'click': function(ev) {
-				ev.preventDefault();
-				activate(index);
-			}
-		}, [ panel.title ]);
-
-		navItems.push(item);
-		nav.appendChild(item);
-	});
-
-	activate(activeIndex || 0);
-
-	return E('div', { 'class': 'blocky-logs-subtabs-wrap' }, [ nav, mainHost ]);
 }
 
 function normalizeLogQueryDomain(question) {
@@ -322,6 +286,7 @@ function renderQueryLogPanel(config, options) {
 				filterClient, ' ',
 				filterResponse, ' ',
 				E('button', {
+					'type': 'button',
 					'class': 'cbi-button cbi-button-action',
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
@@ -331,6 +296,7 @@ function renderQueryLogPanel(config, options) {
 				}, [ _('Filter') ]),
 				' ',
 				E('button', {
+					'type': 'button',
 					'class': 'cbi-button',
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
@@ -408,6 +374,7 @@ function renderQueryLogPanel(config, options) {
 			tableHost,
 			E('div', { 'class': 'blocky-query-log-pagination' }, [
 				E('button', {
+					'type': 'button',
 					'class': 'cbi-button',
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
@@ -421,6 +388,7 @@ function renderQueryLogPanel(config, options) {
 				pageInfoHost,
 				' ',
 				E('button', {
+					'type': 'button',
 					'class': 'cbi-button',
 					'click': ui.createHandlerFn(null, function(ev) {
 						ev.preventDefault();
@@ -486,7 +454,7 @@ function renderServiceLogPanel(pageStatus) {
 		},
 		content: E('div', { 'class': 'blocky-service-logs-panel' }, [
 			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Service syslog lines tagged blocky (procd, list downloads, startup). Set log level under Configuration → Logging.')
+				_('Service syslog lines tagged blocky (procd, list downloads, startup). Set log level under Settings → Logging.')
 			]),
 			E('div', { 'class': 'blocky-debug-toolbar' }, [
 				E('label', { 'class': 'blocky-debug-limit-label' }, [ _('Lines') + ' ' ]),
@@ -524,10 +492,29 @@ function renderLogsTab(config, pageStatus, options) {
 	options = options || {};
 	var queryPanel = renderQueryLogPanel(config, options);
 	var servicePanel = renderServiceLogPanel(pageStatus);
+	var inner = mountInnerTabs([
+		{ id: 'querylog', title: queryPanel.title, node: queryPanel.content },
+		{ id: 'service', title: servicePanel.title, node: servicePanel.content }
+	]);
+	var queryPane = inner.querySelector('[data-tab="querylog"]');
+	var servicePane = inner.querySelector('[data-tab="service"]');
+
+	if (queryPane && typeof queryPanel.onShow === 'function') {
+		queryPane.addEventListener('cbi-tab-active', function() {
+			queryPanel.onShow();
+		});
+	}
+	if (servicePane && typeof servicePanel.onShow === 'function') {
+		servicePane.addEventListener('cbi-tab-active', function() {
+			servicePanel.onShow();
+		});
+	}
 
 	return E('div', { 'class': 'cbi-section blocky-logs-section' }, [
-		E('h3', {}, [ _('Logs') ]),
-		renderLogsSubTabs([ queryPanel, servicePanel ], 0)
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Query log is the CSV DNS journal. Service log is syslog lines tagged blocky.')
+		]),
+		inner
 	]);
 }
 

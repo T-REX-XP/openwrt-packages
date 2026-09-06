@@ -194,7 +194,6 @@ function renderBlockingControls(status, onRefresh) {
 }
 
 function renderOperations(service, onRefresh) {
-	var running = isRunning(service);
 	var refresh = onRefresh || function() {};
 
 	return E('div', { 'class': 'cbi-section' }, [
@@ -211,42 +210,31 @@ function renderOperations(service, onRefresh) {
 			' ',
 			actionButton(_('Flush cache'), function() {
 				return blockyApi('/cache/flush', 'POST');
-			}, 'cbi-button-action', refresh),
-			' ',
-			actionButton(_('Restart service'), function() {
-				return runInit('restart');
-			}, 'cbi-button-apply', refresh)
+			}, 'cbi-button-action', refresh)
 		])
 	]);
 }
 
 function renderServiceControls(service, onRefresh) {
-	var running = isRunning(service);
 	var refresh = onRefresh || function() {};
 
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Service') ]),
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Enable, start, stop, or restart the OpenWrt service wrapper.')
-		]),
-		E('p', {}, [
-			actionButton(_('Enable on boot'), function() {
-				return runInit('enable');
-			}, 'cbi-button-action', refresh),
-			' ',
-			actionButton(_('Disable on boot'), function() {
-				return runInit('disable');
-			}, 'cbi-button-negative', refresh),
-			' ',
-			actionButton(running ? _('Restart') : _('Start'), function() {
-				return runInit(running ? 'restart' : 'start');
+	return E('div', { 'class': 'cbi-page-actions' }, [
+			actionButton(_('Start'), function() {
+				return runInit('start');
 			}, 'cbi-button-apply', refresh),
-			' ',
 			actionButton(_('Stop'), function() {
 				return runInit('stop');
-			}, 'cbi-button-negative', refresh)
-		])
-	]);
+			}, 'cbi-button', refresh),
+			actionButton(_('Restart'), function() {
+				return runInit('restart');
+			}, 'cbi-button', refresh),
+			actionButton(_('Enable at boot'), function() {
+				return runInit('enable');
+			}, 'cbi-button', refresh),
+			actionButton(_('Disable at boot'), function() {
+				return runInit('disable');
+			}, 'cbi-button', refresh)
+		]);
 }
 
 return baseclass.extend({

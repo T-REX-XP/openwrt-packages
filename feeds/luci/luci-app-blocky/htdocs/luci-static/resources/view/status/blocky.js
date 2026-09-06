@@ -6,7 +6,7 @@
  */
 return view.extend({
 	render: function() {
-		window.location.replace(L.url('admin/services/blocky') + '#statistics');
+		window.location.replace(L.url('admin/services/blocky') + '#status');
 		return E('p', { 'class': 'cbi-section-descr' }, [ _('Redirecting to Blocky…') ]);
 	}
 });

@@ -176,9 +176,13 @@ function mountQueryPanel(host, options) {
 
 	host.appendChild(E('div', { 'class': 'cbi-section blocky-query-panel' }, [
 		E('h3', {}, [ _('DNS query test') ]),
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Send a lookup through Blocky to see how the router would answer.')
+		]),
 		E('p', { 'class': 'blocky-query-toolbar' }, [
 			query, ' ', type, ' ',
 			E('button', {
+				'type': 'button',
 				'class': 'cbi-button cbi-button-action',
 				'click': ui.createHandlerFn(null, function(ev) {
 					ev.preventDefault();

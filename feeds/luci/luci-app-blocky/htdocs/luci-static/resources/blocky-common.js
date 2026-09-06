@@ -1,14 +1,13 @@
 'use strict';
 'require view';
+'require ui';
 'require blocky-base as Blocky';
 'require blocky-tab-blocklists as tabBlocklists';
 'require blocky-tab-stats as tabStats';
 'require blocky-tab-dashboard as tabDashboard';
 'require blocky-tab-config as tabConfig';
-'require blocky-tab-controls as tabControls';
 'require blocky-tab-query as tabQuery';
 'require blocky-tab-logs as tabLogs';
-'require blocky-tab-debug as tabDebug';
 'require baseclass';
 
 var BlockyTabs = {
@@ -16,27 +15,22 @@ var BlockyTabs = {
 	stats: tabStats,
 	dashboard: tabDashboard,
 	config: tabConfig,
-	controls: tabControls,
 	query: tabQuery,
-	logs: tabLogs,
-	debug: tabDebug
+	logs: tabLogs
 };
 
 var loadBlockyPageData = Blocky.loadBlockyPageData,
 	resolveDefaultTabFromHash = Blocky.resolveDefaultTabFromHash,
-	renderBlockyVersionBadge = Blocky.renderBlockyVersionBadge,
-	renderBlockyStatusBar = Blocky.renderBlockyStatusBar,
-	resolveBlockyVersion = Blocky.resolveBlockyVersion,
 	parseBlockyVersionFromMetrics = Blocky.parseBlockyVersionFromMetrics,
 	blockyCliStdout = Blocky.blockyCliStdout,
 	execResultStdout = Blocky.execResultStdout,
 	unwrapFetchText = Blocky.unwrapFetchText,
 	EMPTY_BLOCKLIST_CATALOG = Blocky.EMPTY_BLOCKLIST_CATALOG,
 	notify = Blocky.notify,
-	replaceContent = Blocky.replaceContent,
-	renderTabs = Blocky.renderTabs,
-	BLOCKY_TAB_HASH = Blocky.BLOCKY_TAB_HASH,
-	BLOCKY_TAB_HASH_KEYS = Blocky.BLOCKY_TAB_HASH_KEYS;
+	clickInnerTab = Blocky.clickInnerTab,
+	mountInnerTabs = Blocky.mountInnerTabs,
+	canonicalTabHash = Blocky.canonicalTabHash,
+	BLOCKY_TAB_HASH = Blocky.BLOCKY_TAB_HASH;
 
 function createBlockyView(options) {
 	options = options || {};
@@ -58,29 +52,38 @@ function createBlockyView(options) {
 			var pageStatus = data[9] || {};
 			var dnsFwdRaw = blockyCliStdout(execResultStdout(data[4], '0\n'));
 			var metricsPayload = unwrapFetchText(metrics);
-			var dashboardHost = E('div', { 'class': 'blocky-dashboard' });
+			var overviewHost = E('div', { 'class': 'blocky-dashboard' });
 			var statisticsHost = E('div', {});
-			var blocklistsHost = E('div', {});
-			var configHost = E('div', {});
+			var statusInner;
 			var logsHost = E('div', {});
-			var debugHost = E('div', {});
-			var queryHost = E('div', {});
-			var statusBarHost = E('div', { 'class': 'blocky-status-bar-host' });
-			var versionText = parseBlockyVersionFromMetrics(metricsPayload) || pageStatus.version || '';
 			var queryPanel = BlockyTabs.query.createQueryPanel();
-
-			queryHost.appendChild(queryPanel.node);
+			var root;
+			var tabHost;
+			var statusBox;
+			var listsBox;
+			var settingsBox;
+			var queryBox;
+			var logsBox;
+			var hero;
+			var initialHash = String(window.location.hash || '').replace(/^#/, '').toLowerCase();
 
 			function jumpTab(hash) {
 				var idx = BLOCKY_TAB_HASH[hash];
+				var buttons;
+				var canonical = canonicalTabHash(hash);
+
 				if (idx == null)
 					return;
 
-				window.location.hash = hash;
-				var root = document.querySelector('.luci-app-blocky');
-				var buttons = root ? root.querySelectorAll('.cbi-tabmenu li') : [];
+				window.location.hash = hash === 'statistics' ? 'statistics' : canonical;
+
+				buttons = tabHost ? tabHost.querySelectorAll(':scope > .cbi-tabmenu li') : [];
+				if (!buttons.length && tabHost)
+					buttons = tabHost.querySelectorAll('.cbi-tabmenu li');
 				if (buttons[idx])
 					buttons[idx].click();
+				if (hash === 'statistics' && statusInner)
+					clickInnerTab(statusInner, 'statistics');
 			}
 
 			function openDnsQuery(domain, recordType) {
@@ -88,8 +91,23 @@ function createBlockyView(options) {
 				return queryPanel.prefillAndRun(domain, recordType);
 			}
 
-			function refreshStatusBar(freshStatus) {
-				replaceContent(statusBarHost, renderBlockyStatusBar(freshStatus || pageStatus, jumpTab));
+			function paintHero(freshStatus) {
+				var running = !!(freshStatus && freshStatus.service_running);
+				var blocking = !!(freshStatus && freshStatus.blocking && freshStatus.blocking.enabled &&
+					!(freshStatus.blocking.autoEnableInSec > 0));
+				var note;
+
+				hero.innerHTML = '';
+				if (!running)
+					note = _('Blocky is not running. Use Start on the Status tab, or enable it at boot from service actions.');
+				else if (!blocking)
+					note = _('The service is up, but blocking is off or paused. Use Enable blocking on Status.');
+				else
+					note = _('Filtering LAN DNS through dnsmasq. Edit lists on Block lists; change resolvers on Settings.');
+				hero.appendChild(E('div', { 'class': 'blocky-hero-copy' }, [
+					E('strong', {}, running ? _('Running') : _('Not running')),
+					E('span', { 'class': 'blocky-hero-note' }, note)
+				]));
 			}
 
 			function refreshPage() {
@@ -98,18 +116,18 @@ function createBlockyView(options) {
 					service = fresh[0];
 					status = fresh[1];
 					statsResult = fresh[5];
-					refreshStatusBar(pageStatus);
-					var mounted = BlockyTabs.dashboard.mountDashboardContent(dashboardHost, fresh, refreshPage);
-					BlockyTabs.dashboard.attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
+					paintHero(pageStatus);
+					var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, fresh, refreshPage);
+					BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
 					statisticsHost.replaceChildren(BlockyTabs.stats.renderStatisticsTab(fresh, refreshPage));
-					blocklistsHost.replaceChildren(BlockyTabs.blocklists.renderBlocklistsTab(
+					listsBox.replaceChildren(BlockyTabs.blocklists.renderBlocklistsTab(
 						fresh[5],
 						refreshPage,
 						fresh[8],
 						unwrapFetchText(fresh[3]),
 						fresh[2]
 					));
-					configHost.replaceChildren(BlockyTabs.config.renderBlockySettingsPage(
+					settingsBox.replaceChildren(BlockyTabs.config.renderBlockySettingsPage(
 						fresh[2],
 						blockyCliStdout(execResultStdout(fresh[4], '0\n')),
 						fresh[7] || { user: '', password: '', localOnly: true },
@@ -118,83 +136,110 @@ function createBlockyView(options) {
 					logsHost.replaceChildren(BlockyTabs.logs.renderLogsTab(fresh[2], fresh[9], {
 						onQueryDomain: openDnsQuery
 					}));
-					debugHost.replaceChildren(BlockyTabs.debug.renderDebugTab(fresh[9]));
 				}).catch(function(err) {
 					notify(err.message || String(err), 'danger');
 				});
 			}
 
-			refreshStatusBar(pageStatus);
+			hero = E('div', { 'class': 'blocky-hero', 'id': 'blocky-hero' });
+			paintHero(pageStatus);
 
-			var mounted = BlockyTabs.dashboard.mountDashboardContent(dashboardHost, data, refreshPage);
-			BlockyTabs.dashboard.attachDashboardHostState(dashboardHost, mounted.service, mounted.status, refreshPage);
+			var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, data, refreshPage);
+			BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
 			statisticsHost.appendChild(BlockyTabs.stats.renderStatisticsTab(data, refreshPage));
-			blocklistsHost.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
-			configHost.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
+
+			statusBox = E('div', { 'data-tab': 'status', 'data-tab-title': _('Status') });
+			statusInner = mountInnerTabs([
+				{
+					id: 'overview',
+					title: _('Overview'),
+					nodes: [ overviewHost ]
+				},
+				{
+					id: 'statistics',
+					title: _('Statistics'),
+					nodes: [ statisticsHost ]
+				}
+			]);
+			statusBox.appendChild(statusInner);
+
+			listsBox = E('div', { 'data-tab': 'blocklists', 'data-tab-title': _('Block lists') });
+			listsBox.appendChild(BlockyTabs.blocklists.renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsPayload, config));
+
+			settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
+			settingsBox.appendChild(BlockyTabs.config.renderBlockySettingsPage(config, dnsFwdRaw, uciAccess, refreshPage));
+
+			queryBox = E('div', { 'data-tab': 'query', 'data-tab-title': _('Query') });
+			queryBox.appendChild(queryPanel.node);
+
+			logsBox = E('div', { 'data-tab': 'logs', 'data-tab-title': _('Logs') });
 			logsHost.appendChild(BlockyTabs.logs.renderLogsTab(config, pageStatus, {
 				onQueryDomain: openDnsQuery
 			}));
-			debugHost.appendChild(BlockyTabs.debug.renderDebugTab(pageStatus));
+			logsBox.appendChild(logsHost);
 
 			if (!statsPollRegistered) {
 				statsPollRegistered = true;
-				BlockyTabs.dashboard.registerStatsPoll(dashboardHost, refreshPage);
+				BlockyTabs.dashboard.registerStatsPoll(overviewHost, refreshPage);
 			}
 
-			if (!versionText) {
-				resolveBlockyVersion(metricsPayload).then(function(version) {
-					var badge = document.querySelector('.luci-app-blocky .blocky-version-badge');
-
-					if (version && badge)
-						badge.textContent = _('Blocky %s').format(version);
-				});
-			}
-
-			return E('div', { 'class': 'luci-app-blocky' }, [
-				BlockyTabs.dashboard.blockyInjectStyles(),
-				E('div', { 'class': 'blocky-page-head' }, [
-					E('h2', {}, [ _('Blocky DNS') ]),
-					renderBlockyVersionBadge(versionText)
-				]),
-				E('p', { 'class': 'cbi-section-descr' }, [
-					_('Dashboard for Blocky on your router — live statistics, blocking controls, DNS integration, and query logs.')
-				]),
-				statusBarHost,
-				renderTabs([
-					{
-						title: _('Dashboard'),
-						nodes: [ dashboardHost ]
-					},
-					{
-						title: _('Statistics'),
-						nodes: [ statisticsHost ]
-					},
-					{
-						title: _('Block lists'),
-						nodes: [ blocklistsHost ]
-					},
-					{
-						title: _('Configuration'),
-						nodes: [ configHost ]
-					},
-					{
-						title: _('DNS Query'),
-						nodes: [ queryHost ]
-					},
-					{
-						title: _('Logs'),
-						nodes: [ logsHost ]
-					},
-					{
-						title: _('Debug'),
-						nodes: [ debugHost ]
-					}
-				], defaultTab)
+			tabHost = E('div', { 'class': 'blocky-tab-host' }, [
+				statusBox, listsBox, settingsBox, queryBox, logsBox
 			]);
+
+			root = E('div', { 'class': 'luci-app-blocky' }, [
+				BlockyTabs.dashboard.blockyInjectStyles(),
+				E('h2', {}, [ _('Blocky') ]),
+				E('p', { 'class': 'blocky-lead' }, [
+					_('DNS filter for devices on your LAN. dnsmasq on port 53 forwards to Blocky; clients keep using the router as their DNS server.')
+				]),
+				hero,
+				tabHost
+			]);
+
+			ui.tabs.initTabGroup(tabHost.childNodes);
+
+			statusBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'status';
+			});
+			listsBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'blocklists';
+			});
+			settingsBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'settings';
+			});
+			queryBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'query';
+			});
+			logsBox.addEventListener('cbi-tab-active', function() {
+				window.location.hash = 'logs';
+			});
+
+			if (defaultTab > 0) {
+				var buttons = tabHost.querySelectorAll(':scope > .cbi-tabmenu li');
+				if (!buttons.length)
+					buttons = tabHost.querySelectorAll('.cbi-tabmenu li');
+				if (buttons[defaultTab])
+					buttons[defaultTab].click();
+			}
+			if (initialHash === 'statistics')
+				clickInnerTab(statusInner, 'statistics');
+
+			return root;
 		},
 
-		handleSaveApply: null,
-		handleSave: null,
+		handleSave: function() {
+			return Blocky.runSettingsApply(false).then(function() {
+				ui.addNotification(null, E('p', {}, _('Settings saved.')), 4000);
+			});
+		},
+
+		handleSaveApply: function() {
+			return Blocky.runSettingsApply(true).then(function() {
+				ui.addNotification(null, E('p', {}, _('Settings saved and Blocky restarted.')), 4000);
+			});
+		},
+
 		handleReset: null
 	});
 }

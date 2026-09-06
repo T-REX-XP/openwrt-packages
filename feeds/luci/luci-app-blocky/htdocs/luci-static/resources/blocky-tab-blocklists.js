@@ -477,6 +477,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					E('div', { 'class': 'td left' }, [ rulesLabel ]),
 					E('div', { 'class': 'td' }, [
 						E('button', {
+							'type': 'button',
 							'class': 'cbi-button cbi-button-edit',
 							'click': ui.createHandlerFn(this, function(ev) {
 								ev.preventDefault();
@@ -485,6 +486,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 						}, [ _('Edit') ]),
 						' ',
 						E('button', {
+							'type': 'button',
 							'class': 'cbi-button cbi-button-negative',
 							'click': ui.createHandlerFn(this, function(ev) {
 								ev.preventDefault();
@@ -536,14 +538,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					}).then(function() {
 						return execBlockyListsRefresh();
 					});
-				}, 'cbi-button-action', refreshPage),
-				' ',
-				actionButton(_('Save & restart Blocky'), function() {
-					return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
-						notify(_('Block lists applied and Blocky restarted.'));
-						return refreshPage();
-					});
-				}, 'cbi-button-apply')
+				}, 'cbi-button-action', refreshPage)
 			])
 		])
 	]);
