@@ -180,7 +180,10 @@ var ICON_GLYPHS = {
 	search: '⌕',
 	prev: '‹',
 	next: '›',
-	reindex: '↻'
+	reindex: '↻',
+	link: '↔',
+	clean: '⌫',
+	test: '?'
 };
 
 function iconActionEnabled(statusId, kind) {
@@ -1083,27 +1086,41 @@ return view.extend({
 
 		function paintSnortFeeds() {
 			var table;
+			var toolbar;
+			var enabledCount = 0;
 			if (!snortFeedsHost)
 				return;
 			snortFeedsHost.innerHTML = '';
+			snortFeedsHost.appendChild(E('p', { 'class': 'cbi-section-descr' }, [
+				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode. Use Add from catalog for public sets.')
+			]));
 			table = E('div', { 'class': 'table snort-feeds-table' }, [
 				E('div', { 'class': 'tr table-titles' }, [
-					E('div', { 'class': 'th' }, _('Enabled')),
-					E('div', { 'class': 'th' }, _('Name')),
-					E('div', { 'class': 'th' }, _('URL')),
-					E('div', { 'class': 'th' }, _('Actions'))
+					E('div', { 'class': 'th snort-col-num' }, '#'),
+					E('div', { 'class': 'th snort-col-on' }, _('Enabled')),
+					E('div', { 'class': 'th snort-col-name' }, _('Name')),
+					E('div', { 'class': 'th snort-col-url' }, _('URL')),
+					E('div', { 'class': 'th snort-col-actions' }, _('Actions'))
 				])
 			]);
 			if (!snortFeeds.length) {
 				snortFeedsHost.appendChild(E('p', {},
 					_('No rule feeds. Add the Snort 3 community URL or a subscription tarball.')));
 			} else {
-				snortFeeds.forEach(function(entry) {
+				snortFeeds.forEach(function(entry, idx) {
 					var on = entry.enabled !== '0';
+					var nameTip = snortCatalogDesc(entry)
+						? snortCatalogName(entry) + ' — ' + snortCatalogDesc(entry)
+						: snortCatalogName(entry);
+					if (on)
+						enabledCount++;
 					table.appendChild(E('div', { 'class': 'tr' }, [
-						E('div', { 'class': 'td' }, [
+						E('div', { 'class': 'td snort-col-num' }, String(idx + 1)),
+						E('div', { 'class': 'td snort-col-on' }, [
 							E('input', {
 								type: 'checkbox',
+								title: _('Enable %s').format(snortCatalogName(entry)),
+								'aria-label': _('Enable %s').format(snortCatalogName(entry)),
 								checked: on ? 'checked' : null,
 								change: function() {
 									entry.enabled = this.checked ? '1' : '0';
@@ -1114,30 +1131,16 @@ return view.extend({
 								}
 							})
 						]),
-						E('div', { 'class': 'td' }, [
-							E('strong', {}, snortCatalogName(entry)),
-							snortCatalogDesc(entry)
-								? E('div', { 'class': 'snort-feed-note' }, snortCatalogDesc(entry))
-								: ''
-						]),
-						E('div', { 'class': 'td' }, [
+						E('div', { 'class': 'td left snort-col-name', title: nameTip }, snortCatalogName(entry)),
+						E('div', { 'class': 'td left snort-col-url', title: entry.url }, [
 							E('code', { 'class': 'snort-feed-url' }, entry.url)
 						]),
-						E('div', { 'class': 'td' }, [
-							E('button', {
-								'type': 'button',
-								'class': 'btn cbi-button cbi-button-edit',
-								click: function(ev) {
-									ev.preventDefault();
+						E('div', { 'class': 'td snort-col-actions' }, [
+							E('div', { 'class': 'snort-icon-row' }, [
+								iconBtn(_('Edit'), 'edit', function() {
 									openSnortFeedModal(entry);
-								}
-							}, _('Edit')),
-							' ',
-							E('button', {
-								'type': 'button',
-								'class': 'btn cbi-button cbi-button-negative',
-								click: function(ev) {
-									ev.preventDefault();
+								}, true),
+								iconBtn(_('Delete'), 'delete', function() {
 									if (!window.confirm(_('Delete rule feed “%s”?').format(snortCatalogName(entry))))
 										return;
 									snortFeeds = snortFeeds.filter(function(f) {
@@ -1149,33 +1152,43 @@ return view.extend({
 									}).catch(function(e) {
 										ui.addNotification(null, E('p', {}, e.message || e), 'error');
 									});
-								}
-							}, _('Delete'))
+								}, true)
+							])
 						])
 					]));
 				});
-				snortFeedsHost.appendChild(table);
+				snortFeedsHost.appendChild(E('div', { 'class': 'snort-feeds-wrap' }, [ table ]));
 			}
-			snortFeedsHost.appendChild(E('div', { 'class': 'snort-feeds-toolbar' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button cbi-button-add',
-					'title': _('Add a custom HTTPS tarball, zip, or .rules URL'),
-					click: function(ev) {
-						ev.preventDefault();
+			toolbar = [
+				labeledActionBtn(_('Add custom'), 'cbi-button cbi-button-positive',
+					_('Add a custom HTTPS tarball, zip, or .rules URL'),
+					function() {
 						openSnortFeedModal(null);
-					}
-				}, _('Add custom')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'title': _('Pick a public ruleset from Emerging Threats, abuse.ch, or Networkforensic'),
-					click: function(ev) {
-						ev.preventDefault();
+					}, 'add'),
+				labeledActionBtn(_('Add from catalog'), 'cbi-button',
+					_('Pick a public ruleset from Emerging Threats, abuse.ch, or Networkforensic'),
+					function() {
 						openSnortCatalogModal();
-					}
-				}, _('Add from catalog'))
-			]));
+					}, 'catalog')
+			];
+			if (enabledCount)
+				toolbar.push(labeledActionBtn(_('Update rules'), 'cbi-button cbi-button-apply',
+					_('Download enabled rule feeds in the background'),
+					function() {
+						persistSnortFeeds().then(function() {
+							return callUpdateRules();
+						}).then(function(res) {
+							var err = rpcFail(res, null);
+							if (err)
+								ui.addNotification(null, E('p', {}, err), 'error');
+							else
+								ui.addNotification(null, E('p', {},
+									_('Update launched in background. Monitoring starts automatically.')), 4000);
+						}).catch(function(e) {
+							ui.addNotification(null, E('p', {}, e.message || e), 'error');
+						});
+					}, 'fetch'));
+			snortFeedsHost.appendChild(E('div', { 'class': 'snort-feeds-toolbar' }, toolbar));
 		}
 
 		function paintSnortUpdate(st, u) {
@@ -1201,35 +1214,18 @@ return view.extend({
 				snortUpdateHost.appendChild(E('p', { 'class': 'snort-status-warn' }, _('Update in progress...')));
 			else if (u && u.finished)
 				snortUpdateHost.appendChild(E('p', { 'class': 'snort-status-ok' }, _('Update completed!')));
+			else if (snortFeeds.some(function(f) { return f.enabled !== '0'; }))
+				snortUpdateHost.appendChild(E('p', { 'class': 'snort-help' },
+					_('Click Update rules above to download enabled feeds.')));
 			else
 				snortUpdateHost.appendChild(E('p', { 'class': 'snort-help' },
-					_('Click on "Update" to start the rules update')));
+					_('Enable at least one feed, then Update rules.')));
 			snortUpdateHost.appendChild(E('pre', { 'class': 'snort-log-box' }, (u && u.log) || ''));
 
 			snortUpdateHost.appendChild(E('div', { 'class': 'snort-actions' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button cbi-button-apply',
-					'title': _('Download enabled rule feeds in the background'),
-					click: function() {
-						persistSnortFeeds().then(function() {
-							return callUpdateRules();
-						}).then(function(res) {
-							var err = rpcFail(res, null);
-							if (err)
-								ui.addNotification(null, E('p', {}, err), 'error');
-							else
-								ui.addNotification(null, E('p', {},
-									_('Update launched in background. Monitoring starts automatically.')), 4000);
-						}).catch(function(e) {
-							ui.addNotification(null, E('p', {}, e.message || e), 'error');
-						});
-					}
-				}, _('Update rules')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					click: function() {
+				labeledActionBtn(_('Create symbolic link'), 'cbi-button',
+					_('Create a symbolic link from /var/snort.d/rules to /etc/snort/rules'),
+					function() {
 						if (!window.confirm(_('Create a symbolic link from /var/snort.d/rules to /etc/snort/rules?')))
 							return;
 						callFixRules().then(function(res) {
@@ -1242,12 +1238,10 @@ return view.extend({
 						}).catch(function(e) {
 							ui.addNotification(null, E('p', {}, e.message || e), 'error');
 						});
-					}
-				}, _('Create symbolic link')),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					click: function() {
+					}, 'link'),
+				labeledActionBtn(_('Clean temporary files'), 'cbi-button',
+					_('Remove leftover files from the last rules update'),
+					function() {
 						callCleanupTemp().then(function(res) {
 							var err = rpcFail(res, _('Failed'));
 							if (err)
@@ -1257,13 +1251,15 @@ return view.extend({
 						}).catch(function(e) {
 							ui.addNotification(null, E('p', {}, e.message || e), 'error');
 						});
-					}
-				}, _('Clean temporary files'))
+					}, 'clean')
 			]));
 		}
 
 		function ensureSnortRulesLayout() {
 			var oink;
+			var feedsPane;
+			var mgmtPane;
+			var inner;
 			if (snortFeedsHost)
 				return;
 			rulesBox.innerHTML = '';
@@ -1275,17 +1271,22 @@ return view.extend({
 				value: cfg.oinkcode || '',
 				placeholder: _('Enter your Oinkcode if you have one')
 			});
-			rulesBox.appendChild(cbiSection(_('Rule feeds'),
-				_('A feed is an HTTPS address of a rules tarball or zip. Tick Enabled for feeds to download. The free Snort 3 community set is the usual starting point. Paid Talos feeds need an Oinkcode. Use Add from catalog for public sets.'),
-				[
-					snortFeedsHost,
-					fieldRow('snort-oink', _('Oinkcode'), oink,
-						_('From snort.org. Leave empty for community rules.')),
-					snortUpdateHost
-				]));
-			rulesBox.appendChild(cbiSection(_('Signatures'),
-				_('Search downloaded rules by SID, message, or file. Enable and disable take effect after Snort restarts (a few seconds).'),
-				[ snortSidHost ]));
+			feedsPane = E('div', {
+				'data-tab': 'rule-feeds',
+				'data-tab-title': _('Rule feeds')
+			}, [
+				snortFeedsHost,
+				fieldRow('snort-oink', _('Oinkcode'), oink,
+					_('From snort.org. Leave empty for community rules.')),
+				snortUpdateHost
+			]);
+			mgmtPane = E('div', {
+				'data-tab': 'rule-mgmt',
+				'data-tab-title': _('Rules management')
+			}, [ snortSidHost ]);
+			inner = E('div', { 'class': 'snort-rules-inner' }, [ feedsPane, mgmtPane ]);
+			rulesBox.appendChild(inner);
+			ui.tabs.initTabGroup(inner.childNodes);
 			paintSnortFeeds();
 		}
 
@@ -1381,9 +1382,13 @@ return view.extend({
 			}
 
 			function paintSel() {
+				var n = Object.keys(selectedSids).length;
 				var el = document.getElementById('snort-sel-count');
+				var bulk = document.getElementById('snort-rule-bulk');
 				if (el)
-					el.textContent = _('Selected: %s').format(Object.keys(selectedSids).length);
+					el.textContent = _('Selected: %s').format(n);
+				if (bulk)
+					bulk.classList.toggle('is-on', n > 0);
 			}
 
 			function runBulkStatus(status, msg) {
@@ -1455,39 +1460,44 @@ return view.extend({
 					applyFilters(ev);
 			});
 
+			snortSidHost.appendChild(E('p', { 'class': 'cbi-section-descr' }, [
+				_('Search downloaded rules by SID, message, or file. Tick rows for bulk changes, or use the icons on a row. Enable and disable take effect after Snort restarts (a few seconds).')
+			]));
 			snortSidHost.appendChild(E('div', { 'class': 'snort-rules-head' }, [
 				E('div', { 'class': 'snort-rules-actions' }, [
-					labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
-						_('Enable selected signatures'),
-						function() {
-							runBulkStatus('enabled', _('Selected signatures enabled'));
-						}),
-					labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
-						_('Disable selected signatures'),
-						function() {
-							runBulkStatus('disabled', _('Selected signatures disabled'));
-						}),
-					labeledActionBtn(_('Review selected'), 'cbi-button',
-						_('Mark selected signatures for review'),
-						function() {
-							runBulkStatus('review', _('Selected signatures set to review'));
-						}),
-					labeledActionBtn(_('Expire selected'), 'cbi-button',
-						_('Expire selected signatures'),
-						function() {
-							runBulkStatus('expired', _('Selected signatures expired'));
-						}),
+					E('div', { 'id': 'snort-rule-bulk', 'class': 'snort-rule-bulk' }, [
+						labeledActionBtn(_('Enable selected'), 'cbi-button-positive',
+							_('Enable selected signatures'),
+							function() {
+								runBulkStatus('enabled', _('Selected signatures enabled'));
+							}, 'enable'),
+						labeledActionBtn(_('Disable selected'), 'cbi-button-negative',
+							_('Disable selected signatures'),
+							function() {
+								runBulkStatus('disabled', _('Selected signatures disabled'));
+							}, 'disable'),
+						labeledActionBtn(_('Review selected'), 'cbi-button',
+							_('Mark selected signatures for review'),
+							function() {
+								runBulkStatus('review', _('Selected signatures set to review'));
+							}, 'review'),
+						labeledActionBtn(_('Expire selected'), 'cbi-button',
+							_('Expire selected signatures'),
+							function() {
+								runBulkStatus('expired', _('Selected signatures expired'));
+							}, 'expire')
+					]),
 					labeledActionBtn(_('Reindex signatures'), 'cbi-button',
 						_('Rebuild the local signature index'),
 						function() {
 							runReindex();
-						})
+						}, 'reindex')
 				]),
 				E('div', { 'class': 'snort-rules-search' }, [
 					search,
 					labeledActionBtn(_('Search'), 'cbi-button cbi-button-apply',
 						_('Apply search and filters'),
-						applyFilters)
+						applyFilters, 'search')
 				])
 			]));
 			snortSidHost.appendChild(E('div', { 'class': 'snort-toolbar' }, [
@@ -1616,35 +1626,25 @@ return view.extend({
 			snortSidHost.appendChild(tableWrap);
 			from = total ? (rulesState.offset + 1) : 0;
 			to = rulesState.offset + list.length;
-			snortSidHost.appendChild(E('div', { 'class': 'snort-pager' }, [
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'title': _('Previous page'),
-					'disabled': rulesState.offset <= 0 ? true : null,
-					click: function(ev) {
-						ev.preventDefault();
-						if (rulesState.offset <= 0)
-							return;
-						rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
-						loadRules();
-					}
-				}, _('Previous')),
-				E('span', {}, _('Showing %s–%s of %s').format(from, to, total)),
-				E('button', {
-					'type': 'button',
-					'class': 'btn cbi-button',
-					'title': _('Next page'),
-					'disabled': (rulesState.offset + list.length) >= total ? true : null,
-					click: function(ev) {
-						ev.preventDefault();
-						if ((rulesState.offset + list.length) >= total)
-							return;
-						rulesState.offset += rulesState.limit;
-						loadRules();
-					}
-				}, _('Next'))
-			]));
+			(function() {
+				var pager = [ E('span', {}, _('Showing %s–%s of %s').format(from, to, total)) ];
+				if (rulesState.offset > 0)
+					pager.unshift(labeledActionBtn(_('Previous'), 'cbi-button',
+						_('Previous page'),
+						function() {
+							rulesState.offset = Math.max(0, rulesState.offset - rulesState.limit);
+							loadRules();
+						}, 'prev'));
+				if ((rulesState.offset + list.length) < total)
+					pager.push(labeledActionBtn(_('Next'), 'cbi-button',
+						_('Next page'),
+						function() {
+							rulesState.offset += rulesState.limit;
+							loadRules();
+						}, 'next'));
+				snortSidHost.appendChild(E('div', { 'class': 'snort-pager' }, pager));
+			})();
+			paintSel();
 		}
 
 		function renderPolicy(p) {
@@ -1688,7 +1688,7 @@ return view.extend({
 						var n;
 						for (n = 0; n < boxes.length; n++)
 							boxes[n].checked = true;
-					}),
+					}, 'enable'),
 				labeledActionBtn(_('Unselect all'), 'cbi-button',
 					_('Disable every ruleset in the list'),
 					function() {
@@ -1696,7 +1696,7 @@ return view.extend({
 						var n;
 						for (n = 0; n < boxes.length; n++)
 							boxes[n].checked = false;
-					})
+					}, 'disable')
 			]));
 		}
 
@@ -1771,7 +1771,7 @@ return view.extend({
 							function() {
 								settingsSuppress.splice(idx, 1);
 								paintSuppress();
-							})
+							}, 'delete')
 					])
 				]));
 			});
@@ -1821,7 +1821,7 @@ return view.extend({
 						ipIn.value = '';
 						commentIn.value = '';
 						paintSuppress();
-					})
+					}, 'add')
 			]));
 			suppressBox.appendChild(E('div', { id: 'snort-suppress-table' }));
 			paintSuppress();
@@ -1914,7 +1914,7 @@ return view.extend({
 								}).catch(function(e) {
 									ui.addNotification(null, E('p', {}, e.message || e), 'error');
 								});
-							}),
+							}, 'test'),
 						labeledActionBtn(_('Remove'), 'cbi-button-negative',
 							_('Remove this channel'),
 							function() {
@@ -1922,7 +1922,7 @@ return view.extend({
 								settingsNotify.splice(idx, 1);
 								settingsNotify = snortCore.normalizeNotifyList(settingsNotify);
 								paintNotify();
-							})
+							}, 'delete')
 					]),
 					fieldRow('', _('Enable'), enabled,
 						_('No messages are sent until this is on and you Save & Apply.')),
@@ -2053,7 +2053,7 @@ return view.extend({
 						settingsNotify.push(snortCore.emptyNotify(typeAdd.value));
 						settingsNotify = snortCore.normalizeNotifyList(settingsNotify);
 						paintNotify();
-					})
+					}, 'add')
 			]));
 			notifyBox.appendChild(E('div', { id: 'snort-notify-list' }));
 			paintNotify();

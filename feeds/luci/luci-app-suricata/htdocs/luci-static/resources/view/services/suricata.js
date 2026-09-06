@@ -191,7 +191,10 @@ var ICON_GLYPHS = {
 	search: '⌕',
 	prev: '‹',
 	next: '›',
-	reindex: '↻'
+	reindex: '↻',
+	link: '↔',
+	clean: '⌫',
+	test: '?'
 };
 
 function iconActionEnabled(statusId, kind) {
@@ -2031,19 +2034,19 @@ return view.extend({
 						_('Enable selected rulesets'),
 						function() {
 							bulkRsEnabled(true);
-						}),
+						}, 'enable'),
 					labeledActionBtn(_('Disable selected'), 'cbi-button-negative tp-policy-rs-only',
 						_('Disable selected rulesets'),
 						function() {
 							bulkRsEnabled(false);
-						}),
+						}, 'disable'),
 					actionBulk,
 					labeledActionBtn(_('Set action'), 'cbi-button',
 						_('Apply the chosen action to selected rows'),
-						bulkSetAction),
+						bulkSetAction, 'edit'),
 					labeledActionBtn(_('Reset rulesets to profile'), 'cbi-button tp-policy-rs-only',
 						_('Restore the Small or Full profile from Settings'),
-						resetPolicies)
+						resetPolicies, 'reindex')
 				]),
 				E('p', { 'class': 'tp-help' }, [ selCount ])
 			]));
@@ -2147,7 +2150,7 @@ return view.extend({
 							function() {
 								settingsSuppress.splice(idx, 1);
 								paintSuppress();
-							})
+							}, 'delete')
 					])
 				]));
 			});
@@ -2197,7 +2200,7 @@ return view.extend({
 						ipIn.value = '';
 						commentIn.value = '';
 						paintSuppress();
-					})
+					}, 'add')
 			]));
 			suppressBox.appendChild(E('div', { id: 'tp-suppress-table' }));
 			paintSuppress();
@@ -2290,7 +2293,7 @@ return view.extend({
 								}).catch(function(e) {
 									ui.addNotification(null, E('p', {}, e.message || e), 'error');
 								});
-							}),
+							}, 'test'),
 						labeledActionBtn(_('Remove'), 'cbi-button-negative',
 							_('Remove this channel'),
 							function() {
@@ -2298,7 +2301,7 @@ return view.extend({
 								settingsNotify.splice(idx, 1);
 								settingsNotify = suricataCore.normalizeNotifyList(settingsNotify);
 								paintNotify();
-							})
+							}, 'delete')
 					]),
 					fieldRow('', _('Enable'), enabled,
 						_('No messages are sent until this is on and you Save & Apply.')),
@@ -2429,7 +2432,7 @@ return view.extend({
 						settingsNotify.push(suricataCore.emptyNotify(typeAdd.value));
 						settingsNotify = suricataCore.normalizeNotifyList(settingsNotify);
 						paintNotify();
-					})
+					}, 'add')
 			]));
 			alertsBox.appendChild(E('div', { id: 'tp-notify-list' }));
 			paintNotify();

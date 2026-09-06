@@ -254,15 +254,74 @@
 }
 
 .luci-app-snort3 .snort-feeds-table {
-	width: 100%;
-	min-width: 0;
+	width: max-content;
+	min-width: 100%;
 	margin: 0.5rem 0;
+}
+
+.luci-app-snort3 .snort-feeds-wrap {
+	overflow-x: auto;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.luci-app-snort3 .snort-feeds-table .tr {
+	align-items: center;
+	min-width: 46rem;
+}
+
+.luci-app-snort3 .snort-feeds-table .th,
+.luci-app-snort3 .snort-feeds-table .td {
+	flex: 0 0 auto;
+	overflow: visible;
+	word-break: normal;
+	overflow-wrap: normal;
+	vertical-align: middle;
+}
+
+.luci-app-snort3 .snort-feeds-table .snort-col-num,
+.luci-app-snort3 .snort-feeds-table .snort-col-on {
+	width: auto;
+	white-space: nowrap;
+}
+
+.luci-app-snort3 .snort-feeds-table .snort-col-name {
+	flex: 0 1 12rem;
+	min-width: 9rem;
+	max-width: 16rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-snort3 .snort-feeds-table .snort-col-url {
+	flex: 1 1 16rem;
+	min-width: 14rem;
+	max-width: 32rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.luci-app-snort3 .snort-feeds-table .snort-col-actions {
+	flex: 0 0 5.25rem;
+	width: 5.25rem;
+	min-width: 5.25rem;
+	white-space: nowrap;
+	overflow: visible;
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	background: var(--background-color-high, var(--background-color-medium));
+	box-shadow: -0.45rem 0 0.55rem -0.35rem var(--border-color-medium);
 }
 
 .luci-app-snort3 .snort-feed-url {
 	display: block;
 	font-size: 0.82em;
-	word-break: break-all;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-family: var(--font-mono, monospace);
 	color: var(--text-color-high);
 }
@@ -416,6 +475,37 @@
 	gap: 0.5rem;
 	align-items: center;
 	margin: 0.5rem 0;
+}
+
+.luci-app-snort3 .snort-rules-inner {
+	margin-top: 0.35rem;
+	min-width: 0;
+}
+
+.luci-app-snort3 .snort-rules-inner > .cbi-tabmenu {
+	margin: 0.5rem 0 0.75rem;
+}
+
+.luci-app-snort3 .snort-rule-bulk {
+	display: none;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.luci-app-snort3 .snort-rule-bulk.is-on {
+	display: flex;
+}
+
+.luci-app-snort3 .snort-labeled-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.luci-app-snort3 .snort-btn-glyph {
+	font-size: 0.95em;
+	line-height: 1;
 }
 
 .luci-app-snort3 .snort-progress {

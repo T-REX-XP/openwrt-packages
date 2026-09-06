@@ -178,6 +178,15 @@ test('view uses network devices select and advanced paths', () => {
 	assert.match(view, /manual: false/);
 	assert.match(view, /_\('How packets are captured'\)/);
 	assert.match(view, /data-tab-title':\s*_\('Rules'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Rule feeds'\)/);
+	assert.match(view, /data-tab-title':\s*_\('Rules management'\)/);
+	assert.match(view, /snort-rules-inner/);
+	assert.match(view, /id': 'snort-rule-bulk'/);
+	assert.match(view, /labeledActionBtn\(_\('Search'\)/);
+	assert.match(view, /applyFilters, 'search'\)/);
+	assert.match(view, /'prev'\)/);
+	assert.match(view, /'next'\)/);
+	assert.match(view, /iconBtn\(_\('Delete'\), 'delete'/);
 	assert.match(view, /_\('Add'\)/);
 	assert.match(view, /id:\s*'snort-oink'/);
 	assert.match(view, /snort-feeds-table/);
@@ -372,6 +381,9 @@ test('notify helpers', () => {
 	assert.equal(got.config.notify[0].mode, 'digest');
 	const css = readFileSync(join(res, 'snort-theme.css'), 'utf8');
 	assert.match(css, /snort-notify-card/);
+	assert.match(css, /snort-rules-inner/);
+	assert.match(css, /snort-rule-bulk/);
+	assert.match(css, /snort-labeled-btn/);
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);
