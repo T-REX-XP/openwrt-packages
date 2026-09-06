@@ -63,11 +63,45 @@ var callCleanupTemp = rpc.declare({
 	expect: { '': {} }
 });
 
+var callGetRules = rpc.declare({
+	object: 'luci.snort3',
+	method: 'getRules',
+	params: [ 'query', 'classtype', 'file', 'state', 'offset', 'limit' ],
+	expect: { '': {} }
+});
+
+var callSetRuleStates = rpc.declare({
+	object: 'luci.snort3',
+	method: 'setRuleStates',
+	params: [ 'sids', 'gid', 'enabled', 'status' ],
+	expect: { '': {} }
+});
+
+var callReindexRules = rpc.declare({
+	object: 'luci.snort3',
+	method: 'reindexRules',
+	expect: { '': {} }
+});
+
+var callGetPolicies = rpc.declare({
+	object: 'luci.snort3',
+	method: 'getPolicies',
+	expect: { '': {} }
+});
+
+var callSetPolicies = rpc.declare({
+	object: 'luci.snort3',
+	method: 'setPolicies',
+	params: [ 'policies' ],
+	expect: { '': {} }
+});
+
 function val(v, fallback) {
 	return (v === undefined || v === null || v === '') ? (fallback || '—') : v;
 }
 
 var snortFeeds = [];
+var settingsSuppress = [];
 
 function cbiSection(title, descr, body) {
 	return E('div', { 'class': 'cbi-section' }, [
@@ -89,6 +123,138 @@ function fieldRow(id, title, field, descr) {
 
 function snortBadge(kind, text) {
 	return E('span', { 'class': 'snort-badge snort-badge--' + kind }, text);
+}
+
+function ruleStatusInfo(row) {
+	var st = (row && row.status) || ((row && row.enabled) === '0' ? 'disabled' : 'enabled');
+	if (st === 'review')
+		return { id: 'review', kind: 'warn', label: _('Review'), on: true };
+	if (st === 'expired')
+		return { id: 'expired', kind: 'muted', label: _('Expired'), on: false };
+	if (st === 'disabled' || (row && row.enabled === '0'))
+		return { id: 'disabled', kind: 'no', label: _('Disabled'), on: false };
+	return { id: 'enabled', kind: 'yes', label: _('Enabled'), on: true };
+}
+
+var ICON_GLYPHS = {
+	enable: '✓',
+	disable: '✕',
+	review: '▤',
+	expire: '▣'
+};
+
+function iconActionEnabled(statusId, kind) {
+	if (kind === 'enable')
+		return statusId !== 'enabled';
+	if (kind === 'disable')
+		return statusId === 'enabled' || statusId === 'review';
+	if (kind === 'review')
+		return statusId !== 'review';
+	if (kind === 'expire')
+		return statusId !== 'expired';
+	return true;
+}
+
+function iconBtn(title, kind, fn, enabled) {
+	var on = enabled !== false;
+	var tip = title;
+	if (!on) {
+		if (kind === 'enable')
+			tip = _('Already enabled');
+		else if (kind === 'disable')
+			tip = _('Already disabled');
+		else if (kind === 'review')
+			tip = _('Already set to review');
+		else if (kind === 'expire')
+			tip = _('Already expired');
+	}
+	return E('span', { 'class': 'snort-icon-wrap', 'title': tip }, [
+		E('button', {
+			'type': 'button',
+			'class': 'snort-icon-btn snort-icon-btn--' + kind,
+			'title': tip,
+			'aria-label': tip,
+			'disabled': on ? null : true,
+			click: function(ev) {
+				ev.preventDefault();
+				if (!on)
+					return;
+				fn();
+			}
+		}, ICON_GLYPHS[kind] || '•')
+	]);
+}
+
+function labeledActionBtn(label, cls, title, fn) {
+	return E('button', {
+		'type': 'button',
+		'class': 'btn ' + cls,
+		'title': title,
+		'aria-label': title,
+		click: function(ev) {
+			ev.preventDefault();
+			fn();
+		}
+	}, label);
+}
+
+var ruleActionBusy = false;
+
+function progressPanel(msg) {
+	return E('div', { 'class': 'luci-app-snort3' }, [
+		E('div', { 'class': 'snort-progress', role: 'status', 'aria-live': 'polite' }, [
+			E('span', { 'class': 'snort-progress-spinner', 'aria-hidden': 'true' }),
+			E('p', { 'class': 'snort-progress-msg' }, msg)
+		])
+	]);
+}
+
+function showProgress(title, msg) {
+	ui.showModal(title, [ progressPanel(msg) ]);
+}
+
+function withProgress(title, msg, work) {
+	if (ruleActionBusy)
+		return Promise.reject({ busy: true });
+	ruleActionBusy = true;
+	showProgress(title, msg);
+	return Promise.resolve().then(work).then(function(v) {
+		ui.hideModal();
+		ruleActionBusy = false;
+		return v;
+	}, function(e) {
+		ui.hideModal();
+		ruleActionBusy = false;
+		throw e;
+	});
+}
+
+function isBusyErr(e) {
+	return !!(e && e.busy);
+}
+
+function ruleStatusBusyMsg(status) {
+	if (status === 'enabled')
+		return _('Enabling signature… Restarting Snort…');
+	if (status === 'disabled')
+		return _('Disabling signature… Restarting Snort…');
+	if (status === 'review')
+		return _('Marking signature for review… Restarting Snort…');
+	if (status === 'expired')
+		return _('Expiring signature… Restarting Snort…');
+	return _('Updating signature… Restarting Snort…');
+}
+
+function ruleStatusDoneMsg(status) {
+	if (status === 'enabled')
+		return _('Signature enabled');
+	if (status === 'disabled')
+		return _('Signature disabled');
+	if (status === 'review')
+		return _('Signature set to review');
+	if (status === 'expired')
+		return _('Signature expired');
+	return _('Signature updated');
 }
 
 function snortStatusRow(label, value) {
@@ -210,8 +376,43 @@ function collectSnortSettings() {
 		log_dir: logDir.value,
 		config_dir: cfgDir.value,
 		temp_dir: tmpDir.value,
-		feeds: snortFeeds
+		feeds: snortFeeds,
+		pass: {
+			local_nets: !!(document.getElementById('snort-pass-local') &&
+				document.getElementById('snort-pass-local').checked),
+			wan_gateway: !!(document.getElementById('snort-pass-gw') &&
+				document.getElementById('snort-pass-gw').checked),
+			wan_dns: !!(document.getElementById('snort-pass-dns') &&
+				document.getElementById('snort-pass-dns').checked),
+			vpn_addrs: !!(document.getElementById('snort-pass-vpn') &&
+				document.getElementById('snort-pass-vpn').checked),
+			ips: document.getElementById('snort-pass-ips')
+				? document.getElementById('snort-pass-ips').value : ''
+		},
+		suppress: settingsSuppress
 	});
+}
+
+function collectPolicies() {
+	var out = { rulesets: [] };
+	var host = document.getElementById('snort-policy');
+	var rows;
+	var i;
+	var tr;
+	var en;
+
+	if (!host)
+		return out;
+	rows = host.querySelectorAll('tr.snort-rs-row');
+	for (i = 0; i < rows.length; i++) {
+		tr = rows[i];
+		en = tr.querySelector('input.snort-rs-en');
+		out.rulesets.push({
+			file: en ? en.getAttribute('data-file') : '',
+			enabled: en && en.checked ? '1' : '0'
+		});
+	}
+	return out;
 }
 
 function rpcFail(res, fallback) {
@@ -226,12 +427,32 @@ function rpcFail(res, fallback) {
 
 function saveSnortSettings(apply) {
 	var collected = collectSnortSettings();
+	var policies;
+	var policyErr;
+	var hasPolicy;
+
 	if (collected.error)
 		return Promise.reject(new Error(collected.error));
+	policies = collectPolicies();
+	hasPolicy = policies.rulesets.length > 0;
+	if (hasPolicy) {
+		policyErr = snortCore.validatePolicies(policies);
+		if (policyErr)
+			return Promise.reject(new Error(policyErr));
+	}
 	return callSetConfig(collected.config).then(function(res) {
 		var err = rpcFail(res, _('Failed to save Snort settings'));
 		if (err)
 			return Promise.reject(new Error(err));
+		if (!hasPolicy)
+			return res;
+		return callSetPolicies(policies).then(function(out) {
+			var pErr = rpcFail(out, _('Failed to save policies'));
+			if (pErr)
+				return Promise.reject(new Error(pErr));
+			return res;
+		});
+	}).then(function(res) {
 		if (!apply)
 			return res;
 		return callServiceControl(collected.config.enabled === '1' ? 'restart' : 'stop').then(function(svc) {
@@ -263,7 +484,8 @@ return view.extend({
 			callGetAlerts(50),
 			callUpdateStatus(),
 			L.resolveDefault(network.getDevices(), []),
-			L.resolveDefault(network.getNetwork('lan'), null)
+			L.resolveDefault(network.getNetwork('lan'), null),
+			callGetPolicies()
 		]);
 	},
 
@@ -274,9 +496,11 @@ return view.extend({
 		var upd = data[3] || {};
 		var netDevices = data[4] || [];
 		var lanCidr = lanCidrFromNet(data[5]);
+		var policies = data[6] || {};
 		snortFeeds = snortCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : snortCore.defaultFeeds()
 		);
+		settingsSuppress = snortCore.normalizeSuppressList(cfg.suppress || []);
 
 		var css = E('link', {
 			rel: 'stylesheet',
@@ -296,6 +520,9 @@ return view.extend({
 		var alertsBox = E('div', { 'data-tab': 'alerts', 'data-tab-title': _('Alerts') });
 		var settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
 		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
+		var policyBox = E('div', { 'data-tab': 'policy', 'data-tab-title': _('Policy') });
+		var passBox = E('div', { 'data-tab': 'pass', 'data-tab-title': _('Pass list') });
+		var suppressBox = E('div', { 'data-tab': 'suppress', 'data-tab-title': _('Suppress') });
 
 		function paintHero(st) {
 			var note;
@@ -354,6 +581,7 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'cbi-button cbi-button-apply',
+					'title': _('Start the Snort service'),
 					click: function() {
 						runService('start', _('Snort started'));
 					}
@@ -361,6 +589,7 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'cbi-button',
+					'title': _('Stop the Snort service'),
 					click: function() {
 						runService('stop', _('Snort stopped'));
 					}
@@ -368,6 +597,7 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'cbi-button',
+					'title': _('Restart the Snort service'),
 					click: function() {
 						runService('restart', _('Snort restarted'));
 					}
@@ -375,6 +605,9 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'cbi-button',
+					'title': st.enabled_boot
+						? _('Do not start Snort at boot')
+						: _('Start Snort automatically at boot'),
 					click: function() {
 						runService(st.enabled_boot ? 'disable' : 'enable',
 							st.enabled_boot ? _('Auto-start disabled') : _('Auto-start enabled'));
@@ -574,6 +807,10 @@ return view.extend({
 
 		var snortFeedsHost;
 		var snortUpdateHost;
+		var snortSidHost;
+		var rulesState = { query: '', classtype: '', file: '', state: 'all', offset: 0, limit: 50 };
+		var selectedSids = {};
+		var sidLayoutReady = false;
 
 		function persistSnortFeeds() {
 			var oink = elVal('snort-oink');
@@ -787,6 +1024,7 @@ return view.extend({
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button cbi-button-apply',
+					'title': _('Download enabled rule feeds in the background'),
 					click: function() {
 						persistSnortFeeds().then(function() {
 							return callUpdateRules();
@@ -845,6 +1083,7 @@ return view.extend({
 			rulesBox.innerHTML = '';
 			snortFeedsHost = E('div', { 'class': 'snort-feeds-table-host' });
 			snortUpdateHost = E('div', { 'class': 'snort-rules-update' });
+			snortSidHost = E('div', { 'class': 'snort-sid-host' });
 			oink = E('input', {
 				type: 'password', id: 'snort-oink',
 				value: cfg.oinkcode || '',
@@ -858,6 +1097,9 @@ return view.extend({
 						_('From snort.org. Leave empty for community rules.')),
 					snortUpdateHost
 				]));
+			rulesBox.appendChild(cbiSection(_('Signatures'),
+				_('Search downloaded rules by SID, message, or file. Enable and disable take effect after Snort restarts (a few seconds).'),
+				[ snortSidHost ]));
 			paintSnortFeeds();
 		}
 

@@ -106,11 +106,40 @@ grep -q 'suppress gen_id 1, sig_id 2020004' "$THRESH" || { echo "missing expired
 grep -q '2020005' "$THRESH" && { echo "invalid threshold was emitted"; cat "$THRESH"; exit 1; }
 grep -q 'sig_id 2020004, type' "$THRESH" && { echo "expired SID still got a threshold"; cat "$THRESH"; exit 1; }
 
+PASS_FAKE=$(mktemp -d)
+PASS_THRESH=$(mktemp)
+trap 'rm -f "$DB" "$RULES_DB" "$THRESH" "$POL_META" "$PASS_THRESH"; rm -rf "$RULES_DIR" "$FAKE" "$POL_FAKE" "$POL_OUT" "$PASS_FAKE"' EXIT
+cat > "$PASS_FAKE/uci" <<'EOF'
+#!/bin/sh
+case "$*" in
+"-q show suricata")
+	printf '%s\n' 'suricata.@suppress[0]=suppress'
+	;;
+"-q get suricata.@suppress[0]") echo suppress ;;
+"-q get suricata.@suppress[0].sid") echo 2000354 ;;
+"-q get suricata.@suppress[0].gid") echo 1 ;;
+"-q get suricata.@suppress[0].track") echo by_src ;;
+"-q get suricata.@suppress[0].ip") echo 192.168.8.50 ;;
+"-q get suricata.@suppress[1]") exit 1 ;;
+"-q get suricata.pass.local_nets") echo 0 ;;
+"-q get suricata.pass.wan_gateway") echo 0 ;;
+"-q get suricata.pass.wan_dns") echo 0 ;;
+"-q get suricata.pass.vpn_addrs") echo 0 ;;
+"-q get suricata.pass.ip") echo '203.0.113.10' ;;
+*) exit 1 ;;
+esac
+exit 0
+EOF
+chmod +x "$PASS_FAKE/uci"
+PATH="$PASS_FAKE:/usr/bin:/bin" sh "$APPLY" "$PASS_THRESH"
+grep -q 'suppress gen_id 1, sig_id 2000354, track by_src, ip 192.168.8.50' "$PASS_THRESH" || { echo "missing host suppress"; cat "$PASS_THRESH"; exit 1; }
+grep -q 'suppress gen_id 1, track by_src, ip 203.0.113.10' "$PASS_THRESH" || { echo "missing pass-list ip"; cat "$PASS_THRESH"; exit 1; }
+
 POLICY="$ROOT/files/usr/sbin/tp-policy-apply"
 POL_FAKE=$(mktemp -d)
 POL_OUT=$(mktemp -d)
 POL_META=$(mktemp)
-trap 'rm -f "$DB" "$RULES_DB" "$THRESH" "$POL_META"; rm -rf "$RULES_DIR" "$FAKE" "$POL_FAKE" "$POL_OUT"' EXIT
+trap 'rm -f "$DB" "$RULES_DB" "$THRESH" "$POL_META" "$PASS_THRESH"; rm -rf "$RULES_DIR" "$FAKE" "$POL_FAKE" "$POL_OUT" "$PASS_FAKE"' EXIT
 cat > "$POL_FAKE/uci" <<'EOF'
 #!/bin/sh
 case "$*" in

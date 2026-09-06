@@ -143,6 +143,18 @@ return baseclass.extend({
 				return { error: err };
 			cfg.feeds = this.normalizeFeeds(raw.feeds);
 		}
+		if (raw.pass !== undefined) {
+			err = this.validatePass(raw.pass);
+			if (err)
+				return { error: err };
+			cfg.pass = this.normalizePass(raw.pass);
+		}
+		if (raw.suppress !== undefined) {
+			err = this.validateSuppressList(raw.suppress);
+			if (err)
+				return { error: err };
+			cfg.suppress = this.normalizeSuppressList(raw.suppress);
+		}
 		return { config: cfg };
 	},
 
@@ -394,6 +406,11 @@ return baseclass.extend({
 	parseRuleRaw: function(raw) {
 		var out = {
 			action: '',
+			proto: '',
+			src: '',
+			sport: '',
+			dst: '',
+			dport: '',
 			msg: '',
 			sid: '',
 			rev: '',
@@ -405,9 +422,19 @@ return baseclass.extend({
 		var m;
 
 		raw = String(raw == null ? '' : raw);
-		m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/);
-		if (m)
+		m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\s+(\S+)\s+(\S+)\s+(\S+)\s+->\s+(\S+)\s+(\S+)/);
+		if (m) {
 			out.action = m[1];
+			out.proto = m[2];
+			out.src = m[3];
+			out.sport = m[4];
+			out.dst = m[5];
+			out.dport = m[6];
+		} else {
+			m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/);
+			if (m)
+				out.action = m[1];
+		}
 		m = raw.match(/msg:"((?:\\.|[^"\\])*)"/);
 		if (m)
 			out.msg = m[1].replace(/\\(.)/g, '$1');
@@ -684,5 +711,115 @@ return baseclass.extend({
 			enabled: '1',
 			description: 'Proofpoint Emerging Threats Open for Suricata 8.0'
 		}];
+	},
+
+	validPassIp: function(s) {
+		s = String(s == null ? '' : s).trim();
+		if (!s || s.length > 64)
+			return false;
+		if (/^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\/(?:3[0-2]|[12]?\d))?$/.test(s))
+			return true;
+		return /^[0-9a-fA-F:]+(?:\/(?:12[0-8]|1[01]\d|[1-9]?\d))?$/.test(s);
+	},
+
+	normalizePassIps: function(raw) {
+		var text;
+		var parts;
+		var i;
+		var one;
+		var seen = {};
+		var out = [];
+
+		if (Array.isArray(raw))
+			text = raw.join('\n');
+		else
+			text = String(raw == null ? '' : raw);
+		parts = text.split(/[\s,;]+/);
+		for (i = 0; i < parts.length; i++) {
+			one = parts[i].trim();
+			if (!one || seen[one])
+				continue;
+			if (!this.validPassIp(one))
+				continue;
+			seen[one] = 1;
+			out.push(one);
+			if (out.length >= 64)
+				break;
+		}
+		return out;
+	},
+
+	normalizePass: function(raw) {
+		raw = raw || {};
+		return {
+			local_nets: this.normalizeFlag(raw.local_nets),
+			wan_gateway: this.normalizeFlag(raw.wan_gateway),
+			wan_dns: this.normalizeFlag(raw.wan_dns),
+			vpn_addrs: this.normalizeFlag(raw.vpn_addrs),
+			ips: this.normalizePassIps(raw.ips)
+		};
+	},
+
+	validatePass: function(raw) {
+		var i;
+		var ips;
+		if (!raw || typeof raw !== 'object')
+			return 'invalid pass list';
+		ips = Array.isArray(raw.ips) ? raw.ips : this.normalizePassIps(raw.ips);
+		for (i = 0; i < ips.length; i++) {
+			if (!this.validPassIp(ips[i]))
+				return 'invalid pass ip';
+		}
+		return null;
+	},
+
+	normalizeSuppressList: function(raw) {
+		var i;
+		var row;
+		var out = [];
+		var sid;
+		var ip;
+		var track;
+		var gid;
+		var comment;
+		if (!Array.isArray(raw))
+			return out;
+		for (i = 0; i < raw.length && out.length < 100; i++) {
+			row = raw[i] || {};
+			sid = String(row.sid || '').trim();
+			ip = String(row.ip || '').trim();
+			track = String(row.track || 'by_src').trim();
+			gid = String(row.gid || '1').trim();
+			comment = String(row.comment || '').replace(/[^A-Za-z0-9 .,_-]/g, '').substring(0, 80);
+			if (!this.validSid(sid) || !this.validPassIp(ip))
+				continue;
+			if (track !== 'by_src' && track !== 'by_dst')
+				track = 'by_src';
+			if (!/^[0-9]+$/.test(gid))
+				gid = '1';
+			out.push({ sid: sid, gid: gid, track: track, ip: ip, comment: comment });
+		}
+		return out;
+	},
+
+	validateSuppressList: function(raw) {
+		var i;
+		var row;
+		if (raw == null)
+			return null;
+		if (!Array.isArray(raw))
+			return 'invalid suppress';
+		if (raw.length > 100)
+			return 'invalid suppress';
+		for (i = 0; i < raw.length; i++) {
+			row = raw[i] || {};
+			if (!this.validSid(String(row.sid || '')))
+				return 'invalid sid';
+			if (!this.validPassIp(String(row.ip || '')))
+				return 'invalid ip';
+			if (row.track && row.track !== 'by_src' && row.track !== 'by_dst')
+				return 'invalid track';
+		}
+		return null;
 	}
 });

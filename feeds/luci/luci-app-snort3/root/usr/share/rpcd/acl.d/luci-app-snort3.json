@@ -7,7 +7,9 @@
 					"getStatus",
 					"getConfig",
 					"getAlerts",
-					"updateStatus"
+					"updateStatus",
+					"getRules",
+					"getPolicies"
 				]
 			},
 			"uci": [ "snort" ],
@@ -30,7 +32,10 @@
 				"/bin/readlink": [ "exec" ],
 				"/usr/bin/readlink": [ "exec" ],
 				"/sbin/logread": [ "exec" ],
-				"/usr/bin/logread": [ "exec" ]
+				"/usr/bin/logread": [ "exec" ],
+				"/usr/sbin/sqlite3": [ "exec" ],
+				"/usr/bin/sqlite3": [ "exec" ],
+				"/var/lib/snort/rules.sqlite": [ "read" ]
 			}
 		},
 		"write": {
@@ -40,7 +45,10 @@
 					"serviceControl",
 					"updateRules",
 					"fixRules",
-					"cleanupTemp"
+					"cleanupTemp",
+					"setRuleStates",
+					"reindexRules",
+					"setPolicies"
 				]
 			},
 			"uci": [ "snort" ],
@@ -48,6 +56,8 @@
 				"/etc/init.d/snort": [ "exec" ],
 				"/usr/bin/snort-rules": [ "exec" ],
 				"/usr/bin/snort-mgr": [ "exec" ],
+				"/usr/sbin/snort-rules-index": [ "exec" ],
+				"/usr/sbin/snort-rules-apply": [ "exec" ],
 				"/sbin/uci": [ "exec" ],
 				"/usr/bin/uci": [ "exec" ],
 				"/bin/ln": [ "exec" ],
@@ -57,7 +67,12 @@
 				"/tmp/snort_rules_update.log": [ "write" ],
 				"/tmp/snort_rules_update.lock": [ "write" ],
 				"/etc/snort/rules": [ "write" ],
-				"/var/snort.d/*.tar.gz": [ "write" ]
+				"/var/snort.d/*.tar.gz": [ "write" ],
+				"/var/snort.d/ips.states": [ "write" ],
+				"/var/snort.d/snort-pass-list.rules": [ "write" ],
+				"/var/snort.d/suppress.lua": [ "write" ],
+				"/var/snort.d/skip-rules": [ "write" ],
+				"/var/lib/snort/rules.sqlite": [ "write" ]
 			}
 		}
 	}

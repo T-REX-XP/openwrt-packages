@@ -120,9 +120,18 @@ const RULES_DB = '/var/lib/threat-prevention/rules.sqlite';
 function feed_id_ok(id) {
 	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
 		return false;
-	if (id == 'main' || match(`${id}`, /^s[0-9]+$/))
+	if (id == 'main' || id == 'pass' || match(`${id}`, /^s[0-9]+$/))
 		return false;
 	return true;
+}
+
+function parse_enabled_flag(v) {
+	v = `${v}`;
+	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
+		return '1';
+	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
+		return '0';
+	return null;
 }
 
 function list_etopen_feeds() {
@@ -160,6 +169,121 @@ function list_etopen_feeds() {
 	return feeds;
 }
 
+function valid_pass_ip(s) {
+	s = trim(`${s}`);
+	if (s == '' || length(s) > 64)
+		return false;
+	return match(s, /^[0-9A-Fa-f.:/]+$/) != null;
+}
+
+function read_pass() {
+	let ips = [];
+	let raw = run_cmd('uci -q get suricata.pass.ip').output;
+	let one;
+	let exists = run_cmd('uci -q get suricata.pass').code == 0;
+	let auto = exists ? '0' : '1';
+	if (raw != '') {
+		for (one in split(raw, /[ \t\n]+/)) {
+			one = trim(`${one}`);
+			if (one != '' && valid_pass_ip(one))
+				push(ips, one);
+		}
+	}
+	return {
+		local_nets: parse_enabled_flag(run_cmd('uci -q get suricata.pass.local_nets').output) || auto,
+		wan_gateway: parse_enabled_flag(run_cmd('uci -q get suricata.pass.wan_gateway').output) || auto,
+		wan_dns: parse_enabled_flag(run_cmd('uci -q get suricata.pass.wan_dns').output) || auto,
+		vpn_addrs: parse_enabled_flag(run_cmd('uci -q get suricata.pass.vpn_addrs').output) || '0',
+		ips
+	};
+}
+
+function read_suppress() {
+	let out = [];
+	let idx = run_cmd("uci -q show suricata | sed -n 's/^suricata\\.@suppress\\[\\([0-9]*\\)\\]=suppress/\\1/p'");
+	if (!idx.output)
+		return out;
+	for (let line in split(idx.output, '\n')) {
+		if (line == '')
+			continue;
+		let sid = run_cmd(`uci -q get suricata.@suppress[${line}].sid`).output;
+		let gid = run_cmd(`uci -q get suricata.@suppress[${line}].gid`).output;
+		let track = run_cmd(`uci -q get suricata.@suppress[${line}].track`).output;
+		let ip = run_cmd(`uci -q get suricata.@suppress[${line}].ip`).output;
+		let comment = run_cmd(`uci -q get suricata.@suppress[${line}].comment`).output;
+		if (!match(sid, /^[0-9]+$/) || !valid_pass_ip(ip))
+			continue;
+		if (gid == '' || !match(gid, /^[0-9]+$/))
+			gid = '1';
+		if (track != 'by_src' && track != 'by_dst')
+			track = 'by_src';
+		push(out, { sid, gid, track, ip, comment: comment || '' });
+	}
+	return out;
+}
+
+function replace_pass(p) {
+	let ips;
+	let one;
+	if (type(p) != 'object')
+		return 'invalid pass list';
+	ips = p.ips;
+	if (type(ips) != 'array')
+		ips = [];
+	run_cmd('uci -q delete suricata.pass');
+	run_cmd('uci set suricata.pass=pass');
+	run_cmd(`uci set suricata.pass.local_nets=${parse_enabled_flag(p.local_nets) || '0'}`);
+	run_cmd(`uci set suricata.pass.wan_gateway=${parse_enabled_flag(p.wan_gateway) || '0'}`);
+	run_cmd(`uci set suricata.pass.wan_dns=${parse_enabled_flag(p.wan_dns) || '0'}`);
+	run_cmd(`uci set suricata.pass.vpn_addrs=${parse_enabled_flag(p.vpn_addrs) || '0'}`);
+	for (one in ips) {
+		one = trim(`${one}`);
+		if (!valid_pass_ip(one))
+			return 'invalid pass ip';
+		run_cmd(`uci add_list suricata.pass.ip=${shell_quote(one)}`);
+	}
+	return null;
+}
+
+function replace_suppress(rows) {
+	let row;
+	let sid;
+	let gid;
+	let track;
+	let ip;
+	let comment;
+	if (type(rows) != 'array')
+		return 'invalid suppress';
+	if (length(rows) > 100)
+		return 'invalid suppress';
+	while (run_cmd('uci -q get suricata.@suppress[0]').code == 0)
+		run_cmd('uci -q delete suricata.@suppress[0]');
+	for (row in rows) {
+		if (type(row) != 'object')
+			return 'invalid suppress';
+		sid = trim(`${row.sid || ''}`);
+		gid = trim(`${row.gid || '1'}`);
+		track = trim(`${row.track || 'by_src'}`);
+		ip = trim(`${row.ip || ''}`);
+		comment = trim(`${row.comment || ''}`);
+		if (!match(sid, /^[0-9]+$/) || !valid_pass_ip(ip))
+			return 'invalid suppress';
+		if (!match(gid, /^[0-9]+$/))
+			gid = '1';
+		if (track != 'by_src' && track != 'by_dst')
+			track = 'by_src';
+		if (length(comment) > 80)
+			comment = substr(comment, 0, 80);
+		run_cmd('uci add suricata suppress');
+		run_cmd(`uci set suricata.@suppress[-1].sid=${shell_quote(sid)}`);
+		run_cmd(`uci set suricata.@suppress[-1].gid=${shell_quote(gid)}`);
+		run_cmd(`uci set suricata.@suppress[-1].track=${shell_quote(track)}`);
+		run_cmd(`uci set suricata.@suppress[-1].ip=${shell_quote(ip)}`);
+		run_cmd(`uci set suricata.@suppress[-1].comment=${shell_quote(comment)}`);
+	}
+	return null;
+}
+
 function get_config() {
 	let cfg = {};
 	for (let k in const_defaults)
@@ -177,6 +301,8 @@ function get_config() {
 	}
 	cfg.classtypes = classes;
 	cfg.feeds = list_etopen_feeds();
+	cfg.pass = read_pass();
+	cfg.suppress = read_suppress();
 	return cfg;
 }
 
@@ -286,15 +412,6 @@ function distinct_col(col) {
 			push(out, line);
 	}
 	return out;
-}
-
-function parse_enabled_flag(v) {
-	v = `${v}`;
-	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
-		return '1';
-	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
-		return '0';
-	return null;
 }
 
 function get_policies() {
@@ -797,6 +914,16 @@ const methods = {
 				let ferr = replace_etopen_feeds(cfg.feeds);
 				if (ferr)
 					return { error: ferr };
+			}
+			if ('pass' in cfg) {
+				let perr = replace_pass(cfg.pass);
+				if (perr)
+					return { error: perr };
+			}
+			if ('suppress' in cfg) {
+				let serr = replace_suppress(cfg.suppress);
+				if (serr)
+					return { error: serr };
 			}
 			for (let k in const_defaults) {
 				if (!(k in cfg))

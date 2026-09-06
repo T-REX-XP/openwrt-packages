@@ -7,11 +7,11 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI for Snort3 IDS/IPS
-LUCI_DEPENDS:=+luci-base +snort3
+LUCI_DEPENDS:=+luci-base +snort3 +sqlite3
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=3.6
-PKG_RELEASE:=14
+PKG_RELEASE:=15
 
 PKG_LICENSE:=GPL-2.0-or-later
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>

@@ -2,7 +2,7 @@
 // Copyright (c) 2023-2024 Eric Fahlgren <eric.fahlgren@gmail.com>
 // SPDX-License-Identifier: GPL-2.0
 
-import { lsdir } from 'fs';
+import { lsdir, readfile, stat } from 'fs';
 
 // Create some snort-format-specific items.
 
@@ -67,14 +67,31 @@ ips = {
   rules = [[
 {%
     let rules_dir = snort.config_dir + '/rules';
+    let skip = {};
+    let skip_txt = readfile('/var/snort.d/skip-rules') || '';
+    for (let line in split(skip_txt, '\n')) {
+      line = trim(line);
+      if (line != '')
+        skip[line] = true;
+    }
     for (let rule in lsdir(rules_dir)) {
       if (wildcard(rule, '*includes.rules', true)) continue;
+      if (wildcard(rule, 'snort-pass-list.rules', true)) continue;
+      if (skip[rule]) continue;
       if (wildcard(rule, '*.rules', true)) {
         printf(`    include ${rules_dir}/${rule}\n`);
       }
     }
+    if (stat('/var/snort.d/snort-pass-list.rules'))
+      printf("    include /var/snort.d/snort-pass-list.rules\n");
 %}
   ]],
+{%
+    let states = readfile('/var/snort.d/ips.states');
+    if (states && length(trim(states))) {
+      printf("  states = [[\n%s  ]],\n", states);
+    }
+%}
 {% endif -%}
 }
 
@@ -173,6 +190,12 @@ appid = {
   app_stats_period = 60,
 }
 {% endif %}
+
+{%
+    let suppress_lua = readfile('/var/snort.d/suppress.lua');
+    if (suppress_lua && length(trim(suppress_lua)))
+      printf("%s\n", suppress_lua);
+%}
 
 {%
 if (snort.include) {

@@ -140,7 +140,14 @@ test('view uses network devices select and footer save', () => {
 	assert.match(view, /ruleStatusBusyMsg/);
 	assert.match(view, /function iconActionEnabled/);
 	assert.match(view, /iconActionEnabled\(st\.id, 'enable'\)/);
-	assert.match(view, /iconActionEnabled\(st\.id, 'disable'\)/);
+	assert.match(view, /_\('Pass list'\)/);
+	assert.match(view, /_\('Suppress'\)/);
+	assert.match(view, /_\('Select all'\)/);
+	assert.match(view, /_\('Unselect all'\)/);
+	assert.match(view, /_\('GID'\)/);
+	assert.match(view, /parseRuleRaw/);
+	assert.match(view, /id:\s*'tp-pass-local'/);
+	assert.match(view, /id:\s*'tp-suppress-table'/);
 	assert.match(view, /function labeledActionBtn/);
 	assert.match(view, /_\('Enable selected signatures'\)/);
 	assert.match(view, /_\('Disable selected signatures'\)/);
@@ -185,7 +192,11 @@ test('ucode still validates interface names', () => {
 	}
 	assert.ok(fnPos('list_etopen_feeds') < fnPos('get_config'), 'list_etopen_feeds before get_config');
 	assert.ok(fnPos('distinct_col') < fnPos('get_policies'), 'distinct_col before get_policies');
+	assert.ok(fnPos('parse_enabled_flag') < fnPos('read_pass'), 'parse_enabled_flag before read_pass');
+	assert.ok(fnPos('read_pass') < fnPos('get_config'), 'read_pass before get_config');
+	assert.ok(fnPos('replace_pass') < fnPos('get_config'), 'replace_pass before get_config');
 	assert.ok(fnPos('parse_enabled_flag') < fnPos('replace_policies'), 'parse_enabled_flag before replace_policies');
+	assert.match(ucode, /function replace_suppress/);
 });
 
 test('rule query helpers', () => {
@@ -214,6 +225,11 @@ test('parseRuleRaw and tune preview', () => {
 	const raw = 'alert dns $HOME_NET any -> any any (msg:"ET MOBILE_MALWARE Foo"; content:"bar"; classtype:trojan-activity; sid:2026369; rev:3; metadata:former_category MALWARE, updated_at 2020_01_01;)';
 	const parsed = core.parseRuleRaw(raw);
 	assert.equal(parsed.action, 'alert');
+	assert.equal(parsed.proto, 'dns');
+	assert.equal(parsed.src, '$HOME_NET');
+	assert.equal(parsed.sport, 'any');
+	assert.equal(parsed.dst, 'any');
+	assert.equal(parsed.dport, 'any');
 	assert.equal(parsed.sid, '2026369');
 	assert.equal(parsed.classtype, 'trojan-activity');
 	assert.equal(parsed.msg, 'ET MOBILE_MALWARE Foo');
@@ -261,6 +277,28 @@ test('validatePolicies', () => {
 	}), 'invalid classtype');
 	assert.equal(core.sanitizeRulesetFile('emerging-malware.rules'), 'emerging-malware.rules');
 	assert.equal(core.actionOk('reject'), true);
+});
+
+test('pass list and suppress helpers', () => {
+	assert.equal(core.validPassIp('192.168.8.1'), true);
+	assert.equal(core.validPassIp('10.0.0.0/8'), true);
+	assert.equal(core.validPassIp('bad host'), false);
+	assert.deepEqual(core.normalizePassIps('192.168.8.1, 10.0.0.0/8\n192.168.8.1'), ['192.168.8.1', '10.0.0.0/8']);
+	assert.equal(core.validatePass({ local_nets: '1', ips: ['192.168.8.1'] }), null);
+	assert.equal(core.validateSuppressList([{ sid: '2000354', ip: '192.168.8.50', track: 'by_src' }]), null);
+	assert.equal(core.validateSuppressList([{ sid: 'x', ip: '192.168.8.50' }]), 'invalid sid');
+	const got = core.collectSettings({
+		enabled: '1',
+		interface: 'br-lan',
+		home_net: '192.168.8.0/24',
+		rule_profile: 'small',
+		mode: 'ids',
+		pass: { local_nets: true, ips: '1.2.3.4' },
+		suppress: [{ sid: '2000354', ip: '10.0.0.1', track: 'by_dst' }]
+	});
+	assert.equal(got.config.pass.local_nets, '1');
+	assert.deepEqual(got.config.pass.ips, ['1.2.3.4']);
+	assert.equal(got.config.suppress[0].track, 'by_dst');
 });
 
 console.log(`Results: ${pass} passed, ${fail} failed`);

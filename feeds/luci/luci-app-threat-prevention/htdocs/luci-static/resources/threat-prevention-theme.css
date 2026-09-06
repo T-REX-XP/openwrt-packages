@@ -532,6 +532,12 @@
 	color: var(--on-primary-color, #fff);
 }
 
+.luci-app-threat-prevention .tp-col-gid,
+.luci-app-threat-prevention .tp-col-tuple {
+	white-space: nowrap;
+	font-size: 0.82em;
+}
+
 .luci-app-threat-prevention .tp-col-actions {
 	flex: 0 0 auto;
 	width: 1%;

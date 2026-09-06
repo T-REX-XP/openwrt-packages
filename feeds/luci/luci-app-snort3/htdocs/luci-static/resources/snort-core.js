@@ -160,6 +160,18 @@ return baseclass.extend({
 				return { error: err };
 			cfg.feeds = this.normalizeFeeds(raw.feeds);
 		}
+		if (raw.pass !== undefined) {
+			err = this.validatePass(raw.pass);
+			if (err)
+				return { error: err };
+			cfg.pass = this.normalizePass(raw.pass);
+		}
+		if (raw.suppress !== undefined) {
+			err = this.validateSuppressList(raw.suppress);
+			if (err)
+				return { error: err };
+			cfg.suppress = this.normalizeSuppressList(raw.suppress);
+		}
 		return { config: cfg };
 	},
 
@@ -276,7 +288,8 @@ return baseclass.extend({
 			.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 		if (!id)
 			return '';
-		if (/^[0-9]/.test(id) || id === 'snort' || id === 'nfq')
+		if (/^[0-9]/.test(id) || id === 'snort' || id === 'nfq' ||
+		    id === 'pass' || /^s[0-9]+$/.test(id))
 			id = 'rs_' + id;
 		if (id.length > 32)
 			id = id.substring(0, 32);
@@ -363,5 +376,232 @@ return baseclass.extend({
 			enabled: '1',
 			description: 'Free Snort 3 community ruleset'
 		}];
+	},
+
+	sanitizeRuleQuery: function(q) {
+		q = String(q == null ? '' : q).trim();
+		if (q.length > 64)
+			q = q.substring(0, 64);
+		return q.replace(/[%_'\\]/g, '');
+	},
+
+	clampRuleLimit: function(n) {
+		n = parseInt(n, 10);
+		if (isNaN(n) || n < 1)
+			return 50;
+		if (n > 100)
+			return 100;
+		return n;
+	},
+
+	validSid: function(sid) {
+		return /^[0-9]{1,10}$/.test(String(sid == null ? '' : sid));
+	},
+
+	normalizeSidList: function(sids) {
+		var out = [];
+		var seen = {};
+		var i;
+		var sid;
+
+		if (!Array.isArray(sids))
+			return null;
+		for (i = 0; i < sids.length; i++) {
+			sid = String(sids[i] == null ? '' : sids[i]).trim();
+			if (!this.validSid(sid) || seen[sid])
+				continue;
+			seen[sid] = 1;
+			out.push(sid);
+		}
+		if (!out.length || out.length > 50)
+			return null;
+		return out;
+	},
+
+	sanitizeRulesetFile: function(file) {
+		var f = String(file == null ? '' : file).trim();
+		if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.rules$/.test(f) || f.length > 80)
+			return '';
+		return f;
+	},
+
+	validatePolicies: function(p) {
+		var i;
+		var row;
+		var file;
+		var seen;
+
+		if (!p || typeof p !== 'object')
+			return 'invalid policies';
+		if (!Array.isArray(p.rulesets) || p.rulesets.length > 80)
+			return 'invalid rulesets';
+		seen = {};
+		for (i = 0; i < p.rulesets.length; i++) {
+			row = p.rulesets[i];
+			if (!row || typeof row !== 'object')
+				return 'invalid ruleset';
+			file = this.sanitizeRulesetFile(row.file);
+			if (!file || seen[file])
+				return 'invalid ruleset';
+			seen[file] = 1;
+			if (this.normalizeFlag(row.enabled) !== '0' &&
+			    this.normalizeFlag(row.enabled) !== '1')
+				return 'invalid ruleset';
+		}
+		return null;
+	},
+
+	parseRuleRaw: function(raw) {
+		var out = {
+			action: '',
+			proto: '',
+			src: '',
+			sport: '',
+			dst: '',
+			dport: '',
+			msg: '',
+			sid: '',
+			rev: '',
+			classtype: ''
+		};
+		var m;
+
+		raw = String(raw == null ? '' : raw);
+		m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\s+(\S+)\s+(\S+)\s+(\S+)\s+->\s+(\S+)\s+(\S+)/);
+		if (m) {
+			out.action = m[1];
+			out.proto = m[2];
+			out.src = m[3];
+			out.sport = m[4];
+			out.dst = m[5];
+			out.dport = m[6];
+		} else {
+			m = raw.match(/^(alert|drop|pass|reject|rejectsrc|rejectdst)\b/);
+			if (m)
+				out.action = m[1];
+		}
+		m = raw.match(/msg:"((?:\\.|[^"\\])*)"/);
+		if (m)
+			out.msg = m[1].replace(/\\(.)/g, '$1');
+		m = raw.match(/\bsid:([0-9]+)/);
+		if (m)
+			out.sid = m[1];
+		m = raw.match(/\brev:([0-9]+)/);
+		if (m)
+			out.rev = m[1];
+		m = raw.match(/\bclasstype:([^;]+)/);
+		if (m)
+			out.classtype = m[1].trim();
+		return out;
+	},
+
+	validPassIp: function(s) {
+		s = String(s == null ? '' : s).trim();
+		if (!s || s.length > 64)
+			return false;
+		if (/^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\/(?:3[0-2]|[12]?\d))?$/.test(s))
+			return true;
+		return /^[0-9a-fA-F:]+(?:\/(?:12[0-8]|1[01]\d|[1-9]?\d))?$/.test(s);
+	},
+
+	normalizePassIps: function(raw) {
+		var text;
+		var parts;
+		var i;
+		var one;
+		var seen = {};
+		var out = [];
+
+		if (Array.isArray(raw))
+			text = raw.join('\n');
+		else
+			text = String(raw == null ? '' : raw);
+		parts = text.split(/[\s,;]+/);
+		for (i = 0; i < parts.length; i++) {
+			one = parts[i].trim();
+			if (!one || seen[one])
+				continue;
+			if (!this.validPassIp(one))
+				continue;
+			seen[one] = 1;
+			out.push(one);
+			if (out.length >= 64)
+				break;
+		}
+		return out;
+	},
+
+	normalizePass: function(raw) {
+		raw = raw || {};
+		return {
+			local_nets: this.normalizeFlag(raw.local_nets),
+			wan_gateway: this.normalizeFlag(raw.wan_gateway),
+			wan_dns: this.normalizeFlag(raw.wan_dns),
+			vpn_addrs: this.normalizeFlag(raw.vpn_addrs),
+			ips: this.normalizePassIps(raw.ips)
+		};
+	},
+
+	validatePass: function(raw) {
+		var i;
+		var ips;
+		if (!raw || typeof raw !== 'object')
+			return 'invalid pass list';
+		ips = Array.isArray(raw.ips) ? raw.ips : this.normalizePassIps(raw.ips);
+		for (i = 0; i < ips.length; i++) {
+			if (!this.validPassIp(ips[i]))
+				return 'invalid pass ip';
+		}
+		return null;
+	},
+
+	normalizeSuppressList: function(raw) {
+		var i;
+		var row;
+		var out = [];
+		var sid;
+		var ip;
+		var track;
+		var gid;
+		var comment;
+		if (!Array.isArray(raw))
+			return out;
+		for (i = 0; i < raw.length && out.length < 100; i++) {
+			row = raw[i] || {};
+			sid = String(row.sid || '').trim();
+			ip = String(row.ip || '').trim();
+			track = String(row.track || 'by_src').trim();
+			gid = String(row.gid || '1').trim();
+			comment = String(row.comment || '').replace(/[^A-Za-z0-9 .,_-]/g, '').substring(0, 80);
+			if (!this.validSid(sid) || !this.validPassIp(ip))
+				continue;
+			if (track !== 'by_src' && track !== 'by_dst')
+				track = 'by_src';
+			if (!/^[0-9]+$/.test(gid))
+				gid = '1';
+			out.push({ sid: sid, gid: gid, track: track, ip: ip, comment: comment });
+		}
+		return out;
+	},
+
+	validateSuppressList: function(raw) {
+		var i;
+		var row;
+		if (raw == null)
+			return null;
+		if (!Array.isArray(raw))
+			return 'invalid suppress';
+		if (raw.length > 100)
+			return 'invalid suppress';
+		for (i = 0; i < raw.length; i++) {
+			row = raw[i] || {};
+			if (!this.validSid(String(row.sid || '')))
+				return 'invalid sid';
+			if (!this.validPassIp(String(row.ip || '')))
+				return 'invalid ip';
+			if (row.track && row.track !== 'by_src' && row.track !== 'by_dst')
+				return 'invalid track';
+		}
+		return null;
 	}
 });

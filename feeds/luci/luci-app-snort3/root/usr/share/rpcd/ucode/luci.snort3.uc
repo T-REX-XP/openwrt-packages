@@ -136,6 +136,437 @@ function validate_field(k, v) {
 	return null;
 }
 
+function parse_enabled_flag(v) {
+	v = `${v}`;
+	if (v == 'true' || v == '1' || v == 'on' || v == 'yes')
+		return '1';
+	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
+		return '0';
+	return null;
+}
+
+function valid_pass_ip(s) {
+	s = trim(`${s}`);
+	if (s == '' || length(s) > 64)
+		return false;
+	return match(s, /^[0-9A-Fa-f.:/]+$/) != null;
+}
+
+function read_pass() {
+	let ips = [];
+	let raw = run_cmd('uci -q get snort.pass.ip').output;
+	let one;
+	let exists = run_cmd('uci -q get snort.pass').code == 0;
+	let auto = exists ? '0' : '1';
+	if (raw != '') {
+		for (one in split(raw, /[ \t\n]+/)) {
+			one = trim(`${one}`);
+			if (one != '' && valid_pass_ip(one))
+				push(ips, one);
+		}
+	}
+	return {
+		local_nets: parse_enabled_flag(run_cmd('uci -q get snort.pass.local_nets').output) || auto,
+		wan_gateway: parse_enabled_flag(run_cmd('uci -q get snort.pass.wan_gateway').output) || auto,
+		wan_dns: parse_enabled_flag(run_cmd('uci -q get snort.pass.wan_dns').output) || auto,
+		vpn_addrs: parse_enabled_flag(run_cmd('uci -q get snort.pass.vpn_addrs').output) || '0',
+		ips
+	};
+}
+
+function read_suppress() {
+	let out = [];
+	let idx = run_cmd("uci -q show snort | sed -n 's/^snort\\.@suppress\\[\\([0-9]*\\)\\]=suppress/\\1/p'");
+	if (!idx.output)
+		return out;
+	for (let line in split(idx.output, '\n')) {
+		if (line == '')
+			continue;
+		let sid = run_cmd(`uci -q get snort.@suppress[${line}].sid`).output;
+		let gid = run_cmd(`uci -q get snort.@suppress[${line}].gid`).output;
+		let track = run_cmd(`uci -q get snort.@suppress[${line}].track`).output;
+		let ip = run_cmd(`uci -q get snort.@suppress[${line}].ip`).output;
+		let comment = run_cmd(`uci -q get snort.@suppress[${line}].comment`).output;
+		if (!match(sid, /^[0-9]+$/) || !valid_pass_ip(ip))
+			continue;
+		if (gid == '' || !match(gid, /^[0-9]+$/))
+			gid = '1';
+		if (track != 'by_src' && track != 'by_dst')
+			track = 'by_src';
+		push(out, { sid, gid, track, ip, comment: comment || '' });
+	}
+	return out;
+}
+
+function replace_pass(p) {
+	let ips;
+	let one;
+	if (type(p) != 'object')
+		return 'invalid pass list';
+	ips = p.ips;
+	if (type(ips) != 'array')
+		ips = [];
+	run_cmd('uci -q delete snort.pass');
+	run_cmd('uci set snort.pass=pass');
+	run_cmd(`uci set snort.pass.local_nets=${parse_enabled_flag(p.local_nets) || '0'}`);
+	run_cmd(`uci set snort.pass.wan_gateway=${parse_enabled_flag(p.wan_gateway) || '0'}`);
+	run_cmd(`uci set snort.pass.wan_dns=${parse_enabled_flag(p.wan_dns) || '0'}`);
+	run_cmd(`uci set snort.pass.vpn_addrs=${parse_enabled_flag(p.vpn_addrs) || '0'}`);
+	for (one in ips) {
+		one = trim(`${one}`);
+		if (!valid_pass_ip(one))
+			return 'invalid pass ip';
+		run_cmd(`uci add_list snort.pass.ip=${shell_quote(one)}`);
+	}
+	return null;
+}
+
+function replace_suppress(rows) {
+	let row;
+	let sid;
+	let gid;
+	let track;
+	let ip;
+	let comment;
+	if (type(rows) != 'array')
+		return 'invalid suppress';
+	if (length(rows) > 100)
+		return 'invalid suppress';
+	while (run_cmd('uci -q get snort.@suppress[0]').code == 0)
+		run_cmd('uci -q delete snort.@suppress[0]');
+	for (row in rows) {
+		if (type(row) != 'object')
+			return 'invalid suppress';
+		sid = trim(`${row.sid || ''}`);
+		gid = trim(`${row.gid || '1'}`);
+		track = trim(`${row.track || 'by_src'}`);
+		ip = trim(`${row.ip || ''}`);
+		comment = trim(`${row.comment || ''}`);
+		if (!match(sid, /^[0-9]+$/) || !valid_pass_ip(ip))
+			return 'invalid suppress';
+		if (!match(gid, /^[0-9]+$/))
+			gid = '1';
+		if (track != 'by_src' && track != 'by_dst')
+			track = 'by_src';
+		if (length(comment) > 80)
+			comment = substr(comment, 0, 80);
+		run_cmd('uci add snort suppress');
+		run_cmd(`uci set snort.@suppress[-1].sid=${shell_quote(sid)}`);
+		run_cmd(`uci set snort.@suppress[-1].gid=${shell_quote(gid)}`);
+		run_cmd(`uci set snort.@suppress[-1].track=${shell_quote(track)}`);
+		run_cmd(`uci set snort.@suppress[-1].ip=${shell_quote(ip)}`);
+		run_cmd(`uci set snort.@suppress[-1].comment=${shell_quote(comment)}`);
+	}
+	return null;
+}
+
+const RULES_DB = '/var/lib/snort/rules.sqlite';
+
+function sqlite3_bin() {
+	if (file_test('-x', '/usr/bin/sqlite3'))
+		return '/usr/bin/sqlite3';
+	if (file_test('-x', '/usr/sbin/sqlite3'))
+		return '/usr/sbin/sqlite3';
+	return 'sqlite3';
+}
+
+function file_ok(file) {
+	file = trim(`${file}`);
+	if (!match(file, /^[A-Za-z0-9][A-Za-z0-9._-]*\.rules$/))
+		return false;
+	if (length(file) > 80)
+		return false;
+	return true;
+}
+
+function like_safe(s) {
+	s = trim(`${s}`);
+	s = replace(s, /[%_\\']/g, '');
+	if (length(s) > 64)
+		s = substr(s, 0, 64);
+	return s;
+}
+
+function ident_safe(s) {
+	s = trim(`${s}`);
+	if (!match(s, /^[A-Za-z0-9._-]*$/))
+		return '';
+	if (length(s) > 80)
+		return '';
+	return s;
+}
+
+function int_arg(v, dflt, lo, hi) {
+	let n = int(v);
+	if (n < lo)
+		return dflt;
+	if (n > hi)
+		return hi;
+	return n;
+}
+
+function sid_map() {
+	let out = {};
+	let r = run_cmd("uci -q show snort | sed -n 's/^snort\\.s\\([0-9][0-9]*\\)=sid$/\\1/p'");
+	if (!r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line == '')
+			continue;
+		let en = run_cmd(`uci -q get snort.s${line}.enabled`).output;
+		let st = run_cmd(`uci -q get snort.s${line}.status`).output;
+		if (en == '')
+			en = '1';
+		if (st == '')
+			st = en == '0' ? 'disabled' : 'enabled';
+		out[line] = { enabled: en, status: st };
+	}
+	return out;
+}
+
+function distinct_col(col) {
+	if (col != 'file' && col != 'classtype')
+		return [];
+	let bin = sqlite3_bin();
+	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} ${shell_quote(`SELECT DISTINCT ${col} FROM rules WHERE ${col} != '' ORDER BY ${col};`)}`);
+	let out = [];
+	if (r.code != 0 || !r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line != '')
+			push(out, line);
+	}
+	return out;
+}
+
+function file_counts() {
+	let out = {};
+	if (!file_test('-f', RULES_DB))
+		return out;
+	let bin = sqlite3_bin();
+	let r = run_cmd(`${bin} -separator '|' ${shell_quote(RULES_DB)} "SELECT file, COUNT(*) FROM rules GROUP BY file;"`);
+	if (r.code != 0 || !r.output)
+		return out;
+	for (let line in split(r.output, '\n')) {
+		if (line == '')
+			continue;
+		let p = split(line, '|');
+		if (length(p) < 2 || !file_ok(p[0]))
+			continue;
+		out[p[0]] = int(p[1]) || 0;
+	}
+	return out;
+}
+
+function get_policies() {
+	let counts = file_counts();
+	let uci_rs = {};
+	let custom = false;
+	let i = 0;
+	while (run_cmd(`uci -q get snort.@rulefile[${i}]`).code == 0) {
+		let file = run_cmd(`uci -q get snort.@rulefile[${i}].file`).output;
+		let enabled = run_cmd(`uci -q get snort.@rulefile[${i}].enabled`).output;
+		i++;
+		if (!file_ok(file))
+			continue;
+		custom = true;
+		uci_rs[file] = enabled == '0' ? '0' : '1';
+	}
+	let files = [];
+	for (let f in counts)
+		push(files, f);
+	let rulesets = [];
+	for (let file in files) {
+		let enabled = '1';
+		if (uci_rs[file])
+			enabled = uci_rs[file];
+		else if (custom)
+			enabled = '0';
+		push(rulesets, {
+			file,
+			enabled,
+			count: `${counts[file] || 0}`
+		});
+	}
+	return { custom: custom ? '1' : '0', rulesets };
+}
+
+function replace_policies(rulesets) {
+	let seen;
+	let i;
+	let file;
+	let enabled;
+	if (type(rulesets) != 'array')
+		return 'invalid rulesets';
+	if (length(rulesets) > 80)
+		return 'invalid rulesets';
+	seen = {};
+	for (i = 0; i < length(rulesets); i++) {
+		if (type(rulesets[i]) != 'object')
+			return 'invalid ruleset';
+		file = trim(`${rulesets[i].file || ''}`);
+		if (!file_ok(file) || seen[file])
+			return 'invalid ruleset';
+		seen[file] = 1;
+	}
+	while (run_cmd('uci -q get snort.@rulefile[0]').code == 0)
+		run_cmd('uci -q delete snort.@rulefile[0]');
+	for (i = 0; i < length(rulesets); i++) {
+		file = trim(`${rulesets[i].file}`);
+		enabled = parse_enabled_flag(rulesets[i].enabled);
+		if (enabled == null)
+			enabled = '1';
+		run_cmd('uci add snort rulefile');
+		run_cmd(`uci set snort.@rulefile[-1].file=${shell_quote(file)}`);
+		run_cmd(`uci set snort.@rulefile[-1].enabled=${enabled}`);
+	}
+	return null;
+}
+
+function sql_in_list(map) {
+	let ids = [];
+	for (let sid in map)
+		push(ids, sid);
+	if (!length(ids))
+		return '';
+	return join(',', ids);
+}
+
+function query_rules(args) {
+	let query = like_safe(args?.query || '');
+	let classtype = ident_safe(args?.classtype || '');
+	let file = ident_safe(args?.file || '');
+	let state = trim(`${args?.state || 'all'}`);
+	if (state != 'enabled' && state != 'disabled' && state != 'review' && state != 'expired')
+		state = 'all';
+	let offset = int_arg(args?.offset, 0, 0, 1000000);
+	let limit = int_arg(args?.limit, 50, 1, 100);
+	let overrides = sid_map();
+	let disabled = {};
+	let review = {};
+	let expired = {};
+	for (let sid in overrides) {
+		let row = overrides[sid];
+		if (row.status == 'review')
+			review[sid] = 1;
+		if (row.status == 'expired')
+			expired[sid] = 1;
+		if (row.enabled == '0' || row.status == 'disabled' || row.status == 'expired')
+			disabled[sid] = 1;
+	}
+	let dis_sql = sql_in_list(disabled);
+	let review_sql = sql_in_list(review);
+	let expired_sql = sql_in_list(expired);
+	let indexed = file_test('-f', RULES_DB);
+	let empty = {
+		rules: [],
+		total: 0,
+		offset,
+		limit,
+		files: [],
+		classtypes: [],
+		indexed,
+		indexed_count: 0,
+		disabled_count: length(disabled)
+	};
+	if (!indexed)
+		return empty;
+
+	let bin = sqlite3_bin();
+	let count_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} 'SELECT COUNT(*) FROM rules;'`);
+	empty.indexed_count = int(count_r.output) || 0;
+	empty.files = distinct_col('file');
+	empty.classtypes = distinct_col('classtype');
+
+	if (state == 'disabled' && dis_sql == '')
+		return empty;
+	if (state == 'review' && review_sql == '')
+		return empty;
+	if (state == 'expired' && expired_sql == '')
+		return empty;
+
+	let where = '1=1';
+	if (query != '') {
+		let like = `'%${query}%'`;
+		where += ` AND (msg LIKE ${like} OR file LIKE ${like} OR classtype LIKE ${like} OR CAST(sid AS TEXT) LIKE ${like}`;
+		if (match(query, /^[0-9]+$/))
+			where += ` OR sid = ${query}`;
+		where += ')';
+	}
+	if (classtype != '')
+		where += ` AND classtype = '${classtype}'`;
+	if (file != '')
+		where += ` AND file = '${file}'`;
+	if (state == 'disabled')
+		where += ` AND sid IN (${dis_sql})`;
+	else if (state == 'enabled' && dis_sql != '')
+		where += ` AND sid NOT IN (${dis_sql})`;
+	else if (state == 'review')
+		where += ` AND sid IN (${review_sql})`;
+	else if (state == 'expired')
+		where += ` AND sid IN (${expired_sql})`;
+
+	let total_sql = `SELECT COUNT(*) FROM rules WHERE ${where};`;
+	let total_r = run_cmd(`${bin} ${shell_quote(RULES_DB)} ${shell_quote(total_sql)}`);
+	let total = int(total_r.output) || 0;
+	let sql = `SELECT gid, sid, rev, action, classtype, file, msg, raw FROM rules WHERE ${where} ORDER BY sid LIMIT ${limit} OFFSET ${offset};`;
+	let r = run_cmd(`${bin} -json ${shell_quote(RULES_DB)} ${shell_quote(sql)}`);
+	let rows = [];
+	if (r.code == 0 && r.output) {
+		try {
+			rows = json(r.output);
+		} catch (e) {
+			rows = [];
+		}
+	}
+	if (type(rows) != 'array')
+		rows = [];
+	let rules = [];
+	for (let row in rows) {
+		let sid = `${row.sid}`;
+		push(rules, {
+			gid: `${row.gid}`,
+			sid,
+			rev: `${row.rev}`,
+			action: row.action || '',
+			classtype: row.classtype || '',
+			file: `${row.file || ''}`,
+			msg: row.msg || '',
+			raw: row.raw || '',
+			enabled: disabled[sid] ? '0' : '1',
+			status: (overrides[sid] && overrides[sid].status) ? overrides[sid].status : (disabled[sid] ? 'disabled' : 'enabled')
+		});
+	}
+	empty.rules = rules;
+	empty.total = total;
+	return empty;
+}
+
+function write_sid_status(sid, gid, status) {
+	let enabled = (status == 'disabled' || status == 'expired') ? '0' : '1';
+	run_cmd(`uci -q get snort.s${sid} >/dev/null || uci set snort.s${sid}=sid`);
+	run_cmd(`uci set snort.s${sid}.sid=${shell_quote(sid)}`);
+	run_cmd(`uci set snort.s${sid}.gid=${shell_quote(gid)}`);
+	run_cmd(`uci set snort.s${sid}.enabled=${enabled}`);
+	run_cmd(`uci set snort.s${sid}.status=${shell_quote(status)}`);
+}
+
+function write_sid_state(sid, gid, enabled) {
+	if (enabled == '0')
+		write_sid_status(sid, gid, 'disabled');
+	else
+		write_sid_status(sid, gid, 'enabled');
+}
+
+function commit_rule_states() {
+	run_cmd('uci commit snort');
+	if (file_test('-x', '/usr/sbin/snort-rules-apply'))
+		run_cmd('/usr/sbin/snort-rules-apply');
+	let running = run_cmd('pidof snort >/dev/null && echo 1 || echo 0').output == '1';
+	if (running)
+		run_cmd('/etc/init.d/snort restart');
+}
+
 function get_config() {
 	return {
 		enabled: uci_get('snort', 'enabled', '0'),
@@ -153,14 +584,18 @@ function get_config() {
 		config_dir: uci_get('snort', 'config_dir', '/etc/snort'),
 		temp_dir: uci_get('snort', 'temp_dir', '/var/snort.d'),
 		oinkcode: uci_get('snort', 'oinkcode', ''),
-		feeds: list_rulesets()
+		feeds: list_rulesets(),
+		pass: read_pass(),
+		suppress: read_suppress()
 	};
 }
 
 function feed_id_ok(id) {
 	if (!match(`${id}`, /^[A-Za-z_][A-Za-z0-9_]*$/))
 		return false;
-	if (id == 'snort' || id == 'nfq')
+	if (id == 'snort' || id == 'nfq' || id == 'pass')
+		return false;
+	if (match(`${id}`, /^s[0-9]+$/))
 		return false;
 	return true;
 }
@@ -343,8 +778,18 @@ const methods = {
 				if (ferr)
 					return { error: ferr };
 			}
+			if ('pass' in cfg) {
+				let perr = replace_pass(cfg.pass);
+				if (perr)
+					return { error: perr };
+			}
+			if ('suppress' in cfg) {
+				let serr = replace_suppress(cfg.suppress);
+				if (serr)
+					return { error: serr };
+			}
 			for (let k in cfg) {
-				if (k == 'feeds')
+				if (k == 'feeds' || k == 'pass' || k == 'suppress')
 					continue;
 				let err = validate_field(k, cfg[k]);
 				if (err)
@@ -400,7 +845,7 @@ const methods = {
 			if (file_test('-f', '/tmp/snort_rules_update.lock'))
 				return { ok: false, running: true, error: 'update already in progress' };
 			run_cmd('touch /tmp/snort_rules_update.lock');
-			run_cmd("( /usr/bin/snort-rules > /tmp/snort_rules_update.log 2>&1; rm -f /var/snort.d/*.tar.gz /tmp/snort*.tar.gz /var/snort.d/rules/*.tar.gz; rm -f /tmp/snort_rules_update.lock; echo FINISHED >> /tmp/snort_rules_update.log ) >/dev/null 2>&1 &");
+			run_cmd("( /usr/bin/snort-rules > /tmp/snort_rules_update.log 2>&1; /usr/sbin/snort-rules-index >> /tmp/snort_rules_update.log 2>&1; /usr/sbin/snort-rules-apply >> /tmp/snort_rules_update.log 2>&1; rm -f /var/snort.d/*.tar.gz /tmp/snort*.tar.gz /var/snort.d/rules/*.tar.gz; rm -f /tmp/snort_rules_update.lock; echo FINISHED >> /tmp/snort_rules_update.log ) >/dev/null 2>&1 &");
 			return { ok: true, running: true };
 		}
 	},
@@ -440,6 +885,102 @@ const methods = {
 			run_cmd('rm -f /var/snort.d/*.tar.gz /tmp/snort*.tar.gz /var/snort.d/rules/*.tar.gz');
 			run_cmd('rm -f /tmp/snort_rules_update.lock');
 			return { ok: true };
+		}
+	},
+
+	getRules: {
+		args: {
+			query: '',
+			classtype: '',
+			file: '',
+			state: '',
+			offset: 0,
+			limit: 50
+		},
+		call: function(req) {
+			return query_rules(req.args || {});
+		}
+	},
+
+	setRuleStates: {
+		args: { sids: [], gid: '', enabled: '', status: '' },
+		call: function(req) {
+			let sids = req.args?.sids;
+			let gid = trim(`${req.args?.gid || '1'}`);
+			let enabled = parse_enabled_flag(req.args?.enabled);
+			let status = trim(`${req.args?.status || ''}`);
+			let i;
+			let sid;
+			let seen = {};
+			let out = [];
+			if (type(sids) != 'array')
+				return { error: 'invalid sids' };
+			if (!match(gid, /^[0-9]+$/))
+				return { error: 'invalid sid' };
+			if (status != '' && status != 'enabled' && status != 'review' &&
+			    status != 'expired' && status != 'disabled')
+				return { error: 'invalid status' };
+			if (status == '' && enabled == null)
+				return { error: 'invalid enabled' };
+			if (length(sids) < 1 || length(sids) > 50)
+				return { error: 'invalid sids' };
+			for (i = 0; i < length(sids); i++) {
+				sid = trim(`${sids[i]}`);
+				if (!match(sid, /^[0-9]+$/) || seen[sid])
+					return { error: 'invalid sids' };
+				seen[sid] = 1;
+				push(out, sid);
+			}
+			run_cmd('uci -q get snort.snort >/dev/null || uci set snort.snort=snort');
+			for (i = 0; i < length(out); i++) {
+				if (status != '')
+					write_sid_status(out[i], gid, status);
+				else
+					write_sid_state(out[i], gid, enabled);
+			}
+			commit_rule_states();
+			return { ok: true, sids: out, gid, enabled, status };
+		}
+	},
+
+	reindexRules: {
+		call: function() {
+			if (!file_test('-x', '/usr/sbin/snort-rules-index'))
+				return { error: 'snort-rules-index not installed' };
+			let dir = uci_get('snort', 'config_dir', '/etc/snort') + '/rules';
+			let r = run_cmd(`/usr/sbin/snort-rules-index ${shell_quote(dir)}`);
+			return {
+				ok: r.code == 0,
+				output: r.output,
+				error: r.code == 0 ? '' : r.output
+			};
+		}
+	},
+
+	getPolicies: {
+		call: function() {
+			try {
+				return get_policies();
+			} catch (e) {
+				return { error: `get_policies ${e}` };
+			}
+		}
+	},
+
+	setPolicies: {
+		args: { policies: {} },
+		call: function(req) {
+			let p = req.args?.policies;
+			if (type(p) != 'object')
+				return { error: 'invalid policies' };
+			run_cmd('uci -q get snort.snort >/dev/null || uci set snort.snort=snort');
+			let err = replace_policies(p.rulesets);
+			if (err)
+				return { error: err };
+			run_cmd('uci commit snort');
+			if (file_test('-x', '/usr/sbin/snort-rules-apply'))
+				run_cmd('/usr/sbin/snort-rules-apply');
+			return { ok: true, policies: get_policies() };
 		}
 	}
 };

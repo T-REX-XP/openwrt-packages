@@ -3,6 +3,7 @@
 # Disabled/expired SIDs use suppress so ET Open fetches can overwrite
 # rule files without losing operator disables. Threshold lines apply
 # rate limits without rewriting vendor signatures.
+# Pass-list hosts and SID+IP suppressions also land here.
 
 set -eu
 
@@ -14,6 +15,24 @@ mkdir -p "$(dirname "$OUT")"
 
 thresh_ok() {
 	echo "$1" | grep -qE '^type (limit|threshold|both), track (by_src|by_dst), count [0-9]+, seconds [0-9]+$'
+}
+
+ip_ok() {
+	echo "$1" | grep -qE '^[0-9A-Fa-f.:/]+$' || return 1
+	case "$1" in
+		''|*[!0-9A-Fa-f.:/]*) return 1 ;;
+	esac
+	[ "${#1}" -le 64 ]
+}
+
+emit_host() {
+	ip_ok "$1" || return 0
+	echo "suppress gen_id 1, track by_src, ip $1"
+	echo "suppress gen_id 1, track by_dst, ip $1"
+}
+
+pass_flag() {
+	uci -q get "suricata.pass.$1" 2>/dev/null || echo 0
 }
 
 {
@@ -35,6 +54,56 @@ thresh_ok() {
 			if [ -n "$thresh" ] && thresh_ok "$thresh"; then
 				echo "threshold gen_id $gid, sig_id $sid, $thresh"
 			fi
+		done
+
+		i=0
+		while uci -q get "suricata.@suppress[$i]" >/dev/null 2>&1; do
+			sid=$(uci -q get "suricata.@suppress[$i].sid" 2>/dev/null || true)
+			gid=$(uci -q get "suricata.@suppress[$i].gid" 2>/dev/null || echo 1)
+			track=$(uci -q get "suricata.@suppress[$i].track" 2>/dev/null || echo by_src)
+			ip=$(uci -q get "suricata.@suppress[$i].ip" 2>/dev/null || true)
+			case "$sid" in
+				''|*[!0-9]*) i=$((i + 1)); continue ;;
+			esac
+			case "$gid" in
+				''|*[!0-9]*) gid=1 ;;
+			esac
+			case "$track" in
+				by_src|by_dst) ;;
+				*) track=by_src ;;
+			esac
+			if ip_ok "$ip"; then
+				echo "suppress gen_id $gid, sig_id $sid, track $track, ip $ip"
+			fi
+			i=$((i + 1))
+		done
+
+		if [ "$(pass_flag local_nets)" = 1 ]; then
+			lan=$(uci -q get network.lan.ipaddr 2>/dev/null || true)
+			[ -n "$lan" ] && emit_host "$lan"
+		fi
+		if [ "$(pass_flag wan_gateway)" = 1 ]; then
+			gw=$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')
+			[ -n "$gw" ] && emit_host "$gw"
+		fi
+		if [ "$(pass_flag wan_dns)" = 1 ]; then
+			if [ -f /tmp/resolv.conf.d/resolv.conf.auto ]; then
+				awk '/^nameserver[ \t]+/ { print $2 }' /tmp/resolv.conf.d/resolv.conf.auto | while read -r ns; do
+					[ -n "$ns" ] && emit_host "$ns"
+				done
+			fi
+		fi
+		if [ "$(pass_flag vpn_addrs)" = 1 ]; then
+			ip -o -4 addr show 2>/dev/null | awk '{
+				gsub(/:.*/, "", $2)
+				if ($2 ~ /^(wg|tailscale|tun)/)
+					print $4
+			}' | while read -r cidr; do
+				[ -n "$cidr" ] && emit_host "$cidr"
+			done
+		fi
+		uci -q get suricata.pass.ip 2>/dev/null | tr ' \t' '\n' | while read -r ip; do
+			[ -n "$ip" ] && emit_host "$ip"
 		done
 	fi
 } > "$TMP"

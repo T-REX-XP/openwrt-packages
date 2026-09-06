@@ -104,6 +104,7 @@ function val(v, fallback) {
 }
 
 var settingsFeeds = [];
+var settingsSuppress = [];
 
 function cbiSection(title, descr, body) {
 	return E('div', { 'class': 'cbi-section' }, [
@@ -385,7 +386,15 @@ function collectTpSettings() {
 		home_net: home.value,
 		rule_profile: profile.value,
 		mode: mode.value,
-		feeds: settingsFeeds
+		feeds: settingsFeeds,
+		pass: {
+			local_nets: !!(document.getElementById('tp-pass-local') && document.getElementById('tp-pass-local').checked),
+			wan_gateway: !!(document.getElementById('tp-pass-gw') && document.getElementById('tp-pass-gw').checked),
+			wan_dns: !!(document.getElementById('tp-pass-dns') && document.getElementById('tp-pass-dns').checked),
+			vpn_addrs: !!(document.getElementById('tp-pass-vpn') && document.getElementById('tp-pass-vpn').checked),
+			ips: document.getElementById('tp-pass-ips') ? document.getElementById('tp-pass-ips').value : ''
+		},
+		suppress: settingsSuppress
 	});
 }
 
@@ -481,6 +490,7 @@ return view.extend({
 		settingsFeeds = tpCore.normalizeFeeds(
 			(cfg.feeds && cfg.feeds.length) ? cfg.feeds : tpCore.defaultFeeds()
 		);
+		settingsSuppress = tpCore.normalizeSuppressList(cfg.suppress);
 		ruleActionBusy = false;
 
 		var css = E('link', {
@@ -501,6 +511,8 @@ return view.extend({
 		var eventsBox = E('div', { 'data-tab': 'events', 'data-tab-title': _('Events') });
 		var rulesBox = E('div', { 'data-tab': 'rules', 'data-tab-title': _('Rules') });
 		var policyBox = E('div', { id: 'tp-policy', 'data-tab': 'policy', 'data-tab-title': _('Policy') });
+		var passBox = E('div', { id: 'tp-pass', 'data-tab': 'pass', 'data-tab-title': _('Pass list') });
+		var suppressBox = E('div', { id: 'tp-suppress', 'data-tab': 'suppress', 'data-tab-title': _('Suppress') });
 		var settingsBox = E('div', { 'data-tab': 'settings', 'data-tab-title': _('Settings') });
 
 		var rulesState = {
@@ -1416,7 +1428,13 @@ return view.extend({
 				E('tr', { 'class': 'tr table-titles' }, [
 					E('th', { 'class': 'th tp-col-check' }, [ headerCb ]),
 					E('th', { 'class': 'th tp-col-num' }, '#'),
+					E('th', { 'class': 'th tp-col-gid' }, _('GID')),
 					E('th', { 'class': 'th tp-col-sid' }, _('SID:rev')),
+					E('th', { 'class': 'th tp-col-tuple' }, _('Proto')),
+					E('th', { 'class': 'th tp-col-tuple' }, _('Source')),
+					E('th', { 'class': 'th tp-col-tuple' }, _('SPort')),
+					E('th', { 'class': 'th tp-col-tuple' }, _('Destination')),
+					E('th', { 'class': 'th tp-col-tuple' }, _('DPort')),
 					E('th', { 'class': 'th' }, _('Message')),
 					E('th', { 'class': 'th' }, _('Category')),
 					E('th', { 'class': 'th' }, _('Status')),
@@ -1428,8 +1446,10 @@ return view.extend({
 				var sid = String(row.sid || '');
 				var gid = String(row.gid || '1');
 				var st = ruleStatusInfo(row);
+				var parsed = tpCore.parseRuleRaw(row.raw);
 				var pick;
 				var trClass = 'tr';
+				var statusTitle = st.on ? _('Disable') : _('Enable');
 				liveSids[sid] = 1;
 				pick = E('input', {
 					type: 'checkbox',
@@ -1451,25 +1471,33 @@ return view.extend({
 				table.appendChild(E('tr', { 'class': trClass }, [
 					E('td', { 'class': 'td tp-col-check' }, [ pick ]),
 					E('td', { 'class': 'td tp-col-num' }, String(rulesState.offset + idx + 1)),
+					E('td', { 'class': 'td tp-col-gid tp-mono' }, gid),
 					E('td', { 'class': 'td tp-col-sid tp-mono' }, [
 						E('a', {
 							href: '#',
+							'title': _('Edit signature'),
 							click: function(ev) {
 								ev.preventDefault();
 								showRule(sid, gid);
 							}
 						}, sid + ':' + val(row.rev, '0'))
 					]),
+					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.proto)),
+					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.src)),
+					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.sport)),
+					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.dst)),
+					E('td', { 'class': 'td tp-col-tuple tp-mono' }, val(parsed.dport)),
 					E('td', { 'class': 'td' }, val(row.msg)),
 					E('td', { 'class': 'td' }, val(row.classtype)),
 					E('td', { 'class': 'td tp-col-status' }, [
 						E('button', {
 							'type': 'button',
 							'class': 'tp-status-btn',
-							'title': _('Edit signature'),
+							'title': statusTitle,
+							'aria-label': statusTitle,
 							click: function(ev) {
 								ev.preventDefault();
-								showRule(sid, gid);
+								runOneStatus(sid, gid, st.on ? 'disabled' : 'enabled');
 							}
 						}, tpBadge(st.kind, st.label))
 					]),
@@ -1630,15 +1658,159 @@ return view.extend({
 			}
 
 			policyBox.appendChild(E('div', { 'class': 'tp-policy-actions' }, [
+				labeledActionBtn(_('Select all'), 'cbi-button',
+					_('Enable every ruleset in the list'),
+					function() {
+						var boxes = policyBox.querySelectorAll('input.tp-rs-en');
+						var n;
+						for (n = 0; n < boxes.length; n++)
+							boxes[n].checked = true;
+					}),
+				labeledActionBtn(_('Unselect all'), 'cbi-button',
+					_('Disable every ruleset in the list'),
+					function() {
+						var boxes = policyBox.querySelectorAll('input.tp-rs-en');
+						var n;
+						for (n = 0; n < boxes.length; n++)
+							boxes[n].checked = false;
+					}),
 				E('button', {
 					'type': 'button',
 					'class': 'btn cbi-button',
+					'title': _('Restore the Small or Full profile from Settings'),
 					click: function(ev) {
 						ev.preventDefault();
 						resetPolicies();
 					}
 				}, _('Reset rulesets to profile'))
 			]));
+		}
+
+		function renderPass(p) {
+			var localCb;
+			var gwCb;
+			var dnsCb;
+			var vpnCb;
+			var ips;
+			p = tpCore.normalizePass(p);
+			passBox.innerHTML = '';
+			localCb = E('input', { type: 'checkbox', id: 'tp-pass-local' });
+			gwCb = E('input', { type: 'checkbox', id: 'tp-pass-gw' });
+			dnsCb = E('input', { type: 'checkbox', id: 'tp-pass-dns' });
+			vpnCb = E('input', { type: 'checkbox', id: 'tp-pass-vpn' });
+			localCb.checked = p.local_nets === '1';
+			gwCb.checked = p.wan_gateway === '1';
+			dnsCb.checked = p.wan_dns === '1';
+			vpnCb.checked = p.vpn_addrs === '1';
+			ips = E('textarea', {
+				id: 'tp-pass-ips',
+				rows: 5,
+				placeholder: '192.168.1.10\n10.0.0.0/8'
+			}, (p.ips || []).join('\n'));
+			passBox.appendChild(cbiSection(_('Pass list'),
+				_('Addresses that Suricata will not alert on or block. Auto entries are resolved when you Save & Apply. Use the footer to write the list.'),
+				[
+					fieldRow('tp-pass-local', _('Local networks'), localCb,
+						_('Add the LAN prefix (excluding WAN).')),
+					fieldRow('tp-pass-gw', _('WAN gateways'), gwCb,
+						_('Add the current default-route gateway.')),
+					fieldRow('tp-pass-dns', _('WAN DNS servers'), dnsCb,
+						_('Add nameservers learned on WAN.')),
+					fieldRow('tp-pass-vpn', _('VPN addresses'), vpnCb,
+						_('Add addresses on WireGuard, Tailscale, and tun interfaces.')),
+					fieldRow('tp-pass-ips', _('Custom addresses'), ips,
+						_('One IPv4/IPv6 address or prefix per line. These are never blocked.'))
+				]));
+		}
+
+		function paintSuppress() {
+			var host = document.getElementById('tp-suppress-table');
+			var table;
+			if (!host)
+				return;
+			host.innerHTML = '';
+			if (!settingsSuppress.length) {
+				host.appendChild(E('p', { 'class': 'tp-empty' },
+					_('No host suppressions yet. Add a SID and IP to ignore a false positive.')));
+				return;
+			}
+			table = E('table', { 'class': 'table tp-policy-table' }, [
+				E('tr', { 'class': 'tr table-titles' }, [
+					E('th', { 'class': 'th' }, _('SID')),
+					E('th', { 'class': 'th' }, _('GID')),
+					E('th', { 'class': 'th' }, _('Track')),
+					E('th', { 'class': 'th' }, _('IP')),
+					E('th', { 'class': 'th' }, _('Description')),
+					E('th', { 'class': 'th' }, _('Actions'))
+				])
+			]);
+			settingsSuppress.forEach(function(row, idx) {
+				table.appendChild(E('tr', { 'class': 'tr' }, [
+					E('td', { 'class': 'td tp-mono' }, row.sid),
+					E('td', { 'class': 'td tp-mono' }, row.gid || '1'),
+					E('td', { 'class': 'td' }, row.track),
+					E('td', { 'class': 'td tp-mono' }, row.ip),
+					E('td', { 'class': 'td' }, val(row.comment, '')),
+					E('td', { 'class': 'td' }, [
+						labeledActionBtn(_('Delete'), 'cbi-button-negative',
+							_('Remove this suppression'),
+							function() {
+								settingsSuppress.splice(idx, 1);
+								paintSuppress();
+							})
+					])
+				]));
+			});
+			host.appendChild(table);
+		}
+
+		function renderSuppress() {
+			var sidIn = E('input', { type: 'text', id: 'tp-sup-sid', placeholder: '2000354' });
+			var gidIn = E('input', { type: 'text', id: 'tp-sup-gid', value: '1' });
+			var ipIn = E('input', { type: 'text', id: 'tp-sup-ip', placeholder: '192.168.8.50' });
+			var trackIn = E('select', { id: 'tp-sup-track' }, [
+				E('option', { value: 'by_src' }, _('Source IP')),
+				E('option', { value: 'by_dst' }, _('Destination IP'))
+			]);
+			var commentIn = E('input', {
+				type: 'text', id: 'tp-sup-comment',
+				placeholder: _('LAN false positive')
+			});
+			suppressBox.innerHTML = '';
+			suppressBox.appendChild(cbiSection(_('Suppression lists'),
+				_('Ignore a signature for one host. This is the usual fix for a noisy SID on a trusted device. Save & Apply writes the list. Disabled SIDs on the Rules tab still suppress globally.'),
+				[
+					fieldRow('tp-sup-sid', _('SID'), sidIn, _('Signature ID to ignore.')),
+					fieldRow('tp-sup-gid', _('GID'), gidIn, _('Usually 1.')),
+					fieldRow('tp-sup-ip', _('IP address'), ipIn, _('Host or prefix that should not match.')),
+					fieldRow('tp-sup-track', _('Track'), trackIn, _('Source or destination of the flow.')),
+					fieldRow('tp-sup-comment', _('Description'), commentIn, _('Optional note for your reference.'))
+				]));
+			suppressBox.appendChild(E('div', { 'class': 'tp-policy-actions' }, [
+				labeledActionBtn(_('Add'), 'cbi-button-positive',
+					_('Add this suppression to the list'),
+					function() {
+						var next = {
+							sid: sidIn.value,
+							gid: gidIn.value || '1',
+							ip: ipIn.value,
+							track: trackIn.value,
+							comment: commentIn.value
+						};
+						var err = tpCore.validateSuppressList([next]);
+						if (err) {
+							ui.addNotification(null, E('p', {}, err), 'error');
+							return;
+						}
+						settingsSuppress = tpCore.normalizeSuppressList(settingsSuppress.concat([next]));
+						sidIn.value = '';
+						ipIn.value = '';
+						commentIn.value = '';
+						paintSuppress();
+					})
+			]));
+			suppressBox.appendChild(E('div', { id: 'tp-suppress-table' }));
+			paintSuppress();
 		}
 
 		function renderSettings(c) {
@@ -1707,7 +1879,7 @@ return view.extend({
 						_('Watch only = detect and log. Prevention = inline blocking.')),
 					ipsWarn,
 					fieldRow('tp-profile', _('How many rules to load'), profile,
-						_('Small is enough for most home routers. Full loads the complete ET Open set and uses more memory.'))
+						_('Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Use Select all on the Policy tab for a custom mix.'))
 				]));
 		}
 
@@ -1716,10 +1888,12 @@ return view.extend({
 		renderRules({});
 		loadRules().catch(function() {});
 		renderPolicy(policies);
+		renderPass(cfg.pass);
+		renderSuppress();
 		renderSettings(cfg);
 
 		var tabHost = E('div', { 'class': 'tp-tab-host' }, [
-			statusBox, settingsBox, rulesBox, eventsBox, policyBox
+			statusBox, settingsBox, rulesBox, policyBox, passBox, suppressBox, eventsBox
 		]);
 		root.appendChild(tabHost);
 		ui.tabs.initTabGroup(tabHost.childNodes);
