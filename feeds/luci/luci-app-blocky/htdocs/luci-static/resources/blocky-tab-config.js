@@ -610,46 +610,40 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 			)
 		},
 		{
-			id: 'router',
-			title: _('Router DNS'),
-			content: renderRouterDnsIntegration(configYaml, dnsFwdRaw, true)
-		},
-		{
-			id: 'upstream',
-			title: _('Upstream DNS'),
-			content: configSectionPage(
-				_('Upstream DNS'),
-				_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
-				[
-					settingsRow(
-						_('Resolver groups'),
-						_('One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
-						upstreamEditor.host
-					),
-					settingsRow(_('Startup strategy'), _('fast = start quickly; blocking = wait for upstreams.'), state.upstreamInitStrategy),
-					settingsRow(_('Query timeout'), '', state.upstreamTimeout)
-				]
-			)
-		},
-		{
-			id: 'bootstrap',
-			title: _('Bootstrap DNS'),
-			content: configSectionPage(
-				_('Bootstrap DNS'),
-				_('Used to resolve upstream hostnames and denylist download URLs.'),
-				[
-					settingsRow(
-						_('Bootstrap resolvers'),
-						_('One entry per line (e.g. tcp+udp:1.1.1.1).'),
-						state.bootstrapResolvers
-					),
-					settingsRow(
-						_('Use WAN resolvers'),
-						_('Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS).'),
-						state.bootstrapUseWan
-					)
-				]
-			)
+			id: 'dns',
+			title: _('DNS'),
+			content: E('div', { 'class': 'blocky-dns-settings' }, [
+				renderRouterDnsIntegration(configYaml, dnsFwdRaw, true),
+				configSectionPage(
+					_('Upstream DNS'),
+					_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
+					[
+						settingsRow(
+							_('Resolver groups'),
+							_('One resolver per line per group. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
+							upstreamEditor.host
+						),
+						settingsRow(_('Startup strategy'), _('fast = start quickly; blocking = wait for upstreams.'), state.upstreamInitStrategy),
+						settingsRow(_('Query timeout'), '', state.upstreamTimeout)
+					]
+				),
+				configSectionPage(
+					_('Bootstrap DNS'),
+					_('Used to resolve upstream hostnames and denylist download URLs.'),
+					[
+						settingsRow(
+							_('Bootstrap resolvers'),
+							_('One entry per line (e.g. tcp+udp:1.1.1.1).'),
+							state.bootstrapResolvers
+						),
+						settingsRow(
+							_('Use WAN resolvers'),
+							_('Also read /tmp/resolv.conf.auto (OpenWrt DHCP WAN DNS).'),
+							state.bootstrapUseWan
+						)
+					]
+				)
+			])
 		},
 		{
 			id: 'downloads',

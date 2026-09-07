@@ -102,6 +102,18 @@ test('Settings Logging includes query log fields', () => {
 	assert.match(logs, /Settings → Logging/);
 });
 
+test('Settings DNS tab merges router, upstream, and bootstrap', () => {
+	const dns = config.slice(config.indexOf("id: 'dns'"), config.indexOf("id: 'downloads'"));
+
+	assert.match(dns, /title:\s*_\('DNS'\)/);
+	assert.match(dns, /renderRouterDnsIntegration/);
+	assert.match(dns, /_\('Upstream DNS'\)/);
+	assert.match(dns, /_\('Bootstrap DNS'\)/);
+	assert.doesNotMatch(config, /id:\s*'router'/);
+	assert.doesNotMatch(config, /id:\s*'upstream'/);
+	assert.doesNotMatch(config, /id:\s*'bootstrap'/);
+});
+
 test('Block lists grid stages UCI until Save & Apply', () => {
 	assert.match(lists, /function labeledActionBtn/);
 	assert.match(lists, /function rowActionBtn/);

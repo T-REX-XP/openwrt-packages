@@ -1045,6 +1045,9 @@ msgstr "Settings saved and Blocky restarted."
 msgid "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
 msgstr "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
 
+msgid "DNS"
+msgstr "DNS"
+
 msgid "Upstream DNS"
 msgstr "Upstream DNS"
 

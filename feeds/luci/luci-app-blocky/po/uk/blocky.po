@@ -1046,6 +1046,9 @@ msgstr "Налаштування збережено, Blocky перезапуще
 msgid "Keep DNS and HTTP listeners on localhost (127.0.0.1) on the router."
 msgstr "Тримайте DNS та HTTP слухачі на localhost (127.0.0.1) на маршрутизаторі."
 
+msgid "DNS"
+msgstr "DNS"
+
 msgid "Upstream DNS"
 msgstr "Вихідний DNS"
 

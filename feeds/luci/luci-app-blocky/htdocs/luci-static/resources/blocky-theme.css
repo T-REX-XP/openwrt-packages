@@ -1400,6 +1400,13 @@
 	min-width: 0;
 }
 
+.luci-app-blocky .blocky-dns-settings {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25em;
+	min-width: 0;
+}
+
 .blocky-config-section {
 	border: 1px solid var(--border-color-medium);
 	border-radius: 8px;
