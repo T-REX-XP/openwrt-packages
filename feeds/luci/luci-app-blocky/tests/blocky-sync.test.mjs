@@ -23,14 +23,13 @@ function test(name, fn) {
 
 test('parseYamlDenylists', () => {
 	const map = bp.parseYamlDenylists(configYaml);
-	assert.deepEqual(Object.keys(map).sort(), [ 'hagezi_light', 'urlhaus' ]);
-	assert.equal(map.hagezi_light.length, 1);
-	assert.match(map.hagezi_light[0], /hagezi/);
+	assert.deepEqual(Object.keys(map).sort(), [ 'urlhaus' ]);
+	assert.equal(map.urlhaus.length, 1);
+	assert.match(map.urlhaus[0], /urlhaus/);
 });
 
 test('denylistFingerprintFromYaml matches fixture UCI entries', () => {
 	const uciEntries = [
-		{ id: 'hagezi_light', enabled: true, url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt' },
 		{ id: 'urlhaus', enabled: true, url: 'https://urlhaus.abuse.ch/downloads/hostfile/' }
 	];
 
@@ -39,8 +38,7 @@ test('denylistFingerprintFromYaml matches fixture UCI entries', () => {
 
 test('blocklistsSyncNeeded detects UCI drift', () => {
 	const uciEntries = [
-		{ id: 'hagezi_light', enabled: true, url: 'https://example.com/other.txt' },
-		{ id: 'urlhaus', enabled: true, url: 'https://urlhaus.abuse.ch/downloads/hostfile/' }
+		{ id: 'urlhaus', enabled: true, url: 'https://example.com/other.txt' }
 	];
 
 	assert.equal(bp.blocklistsSyncNeeded(uciEntries, configYaml), true);
@@ -48,8 +46,7 @@ test('blocklistsSyncNeeded detects UCI drift', () => {
 
 test('blocklistsSyncNeeded ignores disabled UCI lists', () => {
 	const uciEntries = [
-		{ id: 'hagezi_light', enabled: false, url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt' },
-		{ id: 'urlhaus', enabled: true, url: 'https://urlhaus.abuse.ch/downloads/hostfile/' }
+		{ id: 'urlhaus', enabled: false, url: 'https://urlhaus.abuse.ch/downloads/hostfile/' }
 	];
 
 	assert.equal(bp.blocklistsSyncNeeded(uciEntries, configYaml), true);

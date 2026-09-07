@@ -18,7 +18,6 @@
   ],
   "lists": {
     "denylist": {
-      "hagezi_light": 45000,
       "urlhaus": 1200
     },
     "allowlist": {}

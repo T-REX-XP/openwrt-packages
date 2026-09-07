@@ -114,7 +114,6 @@ test('parseMetrics golden file', () => {
 test('parseDenylistGroupCounts', () => {
 	const text = readFixture('metrics.prom.txt');
 	const counts = bp.parseDenylistGroupCounts(text);
-	assert.equal(counts.hagezi_light, 45000);
 	assert.equal(counts.urlhaus, 1200);
 	assert.equal(bp.mergeDenyCounts({ a: 1 }, { b: 2 }).a, 1);
 	assert.equal(bp.mergeDenyCounts({ a: 5 }, { a: 2 }).a, 5);
@@ -137,7 +136,7 @@ test('parseBlockyStatsResponse', () => {
 		stdout: readFixture('stats.json')
 	});
 	assert.equal(ok.ok, true);
-	assert.equal(ok.data.lists.denylist.hagezi_light, 45000);
+	assert.equal(ok.data.lists.denylist.urlhaus, 1200);
 
 	const disabled = bp.parseBlockyStatsResponse({
 		ok: false,

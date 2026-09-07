@@ -22,13 +22,10 @@ bootstrapDns:
 
 blocking:
   denylists:
-    hagezi_light:
-      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt
     urlhaus:
       - https://urlhaus.abuse.ch/downloads/hostfile/
   clientGroupsBlock:
     default:
-      - hagezi_light
       - urlhaus
   loading:
     strategy: fast

@@ -206,9 +206,10 @@ blocky_http_request_cli() {
 	esac
 
 	path_part="${path_part#/}"
+	path_noquery="${path_part%%\?*}"
 	base="http://${BLOCKY_HTTP_HOST_DEFAULT}:$(blocky_http_port)"
 
-	case "$path_part" in
+	case "$path_noquery" in
 		metrics|metrics/*)
 			url="${base}/metrics"
 			;;

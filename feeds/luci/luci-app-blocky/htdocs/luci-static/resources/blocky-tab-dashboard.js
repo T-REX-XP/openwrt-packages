@@ -318,7 +318,7 @@ function renderAdBlockerPipeline(status, service, dnsFwdRaw, configYaml, statsRe
 		E('h3', { 'class': 'blocky-dash-widget-title' }, [ _('Ad blocking pipeline') ]),
 		E('p', { 'class': 'blocky-dash-widget-descr' }, [
 			ready
-				? _('Default first-boot setup routes all DHCP client DNS through Blocky with HaGeZi Light and URLhaus blocklists.')
+				? _('Default first-boot setup routes all DHCP client DNS through Blocky with the URLhaus blocklist.')
 				: _('One or more steps below must be fixed before LAN clients receive filtered DNS.')
 		]),
 		E('div', { 'class': 'table blocky-status-table' }, rows.map(function(row) {

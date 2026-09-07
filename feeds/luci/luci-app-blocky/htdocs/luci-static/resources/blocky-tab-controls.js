@@ -78,6 +78,8 @@ var safeString = Blocky.safeString,
 	blockyRpcError = Blocky.blockyRpcError,
 	blockyApi = Blocky.blockyApi,
 	blockyHttpRequest = Blocky.blockyHttpRequest,
+	setBlocking = Blocky.setBlocking,
+	flushCache = Blocky.flushCache,
 	fetchText = Blocky.fetchText,
 	fetchJson = Blocky.fetchJson,
 	blockyMetricsUrl = Blocky.blockyMetricsUrl,
@@ -134,17 +136,17 @@ function renderBlockingGlance(status, onRefresh) {
 		pauseNoteHost,
 		E('p', {}, [
 			actionButton(_('Enable blocking'), function() {
-				return blockyApi('/blocking/enable');
+				return setBlocking(true, '');
 			}, 'cbi-button-action', refresh),
 			' ',
 			actionButton(_('Disable blocking'), function() {
-				return blockyApi('/blocking/disable');
+				return setBlocking(false, '');
 			}, 'cbi-button-negative', refresh),
 			' ',
 			E('label', {}, [ _('Duration'), ' ', pause ]),
 			' ',
 			actionButton(_('Pause'), function() {
-				return blockyApi('/blocking/disable?duration=' + encodeURIComponent(pause.value));
+				return setBlocking(false, pause.value);
 			}, 'cbi-button-action', refresh)
 		])
 	]);
@@ -168,7 +170,7 @@ function renderOperations(service, onRefresh) {
 			}, 'cbi-button-action', refresh),
 			' ',
 			actionButton(_('Flush cache'), function() {
-				return blockyApi('/cache/flush', 'POST');
+				return flushCache();
 			}, 'cbi-button-action', refresh)
 		])
 	]);

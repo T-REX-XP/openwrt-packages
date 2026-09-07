@@ -15,7 +15,8 @@
 					"read_query_log",
 					"get_version",
 					"getStatus",
-					"getLogs"
+					"getLogs",
+					"getMetrics"
 				]
 			}
 		},
@@ -34,7 +35,10 @@
 					"sync_lists",
 					"refresh_lists",
 					"http_request",
-					"validate_config"
+					"validate_config",
+					"queryDns",
+					"setBlocking",
+					"flushCache"
 				]
 			}
 		}

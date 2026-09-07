@@ -164,6 +164,32 @@ var callBlockyValidateConfig = rpc.declare({
 	expect: { '': {} }
 });
 
+var callBlockyGetMetrics = rpc.declare({
+	object: 'luci.blocky',
+	method: 'getMetrics',
+	expect: { '': {} }
+});
+
+var callBlockyQueryDns = rpc.declare({
+	object: 'luci.blocky',
+	method: 'queryDns',
+	params: [ 'query', 'type' ],
+	expect: { '': {} }
+});
+
+var callBlockySetBlocking = rpc.declare({
+	object: 'luci.blocky',
+	method: 'setBlocking',
+	params: [ 'enabled', 'duration' ],
+	expect: { '': {} }
+});
+
+var callBlockyFlushCache = rpc.declare({
+	object: 'luci.blocky',
+	method: 'flushCache',
+	expect: { '': {} }
+});
+
 
 function blockyRpcOk(res) {
 	return !!(res && typeof res === 'object' && res.ok);
@@ -598,8 +624,22 @@ function blockyHttpRequest(method, path, body) {
 	});
 }
 
+function fetchMetricsText() {
+	return callBlockyGetMetrics().then(function(res) {
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Could not read Blocky /metrics.')));
+
+		return res.stdout || '';
+	});
+}
+
 function fetchText(url, method, body) {
-	return blockyHttpRequest(method || 'GET', blockyPathFromUrl(url), body);
+	var path = blockyPathFromUrl(url);
+
+	if ((method || 'GET') === 'GET' && (path === 'metrics' || path.indexOf('metrics') === 0))
+		return fetchMetricsText();
+
+	return blockyHttpRequest(method || 'GET', path, body);
 }
 
 function unwrapFetchText(res) {
@@ -611,6 +651,9 @@ function unwrapFetchText(res) {
 
 	if (typeof res === 'object' && res.stdout !== undefined)
 		return execResultStdout(res, '');
+
+	if (typeof res === 'object' && res.metrics_text !== undefined)
+		return safeString(res.metrics_text);
 
 	return safeString(res.stderr || res);
 }
@@ -630,10 +673,42 @@ function blockyMetricsUrl() {
 }
 
 function fetchBlockyStats() {
-	return callBlockyHttpRequest('GET', 'api/stats', '').then(function(res) {
-		return bp.parseBlockyStatsResponse(res);
+	return callBlockyGetStatus().then(function(st) {
+		return bp.statsResultFromStatus(st);
 	}).catch(function() {
 		return { ok: false, disabled: false, data: null };
+	});
+}
+
+function setBlocking(enabled, duration) {
+	return callBlockySetBlocking(enabled ? '1' : '0', duration != null ? String(duration) : '').then(function(res) {
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Failed to change blocking.')));
+
+		return res.blocking || { enabled: false, autoEnableInSec: 0 };
+	});
+}
+
+function flushCache() {
+	return callBlockyFlushCache().then(function(res) {
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Failed to flush cache.')));
+
+		return res;
+	});
+}
+
+function queryDns(name, type) {
+	return callBlockyQueryDns(name, type || 'A').then(function(res) {
+		if (!blockyRpcOk(res))
+			throw new Error(blockyRpcError(res, _('Request to Blocky failed.')));
+
+		return {
+			reason: res.reason || '',
+			response: res.response || '',
+			responseType: res.responseType || '',
+			returnCode: res.returnCode || ''
+		};
 	});
 }
 
@@ -694,7 +769,9 @@ function registerBlockingCountdownPoll(onStatus, active, channel) {
 		if (!hasActive)
 			return;
 
-		return blockyApi('/blocking/status').then(function(status) {
+		return callBlockyGetStatus().then(function(st) {
+			var status = (st && st.blocking) || { enabled: false };
+
 			var paused = !!(status && status.autoEnableInSec > 0);
 
 			Object.keys(blockingCountdownChannels).forEach(function(key) {
@@ -757,7 +834,7 @@ function registerBlockyMetricsPolling() {
 	registerBlockyMetricsPolling.done = true;
 
 	poll.add(function() {
-		return fetchText(blockyMetricsUrl()).then(function(res) {
+		return fetchMetricsText().then(function(res) {
 			if (blockyRtMetricsHook)
 				blockyRtMetricsHook(unwrapFetchText(res), '');
 		}).catch(function(err) {
@@ -821,8 +898,7 @@ function loadBlockyPageData() {
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 		loadBlockyUciAccess(),
 		L.resolveDefault(callServiceList('adblock'), {}),
-		loadBlocklistCatalog(),
-		L.resolveDefault(fetchText(blockyMetricsUrl()), '')
+		loadBlocklistCatalog()
 	]).then(function(parts) {
 		var status = parts[0] || {};
 
@@ -832,7 +908,7 @@ function loadBlockyPageData() {
 			serviceObjectFromStatus(status),
 			status.blocking || { enabled: false },
 			parts[1],
-			parts[5],
+			status.metrics_text || '',
 			{ code: 0, stdout: status.dnsmasq_forward ? '1\n' : '0\n' },
 			statsResultFromStatus(status),
 			parts[3],
@@ -956,12 +1032,16 @@ return baseclass.extend({
 	resolveDenyCount: resolveDenyCount,
 	execDnsmasqSync: execDnsmasqSync,
 	blockyHttpRequest: blockyHttpRequest,
+	fetchMetricsText: fetchMetricsText,
 	fetchText: fetchText,
 	unwrapFetchText: unwrapFetchText,
 	fetchJson: fetchJson,
 	blockyApi: blockyApi,
 	blockyMetricsUrl: blockyMetricsUrl,
 	fetchBlockyStats: fetchBlockyStats,
+	setBlocking: setBlocking,
+	flushCache: flushCache,
+	queryDns: queryDns,
 	mapToBarRows: mapToBarRows,
 	topListBarRow: topListBarRow,
 	registerBlockingCountdownPoll: registerBlockingCountdownPoll,
@@ -977,6 +1057,10 @@ return baseclass.extend({
 	callBlockyGetStatus: callBlockyGetStatus,
 	callBlockyGetLogs: callBlockyGetLogs,
 	callBlockyValidateConfig: callBlockyValidateConfig,
+	callBlockyGetMetrics: callBlockyGetMetrics,
+	callBlockyQueryDns: callBlockyQueryDns,
+	callBlockySetBlocking: callBlockySetBlocking,
+	callBlockyFlushCache: callBlockyFlushCache,
 	resolveBlockyVersion: resolveBlockyVersion,
 	renderBlockyVersionBadge: renderBlockyVersionBadge,
 	resolveDefaultTabFromHash: resolveDefaultTabFromHash,

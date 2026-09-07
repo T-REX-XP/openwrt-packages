@@ -178,7 +178,7 @@ function run_bin(path, args) {
 	for (let i = 0; i < length(args); i++)
 		cmd += ` ${shellquote(args[i])}`;
 
-	let p = popen(`${cmd} 2>&1`, 'r');
+	let p = popen(`${cmd} 2>/dev/null`, 'r');
 	if (!p)
 		return { ok: false, code: 1, output: 'popen failed' };
 
@@ -201,6 +201,98 @@ function validate_http(method, path, body) {
 		body = as_str(body);
 
 	return [ method, path, body ];
+}
+
+function keep_prom_line(line) {
+	if (!length(line))
+		return true;
+
+	if (index(line, '# HELP go_') == 0 || index(line, '# TYPE go_') == 0)
+		return false;
+	if (index(line, '# HELP process_') == 0 || index(line, '# TYPE process_') == 0)
+		return false;
+	if (index(line, 'go_') == 0 || index(line, 'process_') == 0)
+		return false;
+
+	return true;
+}
+
+function filter_prom_metrics(text) {
+	let lines = split(text || '', '\n');
+	let out = [];
+	let i;
+
+	for (i = 0; i < length(lines); i++) {
+		if (keep_prom_line(lines[i]))
+			push(out, lines[i]);
+	}
+
+	return join('\n', out);
+}
+
+function clip_http_output(text) {
+	let truncated = false;
+
+	text = text || '';
+	if (length(text) > MAX_HTTP_UBUS_OUT) {
+		text = substr(text, 0, MAX_HTTP_UBUS_OUT);
+		truncated = true;
+	}
+
+	return { text: text, truncated: truncated };
+}
+
+function http_rpc_result(res, filter_prom) {
+	let stdout = res.ok ? (res.output || '') : '';
+	let clipped;
+
+	if (filter_prom)
+		stdout = filter_prom_metrics(stdout);
+
+	clipped = clip_http_output(stdout);
+
+	return {
+		ok: res.ok,
+		code: res.code,
+		stdout: clipped.text,
+		truncated: clipped.truncated,
+		stderr: res.ok ? '' : substr(res.output || '', 0, 512)
+	};
+}
+
+function json_quoted(s) {
+	s = replace(as_str(s), '\\', '\\\\');
+	s = replace(s, '"', '\\"');
+	return `"${s}"`;
+}
+
+function query_json_body(query, qtype) {
+	return chr(123) + '"query":' + json_quoted(query) + ',"type":' + json_quoted(qtype) + chr(125);
+}
+
+function allowed_query_name(q) {
+	q = trim(as_str(q));
+	if (!length(q) || length(q) > 253)
+		return null;
+	if (!match(q, /^[A-Za-z0-9._:-]+$/))
+		return null;
+	return q;
+}
+
+function allowed_query_type(t) {
+	t = uc(trim(as_str(t) || 'A'));
+	if (t == 'A' || t == 'AAAA' || t == 'CNAME' || t == 'MX' || t == 'TXT' || t == 'NS' || t == 'SRV' || t == 'PTR')
+		return t;
+	return null;
+}
+
+function allowed_duration(d) {
+	d = trim(as_str(d));
+	if (!length(d) || d == '0')
+		return '';
+	if (match(d, /^[0-9]+[smh]$/))
+		return d;
+	return null;
 }
 
 function allowed_log_dir(target) {
@@ -255,28 +347,123 @@ const methods = {
 			let method = uc(ra.method || 'GET');
 			let path = trim(ra.path || 'metrics');
 			let body = as_str(ra.body);
+			let run_args;
+			let res;
 
 			if (method != 'GET' && method != 'POST')
-				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request method' };
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request method', truncated: false };
 
 			if (!match(path, /^[A-Za-z0-9_\/.\-]+$/) || index(path, '..') >= 0)
-				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request path' };
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request path', truncated: false };
 
-			let run_args = [ method, path ];
+			run_args = [ method, path ];
 			if (length(body))
 				push(run_args, body);
 
-			let res = run_bin(HTTP, run_args);
-			let stdout = res.ok ? (res.output || '') : '';
+			res = run_bin(HTTP, run_args);
+			return http_rpc_result(res, path == 'metrics' || index(path, 'metrics/') == 0);
+		}
+	},
 
-			if (length(stdout) > MAX_HTTP_UBUS_OUT)
-				stdout = substr(stdout, 0, MAX_HTTP_UBUS_OUT);
+	getMetrics: {
+		call: function() {
+			return http_rpc_result(run_bin(HTTP, [ 'GET', 'metrics' ]), true);
+		}
+	},
+
+	queryDns: {
+		args: { query: 'string', type: 'string' },
+		call: function(req) {
+			let ra = rpc_args(req);
+			let q = allowed_query_name(ra.query);
+			let qtype = allowed_query_type(ra.type);
+			let body;
+			let res;
+			let parsed;
+
+			if (!q)
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid query name', truncated: false };
+			if (!qtype)
+				return { ok: false, code: 22, stdout: '', stderr: 'invalid query type', truncated: false };
+
+			body = query_json_body(q, qtype);
+			res = run_bin(HTTP, [ 'POST', 'api/query', body ]);
+			if (!res.ok)
+				return http_rpc_result(res, false);
+
+			try {
+				parsed = json(res.output);
+			} catch (e) {
+				return {
+					ok: false,
+					code: res.code,
+					stdout: clip_http_output(res.output || '').text,
+					truncated: false,
+					stderr: 'query response is not JSON'
+				};
+			}
+
+			return {
+				ok: true,
+				code: 0,
+				stdout: clip_http_output(res.output || '').text,
+				truncated: false,
+				stderr: '',
+				reason: as_str(parsed.reason),
+				response: as_str(parsed.response),
+				responseType: as_str(parsed.responseType),
+				returnCode: as_str(parsed.returnCode)
+			};
+		}
+	},
+
+	setBlocking: {
+		args: { enabled: 'string', duration: 'string' },
+		call: function(req) {
+			let ra = rpc_args(req);
+			let enabled = trim(as_str(ra.enabled));
+			let duration = allowed_duration(ra.duration);
+			let path;
+			let res;
+			let blocking_raw;
+			let blocking;
+
+			if (duration == null)
+				return { ok: false, error: 'invalid duration' };
+
+			if (enabled == '1' || enabled == 'true' || enabled == 'enable')
+				path = 'api/blocking/enable';
+			else if (enabled == '0' || enabled == 'false' || enabled == 'disable') {
+				path = 'api/blocking/disable';
+				if (length(duration))
+					path += '?duration=' + duration;
+			}
+			else {
+				return { ok: false, error: 'invalid blocking action' };
+			}
+
+			res = run_bin(HTTP, [ 'POST', path ]);
+			if (!res.ok)
+				return { ok: false, error: 'blocking request failed', code: res.code };
+
+			blocking_raw = run_bin(HTTP, [ 'GET', 'api/blocking/status' ]);
+			blocking = parse_blocking_status(blocking_raw.ok ? blocking_raw.output : '');
+
+			return {
+				ok: true,
+				blocking: blocking
+			};
+		}
+	},
+
+	flushCache: {
+		call: function() {
+			let res = run_bin(HTTP, [ 'POST', 'api/cache/flush' ]);
 
 			return {
 				ok: res.ok,
 				code: res.code,
-				stdout: stdout,
-				stderr: res.ok ? '' : substr(res.output || '', 0, 512)
+				error: res.ok ? '' : 'cache flush failed'
 			};
 		}
 	},
@@ -350,6 +537,7 @@ const methods = {
 			let version_res = run_bin(BLOCKY_BIN, [ 'version' ]);
 			let version = trim(split(version_res.output, '\n')[0] || '');
 			let log_level = parse_log_level(yaml);
+			let metrics = http_rpc_result(run_bin(HTTP, [ 'GET', 'metrics' ]), true);
 
 			return {
 				ok: true,
@@ -362,6 +550,9 @@ const methods = {
 				stats_ok: stats.ok,
 				stats_disabled: stats.disabled,
 				stats_json: stats.json || '',
+				metrics_ok: metrics.ok,
+				metrics_text: metrics.stdout,
+				metrics_truncated: metrics.truncated,
 				version: version,
 				ports: {
 					dns: parse_port_from_config(yaml, 'dns', 5353),

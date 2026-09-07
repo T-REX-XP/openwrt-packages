@@ -8,13 +8,6 @@ config blocky 'main'
 	option api_password ''
 	option refresh_period '4h'
 
-config blocklist 'hagezi_light'
-	option name 'HaGeZi Light'
-	option url 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt'
-	option enabled '1'
-	option category 'balanced'
-	option description 'Balanced DNS blocklist — low false positives (HaGeZi).'
-
 config blocklist 'urlhaus'
 	option name 'URLhaus Hostfile'
 	option url 'https://urlhaus.abuse.ch/downloads/hostfile/'

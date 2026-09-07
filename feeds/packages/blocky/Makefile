@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
 PKG_VERSION:=0.34.0
-PKG_RELEASE:=25
+PKG_RELEASE:=28
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
@@ -73,6 +73,7 @@ define Package/blocky/install
 	$(INSTALL_BIN) ./files/blocky.defaults $(1)/etc/uci-defaults/90-blocky-enable
 	$(INSTALL_BIN) ./files/blocky-bootstrap.defaults $(1)/etc/uci-defaults/91-blocky-bootstrap
 	$(INSTALL_BIN) ./files/blocky-ensure.defaults $(1)/etc/uci-defaults/94-blocky-ensure
+	$(INSTALL_BIN) ./files/blocky-drop-hagezi-light.defaults $(1)/etc/uci-defaults/96-blocky-drop-dead-catalog
 endef
 
 define Package/blocky/postinst

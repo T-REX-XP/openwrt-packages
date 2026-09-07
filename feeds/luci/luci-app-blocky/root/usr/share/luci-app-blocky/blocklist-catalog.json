@@ -1,22 +1,6 @@
 {
-	"version": 3,
+	"version": 5,
 	"presets": [
-		{
-			"id": "hagezi_light",
-			"name": "HaGeZi Light",
-			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt",
-			"category": "balanced",
-			"description": "Balanced DNS blocklist — low false positives, ideal first list (HaGeZi).",
-			"homeUrl": "https://github.com/hagezi/dns-blocklists"
-		},
-		{
-			"id": "hagezi_pro",
-			"name": "HaGeZi Multi Pro",
-			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt",
-			"category": "balanced",
-			"description": "Stronger multi-purpose DNS blocklist, still curated for safety (HaGeZi Pro).",
-			"homeUrl": "https://github.com/hagezi/dns-blocklists"
-		},
 		{
 			"id": "stevenblack",
 			"name": "StevenBlack Unified",
@@ -74,14 +58,6 @@
 			"homeUrl": "https://urlhaus.abuse.ch/"
 		},
 		{
-			"id": "hagezi_tif_medium",
-			"name": "HaGeZi TIF Medium",
-			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/tif.medium.txt",
-			"category": "security",
-			"description": "Threat intelligence feeds — malware, cryptominers, spam, and risky domains.",
-			"homeUrl": "https://github.com/hagezi/dns-blocklists"
-		},
-		{
 			"id": "phishing_army",
 			"name": "Phishing Army Extended",
 			"url": "https://phishing.army/download/phishing_army_blocklist_extended.txt",
@@ -90,60 +66,12 @@
 			"homeUrl": "https://phishing.army/"
 		},
 		{
-			"id": "phishing_database",
-			"name": "Phishing.Database",
-			"url": "https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains.txt",
-			"category": "security",
-			"description": "Regularly updated database of active phishing domains.",
-			"homeUrl": "https://github.com/mitchellkrogza/Phishing.Database"
-		},
-		{
 			"id": "perflyst_smarttv",
 			"name": "Perflyst Smart TV",
 			"url": "https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt",
 			"category": "privacy",
 			"description": "Blocks tracking and ads on LG, Samsung, Sony, Roku, and similar TVs.",
 			"homeUrl": "https://github.com/Perflyst/PiHoleBlocklist"
-		},
-		{
-			"id": "nextdns_windows",
-			"name": "NextDNS Windows Telemetry",
-			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/windows",
-			"category": "privacy",
-			"description": "Windows OS telemetry and analytics domains (NextDNS metadata).",
-			"homeUrl": "https://github.com/nextdns/metadata"
-		},
-		{
-			"id": "nextdns_apple",
-			"name": "NextDNS Apple Telemetry",
-			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/apple",
-			"category": "privacy",
-			"description": "Apple iOS and macOS telemetry domains (NextDNS metadata).",
-			"homeUrl": "https://github.com/nextdns/metadata"
-		},
-		{
-			"id": "nextdns_samsung",
-			"name": "NextDNS Samsung Telemetry",
-			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/samsung",
-			"category": "privacy",
-			"description": "Samsung device telemetry domains (NextDNS metadata).",
-			"homeUrl": "https://github.com/nextdns/metadata"
-		},
-		{
-			"id": "nextdns_xiaomi",
-			"name": "NextDNS Xiaomi Telemetry",
-			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/xiaomi",
-			"category": "privacy",
-			"description": "Xiaomi device telemetry domains (NextDNS metadata).",
-			"homeUrl": "https://github.com/nextdns/metadata"
-		},
-		{
-			"id": "nextdns_huawei",
-			"name": "NextDNS Huawei Telemetry",
-			"url": "https://raw.githubusercontent.com/nextdns/metadata/master/privacy/native/huawei",
-			"category": "privacy",
-			"description": "Huawei device telemetry domains (NextDNS metadata).",
-			"homeUrl": "https://github.com/nextdns/metadata"
 		},
 		{
 			"id": "oisd_nsfw",
@@ -168,14 +96,6 @@
 			"category": "parental",
 			"description": "StevenBlack unified list plus adult site blocking.",
 			"homeUrl": "https://github.com/StevenBlack/hosts"
-		},
-		{
-			"id": "hagezi_gambling",
-			"name": "HaGeZi Gambling",
-			"url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/gambling.txt",
-			"category": "parental",
-			"description": "Online gambling and betting domains (HaGeZi).",
-			"homeUrl": "https://github.com/hagezi/dns-blocklists"
 		}
 	],
 	"catalog": [
@@ -184,8 +104,6 @@
 			"title": "Balanced & universal",
 			"description": "Recommended starting lists — good coverage with fewer false positives",
 			"items": [
-				"hagezi_light",
-				"hagezi_pro",
 				"stevenblack",
 				"oisd_big",
 				"oisd_small"
@@ -207,9 +125,7 @@
 			"description": "Malware, phishing, botnet C2, and threat intelligence",
 			"items": [
 				"urlhaus",
-				"hagezi_tif_medium",
-				"phishing_army",
-				"phishing_database"
+				"phishing_army"
 			]
 		},
 		{
@@ -217,12 +133,7 @@
 			"title": "Privacy & device telemetry",
 			"description": "Smart TV tracking and OS/vendor telemetry — assign to specific clients when possible",
 			"items": [
-				"perflyst_smarttv",
-				"nextdns_windows",
-				"nextdns_apple",
-				"nextdns_samsung",
-				"nextdns_xiaomi",
-				"nextdns_huawei"
+				"perflyst_smarttv"
 			]
 		},
 		{
@@ -232,8 +143,7 @@
 			"items": [
 				"oisd_nsfw",
 				"oisd_nsfw_small",
-				"stevenblack_porn",
-				"hagezi_gambling"
+				"stevenblack_porn"
 			]
 		}
 	]

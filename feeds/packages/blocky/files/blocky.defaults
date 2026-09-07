@@ -19,12 +19,6 @@ fi
 
 if [ "$has_blocklists" = "0" ]; then
 	uci -q batch <<'EOF'
-set blocky.hagezi_light=blocklist
-set blocky.hagezi_light.name='HaGeZi Light'
-set blocky.hagezi_light.url='https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt'
-set blocky.hagezi_light.enabled='1'
-set blocky.hagezi_light.category='balanced'
-set blocky.hagezi_light.description='Balanced DNS blocklist — low false positives (HaGeZi).'
 set blocky.urlhaus=blocklist
 set blocky.urlhaus.name='URLhaus Hostfile'
 set blocky.urlhaus.url='https://urlhaus.abuse.ch/downloads/hostfile/'

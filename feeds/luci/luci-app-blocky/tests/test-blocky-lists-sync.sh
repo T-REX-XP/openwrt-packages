@@ -28,9 +28,9 @@ export BLOCKY_LISTS_SYNC_SOURCED=1
 # shellcheck disable=SC1090
 . "$SYNC"
 
-# All lists disabled → empty denylist, no hagezi/urlhaus.
+# All lists disabled → empty denylist, no package-default resurrection.
 cat > "$TMP/uci-disabled" <<'EOF'
-hagezi_light|HaGeZi Light|https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt|0
+example_list|Example|https://example.com/list.txt|0
 urlhaus|URLhaus|https://urlhaus.abuse.ch/downloads/hostfile/|0
 EOF
 
@@ -46,7 +46,7 @@ grep -q 'default: \[\]' "$out" || {
 	cat "$out"
 	exit 1
 }
-if grep -q 'hagezi_light\|urlhaus' "$out"; then
+if grep -q 'example_list\|urlhaus' "$out"; then
 	echo "empty UCI resurrected default lists:"
 	cat "$out"
 	exit 1
@@ -55,14 +55,14 @@ rm -f "$out"
 
 # One enabled list → that id only.
 cat > "$TMP/uci-one" <<'EOF'
-hagezi_light|HaGeZi Light|https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt|1
+example_list|Example|https://example.com/list.txt|1
 urlhaus|URLhaus|https://urlhaus.abuse.ch/downloads/hostfile/|0
 EOF
 
 BLOCKY_UCI_LISTS="$TMP/uci-one"
 out="$(write_blocking_section)"
-grep -q 'hagezi_light:' "$out" || {
-	echo "expected enabled hagezi_light in denylist"
+grep -q 'example_list:' "$out" || {
+	echo "expected enabled example_list in denylist"
 	cat "$out"
 	exit 1
 }

@@ -32,7 +32,7 @@ test('statsResultFromStatus', () => {
 	const stats = readFixture('stats.json');
 	const ok = bp.statsResultFromStatus({ stats_ok: true, stats_json: stats });
 	assert.equal(ok.ok, true);
-	assert.equal(ok.data.lists.denylist.hagezi_light, 45000);
+	assert.equal(ok.data.lists.denylist.urlhaus, 1200);
 
 	assert.equal(bp.statsResultFromStatus({ stats_disabled: true }).disabled, true);
 	assert.equal(bp.statsResultFromStatus({ stats_ok: false }).ok, false);

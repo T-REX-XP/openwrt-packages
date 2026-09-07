@@ -53,6 +53,35 @@ test('read_query_log treats missing directory as !access()', () => {
 	assert.doesNotMatch(slice.slice(0, 600), /if \(access\(dir\)\)/);
 });
 
+test('catalog omits dead download URLs and stays internally consistent', () => {
+	const catalog = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)),
+		'..', 'root/usr/share/luci-app-blocky/blocklist-catalog.json'), 'utf8'));
+	const ids = new Set((catalog.presets || []).map((p) => p.id));
+	const dead = [
+		'hagezi_light', 'hagezi_pro', 'hagezi_tif_medium', 'hagezi_gambling',
+		'phishing_database',
+		'nextdns_windows', 'nextdns_apple', 'nextdns_samsung', 'nextdns_xiaomi', 'nextdns_huawei'
+	];
+	const deadUrls = [
+		'hagezi/dns-blocklists/main/domains/',
+		'mitchellkrogza/Phishing.Database',
+		'nextdns/metadata/master/privacy/native/'
+	];
+
+	for (const id of dead)
+		assert.equal(ids.has(id), false, `catalog still has ${id}`);
+	for (const preset of catalog.presets) {
+		assert.ok(preset.id && preset.url, `preset missing id/url: ${preset.id}`);
+		for (const frag of deadUrls)
+			assert.equal(preset.url.includes(frag), false, `${preset.id} still uses ${frag}`);
+	}
+	for (const group of catalog.catalog || []) {
+		assert.ok(group.items.length > 0, `empty catalog group ${group.id}`);
+		for (const item of group.items)
+			assert.equal(ids.has(item), true, `catalog item ${item} not in presets`);
+	}
+});
+
 test('ACL read cannot mutate Blocky', () => {
 	const acl = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)),
 		'..', 'root/usr/share/rpcd/acl.d/luci-app-blocky.json'), 'utf8'));
