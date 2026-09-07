@@ -212,7 +212,7 @@ EOF
 queryLog:
   type: csv
   target: /tmp/blocky-logs
-  logRetentionDays: 7
+  logRetentionDays: 1
   flushInterval: 30s
 EOF
 		fi

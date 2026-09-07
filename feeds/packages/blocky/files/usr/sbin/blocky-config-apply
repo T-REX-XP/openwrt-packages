@@ -82,7 +82,7 @@ if ! awk '/^queryLog:/{f=1;next} f&&/^[[:space:]]+type:/{ok=1; exit} END{exit !o
 queryLog:
   type: csv
   target: /tmp/blocky-logs
-  logRetentionDays: 7
+  logRetentionDays: 1
   flushInterval: 30s
 EOF
 	changed=1

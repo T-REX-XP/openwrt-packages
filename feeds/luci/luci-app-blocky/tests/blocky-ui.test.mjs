@@ -86,6 +86,20 @@ test('inner Logs tabs and hero chrome', () => {
 	assert.match(base, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 	assert.match(logs, /no query log files found/i);
 	assert.match(logs, /No query log file yet/);
+	assert.doesNotMatch(logs, /tmpfs \/ RAM note/);
+	assert.doesNotMatch(logs, /blocky-query-log-tmpfs-note/);
+});
+
+test('Settings Logging includes query log fields', () => {
+	const logging = config.slice(config.indexOf("id: 'logging'"), config.indexOf("id: 'listeners'"));
+
+	assert.match(logging, /queryLogTarget/);
+	assert.match(logging, /queryLogRetention/);
+	assert.match(logging, /queryLogFlush/);
+	assert.match(logging, /tmpfs \(RAM\)/);
+	assert.doesNotMatch(config, /id:\s*'querylog'/);
+	assert.doesNotMatch(config, /DNS query logging is configured separately below/);
+	assert.match(logs, /Settings → Logging/);
 });
 
 test('Block lists grid stages UCI until Save & Apply', () => {

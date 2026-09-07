@@ -505,8 +505,8 @@ msgstr "Query Logs"
 msgid "Rankings from Blocky in-memory statistics."
 msgstr "Rankings from Blocky in-memory statistics."
 
-msgid "Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB)."
-msgstr "Read-only viewer for Blocky tab-separated query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB)."
+msgid "Read-only viewer for Blocky query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB). Query log path and retention are under Settings → Logging."
+msgstr "Read-only viewer for Blocky query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB). Query log path and retention are under Settings → Logging."
 
 msgid "Reason"
 msgstr "Reason"
@@ -1180,8 +1180,8 @@ msgstr "/etc/hosts is included by default."
 msgid "Logging"
 msgstr "Logging"
 
-msgid "Blocky service log level. DNS query logging is configured separately below."
-msgstr "Blocky service log level. DNS query logging is configured separately below."
+msgid "Service syslog level and CSV DNS query logs shown on the Logs tab."
+msgstr "Service syslog level and CSV DNS query logs shown on the Logs tab."
 
 msgid "Log level"
 msgstr "Log level"
@@ -1195,17 +1195,23 @@ msgstr "Mask domains in Blocky logs."
 msgid "Query log"
 msgstr "Query log"
 
-msgid "CSV query logs for the Logs tab."
-msgstr "CSV query logs for the Logs tab."
+msgid "The default directory /tmp/blocky-logs is tmpfs (RAM). Logs are lost on reboot and compete with memory. Default retention is 1 day. Disable query logging on memory-constrained devices."
+msgstr "The default directory /tmp/blocky-logs is tmpfs (RAM). Logs are lost on reboot and compete with memory. Default retention is 1 day. Disable query logging on memory-constrained devices."
 
-msgid "Target directory"
-msgstr "Target directory"
+msgid "Query log directory"
+msgstr "Query log directory"
 
-msgid "Retention (days)"
-msgstr "Retention (days)"
+msgid "LuCI reads CSV from this path only."
+msgstr "LuCI reads CSV from this path only."
 
-msgid "Flush interval"
-msgstr "Flush interval"
+msgid "Query log retention (days)"
+msgstr "Query log retention (days)"
+
+msgid "Keep this short when using tmpfs."
+msgstr "Keep this short when using tmpfs."
+
+msgid "Query log flush interval"
+msgstr "Query log flush interval"
 
 msgid "Listeners"
 msgstr "Listeners"

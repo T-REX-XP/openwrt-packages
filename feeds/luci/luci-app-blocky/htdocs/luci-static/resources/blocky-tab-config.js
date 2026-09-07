@@ -554,7 +554,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 		queryLogRetention: E('input', {
 			'class': 'cbi-input-text',
 			'value': parsed.queryLogRetention,
-			'placeholder': '7'
+			'placeholder': '1'
 		}),
 		queryLogFlush: E('input', {
 			'class': 'cbi-input-text',
@@ -704,23 +704,24 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 			title: _('Logging'),
 			content: configSectionPage(
 				_('Logging'),
-				_('Blocky service log level. DNS query logging is configured separately below.'),
+				_('Service syslog level and CSV DNS query logs shown on the Logs tab.'),
 				[
 					settingsRow(_('Log level'), '', state.logLevel),
-					settingsRow(_('Obfuscate log output'), _('Mask domains in Blocky logs.'), state.logPrivacy)
-				]
-			)
-		},
-		{
-			id: 'querylog',
-			title: _('Query log'),
-			content: configSectionPage(
-				_('Query log'),
-				_('CSV query logs for the Logs tab.'),
-				[
-					settingsRow(_('Target directory'), '', state.queryLogTarget),
-					settingsRow(_('Retention (days)'), '', state.queryLogRetention),
-					settingsRow(_('Flush interval'), '', state.queryLogFlush)
+					settingsRow(_('Obfuscate log output'), _('Mask domains in Blocky logs.'), state.logPrivacy),
+					E('p', { 'class': 'blocky-note-soft' }, [
+						_('The default directory /tmp/blocky-logs is tmpfs (RAM). Logs are lost on reboot and compete with memory. Default retention is 1 day. Disable query logging on memory-constrained devices.')
+					]),
+					settingsRow(
+						_('Query log directory'),
+						_('LuCI reads CSV from this path only.'),
+						state.queryLogTarget
+					),
+					settingsRow(
+						_('Query log retention (days)'),
+						_('Keep this short when using tmpfs.'),
+						state.queryLogRetention
+					),
+					settingsRow(_('Query log flush interval'), '', state.queryLogFlush)
 				]
 			)
 		},

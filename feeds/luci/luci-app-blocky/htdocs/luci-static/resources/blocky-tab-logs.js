@@ -286,12 +286,7 @@ function renderQueryLogPanel(config, options) {
 		},
 		content: E('div', { 'class': 'blocky-query-logs-panel' }, [
 			E('p', { 'class': 'cbi-section-descr' }, [
-				_('Read-only viewer for Blocky query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB).').format(ql.type)
-			]),
-			E('div', { 'class': 'alert-message blocky-query-log-tmpfs-note' }, [
-				E('strong', {}, [ _('tmpfs / RAM note:') ]),
-				' ',
-				_('Default path /tmp/blocky-logs lives in tmpfs on most routers. Logs are lost on reboot and compete with RAM for space. Use a short retention period or disable query logging on memory-constrained devices.')
+				_('Read-only viewer for Blocky query logs (%s). Shows the newest daily .log file (tail capped at 512 KiB). Query log path and retention are under Settings → Logging.').format(ql.type)
 			]),
 			truncatedBanner,
 			E('div', { 'class': 'blocky-query-log-toolbar' }, [

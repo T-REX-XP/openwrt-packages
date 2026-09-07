@@ -23,10 +23,18 @@ function test(name, fn) {
 
 const FIXTURE = readFixture('config.yml');
 
-test('extractYamlSection returns blocking block', () => {
-	const section = bc.extractYamlSection(FIXTURE, 'blocking');
-	assert.match(section, /^blocking:/);
-	assert.match(section, /denylists:/);
+test('extractYamlSection stops at the next top-level key', () => {
+	const blocking = bc.extractYamlSection(FIXTURE, 'blocking');
+	assert.match(blocking, /^blocking:/);
+	assert.match(blocking, /denylists:/);
+	assert.doesNotMatch(blocking, /caching:/);
+	assert.doesNotMatch(blocking, /minTime:/);
+	assert.doesNotMatch(blocking, /\/etc\/hosts/);
+	const upstreams = bc.extractYamlSection(FIXTURE, 'upstreams');
+	assert.doesNotMatch(upstreams, /bootstrapDns:/);
+	assert.doesNotMatch(upstreams, /\/etc\/hosts/);
+	const groups = bc.parseUpstreamGroups(upstreams);
+	assert.equal(groups.default.includes('/etc/hosts'), false);
 });
 
 test('parseYamlScalar and parseYamlBool', () => {
@@ -48,6 +56,7 @@ test('parseBlockySettings reads CM5 defaults', () => {
 	assert.equal(s.portHttp, '127.0.0.1:4000');
 	assert.equal(s.listRefreshPeriod, '4h');
 	assert.equal(s.queryLogTarget, '/tmp/blocky-logs');
+	assert.equal(s.queryLogRetention, '1');
 	assert.ok(s.upstreamResolvers.length >= 1);
 	assert.ok(s.upstreamGroups.default.length >= 1);
 	assert.equal(s.bootstrapUseWan, false);
@@ -89,7 +98,7 @@ test('buildBlockySettingsYaml writes upstream groups', () => {
 		logPrivacy: false,
 		queryLogType: 'csv',
 		queryLogTarget: '/tmp/blocky-logs',
-		queryLogRetention: '7',
+		queryLogRetention: '1',
 		queryLogFlush: '30s',
 		portDns: '127.0.0.1:5353',
 		portHttp: '127.0.0.1:4000',
@@ -131,6 +140,8 @@ test('buildBlockySettingsYaml preserves blocking section', () => {
 	const reparsed = bc.parseBlockySettings(built);
 	assert.equal(reparsed.portDns, parsed.portDns);
 	assert.equal(reparsed.listRefreshPeriod, parsed.listRefreshPeriod);
+	assert.doesNotMatch(bc.extractYamlSection(built, 'blocking'), /minTime:/);
+	assert.doesNotMatch(bc.extractYamlSection(built, 'upstreams'), /\/etc\/hosts/);
 });
 
 test('patchBlockingLoadingSection updates concurrency', () => {

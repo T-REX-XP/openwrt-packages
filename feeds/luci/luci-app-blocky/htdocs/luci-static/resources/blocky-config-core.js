@@ -23,11 +23,10 @@ function extractYamlSection(yaml, sectionName) {
 		if (!inSection)
 			return;
 
-		if (/^[a-zA-Z0-9_]+:\s*$/.test(line) && !re.test(line))
+		if (/^[^#\s]/.test(line)) {
+			inSection = false;
 			return;
-
-		if (/^[^#\s]/.test(line) && !re.test(line))
-			return;
+		}
 
 		out.push(line);
 	});
@@ -227,7 +226,7 @@ function parseBlockySettings(yaml) {
 		logPrivacy: parseYamlBool(logSec, 'privacy', false),
 		queryLogType: parseYamlScalar(queryLog, 'type', 'csv'),
 		queryLogTarget: parseYamlScalar(queryLog, 'target', '/tmp/blocky-logs'),
-		queryLogRetention: parseYamlScalar(queryLog, 'logRetentionDays', '7'),
+		queryLogRetention: parseYamlScalar(queryLog, 'logRetentionDays', '1'),
 		queryLogFlush: parseYamlScalar(queryLog, 'flushInterval', '30s'),
 		portDns: dnsEp.host + ':' + String(dnsEp.port),
 		portHttp: httpEp.host + ':' + String(httpEp.port),
@@ -306,7 +305,7 @@ function buildBlockySettingsYaml(fields, currentYaml) {
 		'queryLog:',
 		'  type: ' + yamlQuote(fields.queryLogType || 'csv'),
 		'  target: ' + yamlQuote(fields.queryLogTarget || '/tmp/blocky-logs'),
-		'  logRetentionDays: ' + yamlQuote(fields.queryLogRetention || '7'),
+		'  logRetentionDays: ' + yamlQuote(fields.queryLogRetention || '1'),
 		'  flushInterval: ' + yamlQuote(fields.queryLogFlush || '30s'),
 		'',
 		'ports:',
