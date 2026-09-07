@@ -53,13 +53,13 @@ function renderQueryLogPanel(config, options) {
 	var filterDomain = E('input', {
 		'type': 'text',
 		'class': 'cbi-input-text',
-		'placeholder': 'example.org',
+		'placeholder': _('example.org'),
 		'style': 'min-width:14em'
 	});
 	var filterClient = E('input', {
 		'type': 'text',
 		'class': 'cbi-input-text',
-		'placeholder': '192.168.1.10',
+		'placeholder': _('192.168.1.10'),
 		'style': 'min-width:12em'
 	});
 	var filterResponse = E('select', { 'class': 'cbi-input-select' }, [

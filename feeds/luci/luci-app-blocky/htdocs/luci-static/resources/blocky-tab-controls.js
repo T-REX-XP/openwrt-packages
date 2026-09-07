@@ -164,9 +164,7 @@ function renderOperations(service, onRefresh) {
 		]),
 		E('p', {}, [
 			actionButton(_('Refresh lists'), function() {
-				return execBlockyListsSync().then(function() {
-					return refreshBlockyLists();
-				});
+				return execBlockyListsRefresh();
 			}, 'cbi-button-action', refresh),
 			' ',
 			actionButton(_('Flush cache'), function() {

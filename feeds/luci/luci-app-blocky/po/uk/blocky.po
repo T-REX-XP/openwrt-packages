@@ -59,6 +59,9 @@ msgstr "Додайте queryLog у config.yml для вкладки «Журна
 msgid "After changing the DNS port in YAML, click Save & restart Blocky, then toggle this again so dnsmasq matches. Block list refresh still uses the Controls tab “Refresh lists” API button."
 msgstr "Після зміни DNS-порту в YAML натисніть «Зберегти та перезапустити Blocky», потім знову увімкніть інтеграцію, щоб dnsmasq відповідав. Оновлення списків блокування — кнопка «Оновити списки» на вкладці «Керування»."
 
+msgid "After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Statistics tab."
+msgstr "Після зміни DNS-порту натисніть «Зберегти та застосувати», потім знову увімкніть інтеграцію, щоб dnsmasq відповідав. Оновлення списків — кнопка «Оновити списки» на вкладці «Статистика»."
+
 msgid "Allowlists"
 msgstr "Allowlist"
 
@@ -151,6 +154,12 @@ msgstr "Відповіді в кеші"
 
 msgid "Charts activate once metrics are available."
 msgstr "Графіки з'являться, коли метрики стануть доступні."
+
+msgid "example.org"
+msgstr "example.org"
+
+msgid "192.168.1.10"
+msgstr "192.168.1.10"
 
 msgid "Check"
 msgstr "Перевірити"
@@ -397,6 +406,12 @@ msgstr "Рядки журналу не завантажено."
 
 msgid "No Prometheus samples detected yet. Enable prometheus in Blocky and confirm /metrics responds."
 msgstr "Зразків Prometheus ще немає. Увімкніть prometheus у Blocky і перевірте відповідь /metrics."
+
+msgid "Could not read Blocky /metrics: %s"
+msgstr "Не вдалося прочитати Blocky /metrics: %s"
+
+msgid "Waiting for Prometheus samples. If metrics stay empty, check that Blocky is running and prometheus.enable is true."
+msgstr "Очікування зразків Prometheus. Якщо метрики залишаються порожніми, перевірте, що Blocky запущено і prometheus.enable увімкнено."
 
 msgid "No query executed yet."
 msgstr "Запитів ще не виконано."

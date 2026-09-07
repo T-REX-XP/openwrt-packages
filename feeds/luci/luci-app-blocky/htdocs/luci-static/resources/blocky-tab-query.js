@@ -146,7 +146,7 @@ function mountQueryPanel(host, options) {
 	var query = E('input', {
 		'type': 'text',
 		'class': 'cbi-input-text blocky-query-input',
-		'placeholder': 'example.org',
+		'placeholder': _('example.org'),
 		'pattern': '^[A-Za-z0-9_.:-]+$',
 		'style': 'min-width:22em'
 	});

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07  
 **Scope:** `feeds/luci/luci-app-blocky/` + host helpers in `feeds/packages/blocky/` that the LuCI app calls  
-**Versions:** Blocky **v0.34.0** · `luci-app-blocky` **PKG_RELEASE 68** (uncommitted live fixes may already be on the router)  
+**Versions:** Blocky **v0.34.0** (`PKG_RELEASE` 25) · `luci-app-blocky` **PKG_RELEASE 70**  
 **Supersedes:** the 2026-08-28 “34/34 complete” claim in this file. Historical API notes remain in [luci-app-blocky-feature-plan.md](luci-app-blocky-feature-plan.md).
 
 This is the **active** plan. Do not treat Epic A–F from August as done: several P0 defects shipped after that tracker was closed, and unit tests never covered them.
@@ -18,8 +18,8 @@ Three live defects from 2026-09-07 prove the gap:
 | Symptom | Root cause | Tests |
 |---------|------------|--------|
 | “No Prometheus samples” while Settings shows Prometheus on | `luci.blocky http_request` threw on `upper()` / `String()` (not ucode builtins); LuCI always sends `body: ""` | None until a source grep was added after the bug |
-| Query tab “Request to Blocky failed” | `blocky-http-api` POST uses `uclient-fetch --post-type=` (unsupported on this image) | Shell tests only check port parsing |
-| Uncheck list → YAML confirm / rewrite | Grid called `applyBlocklistChanges` (uci.save + lists-sync + restart) instead of staging until footer Save & Apply | UI regex tests later updated; **lists-sync still re-injects default denylists if UCI has zero enabled lists** |
+| Query tab “Request to Blocky failed” | `blocky-http-api` POST used `uclient-fetch` wget post-type flag (unsupported on this image) | **Fixed (G-2):** `--header=Content-Type: application/json`; host grep |
+| Uncheck list → YAML confirm / rewrite | Grid called `applyBlocklistChanges` (uci.save + lists-sync + restart) instead of staging until footer Save & Apply | Grid staging-only (PKG 67+). **lists-sync no longer re-injects defaults if UCI has zero enabled lists (G-4)** |
 
 **100% unit coverage is not true today.** Host tests are ~53 Node cases + 2 thin shell scripts. They cover extractable parse/config helpers and a few source-string UI checks. They do **not** execute `luci.blocky.uc`, tab modules, `blocky-base.js` RPC wrappers, `blocky-lists-sync`, or POST `/api/query`.
 
@@ -111,16 +111,16 @@ Footer **Save** / **Save & Apply** → `runSettingsApply` → `saveBlockySetting
 | ID | Finding | Impact |
 |----|---------|--------|
 | **P0-1** | `luci.blocky.uc` used JS-isms `upper()` and `String()`. rpcd-mod-ucode has `uc()` only; `String` is not a function. LuCI `http_request` always passes `body: ""`, so **every metrics/query RPC threw** (“Unknown error”). Partial fix in tree: `uc()` + `as_str()` / `sprintf`. | Dashboard Prometheus banner; Query; any POST |
-| **P0-2** | `blocky-http-api` `blocky_http_post_json` uses `--post-type=application/json`. This image’s `uclient-fetch` rejects it. wget path uses `--header`. | Query tab always fails on CM5 |
-| **P0-3** | ACL **read** grants `http_request`, `sync_lists`, `refresh_lists`, `validate_config`, and `exec` of `/etc/init.d/blocky` and `blocky-dnsmasq-sync`. A read-only LuCI session can disable blocking, flush cache, rewrite lists, validate attacker YAML to `/tmp`. | Privilege split is fictional |
-| **P0-4** | `blocky-lists-sync`: if **zero enabled** UCI lists, it **injects hagezi_light + urlhaus**. Footer Save & Apply after unchecking every list does not yield an empty denylist. | Contradicts the UI confirm copy (“0 enabled UCI list(s)”) |
-| **P0-5** | Tests did not execute ucode or POST HTTP. P0-1/P0-2 shipped as “green CI”. | Coverage theater |
+| **P0-2** | `blocky-http-api` `blocky_http_post_json` used wget post-type. This image’s `uclient-fetch` rejects it. **Fixed:** both clients use `--header`. | Query tab |
+| **P0-3** | ACL **read** granted `http_request`, `sync_lists`, `refresh_lists`, `validate_config`, and `exec` of `/etc/init.d/blocky` and `blocky-dnsmasq-sync`. **Fixed (G-3):** those are write-only; read is getStatus/getLogs/read_query_log/get_version. | Privilege split |
+| **P0-4** | `blocky-lists-sync`: if **zero enabled** UCI lists, it injected hagezi_light + urlhaus. **Fixed:** empty UCI ⇒ `denylists: {}` + `default: []`. | Empty denylist |
+| **P0-5** | Tests did not execute ucode or POST HTTP. P0-1/P0-2 shipped as “green CI”. Host greps now cover ucode `String`/`upper`, `--post-type`, empty denylist, ACL read list. `ucode -c` runs when the binary exists. | Coverage |
 
 ### P1 — contracts, UX, maintainability
 
 | ID | Finding | Impact |
 |----|---------|--------|
-| **P1-1** | Prometheus empty-state copy blames config even when YAML `enable: true` and `/metrics` is up. Should distinguish RPC/parse failure vs disabled Prometheus. | Misleading ops |
+| **P1-1** | Prometheus empty-state copy blamed config even when YAML `enable: true`. **Fixed (H-2):** RPC error vs waiting-for-samples. | Ops copy |
 | **P1-2** | `http_request` is a **generic proxy** (method + path + body). Path regex is loose (`api/blocking/disable` is legal). Prefer named RPCs (`queryDns`, `getMetrics`, `setBlocking`, …). | Contract + ACL hard to reason about |
 | **P1-3** | Every `blocky-tab-*.js` starts with ~90 unused `Blocky.*` aliases from `split-blocky-common.js`. `blocky-tab-debug.js` unused. | Review noise, load cost |
 | **P1-4** | `MAX_HTTP_UBUS_OUT = 16384` silently truncates `/metrics` (live dump already ~13.6 KiB and growing). Truncation can drop counters; no `truncated` flag. | Charts lie under load |
@@ -128,8 +128,8 @@ Footer **Save** / **Save & Apply** → `runSettingsApply` → `saveBlockySetting
 | **P1-6** | `getStatus` does not include metrics text; page does a second `http_request`. `loadBlockyPageData` races `fetchText(metrics)` in `Promise.all` before `applyBlockyApiAccess`. | Extra failure modes |
 | **P1-7** | `handleReset: null` — staged UCI (blocklist checkboxes) cannot revert from the footer. Reload is the only undo. | LuCI convention |
 | **P1-8** | Settings apply writes **full YAML from form snapshot** then lists-sync. Advanced YAML vs structured fields vs UCI lists can still desync `blocking:`. | Operator surprise |
-| **P1-9** | `confirmBlocklistsYamlSync` still exists for Statistics “Refresh lists” / leftover `applyBlocklistChanges`. Grid should stay staging-only; live refresh must not rewrite YAML from unsaved UCI. | Same class as Sep 7 UX bug |
-| **P1-10** | Query log filter placeholder `example.org` is **not** wrapped in `_()`. | i18n miss |
+| **P1-9** | Statistics “Refresh lists” YAML-synced then API-refreshed. **Fixed (I-2):** API refresh only. `confirmBlocklistsYamlSync` still exists for leftover `applyBlocklistChanges` (unused by the grid). | Same class as Sep 7 UX bug |
+| **P1-10** | Query/log filter placeholders `example.org` / `192.168.1.10` were not wrapped in `_()`. **Fixed (K-2).** | i18n |
 
 ### P2 — polish / guidelines
 
@@ -233,9 +233,9 @@ Reference: skills **openwrt-25x**, **luci-bootstrap-theming**, **openwrt-feed-pa
 
 | Guideline | Gap |
 |-----------|-----|
-| Footer Save & Apply only | Lists grid fixed (67+); Statistics “Refresh lists” still syncs YAML |
+| Footer Save & Apply only | Lists grid (67+); Statistics “Refresh lists” is API-only (PKG 70) |
 | No in-page duplicate save | OK on Settings |
-| `_()` all strings | Query-log placeholder |
+| `_()` all strings | Query/log placeholders wrapped (PKG 70) |
 | `rpc.declare` `expect: { '': {} }` | OK |
 | ucode helpers above callers | OK structurally; builtins were wrong |
 | Bootstrap tokens | Hex leftovers in theme + `BLOCKY_CHART_FALLBACK` in JS |
@@ -328,18 +328,18 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 
 | ID | Task | Status | Acceptance |
 |----|------|--------|------------|
-| G-1 | ucode: no `String`/`upper`; `as_str` + `uc`; empty `body` safe | doing | `ubus call luci.blocky http_request '{"method":"GET","path":"metrics","body":""}'` → `ok:true`; `ucode -c` |
-| G-2 | `blocky-http-api`: `--header=Content-Type: application/json`; never `--post-type` | todo | Query `2ip.ua` A succeeds on router; host test greps script |
-| G-3 | ACL: mutating methods + init exec **write-only**; GET-only proxy on read | todo | JSON review + test asserting read list |
-| G-4 | `blocky-lists-sync`: empty enabled UCI ⇒ empty denylist (no default resurrection) | todo | Fixture with all `enabled=0` |
-| G-5 | Host tests for G-1–G-4 so CI fails if they regress | todo | `run-tests.sh` red on revert |
+| G-1 | ucode: no `String`/`upper`; `as_str` + `uc`; empty `body` safe | done | `ubus call luci.blocky http_request '{"method":"GET","path":"metrics","body":""}'` → `ok:true`; `ucode -c` |
+| G-2 | `blocky-http-api`: `--header=Content-Type: application/json`; never wget post-type | done | Query `2ip.ua` A succeeds on router; host test greps script |
+| G-3 | ACL: mutating methods + init exec **write-only** | done | JSON review + test asserting read list (named GET `getMetrics` still H-1) |
+| G-4 | `blocky-lists-sync`: empty enabled UCI ⇒ empty denylist (no default resurrection) | done | Fixture with all `enabled=0` |
+| G-5 | Host tests for G-1–G-4 so CI fails if they regress | done | `run-tests.sh` red on revert |
 
 ### Epic H — Named RPC & metrics honesty (P1)
 
 | ID | Task | Status | Acceptance |
 |----|------|--------|------------|
 | H-1 | `getMetrics` with `truncated`; prefer Blocky counters, drop `go_*` if over cap | todo | Banner gone when `/metrics` works |
-| H-2 | Replace dashboard copy: RPC fail vs Prometheus disabled | todo | String test |
+| H-2 | Replace dashboard copy: RPC fail vs waiting-for-samples | done | String test |
 | H-3 | Named `queryDns` / `setBlocking` / `flushCache` / `refreshLists`; retire UI use of `http_request` | todo | ACL + JS |
 | H-4 | `getStatus` optionally embeds a short metrics digest to avoid a second RPC | todo | One round-trip on first paint |
 | H-5 | Separate stderr in `run_bin` (no `2>&1` into stdout) | todo | Failed GET is not parsed as Prom |
@@ -348,8 +348,8 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 
 | ID | Task | Status | Acceptance |
 |----|------|--------|------------|
-| I-1 | Grid stays staging-only (already started PKG 67) | doing | No confirm on uncheck |
-| I-2 | Statistics “Refresh lists” = API refresh only (no YAML sync) | todo | Same as “Update lists now” |
+| I-1 | Grid stays staging-only (already started PKG 67) | done | No confirm on uncheck |
+| I-2 | Statistics “Refresh lists” = API refresh only (no YAML sync) | done | Same as “Update lists now” |
 | I-3 | Footer Reset restores UCI + form (or document why not) | todo | `handleReset` or helper copy |
 | I-4 | After Save & Apply, refresh lists tab from committed UCI | todo | Checkbox matches disk |
 | I-5 | Single apply pipeline documented in `tests/README.md` | todo | Diagram matches code |
@@ -360,9 +360,9 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 |----|------|--------|------------|
 | J-1 | c8 100% lines/functions on parse-core + config-core | todo | CI flag |
 | J-2 | Fill parse-core holes (timestamps, empty metrics, catalog edge) | todo | c8 green |
-| J-3 | Shell: lists-sync + http-api routing + POST header | todo | Fixtures |
-| J-4 | `ucode -c luci.blocky.uc` in `run-tests.sh` when `ucode` exists | todo | Local skip documented |
-| J-5 | Forbid `--post-type`, `String(`, `upper(` in CI grep | todo | test-blocky |
+| J-3 | Shell: lists-sync + http-api routing + POST header | done | Fixtures (full GET/POST routing still thin) |
+| J-4 | `ucode -c luci.blocky.uc` in `run-tests.sh` when `ucode` exists | done | Local skip documented |
+| J-5 | Forbid wget post-type, `String(`, `upper(` in CI grep | done | test-blocky |
 | J-6 | Trim tab modules: drop unused aliases; delete or wire debug JS | todo | line count drop |
 
 ### Epic K — Guidelines polish (P2)
@@ -370,7 +370,7 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 | ID | Task | Status | Acceptance |
 |----|------|--------|------------|
 | K-1 | Theme: tokens / tone classes; remove stray `#fff` | todo | dark/light QA |
-| K-2 | `_()` on remaining placeholders | todo | po update |
+| K-2 | `_()` on remaining placeholders | done | po update |
 | K-3 | `parseMetrics` OpenMetrics timestamp | todo | fixture |
 | K-4 | Keep this backlog honest (no “100% done” without evidence) | todo | update on each epic merge |
 | K-5 | PKG_RELEASE bump per merge | todo | AGENTS.md |
@@ -380,14 +380,10 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 ## 10. Suggested PR sequence
 
 ```text
-PR1  G-1, G-5 (ucode grep)           already partly on disk; commit when asked
-PR2  G-2, J-5                        Query POST
-PR3  G-3                             ACL
-PR4  G-4, J-3 lists-sync             empty denylist
-PR5  I-2, I-1 leftover sync          Refresh ≠ Sync
-PR6  H-1, H-2, H-3                   named RPC + metrics
-PR7  J-1, J-2, J-4                   coverage gate
-PR8  J-6, K-*                        hygiene
+PR1–5  G-1–G-5, I-1, I-2, H-2, J-3–J-5, K-2   PKG 70 / blocky 25 (this batch)
+PR6    H-1, H-3                   named RPC + getMetrics on read ACL
+PR7    J-1, J-2                   coverage gate
+PR8    J-6, remaining K-*         hygiene
 ```
 
 Each PR: `PKG_RELEASE++`, `./feeds/luci/luci-app-blocky/tests/run-tests.sh`, `ucode -c` on router before live deploy.

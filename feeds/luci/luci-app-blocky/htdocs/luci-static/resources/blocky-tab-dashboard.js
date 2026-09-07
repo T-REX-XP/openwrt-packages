@@ -501,7 +501,8 @@ function renderRealtimeMetrics(initialMetricsText) {
 		lastCum: null,
 		windowKey: '24h',
 		windowMs: 86400000,
-		lastRaw: safeString(initialMetricsText)
+		lastRaw: safeString(initialMetricsText),
+		metricsError: ''
 	};
 	var i;
 	var activeCls = 'cbi-button cbi-button-action blocky-range-active';
@@ -678,11 +679,24 @@ function renderRealtimeMetrics(initialMetricsText) {
 	function redrawAll() {
 		var live = deriveOverview(parseMetrics(state.lastRaw)).hasMetrics;
 
-		replaceContent(metricsBannerHost, E('div', {}, live ? [] : [
-			E('p', { 'class': 'alert-message warning' }, [
-				_('No Prometheus samples detected yet. Enable prometheus in Blocky and confirm /metrics responds.')
-			])
-		]));
+		var banner;
+
+		if (live)
+			banner = [];
+		else if (state.metricsError)
+			banner = [
+				E('p', { 'class': 'alert-message warning' }, [
+					_('Could not read Blocky /metrics: %s').format(state.metricsError)
+				])
+			];
+		else
+			banner = [
+				E('p', { 'class': 'alert-message warning' }, [
+					_('Waiting for Prometheus samples. If metrics stay empty, check that Blocky is running and prometheus.enable is true.')
+				])
+			];
+
+		replaceContent(metricsBannerHost, E('div', {}, banner));
 
 		if (!live) {
 			replaceContent(vBarHost, E('div', { 'style': 'padding:.75em 0' }, [
@@ -736,8 +750,9 @@ function renderRealtimeMetrics(initialMetricsText) {
 		})(REALTIME_WINDOWS[i]);
 	}
 
-	function hook(text) {
+	function hook(text, err) {
 		state.lastRaw = text;
+		state.metricsError = err || '';
 		ingestMetrics(text);
 		redrawAll();
 	}

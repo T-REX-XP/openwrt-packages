@@ -23,6 +23,10 @@ echo ">> shell: test-blocky-http-api.sh"
 sh ./test-blocky-http-api.sh || FAIL=1
 
 echo ""
+echo ">> shell: test-blocky-lists-sync.sh"
+sh ./test-blocky-lists-sync.sh || FAIL=1
+
+echo ""
 echo ">> shell: test-blocky-dnsmasq-sync.sh"
 sh ./test-blocky-dnsmasq-sync.sh || FAIL=1
 
@@ -78,6 +82,15 @@ if command -v node >/dev/null 2>&1; then
 else
 	echo "SKIP: node not found"
 	FAIL=1
+fi
+
+echo ""
+echo ">> ucode -c luci.blocky.uc"
+UCODE_FILE="$ROOT/root/usr/share/rpcd/ucode/luci.blocky.uc"
+if command -v ucode >/dev/null 2>&1; then
+	ucode -c "$UCODE_FILE" || FAIL=1
+else
+	echo "SKIP: ucode not found (compile-check on router or when ucode is on PATH)"
 fi
 
 echo ""

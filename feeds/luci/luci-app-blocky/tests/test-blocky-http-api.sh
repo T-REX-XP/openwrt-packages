@@ -40,4 +40,15 @@ got="$(BLOCKY_CONFIG="$TMP/config2.yml" BLOCKY_HTTP_API_SOURCED=1 sh -c ". \"$AP
 	exit 1
 }
 
+# P0-2: uclient-fetch on CM5 rejects wget --post-type.
+if grep -q -- '--post-type' "$API"; then
+	echo "blocky-http-api must not use --post-type (unsupported on uclient-fetch)"
+	exit 1
+fi
+
+grep -q "Content-Type: application/json" "$API" || {
+	echo "blocky-http-api POST JSON must set Content-Type via --header"
+	exit 1
+}
+
 echo "blocky-http-api port parsing OK"

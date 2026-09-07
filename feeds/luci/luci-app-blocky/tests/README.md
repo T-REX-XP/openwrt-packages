@@ -17,7 +17,8 @@ cd feeds/luci/luci-app-blocky/tests
 | `blocky-config.test.mjs` | YAML ↔ settings round-trip using `tests/fixtures/config.yml` |
 | `luci-blocky-validation.test.mjs` | Mirrors `luci.blocky.uc` path allowlist rules |
 | `blocky-ui.test.mjs` | Native tabs, footer Save & Apply, no in-page YAML save |
-| `test-blocky-http-api.sh` | Sources `blocky-http-api` and checks port parsing |
+| `test-blocky-http-api.sh` | Port parse; forbid `--post-type`; require JSON `Content-Type` header |
+| `test-blocky-lists-sync.sh` | Empty enabled UCI must not restore hagezi/urlhaus |
 | `test-blocky-dnsmasq-sync.sh` | Upstream `127.0.0.1#port` format and port bounds |
 
 ## Modules under test

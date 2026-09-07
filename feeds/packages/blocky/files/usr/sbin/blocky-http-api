@@ -121,8 +121,9 @@ blocky_http_post_json() {
 
 	case "$client" in
 		uclient-fetch)
+			# Use --header; this image's uclient-fetch rejects wget's post-type flag.
 			uclient-fetch -4 -q -O - --timeout=30 \
-				--post-type=application/json \
+				--header='Content-Type: application/json' \
 				--post-data="$body" \
 				"$url" 2>/dev/null
 			;;

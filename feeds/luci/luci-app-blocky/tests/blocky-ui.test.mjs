@@ -173,7 +173,24 @@ test('Status is glance-only; Statistics holds charts and operations', () => {
 	assert.match(controls, /_\('Refresh lists'\)/);
 	assert.match(controls, /_\('Flush cache'\)/);
 	assert.doesNotMatch(controls, /Maintenance actions are restricted/);
+	const renderOps = controls.slice(controls.indexOf('function renderOperations'));
+	assert.match(renderOps, /execBlockyListsRefresh\(\)/);
+	assert.doesNotMatch(renderOps, /execBlockyListsSync\(\)/);
 	assert.match(base, /'statistics': 1/);
+});
+
+test('metrics banner distinguishes RPC failure from empty samples', () => {
+	assert.match(dashboard, /Could not read Blocky \/metrics/);
+	assert.match(dashboard, /Waiting for Prometheus samples/);
+	assert.doesNotMatch(dashboard, /Enable prometheus in Blocky and confirm \/metrics responds/);
+	assert.match(base, /blockyRtMetricsHook\(unwrapFetchText\(res\), ''\)/);
+});
+
+test('query and log placeholders use _()', () => {
+	const query = readFileSync(join(res, 'blocky-tab-query.js'), 'utf8');
+	assert.match(query, /'placeholder':\s*_\('example\.org'\)/);
+	assert.match(logs, /'placeholder':\s*_\('example\.org'\)/);
+	assert.match(logs, /'placeholder':\s*_\('192\.168\.1\.10'\)/);
 });
 
 console.log(`\nResults: ${pass} passed, ${fail} failed`);

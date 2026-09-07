@@ -759,8 +759,11 @@ function registerBlockyMetricsPolling() {
 	poll.add(function() {
 		return fetchText(blockyMetricsUrl()).then(function(res) {
 			if (blockyRtMetricsHook)
-				blockyRtMetricsHook(unwrapFetchText(res));
-		}).catch(function() {});
+				blockyRtMetricsHook(unwrapFetchText(res), '');
+		}).catch(function(err) {
+			if (blockyRtMetricsHook)
+				blockyRtMetricsHook('', (err && err.message) || _('Request to Blocky failed.'));
+		});
 	}, 10);
 }
 

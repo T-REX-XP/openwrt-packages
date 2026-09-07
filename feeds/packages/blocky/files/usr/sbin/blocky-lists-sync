@@ -1,9 +1,9 @@
 #!/bin/sh
 # Merge /etc/config/blocky blocklist sections into blocking: in /etc/blocky/config.yml
 
-. /lib/functions.sh
+. "${BLOCKY_FUNCTIONS:-/lib/functions.sh}"
 
-CONFIG_YML=/etc/blocky/config.yml
+CONFIG_YML="${BLOCKY_CONFIG_YML:-/etc/blocky/config.yml}"
 DENY_TMP=
 GROUP_TMP=
 
@@ -18,6 +18,7 @@ yaml_double_quote() {
 cleanup() {
 	[ -n "$DENY_TMP" ] && rm -f "$DENY_TMP"
 	[ -n "$GROUP_TMP" ] && rm -f "$GROUP_TMP"
+	return 0
 }
 
 append_denylist_entry() {
@@ -59,24 +60,20 @@ write_blocking_section() {
 
 	config_foreach append_denylist_entry blocklist
 
-	if [ ! -s "$DENY_TMP" ]; then
-		printf '    hagezi_light:\n' >> "$DENY_TMP"
-		printf '      - "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt"\n' >> "$DENY_TMP"
-		printf '    urlhaus:\n' >> "$DENY_TMP"
-		printf '      - "https://urlhaus.abuse.ch/downloads/hostfile/"\n' >> "$DENY_TMP"
-		printf 'hagezi_light\nurlhaus\n' >> "$GROUP_TMP"
-	fi
-
 	{
 		echo "blocking:"
-		echo "  denylists:"
-		cat "$DENY_TMP"
+		if [ -s "$DENY_TMP" ]; then
+			echo "  denylists:"
+			cat "$DENY_TMP"
+		else
+			echo "  denylists: {}"
+		fi
 		echo "  clientGroupsBlock:"
-		echo "    default:"
 		if [ -s "$GROUP_TMP" ]; then
+			echo "    default:"
 			sed 's/^/      - /' "$GROUP_TMP"
 		else
-			echo "      - hagezi_light"
+			echo "    default: []"
 		fi
 		echo "  loading:"
 		echo "    strategy: fast"
@@ -313,4 +310,6 @@ main() {
 	rm -f "$blocking_file"
 }
 
-main "$@"
+if [ "${BLOCKY_LISTS_SYNC_SOURCED:-}" != "1" ]; then
+	main "$@"
+fi

@@ -175,7 +175,7 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 			}, 'cbi-button-negative', refreshForward)
 		]),
 		E('p', { 'class': 'blocky-note-soft' }, [
-			_('After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Status tab.')
+			_('After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Statistics tab.')
 		])
 	];
 
