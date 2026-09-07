@@ -99,7 +99,7 @@ make package/suricata/compile V=s
 
 ## CI and release
 
-- **PR/push CI** — `.github/workflows/ci.yml` (calls reusable `build-packages.yml`); unsigned compile of **every** feed package (`scripts/discover-feed-packages.sh`).
+- **PR/push CI** — `.github/workflows/ci.yml` (calls reusable `build-packages.yml`); unsigned compile of feed packages from `scripts/discover-feed-packages.sh`. **`suricata`** / **`luci-app-suricata`** are omitted (`scripts/sdk-skip-packages.txt`) — the engine needs `rust/host` and is compiled in the Docker firmware builder. Host unit tests must pass or the SDK job is skipped.
 - **Tagged release** — `.github/workflows/release.yml`: signed `.apk` index + GitHub Pages feed.
 - **Release tarball:** `openwrt_packages_aarch64_generic-immortalwrt-25.12-SNAPSHOT.tar.gz` on [Releases](https://github.com/T-REX-XP/openwrt-packages/releases).
 - **Critical:** GitHub Actions must set `FEED_DIR: ${{ github.workspace }}/feeds` (Makefiles are not at repo root).

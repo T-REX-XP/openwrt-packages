@@ -68,12 +68,21 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/discover-feed-packages.sh
-          scripts/discover-feed-packages.sh . | tee feed-packages.txt
+          scripts/discover-feed-packages.sh . | tee feed-packages.all.txt
+          skip="$(mktemp)"
+          grep -E -v '^[[:space:]]*(#|$)' scripts/sdk-skip-packages.txt > "$skip" || true
+          if [ -s "$skip" ]; then
+            grep -vxF -f "$skip" feed-packages.all.txt | tee feed-packages.txt
+            echo "SDK skip: $(tr '\n' ' ' < "$skip")"
+          else
+            cp feed-packages.all.txt feed-packages.txt
+          fi
+          rm -f "$skip"
           pkgs="$(tr '\n' ' ' < feed-packages.txt | xargs)"
           count="$(grep -c . feed-packages.txt)"
           echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "Discovered $count feed packages: $pkgs"
+          echo "SDK will compile $count packages: $pkgs"
 
       - name: Build packages (ImmortalWrt SDK)
         id: sdk

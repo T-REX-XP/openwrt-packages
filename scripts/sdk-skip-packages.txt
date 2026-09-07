@@ -1,0 +1,9 @@
+# Names omitted from GitHub SDK CI / Release package compile.
+# One package directory name per line. Still listed by
+# scripts/discover-feed-packages.sh (feed completeness check).
+#
+# Suricata 8 needs rust/host; compile it in the Docker firmware builder
+# (build_immortalwrt), not immortalwrt/sdk. luci-app-suricata depends on
+# +suricata so it is skipped here too.
+suricata
+luci-app-suricata

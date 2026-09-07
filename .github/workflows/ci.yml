@@ -77,6 +77,11 @@ jobs:
           grep -qx cm5-button-scripts /tmp/feed-packages.txt
           grep -qx snort3 /tmp/feed-packages.txt
           grep -qx suricata /tmp/feed-packages.txt
+          grep -qx luci-app-suricata /tmp/feed-packages.txt
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            grep -qx "$pkg" /tmp/feed-packages.txt
+          done < <(grep -E -v '^[[:space:]]*(#|$)' scripts/sdk-skip-packages.txt)
 
   test-suricata:
     name: luci-app-suricata host tests
