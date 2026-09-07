@@ -7,10 +7,10 @@ This document compares three surfaces:
 | Surface | Role |
 |---------|------|
 | **[luci-app-blocky](../feeds/luci/luci-app-blocky/)** | LuCI app (Services → Blocky) |
-| **[Blocky REST API](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)** | Upstream control plane (`http://127.0.0.1:4000/api`, default) |
+| **[Blocky REST API](https://github.com/0xERR0R/blocky/blob/v0.35.0/docs/api/openapi.yaml)** | Upstream control plane (`http://127.0.0.1:4000/api`, default) |
 | **[blocky-ui](https://github.com/GabeDuarteM/blocky-ui)** | Standalone Next.js dashboard (reference UX) |
 
-Target Blocky version in feed: **v0.34.0** ([release notes](https://github.com/0xERR0R/blocky/releases/tag/v0.34.0)). LuCI **PKG_RELEASE 49+**.
+Target Blocky version in feed: **v0.35.0** ([release notes](https://github.com/0xERR0R/blocky/releases/tag/v0.35.0)). LuCI **PKG_RELEASE 49+**.
 
 ### 2026-08 update (vs original 2026-06 plan)
 
@@ -120,9 +120,9 @@ UCI `/etc/config/blocky`: `main.dnsmasq_forward`, `main.refresh_period`, `blockl
 
 ---
 
-## 2. Blocky REST API (v0.34.x)
+## 2. Blocky REST API (v0.35.x)
 
-OpenAPI: [docs/api/openapi.yaml](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)  
+OpenAPI: [docs/api/openapi.yaml](https://github.com/0xERR0R/blocky/blob/v0.35.0/docs/api/openapi.yaml)  
 Base path: **`/api`** on the HTTP port (default **4000**).
 
 ### 2.1 Endpoints

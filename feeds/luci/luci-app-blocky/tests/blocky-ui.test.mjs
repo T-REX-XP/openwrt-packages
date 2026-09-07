@@ -61,6 +61,12 @@ test('footer Save & Apply writes settings', () => {
 	assert.match(common, /handleReset:\s*function/);
 	assert.match(common, /uci\.revert\('blocky'\)/);
 	assert.match(common, /_blockyRefreshPage/);
+	const saveApply = common.slice(common.indexOf('handleSaveApply:'), common.indexOf('handleReset:'));
+	assert.match(saveApply, /self\._blockyRefreshPage\(\)/);
+	assert.doesNotMatch(saveApply, /return self\._blockyRefreshPage\(\)/);
+	assert.match(base, /callBlockyGetMetrics\(\)/);
+	assert.match(base, /fetchBlockyStats\(\)/);
+	assert.doesNotMatch(base.slice(base.indexOf('function fetchBlockyStats'), base.indexOf('function setBlocking')), /callBlockyGetStatus/);
 	assert.doesNotMatch(common, /handleReset:\s*null/);
 	assert.match(base, /function setSettingsApplyHandler/);
 	assert.match(base, /function runSettingsApply/);

@@ -223,7 +223,7 @@ function createBlockyView(options) {
 			return Blocky.runSettingsApply(false).then(function() {
 				ui.addNotification(null, E('p', {}, _('Settings saved.')), 4000);
 				if (typeof self._blockyRefreshPage === 'function')
-					return self._blockyRefreshPage();
+					self._blockyRefreshPage();
 			});
 		},
 
@@ -233,7 +233,7 @@ function createBlockyView(options) {
 			return Blocky.runSettingsApply(true).then(function() {
 				ui.addNotification(null, E('p', {}, _('Settings saved and Blocky restarted.')), 4000);
 				if (typeof self._blockyRefreshPage === 'function')
-					return self._blockyRefreshPage();
+					self._blockyRefreshPage();
 			});
 		},
 

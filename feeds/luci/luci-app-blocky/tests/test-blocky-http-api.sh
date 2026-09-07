@@ -51,4 +51,34 @@ grep -q "Content-Type: application/json" "$API" || {
 	exit 1
 }
 
+grep -q 'blocky_run_with_timeout' "$API" || {
+	echo "blocky-http-api GET must hard-timeout hung Blocky scrapes"
+	exit 1
+}
+
+grep -q 'kill -9' "$API" || {
+	echo "blocky-http-api must SIGKILL only the fetch child, not BusyBox timeout -s KILL"
+	exit 1
+}
+
+grep -q 'exec </dev/null >/dev/null' "$API" || {
+	echo "blocky-http-api watchdog must not inherit rpcd popen stdout"
+	exit 1
+}
+
+if grep -q 'timeout -s KILL' "$API"; then
+	echo "blocky-http-api must not use timeout -s KILL (kills rpcd process group)"
+	exit 1
+fi
+
+grep -q 'BLOCKY_HTTP_GET_TIMEOUT:-3' "$API" || {
+	echo "blocky-http-api GET timeout default must be 3s"
+	exit 1
+}
+
+if grep -E 'uclient-fetch.*--timeout=10|wget.*-T 10' "$API" >/dev/null; then
+	echo "blocky-http-api GET must not use a 10s client timeout"
+	exit 1
+fi
+
 echo "blocky-http-api port parsing OK"

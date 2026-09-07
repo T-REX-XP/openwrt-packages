@@ -1,6 +1,6 @@
 # Blocky on ImmortalWrt — daily operations
 
-Quick reference for **luci-app-blocky** on Orange Pi CM5 Base (and similar routers). Blocky **v0.34.x** listens on `127.0.0.1:5353` (DNS) and `127.0.0.1:4000` (HTTP API).
+Quick reference for **luci-app-blocky** on Orange Pi CM5 Base (and similar routers). Blocky **v0.35.x** listens on `127.0.0.1:5353` (DNS) and `127.0.0.1:4000` (HTTP API).
 
 **LuCI:** Services → Blocky  
 **Active backlog / architecture:** [luci-app-blocky-review-and-backlog.md](luci-app-blocky-review-and-backlog.md)
@@ -84,4 +84,4 @@ Quick reference for **luci-app-blocky** on Orange Pi CM5 Base (and similar route
 
 - [luci-app-blocky feature plan (API history)](luci-app-blocky-feature-plan.md)
 - [Blocky upstream docs](https://0xerr0r.github.io/blocky/)
-- [OpenAPI v0.34](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)
+- [OpenAPI v0.35](https://github.com/0xERR0R/blocky/blob/v0.35.0/docs/api/openapi.yaml)

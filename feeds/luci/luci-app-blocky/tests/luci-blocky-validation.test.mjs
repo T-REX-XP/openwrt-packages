@@ -106,6 +106,17 @@ test('ACL read cannot mutate Blocky', () => {
 	assert.equal(writeUbus.includes('flushCache'), true);
 });
 
+test('getStatus does not scrape /metrics (Save & Apply must stay under rpcd timeout)', () => {
+	const slice = ucodeSrc.slice(ucodeSrc.indexOf('getStatus:'), ucodeSrc.indexOf('validate_config:'));
+
+	assert.match(slice, /api\/blocking\/status/);
+	assert.doesNotMatch(slice, /GET',\s*'metrics'/);
+	assert.doesNotMatch(slice, /api\/stats/);
+	assert.doesNotMatch(slice, /\/etc\/init\.d\/blocky/);
+	assert.match(ucodeSrc, /function init_enabled_boot/);
+	assert.match(ucodeSrc.slice(ucodeSrc.indexOf('function init_enabled_boot'), ucodeSrc.indexOf('function parse_blocking_status')), /lsdir\('\/etc\/rc\.d'\)/);
+});
+
 test('pickLatestLogFilename lexicographic date order', () => {
 	const best = bp.pickLatestLogFilename([
 		'2025-12-31_old.log',

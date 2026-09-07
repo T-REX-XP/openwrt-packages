@@ -135,7 +135,17 @@ function uci_enabled_flag(opt, def) {
 }
 
 function init_enabled_boot() {
-	return trim(run_cmd('/etc/init.d/blocky enabled && echo 1 || echo 0').output) == '1';
+	try {
+		let entries = lsdir('/etc/rc.d');
+		let i;
+
+		for (i = 0; i < length(entries); i++) {
+			if (match(entries[i], /^S[0-9]+blocky$/))
+				return true;
+		}
+	} catch (e) {}
+
+	return false;
 }
 
 function parse_blocking_status(text) {
@@ -532,12 +542,9 @@ const methods = {
 			let dnsmasq_forward = trim(dns_res.output) == '1';
 			let blocking_raw = run_bin(HTTP, [ 'GET', 'api/blocking/status' ]);
 			let blocking = parse_blocking_status(blocking_raw.ok ? blocking_raw.output : '');
-			let stats_raw = run_bin(HTTP, [ 'GET', 'api/stats' ]);
-			let stats = stats_state(stats_raw.ok ? stats_raw.output : stats_raw.output);
 			let version_res = run_bin(BLOCKY_BIN, [ 'version' ]);
 			let version = trim(split(version_res.output, '\n')[0] || '');
 			let log_level = parse_log_level(yaml);
-			let metrics = http_rpc_result(run_bin(HTTP, [ 'GET', 'metrics' ]), true);
 
 			return {
 				ok: true,
@@ -547,12 +554,12 @@ const methods = {
 				dnsmasq_forward: dnsmasq_forward,
 				blocking: blocking,
 				api_ok: blocking_raw.ok && length(blocking_raw.output) > 0,
-				stats_ok: stats.ok,
-				stats_disabled: stats.disabled,
-				stats_json: stats.json || '',
-				metrics_ok: metrics.ok,
-				metrics_text: metrics.stdout,
-				metrics_truncated: metrics.truncated,
+				stats_ok: false,
+				stats_disabled: false,
+				stats_json: '',
+				metrics_ok: false,
+				metrics_text: '',
+				metrics_truncated: false,
 				version: version,
 				ports: {
 					dns: parse_port_from_config(yaml, 'dns', 5353),

@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=blocky
-PKG_VERSION:=0.34.0
-PKG_RELEASE:=29
+PKG_VERSION:=0.35.0
+PKG_RELEASE:=1
 
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/0xERR0R/blocky/archive/refs/tags
-PKG_HASH:=6438c5d04877feac4f41ab1e0306111c93598f386eb03e79ff21627d3f1ac12a
+PKG_HASH:=c5874e2790aa21def45dd0ed9bd932ef2666ad412839f307c93c6a1bd94c20f5
 
 PKG_MAINTAINER:=T-Rex XP <t-rex-xp@users.noreply.github.com>
 PKG_LICENSE:=Apache-2.0

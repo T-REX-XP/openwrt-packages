@@ -681,8 +681,14 @@ function blockyMetricsUrl() {
 }
 
 function fetchBlockyStats() {
-	return callBlockyGetStatus().then(function(st) {
-		return bp.statsResultFromStatus(st);
+	return callBlockyHttpRequest('GET', 'api/stats', '').then(function(res) {
+		if (!blockyRpcOk(res))
+			return { ok: false, disabled: false, data: null };
+
+		return bp.statsResultFromStatus({
+			stats_ok: true,
+			stats_json: res.stdout || ''
+		});
 	}).catch(function() {
 		return { ok: false, disabled: false, data: null };
 	});
@@ -906,19 +912,27 @@ function loadBlockyPageData() {
 		L.resolveDefault(fs.read_direct(CONFIG_PATH), ''),
 		loadBlockyUciAccess(),
 		L.resolveDefault(callServiceList('adblock'), {}),
-		loadBlocklistCatalog()
+		loadBlocklistCatalog(),
+		L.resolveDefault(callBlockyGetMetrics(), {}),
+		L.resolveDefault(fetchBlockyStats(), { ok: false, disabled: false, data: null })
 	]).then(function(parts) {
 		var status = parts[0] || {};
+		var metricsRes = parts[5] || {};
+		var metricsText = '';
+		var statsResult = parts[6] || { ok: false, disabled: false, data: null };
 
 		applyBlockyApiAccess(parts[1], parts[2]);
+
+		if (blockyRpcOk(metricsRes))
+			metricsText = metricsRes.stdout || '';
 
 		return [
 			serviceObjectFromStatus(status),
 			status.blocking || { enabled: false },
 			parts[1],
-			status.metrics_text || '',
+			metricsText,
 			{ code: 0, stdout: status.dnsmasq_forward ? '1\n' : '0\n' },
-			statsResultFromStatus(status),
+			statsResult,
 			parts[3],
 			parts[2],
 			parts[4],

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07  
 **Scope:** `feeds/luci/luci-app-blocky/` + host helpers in `feeds/packages/blocky/` that the LuCI app calls  
-**Versions:** Blocky **v0.34.0** (`PKG_RELEASE` 29) · `luci-app-blocky` **PKG_RELEASE 78**  
+**Versions:** Blocky **v0.35.0** (`PKG_RELEASE` 1) · `luci-app-blocky` **PKG_RELEASE 79**  
 **Supersedes:** the 2026-08-28 “34/34 complete” claim in this file. Historical API notes remain in [luci-app-blocky-feature-plan.md](luci-app-blocky-feature-plan.md).
 
 This is the **active** plan. Do not treat Epic A–F from August as done: several P0 defects shipped after that tracker was closed, and unit tests never covered them.
@@ -20,6 +20,7 @@ Three live defects from 2026-09-07 prove the gap:
 | “No Prometheus samples” while Settings shows Prometheus on | `luci.blocky http_request` threw on `upper()` / `String()` (not ucode builtins); LuCI always sends `body: ""` | None until a source grep was added after the bug |
 | Query tab “Request to Blocky failed” | `blocky-http-api` POST used `uclient-fetch` wget post-type flag (unsupported on this image) | **Fixed (G-2):** `--header=Content-Type: application/json`; host grep |
 | Uncheck list → YAML confirm / rewrite | Grid called `applyBlocklistChanges` (uci.save + lists-sync + restart) instead of staging until footer Save & Apply | Grid staging-only (PKG 67+). **lists-sync no longer re-injects defaults if UCI has zero enabled lists (G-4)** |
+| Block lists Save & Apply → `XHR request timed out` | `getStatus` called `/etc/init.d/blocky enabled` from inside rpcd, which deadlocks ubus until the 30s limit. After restart it also waited on `/metrics`/`/api/stats` while lists load. | **Fixed (I-6):** boot-enabled = `/etc/rc.d/S*blocky` symlink; GET hard-kill 3s; `getStatus` only probes blocking/status; footer does not await the post-apply refresh |
 
 **100% unit coverage is not true today.** Host tests are ~53 Node cases + 2 thin shell scripts. They cover extractable parse/config helpers and a few source-string UI checks. They do **not** execute `luci.blocky.uc`, tab modules, `blocky-base.js` RPC wrappers, `blocky-lists-sync`, or POST `/api/query`.
 
@@ -115,6 +116,7 @@ Footer **Save** / **Save & Apply** → `runSettingsApply` → `saveBlockySetting
 | **P0-3** | ACL **read** granted `http_request`, `sync_lists`, `refresh_lists`, `validate_config`, and `exec` of `/etc/init.d/blocky` and `blocky-dnsmasq-sync`. **Fixed (G-3):** those are write-only; read is getStatus/getLogs/read_query_log/get_version. | Privilege split |
 | **P0-4** | `blocky-lists-sync`: if **zero enabled** UCI lists, it injected hagezi_light + urlhaus. **Fixed:** empty UCI ⇒ `denylists: {}` + `default: []`. | Empty denylist |
 | **P0-5** | Tests did not execute ucode or POST HTTP. P0-1/P0-2 shipped as “green CI”. Host greps now cover ucode `String`/`upper`, `--post-type`, empty denylist, ACL read list. `ucode -c` runs when the binary exists. | Coverage |
+| **P0-6** | Footer Save & Apply restarted Blocky then awaited `getStatus`. That method ran `/etc/init.d/blocky enabled` inside rpcd (ubus deadlock until 30s) and scraped `/metrics`/`/api/stats` while lists load. **Fixed (I-6).** | Block lists / Settings Save & Apply |
 
 ### P1 — contracts, UX, maintainability
 
@@ -145,7 +147,7 @@ Footer **Save** / **Save & Apply** → `runSettingsApply` → `saveBlockySetting
 
 ## 4. API contracts
 
-### 4.1 Blocky HTTP (upstream 0.34)
+### 4.1 Blocky HTTP (upstream 0.35)
 
 Bind: **`127.0.0.1:4000` only** (keep). Do not expose `:4000` on LAN.
 
@@ -341,7 +343,7 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 | H-1 | `getMetrics` with `truncated`; prefer Blocky counters, drop `go_*` if over cap | done | Banner gone when `/metrics` works; truncated note if clipped |
 | H-2 | Replace dashboard copy: RPC fail vs waiting-for-samples | done | String test |
 | H-3 | Named `queryDns` / `setBlocking` / `flushCache` / `refreshLists`; retire UI use of `http_request` | done | ACL + JS Query uses `queryDns` |
-| H-4 | `getStatus` optionally embeds a short metrics digest to avoid a second RPC | done | One round-trip on first paint (`metrics_text`) |
+| H-4 | `getStatus` optionally embeds a short metrics digest to avoid a second RPC | done (reverted) | Embedding `/metrics` made Save & Apply exceed rpcd’s 30s timeout after restart. First paint uses `getMetrics` in parallel instead. |
 | H-5 | Separate stderr in `run_bin` (no `2>&1` into stdout) | done | `2>/dev/null`; failed GET is not parsed as Prom |
 
 ### Epic I — LuCI apply model (P1)
@@ -353,6 +355,7 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 | I-3 | Footer Reset restores UCI + form (or document why not) | done | `handleReset` → `uci.revert('blocky')` + refresh |
 | I-4 | After Save & Apply, refresh lists tab from committed UCI | done | Checkbox matches disk |
 | I-5 | Single apply pipeline documented in `tests/README.md` | todo | Diagram matches code |
+| I-6 | Save & Apply must not wait on hung Blocky `/metrics` or `/api/stats` | done | After restart, `ubus -t 8 call luci.blocky getStatus` returns in well under 1s; LuCI Save & Apply on Block lists succeeds |
 
 ### Epic J — 100% testable coverage (P1)
 
@@ -416,6 +419,6 @@ Each PR: `PKG_RELEASE++`, `./feeds/luci/luci-app-blocky/tests/run-tests.sh`, `uc
 
 - [luci-app-blocky-feature-plan.md](luci-app-blocky-feature-plan.md) — 0.34 API history  
 - [blocky-daily-ops.md](blocky-daily-ops.md)  
-- [Blocky OpenAPI v0.34](https://github.com/0xERR0R/blocky/blob/v0.34.0/docs/api/openapi.yaml)  
+- [Blocky OpenAPI v0.35](https://github.com/0xERR0R/blocky/blob/v0.35.0/docs/api/openapi.yaml)  
 - Skills: `openwrt-25x`, `luci-bootstrap-theming`, `openwrt-feed-packages`, `rpcd-ucode-strict`  
 - Peers: `luci-app-suricata`, `luci-app-snort3` (named RPC, ACL split, footer apply)  

@@ -64,6 +64,34 @@ blocky_http_client() {
 	fi
 }
 
+# uclient-fetch --timeout does not always abort a connected but silent peer
+# (Blocky holds /metrics and /api/stats while lists load). Hard-kill GET so
+# rpcd/LuCI cannot sit on one call until the 30s ubus timeout.
+BLOCKY_HTTP_GET_TIMEOUT="${BLOCKY_HTTP_GET_TIMEOUT:-3}"
+
+blocky_run_with_timeout() {
+	local secs="$1"
+	shift
+	local pid rc guard
+
+	# Do not use BusyBox timeout with a KILL signal: it can SIGKILL the whole
+	# process group (rpcd / SSH). Kill only the fetch child.
+	# Guard file so an orphan sleep cannot kill a reused PID.
+	# Redirect the watchdog so it cannot keep rpcd's popen pipe open.
+	guard="$(mktemp)" || return 1
+	"$@" </dev/null >/dev/null 2>&1 &
+	pid=$!
+	(
+		exec </dev/null >/dev/null 2>&1
+		sleep "$secs"
+		[ -f "$guard" ] && kill -9 "$pid" 2>/dev/null
+	) &
+	wait "$pid"
+	rc=$?
+	rm -f "$guard"
+	return "$rc"
+}
+
 blocky_http_probe() {
 	local url="$1"
 	local client
@@ -72,28 +100,42 @@ blocky_http_probe() {
 
 	case "$client" in
 		uclient-fetch)
-			uclient-fetch -4 -q -O /dev/null --timeout=2 "$url" 2>/dev/null
+			blocky_run_with_timeout 2 uclient-fetch -4 -q -O /dev/null --timeout=2 "$url" 2>/dev/null
 			;;
 		wget)
-			wget -4 -q -O /dev/null -T 2 "$url" 2>/dev/null
+			blocky_run_with_timeout 2 wget -4 -q -O /dev/null -T 2 "$url" 2>/dev/null
 			;;
 	esac
 }
 
 blocky_http_get() {
 	local url="$1"
-	local client
+	local t="${BLOCKY_HTTP_GET_TIMEOUT:-3}"
+	local client out rc
 
 	client="$(blocky_http_client)" || return 1
+	out="$(mktemp)" || return 1
 
 	case "$client" in
 		uclient-fetch)
-			uclient-fetch -4 -q -O - --timeout=10 "$url" 2>/dev/null
+			blocky_run_with_timeout "$t" uclient-fetch -4 -q -O "$out" --timeout="$t" "$url" 2>/dev/null
+			rc=$?
 			;;
 		wget)
-			wget -4 -q -O - -T 10 "$url" 2>/dev/null
+			blocky_run_with_timeout "$t" wget -4 -q -O "$out" -T "$t" "$url" 2>/dev/null
+			rc=$?
+			;;
+		*)
+			rm -f "$out"
+			return 1
 			;;
 	esac
+
+	if [ "$rc" -eq 0 ]; then
+		cat "$out"
+	fi
+	rm -f "$out"
+	return "$rc"
 }
 
 blocky_http_post_empty() {
