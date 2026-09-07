@@ -84,6 +84,8 @@ test('inner Logs tabs and hero chrome', () => {
 	assert.match(base, /'class': 'blocky-inner-tabs'/);
 	assert.match(base, /'type': 'button'/);
 	assert.match(base, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
+	assert.match(logs, /no query log files found/i);
+	assert.match(logs, /No query log file yet/);
 });
 
 test('Block lists grid stages UCI until Save & Apply', () => {

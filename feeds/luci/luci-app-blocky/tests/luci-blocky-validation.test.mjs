@@ -47,6 +47,12 @@ test('http_request uses ucode uc() not upper()', () => {
 	assert.match(ucodeSrc, /function as_str\(/);
 });
 
+test('read_query_log treats missing directory as !access()', () => {
+	const slice = ucodeSrc.slice(ucodeSrc.indexOf('read_query_log:'));
+	assert.match(slice, /if \(!access\(dir\)\)/);
+	assert.doesNotMatch(slice.slice(0, 600), /if \(access\(dir\)\)/);
+});
+
 test('pickLatestLogFilename lexicographic date order', () => {
 	const best = bp.pickLatestLogFilename([
 		'2025-12-31_old.log',

@@ -227,8 +227,21 @@ function renderQueryLogPanel(config, options) {
 		}
 
 		return callBlockyReadQueryLog(ql.target, 524288).then(function(res) {
-			if (!res || !res.ok)
-				throw new Error((res && res.error) || _('Failed to read query log'));
+			if (!res || !res.ok) {
+				var detail = res && (res.error || res.message);
+				if (detail && /no query log files found/i.test(detail)) {
+					pageState.rows = [];
+					pageState.logPath = '';
+					pageState.truncated = false;
+					pageState.page = 0;
+					replaceContent(sourceHost, []);
+					replaceContent(tableHost, E('em', {}, [
+						_('No query log file yet. Blocky writes a daily CSV under %s after DNS queries.').format(ql.target)
+					]));
+					return;
+				}
+				throw new Error(detail || _('Failed to read query log'));
+			}
 
 			pageState.logPath = res.path || '';
 			pageState.truncated = !!res.truncated;

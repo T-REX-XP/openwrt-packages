@@ -401,6 +401,9 @@ msgstr "Зразків Prometheus ще немає. Увімкніть prometheus
 msgid "No query executed yet."
 msgstr "Запитів ще не виконано."
 
+msgid "No query log file yet. Blocky writes a daily CSV under %s after DNS queries."
+msgstr "Файлу журналу запитів ще немає. Blocky пише щоденний CSV у %s після DNS-запитів."
+
 msgid "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
 msgstr "Файлів журналу запитів у %s не знайдено (очікується YYYY-MM-DD_ALL.log)"
 

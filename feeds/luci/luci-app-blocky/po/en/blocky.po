@@ -400,6 +400,9 @@ msgstr "No Prometheus samples detected yet. Enable prometheus in Blocky and conf
 msgid "No query executed yet."
 msgstr "No query executed yet."
 
+msgid "No query log file yet. Blocky writes a daily CSV under %s after DNS queries."
+msgstr "No query log file yet. Blocky writes a daily CSV under %s after DNS queries."
+
 msgid "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
 msgstr "No query log files found in %s (expected YYYY-MM-DD_ALL.log)"
 

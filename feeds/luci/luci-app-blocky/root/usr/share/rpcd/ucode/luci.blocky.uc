@@ -289,7 +289,7 @@ const methods = {
 			if (!dir)
 				return { ok: false, error: 'invalid log directory (allowed: /tmp/blocky-logs)' };
 
-			if (access(dir))
+			if (!access(dir))
 				return { ok: false, error: `log directory not found: ${dir}` };
 
 			let max_bytes = int(ra.max_bytes) || MAX_LOG_BYTES;
