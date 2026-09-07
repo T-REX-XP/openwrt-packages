@@ -263,6 +263,12 @@ msgstr "DNS-сервер не працює."
 msgid "DNS server is running and processing queries."
 msgstr "DNS-сервер працює і обробляє запити."
 
+msgid "DNS listener"
+msgstr "DNS-слухач"
+
+msgid "127.0.0.1:%s"
+msgstr "127.0.0.1:%s"
+
 msgid "dnsmasq uses %s"
 msgstr "dnsmasq використовує %s"
 

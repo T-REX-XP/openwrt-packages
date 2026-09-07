@@ -181,7 +181,6 @@ function blockyInjectStyles() {
 function renderServiceStatus(pageStatus) {
 	var st = pageStatus || {};
 	var running = !!st.service_running;
-	var boot = !!st.enabled_boot;
 	var dnsPort = (st.ports && st.ports.dns) || 5353;
 	var forwarding = !!st.dnsmasq_forward;
 	var blocking = st.blocking || {};
@@ -203,11 +202,6 @@ function renderServiceStatus(pageStatus) {
 			detail: paused
 				? _('Paused — resumes in %s').format(formatDuration(blocking.autoEnableInSec))
 				: (blockingOn ? _('Enabled') : _('Off'))
-		},
-		{
-			label: _('Start at boot'),
-			ok: boot,
-			detail: boot ? _('Yes') : _('No')
 		},
 		{
 			label: _('DNS listener'),

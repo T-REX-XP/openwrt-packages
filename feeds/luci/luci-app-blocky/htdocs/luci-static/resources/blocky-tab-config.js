@@ -187,6 +187,22 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	].concat(body));
 }
 
+function renderDnsListenerStatus(configYaml, pageStatus) {
+	var running = !!(pageStatus && pageStatus.service_running);
+	var dnsEp = parseBlockyPortLine(configYaml, 'dns', 5353);
+	var port = dnsEp.port || 5353;
+
+	return E('div', { 'class': 'table blocky-status-table' }, [
+		E('div', { 'class': 'tr' }, [
+			E('div', { 'class': 'td left', 'style': 'width:33%' }, [ _('DNS listener') ]),
+			E('div', { 'class': 'td left' }, [
+				blockyPill(running ? 'yes' : 'no', running ? _('OK') : _('Check')),
+				blockyStatusDetail(_('127.0.0.1:%s').format(String(port)))
+			])
+		])
+	]);
+}
+
 function settingsRow(label, descr, control, id) {
 	if (id && control && !control.id)
 		control.id = id;
@@ -603,6 +619,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 				_('Service'),
 				_('Turn Blocky on, then Save & Apply. Block lists stay on the Block lists tab.'),
 				[
+					renderDnsListenerStatus(configYaml, pageStatus),
 					settingsRow(_('Enable Blocky'),
 						_('Start Blocky and apply this configuration.'),
 						state.serviceEnabled, 'blocky-enabled')
@@ -810,6 +827,7 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 return baseclass.extend({
 	renderApiSecuritySection: renderApiSecuritySection,
 	renderRouterDnsIntegration: renderRouterDnsIntegration,
+	renderDnsListenerStatus: renderDnsListenerStatus,
 	settingsRow: settingsRow,
 	settingsPanel: settingsPanel,
 	configSectionPage: configSectionPage,

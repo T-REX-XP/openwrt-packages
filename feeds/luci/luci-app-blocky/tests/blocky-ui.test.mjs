@@ -178,6 +178,12 @@ test('service enable matches Snort/Suricata', () => {
 	assert.match(dashboard, /_\('What to do next'\)/);
 	assert.match(config, /_\('Enable Blocky'\)/);
 	assert.match(config, /id': 'blocky-enabled'/);
+	assert.match(config, /function renderDnsListenerStatus/);
+	assert.match(config, /_\('DNS listener'\)/);
+	assert.match(config, /_\('127\.0\.0\.1:%s'\)/);
+	assert.doesNotMatch(config, /_\('Start at boot'\)/);
+	assert.doesNotMatch(dashboard, /_\('Start at boot'\)/);
+	assert.match(dashboard, /_\('DNS listener'\)/);
 	assert.match(base, /options.enabled === false/);
 	assert.doesNotMatch(common, /System → Startup/);
 	assert.doesNotMatch(dashboard, /Blocky filters DNS on the router/);
