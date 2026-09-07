@@ -64,7 +64,6 @@ function createBlockyView(options) {
 			var settingsBox;
 			var queryBox;
 			var logsBox;
-			var hero;
 
 			function jumpTab(hash) {
 				var idx = BLOCKY_TAB_HASH[hash];
@@ -88,32 +87,12 @@ function createBlockyView(options) {
 				return queryPanel.prefillAndRun(domain, recordType);
 			}
 
-			function paintHero(freshStatus) {
-				var running = !!(freshStatus && freshStatus.service_running);
-				var blocking = !!(freshStatus && freshStatus.blocking && freshStatus.blocking.enabled &&
-					!(freshStatus.blocking.autoEnableInSec > 0));
-				var note;
-
-				hero.innerHTML = '';
-				if (!running)
-					note = _('Filtering is off. Enable Blocky on the Settings tab, then Save & Apply.');
-				else if (!blocking)
-					note = _('The service is up, but blocking is off or paused. Use Enable blocking on Status.');
-				else
-					note = _('Filtering LAN DNS through dnsmasq. Edit lists on Block lists; change resolvers on Settings.');
-				hero.appendChild(E('div', { 'class': 'blocky-hero-copy' }, [
-					E('strong', {}, running ? _('Running') : _('Not running')),
-					E('span', { 'class': 'blocky-hero-note' }, note)
-				]));
-			}
-
 			function refreshPage() {
 				return self.load().then(function(fresh) {
 					pageStatus = fresh[9] || {};
 					service = fresh[0];
 					status = fresh[1];
 					statsResult = fresh[5];
-					paintHero(pageStatus);
 					var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, fresh, refreshPage);
 					BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
 					BlockyTabs.dashboard.mountStatisticsContent(statsHost, fresh, refreshPage);
@@ -140,9 +119,6 @@ function createBlockyView(options) {
 			}
 
 			self._blockyRefreshPage = refreshPage;
-
-			hero = E('div', { 'class': 'blocky-hero', 'id': 'blocky-hero' });
-			paintHero(pageStatus);
 
 			var mounted = BlockyTabs.dashboard.mountDashboardContent(overviewHost, data, refreshPage);
 			BlockyTabs.dashboard.attachDashboardHostState(overviewHost, mounted.service, mounted.status, refreshPage);
@@ -181,7 +157,6 @@ function createBlockyView(options) {
 			root = E('div', { 'class': 'luci-app-blocky' }, [
 				BlockyTabs.dashboard.blockyInjectStyles(),
 				E('h2', {}, [ _('Blocky') ]),
-				hero,
 				tabHost
 			]);
 

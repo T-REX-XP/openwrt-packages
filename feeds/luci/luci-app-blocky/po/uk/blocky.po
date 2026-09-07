@@ -62,6 +62,9 @@ msgstr "Після зміни DNS-порту в YAML натисніть «Збе
 msgid "After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Statistics tab."
 msgstr "Після зміни DNS-порту натисніть «Зберегти та застосувати», потім знову увімкніть інтеграцію, щоб dnsmasq відповідав. Оновлення списків — кнопка «Оновити списки» на вкладці «Статистика»."
 
+msgid "Change LAN DNS forwarding with the button on the Service tab. After changing the DNS port, Save & Apply, then toggle forwarding again so dnsmasq matches."
+msgstr "Змінюйте LAN DNS-перенаправлення кнопкою на вкладці «Служба». Після зміни DNS-порту натисніть «Зберегти та застосувати», потім знову перемкніть перенаправлення, щоб dnsmasq відповідав."
+
 msgid "Allowlists"
 msgstr "Allowlist"
 
@@ -350,8 +353,8 @@ msgstr "LAN-ланцюг DNS"
 msgid "dnsmasq :53 → Blocky"
 msgstr "dnsmasq :53 → Blocky"
 
-msgid "Off — enable Router DNS under DNS"
-msgstr "Вимкнено — увімкніть Router DNS у розділі DNS"
+msgid "Off — not chained to dnsmasq"
+msgstr "Вимкнено — не з’єднано з dnsmasq"
 
 msgid "Last 24 hours"
 msgstr "Останні 24 години"

@@ -132,72 +132,13 @@ function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 	].concat(body));
 }
 
-function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
-	var port = parseBlockyDnsPort(configYaml);
-	var forwardHost = E('div', { 'class': 'td left' });
-	var buttonHost = E('p', {});
-
-	function paintButtons(enabled) {
-		replaceContent(buttonHost, [
-			enabled
-				? actionButton(_('Stop forwarding (restore dnsmasq only)'), function() {
-					return execDnsmasqSync([ 'disable' ]);
-				}, 'cbi-button-negative', refreshForward)
-				: actionButton(_('Use Blocky for all LAN / Wi-Fi DNS'), function() {
-					return execDnsmasqSync([ 'enable', String(port) ]);
-				}, 'cbi-button-apply', refreshForward)
-		]);
-	}
-
-	function paintForward(raw) {
-		var enabled = parseDnsForwardFlag(raw);
-
-		replaceContent(forwardHost, [
-			blockyPill(enabled ? 'yes' : 'no', enabled ? _('Yes') : _('No')),
-			blockyStatusDetail(enabled
-				? _('dnsmasq uses %s').format('127.0.0.1#' + String(port))
-				: _('WAN / resolv upstream only'))
-		]);
-		paintButtons(enabled);
-	}
-
-	function refreshForward() {
-		return fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]).then(function(res) {
-			paintForward(blockyCliStdout(execResultStdout(res, '0\n')));
-		});
-	}
-
-	paintForward(dnsFwdRaw);
-
-	var body = [
-		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings.').format(String(port))
-		]),
-		E('div', { 'class': 'table blocky-status-table' }, [
-			E('div', { 'class': 'tr' }, [
-				E('div', { 'class': 'td left', 'style': 'width:33%' }, [ _('Forwarding') ]),
-				forwardHost
-			])
-		]),
-		buttonHost,
-		E('p', { 'class': 'blocky-note-soft' }, [
-			_('After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Statistics tab.')
-		])
-	];
-
-	if (embedded)
-		return configSectionPage(_('Router DNS integration'), '', body);
-
-	return E('div', { 'class': 'cbi-section' }, [
-		E('h3', {}, [ _('Router DNS integration') ])
-	].concat(body));
-}
-
-function renderServiceBindStatus(configYaml, dnsFwdRaw, pageStatus) {
+function createLanDnsControls(configYaml, dnsFwdRaw, pageStatus) {
 	var running = !!(pageStatus && pageStatus.service_running);
 	var dnsEp = parseBlockyPortLine(configYaml, 'dns', 5353);
 	var port = dnsEp.port || 5353;
-	var forwarding = parseDnsForwardFlag(dnsFwdRaw) || !!(pageStatus && pageStatus.dnsmasq_forward);
+	var bindTable = E('div', { 'class': 'table blocky-status-table' });
+	var forwardHost = E('div', { 'class': 'td left' });
+	var buttonHost = E('p', {});
 
 	function statusRow(label, ok, detail) {
 		return E('div', { 'class': 'tr' }, [
@@ -209,12 +150,86 @@ function renderServiceBindStatus(configYaml, dnsFwdRaw, pageStatus) {
 		]);
 	}
 
-	return E('div', { 'class': 'table blocky-status-table' }, [
-		statusRow(_('DNS listener'), running, _('127.0.0.1:%s').format(String(port))),
-		statusRow(_('LAN DNS chain'), forwarding && running,
-			forwarding
-				? _('dnsmasq :53 → Blocky')
-				: _('Off — enable Router DNS under DNS'))
+	function paintButtons(enabled) {
+		replaceContent(buttonHost, [
+			enabled
+				? actionButton(_('Stop forwarding (restore dnsmasq only)'), function() {
+					return execDnsmasqSync([ 'disable' ]);
+				}, 'cbi-button-negative', refresh)
+				: actionButton(_('Use Blocky for all LAN / Wi-Fi DNS'), function() {
+					return execDnsmasqSync([ 'enable', String(port) ]);
+				}, 'cbi-button-apply', refresh)
+		]);
+	}
+
+	function paint(raw) {
+		var enabled = parseDnsForwardFlag(raw);
+
+		replaceContent(bindTable, [
+			statusRow(_('DNS listener'), running, _('127.0.0.1:%s').format(String(port))),
+			statusRow(_('LAN DNS chain'), enabled && running,
+				enabled
+					? _('dnsmasq :53 → Blocky')
+					: _('Off — not chained to dnsmasq'))
+		]);
+		replaceContent(forwardHost, [
+			blockyPill(enabled ? 'yes' : 'no', enabled ? _('Yes') : _('No')),
+			blockyStatusDetail(enabled
+				? _('dnsmasq uses %s').format('127.0.0.1#' + String(port))
+				: _('WAN / resolv upstream only'))
+		]);
+		paintButtons(enabled);
+	}
+
+	function refresh() {
+		return fs.exec('/usr/sbin/blocky-dnsmasq-sync', [ 'status' ]).then(function(res) {
+			paint(blockyCliStdout(execResultStdout(res, '0\n')));
+		});
+	}
+
+	paint((parseDnsForwardFlag(dnsFwdRaw) || (pageStatus && pageStatus.dnsmasq_forward)) ? '1' : dnsFwdRaw);
+
+	return {
+		port: port,
+		bindTable: bindTable,
+		buttonHost: buttonHost,
+		forwardHost: forwardHost,
+		refresh: refresh
+	};
+}
+
+function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded, lanDns) {
+	var controls = lanDns || createLanDnsControls(configYaml, dnsFwdRaw, {});
+	var port = controls.port;
+	var forwardHost = controls.forwardHost;
+
+	var body = [
+		E('p', { 'class': 'cbi-section-descr' }, [
+			_('Phones and laptops on Wi-Fi ask dnsmasq on the router for DNS (UDP/TCP port 53). Blocky uses its own port (%s in config.yml) so it does not replace dnsmasq. Turn this on to chain dnsmasq to Blocky so filtering and block lists apply to every DHCP client without manual DNS settings.').format(String(port))
+		]),
+		E('div', { 'class': 'table blocky-status-table' }, [
+			E('div', { 'class': 'tr' }, [
+				E('div', { 'class': 'td left', 'style': 'width:33%' }, [ _('Forwarding') ]),
+				forwardHost
+			])
+		]),
+		E('p', { 'class': 'blocky-note-soft' }, [
+			_('Change LAN DNS forwarding with the button on the Service tab. After changing the DNS port, Save & Apply, then toggle forwarding again so dnsmasq matches.')
+		])
+	];
+
+	if (embedded)
+		return configSectionPage(_('Router DNS integration'), '', body);
+
+	return E('div', { 'class': 'cbi-section' }, [
+		E('h3', {}, [ _('Router DNS integration') ])
+	].concat(body));
+}
+
+function renderServiceBindStatus(lanDns) {
+	return E('div', { 'class': 'blocky-service-bind' }, [
+		lanDns.bindTable,
+		lanDns.buttonHost
 	]);
 }
 
@@ -626,6 +641,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 		return saveBlockySettingsForm(state, configYaml, restart);
 	});
 
+	var lanDns = createLanDnsControls(configYaml, dnsFwdRaw, pageStatus);
 	var sections = [
 		{
 			id: 'service',
@@ -634,7 +650,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 				_('Service'),
 				_('Turn Blocky on, then Save & Apply. Block lists stay on the Block lists tab.'),
 				[
-					renderServiceBindStatus(configYaml, dnsFwdRaw, pageStatus),
+					renderServiceBindStatus(lanDns),
 					settingsRow(_('Enable Blocky'),
 						_('Start Blocky and apply this configuration.'),
 						state.serviceEnabled, 'blocky-enabled')
@@ -645,7 +661,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 			id: 'dns',
 			title: _('DNS'),
 			content: E('div', { 'class': 'blocky-settings-stack' }, [
-				renderRouterDnsIntegration(configYaml, dnsFwdRaw, true),
+				renderRouterDnsIntegration(configYaml, dnsFwdRaw, true, lanDns),
 				configSectionPage(
 					_('Upstream DNS'),
 					_('External resolvers Blocky uses after filtering. Supports plain IP, tcp-tls:, and https: DoH URLs.'),
@@ -842,6 +858,7 @@ function renderConfigYamlAdvanced(content, refreshPage, embedded) {
 return baseclass.extend({
 	renderApiSecuritySection: renderApiSecuritySection,
 	renderRouterDnsIntegration: renderRouterDnsIntegration,
+	createLanDnsControls: createLanDnsControls,
 	renderServiceBindStatus: renderServiceBindStatus,
 	settingsRow: settingsRow,
 	settingsPanel: settingsPanel,

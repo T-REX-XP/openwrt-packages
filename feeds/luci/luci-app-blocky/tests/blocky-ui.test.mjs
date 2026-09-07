@@ -81,13 +81,16 @@ test('footer Save & Apply writes settings', () => {
 	assert.doesNotMatch(common, /admin\/services\/suricata/);
 });
 
-test('inner Logs tabs and hero chrome', () => {
+test('inner Logs tabs', () => {
 	assert.match(logs, /mountInnerTabs/);
 	assert.match(logs, /id:\s*'querylog'/);
 	assert.match(logs, /id:\s*'service'/);
 	assert.doesNotMatch(logs, /function renderLogsSubTabs/);
-	assert.match(css, /\.blocky-hero\b/);
-	assert.match(css, /\.blocky-lead\b/);
+	assert.doesNotMatch(common, /function paintHero/);
+	assert.doesNotMatch(common, /blocky-hero/);
+	assert.doesNotMatch(common, /Filtering LAN DNS through dnsmasq/);
+	assert.doesNotMatch(css, /\.blocky-hero\b/);
+	assert.doesNotMatch(css, /\.blocky-lead\b/);
 	assert.match(css, /\.blocky-inner-tabs\b/);
 	assert.match(base, /blocky-inner-tabs-panes/);
 	assert.match(base, /initTabGroup\(wrap\.childNodes\)/);
@@ -116,11 +119,13 @@ test('Settings DNS tab merges router, upstream, bootstrap, cache, and listeners'
 	const dns = config.slice(config.indexOf("id: 'dns'"), config.indexOf("id: 'lists'"));
 
 	assert.match(dns, /title:\s*_\('DNS'\)/);
-	assert.match(dns, /renderRouterDnsIntegration/);
+	assert.match(dns, /renderRouterDnsIntegration\(configYaml, dnsFwdRaw, true, lanDns\)/);
+	assert.match(config, /function createLanDnsControls/);
 	assert.match(config, /function paintButtons/);
 	assert.match(config, /paintButtons\(enabled\)/);
 	assert.match(config, /enabled\s*\?\s*actionButton\(_\('Stop forwarding \(restore dnsmasq only\)'\)/);
 	assert.match(config, /actionButton\(_\('Use Blocky for all LAN \/ Wi-Fi DNS'\)/);
+	assert.match(config, /renderServiceBindStatus\(lanDns\)/);
 	assert.doesNotMatch(config, /E\('p', \{\}, \[\s*actionButton\(_\('Use Blocky/);
 	assert.match(dns, /_\('Upstream DNS'\)/);
 	assert.match(dns, /_\('Bootstrap DNS'\)/);
