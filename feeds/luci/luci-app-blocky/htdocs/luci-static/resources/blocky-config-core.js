@@ -357,16 +357,22 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 			return;
 		}
 
+		if (inDownloads && /^    [A-Za-z0-9_]+:/.test(line))
+			inDownloads = false;
+
+		if (inLoading && /^\s+concurrency:/.test(line)) {
+			if (replaced.concurrency)
+				return;
+
+			replaced.concurrency = true;
+			out.push('    concurrency: ' + yamlQuote(fields.listConcurrency || '4'));
+			return;
+		}
+
 		if (inLoading && !inDownloads) {
 			var loadingStrategy = patchLine(line, 'strategy', '    ', fields.loadingStrategy || 'fast', 'loadingStrategy');
 			if (loadingStrategy) {
 				out.push(loadingStrategy);
-				return;
-			}
-
-			var loadingConcurrency = patchLine(line, 'concurrency', '    ', fields.listConcurrency || '4', 'concurrency');
-			if (loadingConcurrency) {
-				out.push(loadingConcurrency);
 				return;
 			}
 		}
@@ -380,9 +386,6 @@ function patchBlockingLoadingSection(blockingYaml, fields) {
 		}
 
 		if (inDownloads) {
-			if (/^\s{6}concurrency:/.test(line))
-				return;
-
 			var patched = patchLine(line, 'cachePath', '      ', fields.listCachePath || '/var/lib/blocky/lists', 'cachePath') ||
 				patchLine(line, 'timeout', '      ', fields.listDownloadTimeout || '60s', 'timeout') ||
 				patchLine(line, 'writeTimeout', '      ', fields.listWriteTimeout || '60s', 'writeTimeout') ||

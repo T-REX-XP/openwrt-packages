@@ -159,6 +159,23 @@ test('patchBlockingLoadingSection updates concurrency', () => {
 	});
 	assert.match(patched, /refreshPeriod: 6h/);
 	assert.match(patched, /concurrency: 8/);
+	assert.equal((patched.match(/^\s+concurrency:/gm) || []).length, 1);
+});
+
+test('patchBlockingLoadingSection does not duplicate fixture concurrency', () => {
+	const blocking = bc.extractYamlSection(FIXTURE, 'blocking');
+	const parsed = bc.parseBlockySettings(FIXTURE);
+	const patched = bc.patchBlockingLoadingSection(blocking, parsed);
+	const built = bc.buildBlockySettingsYaml(Object.assign({}, parsed, {
+		upstreamResolvers: parsed.upstreamResolvers.join('\n'),
+		bootstrapResolvers: parsed.bootstrapResolvers.join('\n'),
+		hostsSources: parsed.hostsSources.join('\n'),
+		blockingSection: patched
+	}), FIXTURE);
+	const loading = bc.extractYamlSection(built, 'blocking');
+
+	assert.equal((patched.match(/^\s+concurrency:/gm) || []).length, 1);
+	assert.equal((loading.match(/^\s+concurrency:/gm) || []).length, 1);
 });
 
 console.log(`\nResults: ${pass} passed, ${fail} failed`);
