@@ -117,6 +117,11 @@ test('Settings DNS tab merges router, upstream, bootstrap, cache, and listeners'
 
 	assert.match(dns, /title:\s*_\('DNS'\)/);
 	assert.match(dns, /renderRouterDnsIntegration/);
+	assert.match(config, /function paintButtons/);
+	assert.match(config, /paintButtons\(enabled\)/);
+	assert.match(config, /enabled\s*\?\s*actionButton\(_\('Stop forwarding \(restore dnsmasq only\)'\)/);
+	assert.match(config, /actionButton\(_\('Use Blocky for all LAN \/ Wi-Fi DNS'\)/);
+	assert.doesNotMatch(config, /E\('p', \{\}, \[\s*actionButton\(_\('Use Blocky/);
 	assert.match(dns, /_\('Upstream DNS'\)/);
 	assert.match(dns, /_\('Bootstrap DNS'\)/);
 	assert.match(dns, /_\('DNS cache'\)/);
@@ -174,6 +179,9 @@ test('no board-specific copy', () => {
 
 test('service enable matches Snort/Suricata', () => {
 	assert.match(dashboard, /function renderServiceStatus/);
+	assert.match(dashboard, /fetchMetricsText = Blocky\.fetchMetricsText/);
+	assert.match(dashboard, /fetchMetricsText\(\)\.catch/);
+	assert.match(base, /function fetchMetricsText/);
 	assert.match(dashboard, /_\('Service status'\)/);
 	assert.match(dashboard, /_\('What to do next'\)/);
 	assert.match(config, /_\('Enable Blocky'\)/);

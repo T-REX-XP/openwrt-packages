@@ -135,6 +135,19 @@ function renderApiSecuritySection(configYaml, uciAccess, embedded) {
 function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 	var port = parseBlockyDnsPort(configYaml);
 	var forwardHost = E('div', { 'class': 'td left' });
+	var buttonHost = E('p', {});
+
+	function paintButtons(enabled) {
+		replaceContent(buttonHost, [
+			enabled
+				? actionButton(_('Stop forwarding (restore dnsmasq only)'), function() {
+					return execDnsmasqSync([ 'disable' ]);
+				}, 'cbi-button-negative', refreshForward)
+				: actionButton(_('Use Blocky for all LAN / Wi-Fi DNS'), function() {
+					return execDnsmasqSync([ 'enable', String(port) ]);
+				}, 'cbi-button-apply', refreshForward)
+		]);
+	}
 
 	function paintForward(raw) {
 		var enabled = parseDnsForwardFlag(raw);
@@ -145,6 +158,7 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 				? _('dnsmasq uses %s').format('127.0.0.1#' + String(port))
 				: _('WAN / resolv upstream only'))
 		]);
+		paintButtons(enabled);
 	}
 
 	function refreshForward() {
@@ -165,15 +179,7 @@ function renderRouterDnsIntegration(configYaml, dnsFwdRaw, embedded) {
 				forwardHost
 			])
 		]),
-		E('p', {}, [
-			actionButton(_('Use Blocky for all LAN / Wi-Fi DNS'), function() {
-				return execDnsmasqSync([ 'enable', String(port) ]);
-			}, 'cbi-button-apply', refreshForward),
-			' ',
-			actionButton(_('Stop forwarding (restore dnsmasq only)'), function() {
-				return execDnsmasqSync([ 'disable' ]);
-			}, 'cbi-button-negative', refreshForward)
-		]),
+		buttonHost,
 		E('p', { 'class': 'blocky-note-soft' }, [
 			_('After changing the DNS port, Save & Apply, then toggle this again so dnsmasq matches. Block list refresh uses Refresh lists on the Statistics tab.')
 		])
