@@ -346,6 +346,12 @@ msgstr "HTTP listener"
 msgid "LAN DNS chain"
 msgstr "LAN DNS chain"
 
+msgid "dnsmasq :53 → Blocky"
+msgstr "dnsmasq :53 → Blocky"
+
+msgid "Off — enable Router DNS under DNS"
+msgstr "Off — enable Router DNS under DNS"
+
 msgid "Last 24 hours"
 msgstr "Last 24 hours"
 

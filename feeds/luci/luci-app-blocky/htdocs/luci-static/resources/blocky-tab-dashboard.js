@@ -181,8 +181,6 @@ function blockyInjectStyles() {
 function renderServiceStatus(pageStatus) {
 	var st = pageStatus || {};
 	var running = !!st.service_running;
-	var dnsPort = (st.ports && st.ports.dns) || 5353;
-	var forwarding = !!st.dnsmasq_forward;
 	var blocking = st.blocking || {};
 	var paused = blocking.autoEnableInSec > 0;
 	var blockingOn = !!blocking.enabled && !paused;
@@ -202,18 +200,6 @@ function renderServiceStatus(pageStatus) {
 			detail: paused
 				? _('Paused — resumes in %s').format(formatDuration(blocking.autoEnableInSec))
 				: (blockingOn ? _('Enabled') : _('Off'))
-		},
-		{
-			label: _('DNS listener'),
-			ok: running,
-			detail: _('127.0.0.1:%s').format(String(dnsPort))
-		},
-		{
-			label: _('LAN DNS chain'),
-			ok: forwarding && running,
-			detail: forwarding
-				? _('dnsmasq :53 → Blocky')
-				: _('Off — enable Router DNS on Settings')
 		}
 	];
 
