@@ -629,7 +629,10 @@ function fetchMetricsText() {
 		if (!blockyRpcOk(res))
 			throw new Error(blockyRpcError(res, _('Could not read Blocky /metrics.')));
 
-		return res.stdout || '';
+		return {
+			text: res.stdout || '',
+			truncated: !!res.truncated
+		};
 	});
 }
 
@@ -637,7 +640,9 @@ function fetchText(url, method, body) {
 	var path = blockyPathFromUrl(url);
 
 	if ((method || 'GET') === 'GET' && (path === 'metrics' || path.indexOf('metrics') === 0))
-		return fetchMetricsText();
+		return fetchMetricsText().then(function(res) {
+			return unwrapFetchText(res);
+		});
 
 	return blockyHttpRequest(method || 'GET', path, body);
 }
@@ -648,6 +653,9 @@ function unwrapFetchText(res) {
 
 	if (typeof res === 'string')
 		return res;
+
+	if (typeof res === 'object' && res.text !== undefined)
+		return safeString(res.text);
 
 	if (typeof res === 'object' && res.stdout !== undefined)
 		return execResultStdout(res, '');
@@ -836,10 +844,10 @@ function registerBlockyMetricsPolling() {
 	poll.add(function() {
 		return fetchMetricsText().then(function(res) {
 			if (blockyRtMetricsHook)
-				blockyRtMetricsHook(unwrapFetchText(res), '');
+				blockyRtMetricsHook(unwrapFetchText(res), '', !!(res && res.truncated));
 		}).catch(function(err) {
 			if (blockyRtMetricsHook)
-				blockyRtMetricsHook('', (err && err.message) || _('Request to Blocky failed.'));
+				blockyRtMetricsHook('', (err && err.message) || _('Request to Blocky failed.'), false);
 		});
 	}, 10);
 }

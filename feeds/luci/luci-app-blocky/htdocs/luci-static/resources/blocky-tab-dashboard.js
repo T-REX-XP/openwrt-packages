@@ -432,7 +432,7 @@ function renderStatisticsChartsZone(statsResult, refreshPage) {
 	]);
 }
 
-function renderRealtimeMetrics(initialMetricsText) {
+function renderRealtimeMetrics(initialMetricsText, metricsTruncated) {
 	var W = 820;
 	var H = 268;
 	var padL = 52;
@@ -502,7 +502,8 @@ function renderRealtimeMetrics(initialMetricsText) {
 		windowKey: '24h',
 		windowMs: 86400000,
 		lastRaw: safeString(initialMetricsText),
-		metricsError: ''
+		metricsError: '',
+		metricsTruncated: !!metricsTruncated
 	};
 	var i;
 	var activeCls = 'cbi-button cbi-button-action blocky-range-active';
@@ -681,8 +682,13 @@ function renderRealtimeMetrics(initialMetricsText) {
 
 		var banner;
 
-		if (live)
-			banner = [];
+		if (live) {
+			banner = state.metricsTruncated ? [
+				E('p', { 'class': 'blocky-note-soft' }, [
+					_('Metrics payload was truncated; some counters may be missing.')
+				])
+			] : [];
+		}
 		else if (state.metricsError)
 			banner = [
 				E('p', { 'class': 'alert-message warning' }, [
@@ -750,9 +756,11 @@ function renderRealtimeMetrics(initialMetricsText) {
 		})(REALTIME_WINDOWS[i]);
 	}
 
-	function hook(text, err) {
+	function hook(text, err, truncated) {
 		state.lastRaw = text;
 		state.metricsError = err || '';
+		if (arguments.length > 2)
+			state.metricsTruncated = !!truncated;
 		ingestMetrics(text);
 		redrawAll();
 	}
@@ -848,7 +856,7 @@ function mountStatisticsContent(host, data, refreshPage) {
 		tabControls.renderOperations(service, refreshPage),
 		renderStatisticsChartsZone(statsResult, refreshPage),
 		E('div', { 'class': 'blocky-dash-full blocky-live-metrics-section' }, [
-			renderRealtimeMetrics(metricsPayload)
+			renderRealtimeMetrics(metricsPayload, !!(data[9] && data[9].metrics_truncated))
 		])
 	);
 }
@@ -863,7 +871,9 @@ function registerStatsPoll(dashboardHost, refreshPage, statsHost) {
 	poll.add(function() {
 		return Promise.all([
 			fetchBlockyStats(),
-			L.resolveDefault(fetchText(blockyMetricsUrl()), '')
+			fetchMetricsText().catch(function() {
+				return { text: '', truncated: false };
+			})
 		]).then(function(results) {
 			var sr = results[0];
 			var metricsPayload = unwrapFetchText(results[1]);

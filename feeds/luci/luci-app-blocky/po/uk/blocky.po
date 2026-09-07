@@ -413,6 +413,9 @@ msgstr "Не вдалося прочитати Blocky /metrics: %s"
 msgid "Waiting for Prometheus samples. If metrics stay empty, check that Blocky is running and prometheus.enable is true."
 msgstr "Очікування зразків Prometheus. Якщо метрики залишаються порожніми, перевірте, що Blocky запущено і prometheus.enable увімкнено."
 
+msgid "Metrics payload was truncated; some counters may be missing."
+msgstr "Дані метрик обрізано; деякі лічильники можуть бути відсутні."
+
 msgid "No query executed yet."
 msgstr "Запитів ще не виконано."
 

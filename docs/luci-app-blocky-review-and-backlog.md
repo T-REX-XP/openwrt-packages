@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07  
 **Scope:** `feeds/luci/luci-app-blocky/` + host helpers in `feeds/packages/blocky/` that the LuCI app calls  
-**Versions:** Blocky **v0.34.0** (`PKG_RELEASE` 25) · `luci-app-blocky` **PKG_RELEASE 70**  
+**Versions:** Blocky **v0.34.0** (`PKG_RELEASE` 29) · `luci-app-blocky` **PKG_RELEASE 78**  
 **Supersedes:** the 2026-08-28 “34/34 complete” claim in this file. Historical API notes remain in [luci-app-blocky-feature-plan.md](luci-app-blocky-feature-plan.md).
 
 This is the **active** plan. Do not treat Epic A–F from August as done: several P0 defects shipped after that tracker was closed, and unit tests never covered them.
@@ -338,11 +338,11 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 
 | ID | Task | Status | Acceptance |
 |----|------|--------|------------|
-| H-1 | `getMetrics` with `truncated`; prefer Blocky counters, drop `go_*` if over cap | todo | Banner gone when `/metrics` works |
+| H-1 | `getMetrics` with `truncated`; prefer Blocky counters, drop `go_*` if over cap | done | Banner gone when `/metrics` works; truncated note if clipped |
 | H-2 | Replace dashboard copy: RPC fail vs waiting-for-samples | done | String test |
-| H-3 | Named `queryDns` / `setBlocking` / `flushCache` / `refreshLists`; retire UI use of `http_request` | todo | ACL + JS |
-| H-4 | `getStatus` optionally embeds a short metrics digest to avoid a second RPC | todo | One round-trip on first paint |
-| H-5 | Separate stderr in `run_bin` (no `2>&1` into stdout) | todo | Failed GET is not parsed as Prom |
+| H-3 | Named `queryDns` / `setBlocking` / `flushCache` / `refreshLists`; retire UI use of `http_request` | done | ACL + JS Query uses `queryDns` |
+| H-4 | `getStatus` optionally embeds a short metrics digest to avoid a second RPC | done | One round-trip on first paint (`metrics_text`) |
+| H-5 | Separate stderr in `run_bin` (no `2>&1` into stdout) | done | `2>/dev/null`; failed GET is not parsed as Prom |
 
 ### Epic I — LuCI apply model (P1)
 
@@ -350,8 +350,8 @@ Delete or stop generating: `scripts/split-blocky-common.js` alias blast, `blocky
 |----|------|--------|------------|
 | I-1 | Grid stays staging-only (already started PKG 67) | done | No confirm on uncheck |
 | I-2 | Statistics “Refresh lists” = API refresh only (no YAML sync) | done | Same as “Update lists now” |
-| I-3 | Footer Reset restores UCI + form (or document why not) | todo | `handleReset` or helper copy |
-| I-4 | After Save & Apply, refresh lists tab from committed UCI | todo | Checkbox matches disk |
+| I-3 | Footer Reset restores UCI + form (or document why not) | done | `handleReset` → `uci.revert('blocky')` + refresh |
+| I-4 | After Save & Apply, refresh lists tab from committed UCI | done | Checkbox matches disk |
 | I-5 | Single apply pipeline documented in `tests/README.md` | todo | Diagram matches code |
 
 ### Epic J — 100% testable coverage (P1)

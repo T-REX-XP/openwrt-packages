@@ -100,6 +100,10 @@ test('ACL read cannot mutate Blocky', () => {
 	assert.equal(readUbus.includes('getStatus'), true);
 	assert.equal(readUbus.includes('getLogs'), true);
 	assert.equal(readUbus.includes('read_query_log'), true);
+	assert.equal(readUbus.includes('getMetrics'), true);
+	assert.equal(writeUbus.includes('queryDns'), true);
+	assert.equal(writeUbus.includes('setBlocking'), true);
+	assert.equal(writeUbus.includes('flushCache'), true);
 });
 
 test('pickLatestLogFilename lexicographic date order', () => {

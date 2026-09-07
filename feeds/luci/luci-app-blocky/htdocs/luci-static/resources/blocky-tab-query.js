@@ -129,10 +129,7 @@ function runDnsQuery(queryInput, typeSelect, resultHost) {
 		return Promise.resolve();
 	}
 
-	return blockyApi('/query', 'POST', JSON.stringify({
-		query: queryInput.value.trim(),
-		type: typeSelect.value
-	})).then(function(res) {
+	return Blocky.queryDns(queryInput.value.trim(), typeSelect.value).then(function(res) {
 		replaceContent(resultHost, renderQueryResult(res));
 	}).catch(function(err) {
 		replaceContent(resultHost, E('p', { 'class': 'alert-message warning' }, [

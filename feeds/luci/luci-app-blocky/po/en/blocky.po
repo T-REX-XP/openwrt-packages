@@ -412,6 +412,9 @@ msgstr "Could not read Blocky /metrics: %s"
 msgid "Waiting for Prometheus samples. If metrics stay empty, check that Blocky is running and prometheus.enable is true."
 msgstr "Waiting for Prometheus samples. If metrics stay empty, check that Blocky is running and prometheus.enable is true."
 
+msgid "Metrics payload was truncated; some counters may be missing."
+msgstr "Metrics payload was truncated; some counters may be missing."
+
 msgid "No query executed yet."
 msgstr "No query executed yet."
 

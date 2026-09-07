@@ -58,6 +58,10 @@ test('footer Save & Apply writes settings', () => {
 	assert.match(common, /handleSaveApply:\s*function/);
 	assert.match(common, /runSettingsApply\(false\)/);
 	assert.match(common, /runSettingsApply\(true\)/);
+	assert.match(common, /handleReset:\s*function/);
+	assert.match(common, /uci\.revert\('blocky'\)/);
+	assert.match(common, /_blockyRefreshPage/);
+	assert.doesNotMatch(common, /handleReset:\s*null/);
 	assert.match(base, /function setSettingsApplyHandler/);
 	assert.match(base, /function runSettingsApply/);
 	assert.match(config, /setSettingsApplyHandler/);
@@ -221,8 +225,19 @@ test('Status is glance-only; Statistics holds charts and operations', () => {
 test('metrics banner distinguishes RPC failure from empty samples', () => {
 	assert.match(dashboard, /Could not read Blocky \/metrics/);
 	assert.match(dashboard, /Waiting for Prometheus samples/);
+	assert.match(dashboard, /Metrics payload was truncated/);
 	assert.doesNotMatch(dashboard, /Enable prometheus in Blocky and confirm \/metrics responds/);
-	assert.match(base, /blockyRtMetricsHook\(unwrapFetchText\(res\), ''\)/);
+	assert.match(base, /blockyRtMetricsHook\(unwrapFetchText\(res\), '', !!\(res && res.truncated\)\)/);
+});
+
+test('Query tab uses named queryDns RPC', () => {
+	const query = readFileSync(join(res, 'blocky-tab-query.js'), 'utf8');
+	assert.match(query, /Blocky\.queryDns\(/);
+	assert.doesNotMatch(query, /blockyApi\('\/query'/);
+	assert.match(base, /method:\s*'queryDns'/);
+	assert.match(base, /method:\s*'getMetrics'/);
+	assert.match(base, /method:\s*'setBlocking'/);
+	assert.match(base, /method:\s*'flushCache'/);
 });
 
 test('query and log placeholders use _()', () => {

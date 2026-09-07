@@ -1,6 +1,7 @@
 'use strict';
 'require view';
 'require ui';
+'require uci';
 'require blocky-base as Blocky';
 'require blocky-tab-blocklists as tabBlocklists';
 'require blocky-tab-stats as tabStats';
@@ -138,6 +139,8 @@ function createBlockyView(options) {
 				});
 			}
 
+			self._blockyRefreshPage = refreshPage;
+
 			hero = E('div', { 'class': 'blocky-hero', 'id': 'blocky-hero' });
 			paintHero(pageStatus);
 
@@ -215,18 +218,33 @@ function createBlockyView(options) {
 		},
 
 		handleSave: function() {
+			var self = this;
+
 			return Blocky.runSettingsApply(false).then(function() {
 				ui.addNotification(null, E('p', {}, _('Settings saved.')), 4000);
+				if (typeof self._blockyRefreshPage === 'function')
+					return self._blockyRefreshPage();
 			});
 		},
 
 		handleSaveApply: function() {
+			var self = this;
+
 			return Blocky.runSettingsApply(true).then(function() {
 				ui.addNotification(null, E('p', {}, _('Settings saved and Blocky restarted.')), 4000);
+				if (typeof self._blockyRefreshPage === 'function')
+					return self._blockyRefreshPage();
 			});
 		},
 
-		handleReset: null
+		handleReset: function() {
+			var self = this;
+
+			return uci.revert('blocky').then(function() {
+				if (typeof self._blockyRefreshPage === 'function')
+					return self._blockyRefreshPage();
+			});
+		}
 	});
 }
 
