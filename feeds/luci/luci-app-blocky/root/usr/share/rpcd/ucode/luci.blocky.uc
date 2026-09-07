@@ -32,6 +32,13 @@ function rpc_args(req) {
 	return req && req.args ? req.args : {};
 }
 
+function as_str(v) {
+	if (v == null)
+		return '';
+
+	return sprintf('%s', v);
+}
+
 function file_test(flag, path) {
 	let p = popen(`test ${flag} ${shellquote(path)} && echo yes`, 'r');
 	let ok = trim(p ? (p.read('all') || '') : '') == 'yes';
@@ -182,7 +189,7 @@ function run_bin(path, args) {
 }
 
 function validate_http(method, path, body) {
-	method = upper(method || 'GET');
+	method = uc(method || 'GET');
 	if (method != 'GET' && method != 'POST')
 		return null;
 
@@ -191,7 +198,7 @@ function validate_http(method, path, body) {
 		return null;
 
 	if (body != null)
-		body = String(body);
+		body = as_str(body);
 
 	return [ method, path, body ];
 }
@@ -242,11 +249,12 @@ const methods = {
 	},
 
 	http_request: {
-		args: { method: 'method', path: 'path', body: 'body' },
+		args: { method: 'string', path: 'string', body: 'string' },
 		call: function(req) {
 			let ra = rpc_args(req);
-			let method = upper(ra.method || 'GET');
+			let method = uc(ra.method || 'GET');
 			let path = trim(ra.path || 'metrics');
+			let body = as_str(ra.body);
 
 			if (method != 'GET' && method != 'POST')
 				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request method' };
@@ -255,8 +263,8 @@ const methods = {
 				return { ok: false, code: 22, stdout: '', stderr: 'invalid http_request path' };
 
 			let run_args = [ method, path ];
-			if (ra.body != null && length(String(ra.body)))
-				push(run_args, String(ra.body));
+			if (length(body))
+				push(run_args, body);
 
 			let res = run_bin(HTTP, run_args);
 			let stdout = res.ok ? (res.output || '') : '';
@@ -274,7 +282,7 @@ const methods = {
 	},
 
 	read_query_log: {
-		args: { target: 'target', max_bytes: 'max_bytes' },
+		args: { target: 'string', max_bytes: 'string' },
 		call: function(req) {
 			let ra = rpc_args(req);
 			let dir = allowed_log_dir(ra.target);
@@ -366,15 +374,15 @@ const methods = {
 	},
 
 	validate_config: {
-		args: { yaml: 'yaml' },
+		args: { yaml: 'string' },
 		call: function(req) {
 			let ra = rpc_args(req);
 			let path = CONFIG;
-			let yaml = ra.yaml;
+			let yaml = as_str(ra.yaml);
 
-			if (yaml != null && length(String(yaml))) {
+			if (length(yaml)) {
 				try {
-					writefile(VALIDATE_TMP, String(yaml));
+					writefile(VALIDATE_TMP, yaml);
 				} catch (e) {
 					return { ok: false, output: 'failed to write temporary config for validation' };
 				}
@@ -400,7 +408,7 @@ const methods = {
 	},
 
 	getLogs: {
-		args: { limit: 'limit', max_bytes: 'max_bytes' },
+		args: { limit: 'string', max_bytes: 'string' },
 		call: function(req) {
 			let ra = rpc_args(req);
 			let logread = find_logread();

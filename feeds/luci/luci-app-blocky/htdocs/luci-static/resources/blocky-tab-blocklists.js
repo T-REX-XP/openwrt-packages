@@ -63,10 +63,7 @@ var safeString = Blocky.safeString,
 	actionButton = Blocky.actionButton,
 	replaceContent = Blocky.replaceContent,
 	applyBlockyApiAccess = Blocky.applyBlockyApiAccess,
-	applyBlocklistChanges = Blocky.applyBlocklistChanges,
 	refreshBlockyLists = Blocky.refreshBlockyLists,
-	execBlockyListsSync = Blocky.execBlockyListsSync,
-	execBlockyListsSyncConfirmed = Blocky.execBlockyListsSyncConfirmed,
 	execBlockyListsRefresh = Blocky.execBlockyListsRefresh,
 	loadBlocklistCatalog = Blocky.loadBlocklistCatalog,
 	blockyCloseModal = Blocky.blockyCloseModal,
@@ -100,24 +97,15 @@ var safeString = Blocky.safeString,
 	bc = Blocky.bc,
 	bp = Blocky.bp;
 
-var ICON_GLYPHS = {
-	edit: '✎',
-	delete: '✕'
-};
-
-function iconBtn(title, kind, fn) {
-	return E('span', { 'class': 'blocky-icon-wrap', 'title': title }, [
-		E('button', {
-			'type': 'button',
-			'class': 'blocky-icon-btn blocky-icon-btn--' + kind,
-			'title': title,
-			'aria-label': title,
-			'click': ui.createHandlerFn(null, function(ev) {
-				ev.preventDefault();
-				return fn();
-			})
-		}, ICON_GLYPHS[kind] || '•')
-	]);
+function rowActionBtn(label, cls, fn) {
+	return E('button', {
+		'type': 'button',
+		'class': 'btn cbi-button ' + cls,
+		'click': ui.createHandlerFn(null, function(ev) {
+			ev.preventDefault();
+			return fn();
+		})
+	}, [ label ]);
 }
 
 function labeledActionBtn(label, cls, title, fn) {
@@ -163,10 +151,8 @@ function addBlocklistsFromPresets(presets, configYaml) {
 			return false;
 		}
 
-		return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
-			notify(_('Catalog lists added.'));
-			return true;
-		});
+		notify(_('Catalog lists added.'));
+		return true;
 	});
 }
 
@@ -204,10 +190,8 @@ function saveCustomBlocklist(fields, existingId, configYaml) {
 		uci.set('blocky', id, 'name', name);
 		uci.set('blocky', id, 'url', url);
 
-		return applyBlocklistChanges(true, { configYaml: configYaml }).then(function() {
-			notify(existingId ? _('Block list saved.') : _('Custom block list added.'));
-			return true;
-		});
+		notify(existingId ? _('Block list saved.') : _('Custom block list added.'));
+		return true;
 	});
 }
 
@@ -432,10 +416,6 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 	var tableHost = E('div', { 'class': 'table blocky-blocklists-table' });
 	var tableWrap = E('div', { 'class': 'blocky-blocklists-wrap' }, [ tableHost ]);
 
-	function listApplyOptions() {
-		return { configYaml: configYaml };
-	}
-
 	function denyCountsMap() {
 		var stats = statsResult && statsResult.ok ? statsResult.data : null;
 		var fromStats = stats && stats.lists && stats.lists.denylist ? stats.lists.denylist : {};
@@ -479,18 +459,17 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 							'title': _('Enable %s').format(entry.name),
 							'aria-label': _('Enable %s').format(entry.name),
 							'checked': entry.enabled ? '' : null,
-							'change': ui.createHandlerFn(this, function(ev) {
-								return uci.load('blocky').then(function() {
-									uci.set('blocky', entry.id, 'enabled', ev.target.checked ? '1' : '0');
-									return applyBlocklistChanges(true, listApplyOptions());
-								}).then(function() {
-									notify(_('Block list updated.'));
-									return refreshPage();
+							'change': function(ev) {
+								var box = ev.target;
+								var on = box.checked;
+
+								uci.load('blocky').then(function() {
+									uci.set('blocky', entry.id, 'enabled', on ? '1' : '0');
 								}).catch(function(err) {
 									notify(err.message || String(err), 'danger');
-									ev.target.checked = !ev.target.checked;
+									box.checked = !on;
 								});
-							})
+							}
 						})
 					]),
 					E('div', { 'class': 'td left blocky-col-name', 'title': nameTip }, [ entry.name ]),
@@ -499,20 +478,18 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					]),
 					E('div', { 'class': 'td blocky-col-rules' }, [ rulesLabel ]),
 					E('div', { 'class': 'td blocky-col-actions' }, [
-						E('div', { 'class': 'blocky-icon-row' }, [
-							iconBtn(_('Edit'), 'edit', function() {
-								openCustomBlocklistModal(refreshPage, entry, configYaml);
+						E('div', { 'class': 'blocky-row-actions' }, [
+							rowActionBtn(_('Edit'), 'cbi-button-neutral', function() {
+								openCustomBlocklistModal(repaintTable, entry, configYaml);
 							}),
-							iconBtn(_('Delete'), 'delete', function() {
+							rowActionBtn(_('Delete'), 'cbi-button-negative', function() {
 								if (!confirm(_('Delete block list “%s”?').format(entry.name)))
 									return;
 
 								return uci.load('blocky').then(function() {
 									uci.remove('blocky', entry.id);
-									return applyBlocklistChanges(true, listApplyOptions());
 								}).then(function() {
-									notify(_('Block list deleted.'));
-									return refreshPage();
+									return repaintTable();
 								});
 							})
 						])
@@ -527,23 +504,19 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 	return E('div', { 'class': 'cbi-section blocky-blocklists-section' }, [
 		E('h3', {}, [ _('DNS blocklists') ]),
 		E('p', { 'class': 'cbi-section-descr' }, [
-			_('Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists.')
+			_('Enable, add, edit, or remove remote DNS blocklists. Changes stay in LuCI until you Save & Apply.')
 		]),
 		E('div', { 'class': 'blocky-blocklists-toolbar blocky-blocklists-toolbar-split' }, [
 			E('div', { 'class': 'blocky-blocklists-toolbar-left' }, [
 				labeledActionBtn(_('Add'), 'cbi-button cbi-button-positive',
 					_('Add a catalog or custom block list'),
 					function() {
-						openNewBlocklistModal(refreshPage, catalogData, configYaml);
+						openNewBlocklistModal(repaintTable, catalogData, configYaml);
 					})
 			]),
 			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
 				actionButton(_('Update lists now'), function() {
-					return execBlockyListsSyncConfirmed(configYaml).then(function() {
-						return runInit('restart');
-					}).then(function() {
-						return execBlockyListsRefresh();
-					});
+					return execBlockyListsRefresh();
 				}, 'cbi-button-action', refreshPage)
 			])
 		]),

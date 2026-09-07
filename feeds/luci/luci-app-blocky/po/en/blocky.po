@@ -637,8 +637,8 @@ msgstr "Yes"
 msgid "DNS blocklists"
 msgstr "DNS blocklists"
 
-msgid "Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists."
-msgstr "Manage remote DNS blocklists: view, enable, edit, delete, and combine multiple filter lists."
+msgid "Enable, add, edit, or remove remote DNS blocklists. Changes stay in LuCI until you Save & Apply."
+msgstr "Enable, add, edit, or remove remote DNS blocklists. Changes stay in LuCI until you Save & Apply."
 
 msgid "Rules"
 msgstr "Rules"
@@ -1329,12 +1329,6 @@ msgstr "UCI block lists differ from config.yml. Sync will overwrite the blocking
 
 msgid "Sync cancelled."
 msgstr "Sync cancelled."
-
-msgid "UCI changed — sync to config.yml"
-msgstr "UCI changed — sync to config.yml"
-
-msgid "UCI and config.yml in sync"
-msgstr "UCI and config.yml in sync"
 
 msgid "Resolver groups"
 msgstr "Resolver groups"

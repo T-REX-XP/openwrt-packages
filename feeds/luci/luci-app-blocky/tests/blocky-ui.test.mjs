@@ -18,6 +18,8 @@ const dashboard = readFileSync(join(res, 'blocky-tab-dashboard.js'), 'utf8');
 const controls = readFileSync(join(res, 'blocky-tab-controls.js'), 'utf8');
 const logs = readFileSync(join(res, 'blocky-tab-logs.js'), 'utf8');
 const css = readFileSync(join(res, 'blocky-theme.css'), 'utf8');
+const enPo = readFileSync(join(root, 'po/en/blocky.po'), 'utf8');
+const ukPo = readFileSync(join(root, 'po/uk/blocky.po'), 'utf8');
 
 let pass = 0;
 let fail = 0;
@@ -84,20 +86,33 @@ test('inner Logs tabs and hero chrome', () => {
 	assert.match(base, /expect:\s*\{\s*'':\s*\{\s*\}\s*\}/);
 });
 
-test('Block lists grid matches Suricata icon actions', () => {
-	assert.match(lists, /ICON_GLYPHS/);
-	assert.match(lists, /function iconBtn/);
+test('Block lists grid stages UCI until Save & Apply', () => {
 	assert.match(lists, /function labeledActionBtn/);
-	assert.match(lists, /blocky-icon-btn/);
+	assert.match(lists, /function rowActionBtn/);
+	assert.match(lists, /blocky-row-actions/);
 	assert.match(lists, /blocky-col-actions/);
 	assert.match(lists, /blocky-blocklists-wrap/);
 	assert.match(lists, /_\('Add'\)/);
+	assert.match(lists, /cbi-button-neutral/);
+	assert.match(lists, /cbi-button-negative/);
+	assert.match(lists, /_\('Edit'\)/);
+	assert.match(lists, /_\('Delete'\)/);
+	assert.match(lists, /Save & Apply/);
+	assert.match(lists, /uci\.set\('blocky', entry\.id, 'enabled'/);
+	assert.doesNotMatch(lists, /ICON_GLYPHS/);
+	assert.doesNotMatch(lists, /function iconBtn/);
+	assert.doesNotMatch(lists, /blocky-icon-btn/);
+	assert.doesNotMatch(lists, /applyBlocklistChanges/);
+	assert.doesNotMatch(lists, /execBlockyListsSyncConfirmed/);
+	assert.doesNotMatch(lists, /UCI block lists differ from config.yml/);
 	assert.doesNotMatch(lists, /E\('svg'/);
 	assert.doesNotMatch(lists, /cbi-button-edit/);
 	assert.doesNotMatch(lists, /_\('Add blocklist'\)/);
-	assert.match(css, /\.blocky-icon-btn\b/);
+	assert.match(css, /\.blocky-row-actions\b/);
 	assert.match(css, /\.blocky-col-actions\b/);
 	assert.match(css, /\.blocky-blocklists-wrap\b/);
+	assert.doesNotMatch(css, /\.blocky-icon-btn\b/);
+	assert.doesNotMatch(css, /\.blocky-col-actions \{[^}]*position:\s*sticky/);
 });
 
 test('no board-specific copy', () => {
@@ -128,6 +143,8 @@ test('service enable matches Snort/Suricata', () => {
 	assert.doesNotMatch(lists, /UCI and config.yml in sync/);
 	assert.doesNotMatch(lists, /repaintSyncPill/);
 	assert.doesNotMatch(css, /blocky-blocklists-sync-host/);
+	assert.doesNotMatch(enPo, /UCI and config.yml in sync/);
+	assert.doesNotMatch(ukPo, /UCI and config.yml in sync/);
 });
 
 test('Status is glance-only; Statistics holds charts and operations', () => {

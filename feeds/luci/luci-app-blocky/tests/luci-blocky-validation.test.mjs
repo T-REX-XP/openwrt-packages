@@ -4,7 +4,13 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadBlockyParseCore } from './load-core.mjs';
+
+const ucodeSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)),
+	'..', 'root/usr/share/rpcd/ucode/luci.blocky.uc'), 'utf8');
 
 const bp = loadBlockyParseCore();
 let pass = 0;
@@ -32,6 +38,13 @@ test('validateHttpRequest allows api paths', () => {
 test('allowedLogDir strips trailing slashes', () => {
 	assert.equal(bp.allowedLogDir('/tmp/blocky-logs/'), '/tmp/blocky-logs');
 	assert.equal(bp.allowedLogDir('/tmp/blocky-logs//'), '/tmp/blocky-logs');
+});
+
+test('http_request uses ucode uc() not upper()', () => {
+	assert.match(ucodeSrc, /\buc\(ra\.method \|\| 'GET'\)/);
+	assert.doesNotMatch(ucodeSrc, /\bupper\s*\(/);
+	assert.doesNotMatch(ucodeSrc, /\bString\s*\(/);
+	assert.match(ucodeSrc, /function as_str\(/);
 });
 
 test('pickLatestLogFilename lexicographic date order', () => {

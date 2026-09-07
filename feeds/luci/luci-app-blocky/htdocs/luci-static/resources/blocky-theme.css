@@ -246,79 +246,25 @@
 }
 
 .luci-app-blocky .blocky-blocklists-table .blocky-col-actions {
-	flex: 0 0 5.25rem;
-	width: 5.25rem;
-	min-width: 5.25rem;
+	flex: 0 0 auto;
+	min-width: 10.5rem;
 	white-space: nowrap;
 	overflow: visible;
-	position: sticky;
-	right: 0;
-	z-index: 2;
-	background: var(--background-color-high, var(--background-color-medium));
-	box-shadow: -0.45rem 0 0.55rem -0.35rem var(--border-color-medium);
-}
-
-.luci-app-blocky .blocky-blocklists-table .tr:nth-child(even) .blocky-col-actions {
-	background: var(--background-color-low);
-}
-
-.luci-app-blocky .blocky-blocklists-table .tr.table-titles .blocky-col-actions {
-	z-index: 3;
-	background: var(--background-color-medium);
 }
 
 .luci-app-blocky .blocky-blocklists-table .tr:nth-child(even) .td {
 	background: var(--background-color-low);
 }
 
-.luci-app-blocky .blocky-icon-row {
+.luci-app-blocky .blocky-row-actions {
 	display: inline-flex;
 	flex-wrap: nowrap;
-	gap: 0.2rem;
+	gap: 0.35rem;
 	align-items: center;
 }
 
-.luci-app-blocky .blocky-icon-wrap {
-	display: inline-flex;
-	flex: 0 0 auto;
-}
-
-.luci-app-blocky .blocky-icon-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.85rem;
-	height: 1.85rem;
-	padding: 0;
-	border: 1px solid var(--border-color-medium);
-	border-radius: 3px;
-	background: var(--background-color-low);
-	color: var(--text-color-highest);
-	cursor: pointer;
-	font-size: 0.95rem;
-	line-height: 1;
-	flex: 0 0 auto;
-}
-
-.luci-app-blocky .blocky-icon-btn:hover,
-.luci-app-blocky .blocky-icon-btn:focus {
-	background: var(--background-color-medium);
-	border-color: var(--border-color-high, var(--border-color-medium));
-	color: var(--text-color-highest);
-}
-
-.luci-app-blocky .blocky-icon-btn--delete:hover,
-.luci-app-blocky .blocky-icon-btn--delete:focus {
-	border-color: var(--error-color-high, #c62828);
-	color: var(--error-color-high, #c62828);
-}
-
-.luci-app-blocky .blocky-icon-btn:disabled {
-	opacity: 0.35;
-	cursor: not-allowed;
-	color: var(--text-color-medium);
-	background: var(--background-color-medium);
-	pointer-events: none;
+.luci-app-blocky .blocky-row-actions .cbi-button {
+	margin: 0;
 }
 
 .blocky-upstream-groups-list {
