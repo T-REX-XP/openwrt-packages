@@ -97,28 +97,44 @@ var safeString = Blocky.safeString,
 	bc = Blocky.bc,
 	bp = Blocky.bp;
 
-function rowActionBtn(label, cls, fn) {
-	return E('button', {
-		'type': 'button',
-		'class': 'btn cbi-button ' + cls,
-		'click': ui.createHandlerFn(null, function(ev) {
-			ev.preventDefault();
-			return fn();
-		})
-	}, [ label ]);
+var ICON_GLYPHS = {
+	edit: '✎',
+	delete: '✕',
+	add: '+'
+};
+
+function iconBtn(title, kind, fn) {
+	return E('span', { 'class': 'blocky-icon-wrap', 'title': title }, [
+		E('button', {
+			'type': 'button',
+			'class': 'blocky-icon-btn blocky-icon-btn--' + kind,
+			'title': title,
+			'aria-label': title,
+			'click': ui.createHandlerFn(null, function(ev) {
+				ev.preventDefault();
+				return fn();
+			})
+		}, ICON_GLYPHS[kind] || '•')
+	]);
 }
 
-function labeledActionBtn(label, cls, title, fn) {
+function labeledActionBtn(label, cls, title, fn, kind) {
+	var kids = [];
+
+	if (kind && ICON_GLYPHS[kind])
+		kids.push(E('span', { 'class': 'blocky-btn-glyph', 'aria-hidden': 'true' }, ICON_GLYPHS[kind]));
+	kids.push(E('span', {}, [ label ]));
+
 	return E('button', {
 		'type': 'button',
-		'class': 'btn ' + cls,
+		'class': 'btn blocky-labeled-btn ' + cls,
 		'title': title,
 		'aria-label': title,
 		'click': ui.createHandlerFn(null, function(ev) {
 			ev.preventDefault();
 			return fn();
 		})
-	}, [ label ]);
+	}, kids);
 }
 
 function addBlocklistsFromPresets(presets, configYaml) {
@@ -478,11 +494,11 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					]),
 					E('div', { 'class': 'td blocky-col-rules' }, [ rulesLabel ]),
 					E('div', { 'class': 'td blocky-col-actions' }, [
-						E('div', { 'class': 'blocky-row-actions' }, [
-							rowActionBtn(_('Edit'), 'cbi-button-neutral', function() {
+						E('div', { 'class': 'blocky-icon-row' }, [
+							iconBtn(_('Edit'), 'edit', function() {
 								openCustomBlocklistModal(repaintTable, entry, configYaml);
 							}),
-							rowActionBtn(_('Delete'), 'cbi-button-negative', function() {
+							iconBtn(_('Delete'), 'delete', function() {
 								if (!confirm(_('Delete block list “%s”?').format(entry.name)))
 									return;
 
@@ -512,7 +528,7 @@ function renderBlocklistsTab(statsResult, refreshPage, catalogData, metricsText,
 					_('Add a catalog or custom block list'),
 					function() {
 						openNewBlocklistModal(repaintTable, catalogData, configYaml);
-					})
+					}, 'add')
 			]),
 			E('div', { 'class': 'blocky-blocklists-toolbar-right' }, [
 				actionButton(_('Update lists now'), function() {

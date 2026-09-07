@@ -1016,6 +1016,9 @@ msgstr "Оберіть розділ налаштувань зліва. URL сп�
 msgid "Router DNS"
 msgstr "Router DNS"
 
+msgid "Lists"
+msgstr "Списки"
+
 msgid "List downloads"
 msgstr "Завантаження списків"
 

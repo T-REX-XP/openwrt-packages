@@ -91,7 +91,7 @@ test('inner Logs tabs and hero chrome', () => {
 });
 
 test('Settings Logging includes query log fields', () => {
-	const logging = config.slice(config.indexOf("id: 'logging'"), config.indexOf("id: 'listeners'"));
+	const logging = config.slice(config.indexOf("id: 'logging'"), config.indexOf("id: 'security'"));
 
 	assert.match(logging, /queryLogTarget/);
 	assert.match(logging, /queryLogRetention/);
@@ -102,44 +102,57 @@ test('Settings Logging includes query log fields', () => {
 	assert.match(logs, /Settings → Logging/);
 });
 
-test('Settings DNS tab merges router, upstream, and bootstrap', () => {
-	const dns = config.slice(config.indexOf("id: 'dns'"), config.indexOf("id: 'downloads'"));
+test('Settings DNS tab merges router, upstream, bootstrap, cache, and listeners', () => {
+	const dns = config.slice(config.indexOf("id: 'dns'"), config.indexOf("id: 'lists'"));
 
 	assert.match(dns, /title:\s*_\('DNS'\)/);
 	assert.match(dns, /renderRouterDnsIntegration/);
 	assert.match(dns, /_\('Upstream DNS'\)/);
 	assert.match(dns, /_\('Bootstrap DNS'\)/);
+	assert.match(dns, /_\('DNS cache'\)/);
+	assert.match(dns, /_\('Listeners'\)/);
 	assert.doesNotMatch(config, /id:\s*'router'/);
 	assert.doesNotMatch(config, /id:\s*'upstream'/);
 	assert.doesNotMatch(config, /id:\s*'bootstrap'/);
+	assert.doesNotMatch(config, /id:\s*'cache'/);
+	assert.doesNotMatch(config, /id:\s*'listeners'/);
+});
+
+test('Settings Lists and Security absorb leftover sidebar items', () => {
+	assert.match(config, /id:\s*'lists'/);
+	assert.match(config, /title:\s*_\('Lists'\)/);
+	assert.match(config, /_\('Hosts file sources'\)/);
+	assert.match(config, /renderApiSecuritySection/);
+	assert.doesNotMatch(config, /id:\s*'downloads'/);
+	assert.doesNotMatch(config, /id:\s*'hosts'/);
+	assert.doesNotMatch(config, /id:\s*'api'/);
 });
 
 test('Block lists grid stages UCI until Save & Apply', () => {
 	assert.match(lists, /function labeledActionBtn/);
-	assert.match(lists, /function rowActionBtn/);
-	assert.match(lists, /blocky-row-actions/);
+	assert.match(lists, /function iconBtn/);
+	assert.match(lists, /ICON_GLYPHS/);
+	assert.match(lists, /blocky-icon-row/);
 	assert.match(lists, /blocky-col-actions/);
 	assert.match(lists, /blocky-blocklists-wrap/);
 	assert.match(lists, /_\('Add'\)/);
-	assert.match(lists, /cbi-button-neutral/);
-	assert.match(lists, /cbi-button-negative/);
-	assert.match(lists, /_\('Edit'\)/);
-	assert.match(lists, /_\('Delete'\)/);
+	assert.match(lists, /iconBtn\(_\('Edit'\), 'edit'/);
+	assert.match(lists, /iconBtn\(_\('Delete'\), 'delete'/);
 	assert.match(lists, /Save & Apply/);
 	assert.match(lists, /uci\.set\('blocky', entry\.id, 'enabled'/);
-	assert.doesNotMatch(lists, /ICON_GLYPHS/);
-	assert.doesNotMatch(lists, /function iconBtn/);
-	assert.doesNotMatch(lists, /blocky-icon-btn/);
+	assert.doesNotMatch(lists, /function rowActionBtn/);
+	assert.doesNotMatch(lists, /blocky-row-actions/);
 	assert.doesNotMatch(lists, /applyBlocklistChanges/);
 	assert.doesNotMatch(lists, /execBlockyListsSyncConfirmed/);
 	assert.doesNotMatch(lists, /UCI block lists differ from config.yml/);
 	assert.doesNotMatch(lists, /E\('svg'/);
 	assert.doesNotMatch(lists, /cbi-button-edit/);
 	assert.doesNotMatch(lists, /_\('Add blocklist'\)/);
-	assert.match(css, /\.blocky-row-actions\b/);
+	assert.match(css, /\.blocky-icon-btn\b/);
+	assert.match(css, /\.blocky-icon-row\b/);
 	assert.match(css, /\.blocky-col-actions\b/);
 	assert.match(css, /\.blocky-blocklists-wrap\b/);
-	assert.doesNotMatch(css, /\.blocky-icon-btn\b/);
+	assert.doesNotMatch(css, /\.blocky-row-actions\b/);
 	assert.doesNotMatch(css, /\.blocky-col-actions \{[^}]*position:\s*sticky/);
 });
 

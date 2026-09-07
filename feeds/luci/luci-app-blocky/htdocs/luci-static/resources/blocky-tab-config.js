@@ -612,7 +612,7 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 		{
 			id: 'dns',
 			title: _('DNS'),
-			content: E('div', { 'class': 'blocky-dns-settings' }, [
+			content: E('div', { 'class': 'blocky-settings-stack' }, [
 				renderRouterDnsIntegration(configYaml, dnsFwdRaw, true),
 				configSectionPage(
 					_('Upstream DNS'),
@@ -642,56 +642,58 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 							state.bootstrapUseWan
 						)
 					]
+				),
+				configSectionPage(
+					_('DNS cache'),
+					_('Response cache limits. Prefetching increases upstream traffic.'),
+					[
+						settingsRow(_('Minimum cache time'), '', state.cachingMinTime),
+						settingsRow(_('Maximum cache time'), '', state.cachingMaxTime),
+						settingsRow(_('Enable prefetching'), '', state.cachingPrefetch)
+					]
+				),
+				configSectionPage(
+					_('Listeners'),
+					_('Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here.'),
+					[
+						settingsRow(_('DNS port'), _('Format: 127.0.0.1:5353'), state.portDns),
+						settingsRow(_('HTTP port (API / metrics)'), _('Format: 127.0.0.1:4000'), state.portHttp)
+					]
 				)
 			])
 		},
 		{
-			id: 'downloads',
-			title: _('List downloads'),
-			content: configSectionPage(
-				_('Block lists & downloads'),
-				_('Denylist URLs are managed on the Block lists tab. These options control refresh timing.'),
-				[
-					E('p', { 'class': 'blocky-note-soft' }, [
-						_('Edit denylist sources under '),
-						E('strong', {}, [ _('Block lists') ]),
-						_(' — saving here preserves your lists and re-syncs config.yml.')
-					]),
-					settingsRow(_('List refresh period'), _('How often Blocky re-downloads lists (e.g. 4h).'), state.listRefreshPeriod),
-					settingsRow(_('List load strategy'), _('How Blocky waits for lists at startup.'), state.loadingStrategy),
-					settingsRow(_('List cache directory'), _('On-disk cache for downloaded blocklists.'), state.listCachePath),
-					settingsRow(_('Download timeout'), _('Per-URL download timeout.'), state.listDownloadTimeout),
-					settingsRow(_('Write timeout'), _('Timeout writing list data to disk.'), state.listWriteTimeout),
-					settingsRow(_('Read timeout'), _('Timeout reading list data from disk.'), state.listReadTimeout),
-					settingsRow(_('Download attempts'), _('Retries when a list URL fails.'), state.listDownloadAttempts),
-					settingsRow(_('Retry cooldown'), _('Pause between failed download retries.'), state.listCooldown),
-					settingsRow(_('Download concurrency'), _('Parallel list downloads (1–8).'), state.listConcurrency)
-				]
-			)
-		},
-		{
-			id: 'cache',
-			title: _('DNS cache'),
-			content: configSectionPage(
-				_('DNS cache'),
-				_('Response cache limits. Prefetching increases upstream traffic.'),
-				[
-					settingsRow(_('Minimum cache time'), '', state.cachingMinTime),
-					settingsRow(_('Maximum cache time'), '', state.cachingMaxTime),
-					settingsRow(_('Enable prefetching'), '', state.cachingPrefetch)
-				]
-			)
-		},
-		{
-			id: 'hosts',
-			title: _('Hosts sources'),
-			content: configSectionPage(
-				_('Hosts file sources'),
-				_('Additional static hostname blocks (paths or URLs).'),
-				[
-					settingsRow(_('Sources'), _('/etc/hosts is included by default.'), state.hostsSources)
-				]
-			)
+			id: 'lists',
+			title: _('Lists'),
+			content: E('div', { 'class': 'blocky-settings-stack' }, [
+				configSectionPage(
+					_('Block lists & downloads'),
+					_('Denylist URLs are managed on the Block lists tab. These options control refresh timing.'),
+					[
+						E('p', { 'class': 'blocky-note-soft' }, [
+							_('Edit denylist sources under '),
+							E('strong', {}, [ _('Block lists') ]),
+							_(' — saving here preserves your lists and re-syncs config.yml.')
+						]),
+						settingsRow(_('List refresh period'), _('How often Blocky re-downloads lists (e.g. 4h).'), state.listRefreshPeriod),
+						settingsRow(_('List load strategy'), _('How Blocky waits for lists at startup.'), state.loadingStrategy),
+						settingsRow(_('List cache directory'), _('On-disk cache for downloaded blocklists.'), state.listCachePath),
+						settingsRow(_('Download timeout'), _('Per-URL download timeout.'), state.listDownloadTimeout),
+						settingsRow(_('Write timeout'), _('Timeout writing list data to disk.'), state.listWriteTimeout),
+						settingsRow(_('Read timeout'), _('Timeout reading list data from disk.'), state.listReadTimeout),
+						settingsRow(_('Download attempts'), _('Retries when a list URL fails.'), state.listDownloadAttempts),
+						settingsRow(_('Retry cooldown'), _('Pause between failed download retries.'), state.listCooldown),
+						settingsRow(_('Download concurrency'), _('Parallel list downloads (1–8).'), state.listConcurrency)
+					]
+				),
+				configSectionPage(
+					_('Hosts file sources'),
+					_('Additional static hostname blocks (paths or URLs).'),
+					[
+						settingsRow(_('Sources'), _('/etc/hosts is included by default.'), state.hostsSources)
+					]
+				)
+			])
 		},
 		{
 			id: 'logging',
@@ -720,35 +722,21 @@ function renderBlockySettingsForm(configYaml, dnsFwdRaw, uciAccess, refreshPage,
 			)
 		},
 		{
-			id: 'listeners',
-			title: _('Listeners'),
-			content: configSectionPage(
-				_('Listeners'),
-				_('Keep both listeners on 127.0.0.1 — dnsmasq forwards LAN DNS here.'),
-				[
-					settingsRow(_('DNS port'), _('Format: 127.0.0.1:5353'), state.portDns),
-					settingsRow(_('HTTP port (API / metrics)'), _('Format: 127.0.0.1:4000'), state.portHttp)
-				]
-			)
-		},
-		{
 			id: 'security',
 			title: _('Security'),
-			content: configSectionPage(
-				_('Security & observability'),
-				_('Rebinding protection, Prometheus metrics, and in-memory statistics.'),
-				[
-					settingsRow(_('DNS rebinding protection'), '', state.rebindingEnable),
-					settingsRow(_('Prometheus metrics'), '', state.prometheusEnable),
-					settingsRow(_('Metrics path'), '', state.prometheusPath),
-					settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Statistics tab 24h widgets.'), state.statisticsEnable)
-				]
-			)
-		},
-		{
-			id: 'api',
-			title: _('API access'),
-			content: renderApiSecuritySection(configYaml, uciAccess, true)
+			content: E('div', { 'class': 'blocky-settings-stack' }, [
+				configSectionPage(
+					_('Security & observability'),
+					_('Rebinding protection, Prometheus metrics, and in-memory statistics.'),
+					[
+						settingsRow(_('DNS rebinding protection'), '', state.rebindingEnable),
+						settingsRow(_('Prometheus metrics'), '', state.prometheusEnable),
+						settingsRow(_('Metrics path'), '', state.prometheusPath),
+						settingsRow(_('In-memory statistics (/api/stats)'), _('Powers the Statistics tab 24h widgets.'), state.statisticsEnable)
+					]
+				),
+				renderApiSecuritySection(configYaml, uciAccess, true)
+			])
 		},
 		{
 			id: 'advanced',

@@ -1015,6 +1015,9 @@ msgstr "Choose a settings section on the left. Block list URLs stay under the Bl
 msgid "Router DNS"
 msgstr "Router DNS"
 
+msgid "Lists"
+msgstr "Lists"
+
 msgid "List downloads"
 msgstr "List downloads"
 
