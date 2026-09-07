@@ -6,8 +6,14 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
 JSON="$PKG/root/etc/mcud/pages.json"
 MCUDD="$PKG/../../packages/mcudd/internal/pages/pages.go"
-ESP32="${ESP32_ROOT:-$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)}"
-FW="$ESP32/src/router/router_pages.c"
+# Sibling ESP32 tree is optional (GitHub Actions only checks out this repo).
+# A failed `cd` must not abort under `set -e`.
+if [ -n "${ESP32_ROOT:-}" ]; then
+	ESP32="$ESP32_ROOT"
+else
+	ESP32="$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)" || ESP32=""
+fi
+FW="${ESP32:+$ESP32/src/router/router_pages.c}"
 FAIL=0
 
 extract_json_ids() {

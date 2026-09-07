@@ -5,8 +5,18 @@ set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG="$DIR/.."
 JSON="$PKG/mcud-version.json"
-ESP32_ROOT="${ESP32_ROOT:-$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)}"
-ESP32_JSON="${ESP32_JSON:-$ESP32_ROOT/mcud-version.json}"
+# Sibling ESP32 tree is optional (GitHub Actions only checks out this repo).
+# A failed `cd` must not abort under `set -e`.
+if [ -z "${ESP32_ROOT:-}" ]; then
+	ESP32_ROOT="$(cd "$PKG/../../../../esp32-smartdisplay-demo" 2>/dev/null && pwd)" || ESP32_ROOT=""
+fi
+if [ -n "${ESP32_JSON:-}" ]; then
+	:
+elif [ -n "$ESP32_ROOT" ]; then
+	ESP32_JSON="$ESP32_ROOT/mcud-version.json"
+else
+	ESP32_JSON=""
+fi
 FAIL=0
 
 if [ ! -f "$JSON" ]; then

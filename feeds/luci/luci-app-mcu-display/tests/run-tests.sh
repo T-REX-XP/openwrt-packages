@@ -8,11 +8,17 @@ cd "$DIR"
 FAIL=0
 
 echo ">> shell: pages manifest sync"
-sh check-pages-sync.sh || FAIL=1
+if ! sh check-pages-sync.sh; then
+	echo "FAIL: pages manifest sync" >&2
+	FAIL=1
+fi
 
 echo ""
 echo ">> shell: mcud-version sync"
-sh check-version-sync.sh || FAIL=1
+if ! sh check-version-sync.sh; then
+	echo "FAIL: mcud-version sync" >&2
+	FAIL=1
+fi
 
 echo ""
 echo ">> shell: init.d syntax"

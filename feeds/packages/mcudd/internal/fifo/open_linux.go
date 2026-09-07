@@ -19,10 +19,14 @@ const (
 // With O_RDONLY, after the last writer exits Linux reports EOF and poll can
 // stall — LuCI/button events sit in the pipe until something else wakes the loop.
 func OpenCommandReader() (path string, f *os.File, err error) {
-	path = Path
+	return openCommandReader(Path, FallbackPath)
+}
+
+func openCommandReader(primary, fallback string) (path string, f *os.File, err error) {
+	path = primary
 	if err := syscall.Mkfifo(path, 0o600); err != nil && !os.IsExist(err) {
-		path = FallbackPath
-		_ = os.Remove(FallbackPath)
+		path = fallback
+		_ = os.Remove(fallback)
 		if err2 := syscall.Mkfifo(path, 0o600); err2 != nil && !os.IsExist(err2) {
 			return "", nil, fmt.Errorf("mkfifo: %w", err2)
 		}
