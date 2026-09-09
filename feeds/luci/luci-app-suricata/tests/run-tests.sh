@@ -9,6 +9,7 @@ if command -v node >/dev/null 2>&1; then
 	node --check "$ROOT/htdocs/luci-static/resources/suricata-core.js" || FAIL=1
 	node --check "$ROOT/htdocs/luci-static/resources/view/services/suricata.js" || FAIL=1
 	node "$DIR/suricata-core.test.mjs" || FAIL=1
+	sh "$DIR/test-config-apply.sh" || FAIL=1
 else
 	echo "SKIP: node not found"
 	FAIL=1

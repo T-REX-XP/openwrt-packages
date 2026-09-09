@@ -390,6 +390,64 @@ test('known Suricata ruleset catalog', () => {
 	assert.doesNotMatch(view, /luci\.threat-prevention/);
 });
 
+test('collectSettings defaults acceleration and coerces missing engines', () => {
+	const got = core.collectSettings({
+		enabled: true,
+		interface: 'br-lan',
+		home_net: '192.168.8.0/24',
+		rule_profile: 'small',
+		mode: 'ids',
+		pattern_algo: 'hs',
+		capture: 'dpdk',
+		flow_bypass: true,
+		caps: { hyperscan: '0', dpdk: '0', af_packet: '1' }
+	});
+	assert.equal(got.error, undefined);
+	assert.equal(got.config.pattern_algo, 'auto');
+	assert.equal(got.config.capture, 'af-packet');
+	assert.equal(got.config.flow_bypass, '1');
+	const keep = core.collectSettings({
+		enabled: true,
+		interface: 'br-lan',
+		home_net: '192.168.8.0/24',
+		rule_profile: 'small',
+		mode: 'ids',
+		pattern_algo: 'hs',
+		capture: 'dpdk',
+		caps: { hyperscan: '1', dpdk: '1', af_packet: '1' }
+	});
+	assert.equal(keep.config.pattern_algo, 'hs');
+	assert.equal(keep.config.capture, 'dpdk');
+	assert.equal(core.validateField('pattern_algo', 'xx'), 'invalid pattern_algo');
+	assert.equal(core.validateField('capture', 'pcap'), 'invalid capture');
+});
+
+test('view has Acceleration settings gated by build-info', () => {
+	assert.match(view, /id:\s*'tp-pattern-algo'/);
+	assert.match(view, /id:\s*'tp-capture'/);
+	assert.match(view, /id:\s*'tp-flow-bypass'/);
+	assert.match(view, /_\('Acceleration'\)/);
+	assert.match(view, /_\('Pattern matching'\)/);
+	assert.match(view, /_\('Skip trusted \/ encrypted bulk flows'\)/);
+	assert.match(view, /settingsAccel/);
+	assert.doesNotMatch(view, /2\.5 GbE/);
+});
+
+test('ucode accel helpers sit above get_config', () => {
+	function fnPos(name) {
+		const i = ucode.indexOf('function ' + name);
+		assert.ok(i >= 0, name + ' missing');
+		return i;
+	}
+	assert.ok(fnPos('feature_yes') < fnPos('parse_accel_caps'));
+	assert.ok(fnPos('parse_accel_caps') < fnPos('get_config'));
+	assert.ok(fnPos('coerce_accel') < fnPos('get_config'));
+	assert.match(ucode, /pattern_algo: \/\^\(auto\|hs\|ac\)\$\//);
+	assert.match(ucode, /capture: \/\^\(af-packet\|dpdk\)\$\//);
+	assert.match(ucode, /cfg\.accel = parse_accel_caps/);
+	assert.match(ucode, /function coerce_accel/);
+});
+
 test('view has catalog picker', () => {
 	assert.match(view, /_\('Add from catalog'\)/);
 	assert.match(view, /_\('Add custom'\)/);

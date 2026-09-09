@@ -61,7 +61,10 @@ const const_defaults = {
 	eve_path: '/var/log/suricata/eve.json',
 	rule_dir: '/etc/suricata/rules',
 	rule_profile: 'small',
-	fail_open: '1'
+	fail_open: '1',
+	pattern_algo: 'auto',
+	capture: 'af-packet',
+	flow_bypass: '0'
 };
 
 const ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
@@ -89,14 +92,16 @@ function feed_url_ok(url) {
 	return match(out, /^https:\/\/[-A-Za-z0-9._~:/?#@!$&()*+,;=%]+$/) != null;
 }
 
-const FLAG_OPTS = [ 'enabled', 'fail_open' ];
+const FLAG_OPTS = [ 'enabled', 'fail_open', 'flow_bypass' ];
 const STRING_OPTS = {
 	mode: /^(ids|ips)$/,
 	interface: /^[A-Za-z0-9_.-]+$/,
 	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
 	eve_path: /^\/[ -~]+$/,
 	rule_dir: /^\/[ -~]+$/,
-	rule_profile: /^(small|full)$/
+	rule_profile: /^(small|full)$/,
+	pattern_algo: /^(auto|hs|ac)$/,
+	capture: /^(af-packet|dpdk)$/
 };
 
 function uci_get(opt, fallback) {
@@ -132,6 +137,51 @@ function parse_enabled_flag(v) {
 	if (v == 'false' || v == '0' || v == 'off' || v == 'no')
 		return '0';
 	return null;
+}
+
+function feature_yes(blob, label) {
+	let lines = split(`${blob}`, '\n');
+	for (let line in lines) {
+		if (index(line, label) < 0)
+			continue;
+		if (index(line, 'yes') >= 0)
+			return '1';
+		return '0';
+	}
+	return '0';
+}
+
+function parse_accel_caps() {
+	let r = { code: 1, output: '' };
+	if (file_test('-x', '/usr/bin/suricata'))
+		r = run_cmd('/usr/bin/suricata --build-info');
+	let blob = r.output || '';
+	let simd = '';
+	let lines = split(blob, '\n');
+	for (let line in lines) {
+		let p = index(line, 'SIMD support:');
+		if (p >= 0) {
+			simd = trim(substr(line, p + 13));
+			break;
+		}
+	}
+	let af_packet = feature_yes(blob, 'AF_PACKET support:');
+	if (af_packet != '1' && file_test('-x', '/usr/bin/suricata') && index(blob, 'AF_PACKET support:') < 0)
+		af_packet = '1';
+	return {
+		hyperscan: feature_yes(blob, 'Hyperscan support:'),
+		dpdk: feature_yes(blob, 'DPDK support:'),
+		af_packet,
+		simd
+	};
+}
+
+function coerce_accel(cfg, caps) {
+	if (`${cfg.pattern_algo}` == 'hs' && caps.hyperscan != '1')
+		cfg.pattern_algo = 'auto';
+	if (`${cfg.capture}` == 'dpdk' && caps.dpdk != '1')
+		cfg.capture = 'af-packet';
+	return cfg;
 }
 
 function list_etopen_feeds() {
@@ -535,6 +585,8 @@ function get_config() {
 	cfg.pass = read_pass();
 	cfg.suppress = read_suppress();
 	cfg.notify = list_notify();
+	cfg.accel = parse_accel_caps();
+	coerce_accel(cfg, cfg.accel);
 	return cfg;
 }
 
@@ -1185,6 +1237,7 @@ const methods = {
 			if (type(cfg) != 'object')
 				return { error: 'invalid config' };
 			run_cmd('uci -q get suricata.main >/dev/null || uci set suricata.main=suricata');
+			let caps = parse_accel_caps();
 			if ('feeds' in cfg) {
 				let ferr = replace_etopen_feeds(cfg.feeds);
 				if (ferr)
@@ -1218,6 +1271,10 @@ const methods = {
 					if (!match(v, STRING_OPTS[k]))
 						continue;
 				}
+				if (k == 'pattern_algo' && v == 'hs' && caps.hyperscan != '1')
+					v = 'auto';
+				if (k == 'capture' && v == 'dpdk' && caps.dpdk != '1')
+					v = 'af-packet';
 				run_cmd(`uci set suricata.main.${k}=${shell_quote(v)}`);
 			}
 			run_cmd('uci commit suricata');

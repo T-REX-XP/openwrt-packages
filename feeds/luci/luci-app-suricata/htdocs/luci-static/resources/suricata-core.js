@@ -1,7 +1,7 @@
 'use strict';
 'require baseclass';
 
-var FLAG_OPTS = [ 'enabled' ];
+var FLAG_OPTS = [ 'enabled', 'flow_bypass' ];
 
 var ETOPEN_OFFICIAL = 'https://rules.emergingthreats.net/open/suricata-8.0/emerging.rules.tar.gz';
 var CATALOG_PATH = '/usr/share/luci-app-suricata/ruleset-catalog.json';
@@ -16,7 +16,9 @@ var STRING_OPTS = {
 	mode: /^(ids|ips)$/,
 	interface: /^[A-Za-z0-9_.-]+$/,
 	home_net: /^\[.*\]$|^[0-9a-fA-F.:/ ,]+$/,
-	rule_profile: /^(small|full)$/
+	rule_profile: /^(small|full)$/,
+	pattern_algo: /^(auto|hs|ac)$/,
+	capture: /^(af-packet|dpdk)$/
 };
 
 var FORM_KEYS = FLAG_OPTS.concat(Object.keys(STRING_OPTS));
@@ -130,12 +132,20 @@ return baseclass.extend({
 
 		if (!raw || typeof raw !== 'object')
 			return { error: 'Settings form is not ready.' };
+		if (raw.pattern_algo == null)
+			raw.pattern_algo = 'auto';
+		if (raw.capture == null)
+			raw.capture = 'af-packet';
+		if (raw.flow_bypass == null)
+			raw.flow_bypass = '0';
 		for (i = 0; i < REQUIRED_FORM_KEYS.length; i++) {
 			key = REQUIRED_FORM_KEYS[i];
 			if (raw[key] === undefined || raw[key] === null)
 				return { error: 'Settings form is not ready.' };
 		}
 		cfg = this.normalizeConfig(raw);
+		if (raw.caps)
+			this.coerceAccel(cfg, raw.caps);
 		err = this.validateConfig(cfg);
 		if (err)
 			return { error: err };
@@ -164,6 +174,21 @@ return baseclass.extend({
 			cfg.notify = this.normalizeNotifyList(raw.notify);
 		}
 		return { config: cfg };
+	},
+
+	defaultAccelCaps: function() {
+		return { hyperscan: '0', dpdk: '0', af_packet: '1', simd: '' };
+	},
+
+	coerceAccel: function(cfg, caps) {
+		if (!cfg || typeof cfg !== 'object')
+			return cfg;
+		caps = caps || this.defaultAccelCaps();
+		if (cfg.pattern_algo === 'hs' && caps.hyperscan !== '1')
+			cfg.pattern_algo = 'auto';
+		if (cfg.capture === 'dpdk' && caps.dpdk !== '1')
+			cfg.capture = 'af-packet';
+		return cfg;
 	},
 
 	hostCidrToNetwork: function(val) {

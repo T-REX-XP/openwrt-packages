@@ -136,6 +136,7 @@ function tpCatalogDesc(feed) {
 var settingsFeeds = [];
 var settingsSuppress = [];
 var settingsNotify = [];
+var settingsAccel = { hyperscan: '0', dpdk: '0', af_packet: '1', simd: '' };
 
 function cbiSection(title, descr, body) {
 	return E('div', { 'class': 'cbi-section' }, [
@@ -477,6 +478,13 @@ function collectTpSettings() {
 		home_net: home.value,
 		rule_profile: profile.value,
 		mode: mode.value,
+		pattern_algo: document.getElementById('tp-pattern-algo')
+			? document.getElementById('tp-pattern-algo').value : 'auto',
+		capture: document.getElementById('tp-capture')
+			? document.getElementById('tp-capture').value : 'af-packet',
+		flow_bypass: !!(document.getElementById('tp-flow-bypass') &&
+			document.getElementById('tp-flow-bypass').checked),
+		caps: settingsAccel,
 		feeds: settingsFeeds,
 		pass: {
 			local_nets: !!(document.getElementById('tp-pass-local') && document.getElementById('tp-pass-local').checked),
@@ -2428,6 +2436,7 @@ return view.extend({
 
 		function renderSettings(c) {
 			settingsBox.innerHTML = '';
+			settingsAccel = (c && c.accel) ? c.accel : suricataCore.defaultAccelCaps();
 			var enabled = E('input', { type: 'checkbox', id: 'tp-enabled' });
 			enabled.checked = c.enabled === '1' || c.enabled === 1;
 			var iface = ifaceSelect('tp-iface', val(c.interface, 'br-lan'), netDevices);
@@ -2461,13 +2470,51 @@ return view.extend({
 				E('option', { value: 'full' }, _('Full — every ET Open rule'))
 			]);
 			profile.value = c.rule_profile || 'small';
+			var hsOn = settingsAccel.hyperscan === '1';
+			var dpdkOn = settingsAccel.dpdk === '1';
+			var patternValue = c.pattern_algo || 'auto';
+			if (patternValue === 'hs' && !hsOn)
+				patternValue = 'auto';
+			var hsOpt = E('option', { value: 'hs' }, hsOn
+				? _('Hyperscan — SIMD pattern matching')
+				: _('Hyperscan — not in this Suricata build'));
+			if (!hsOn)
+				hsOpt.disabled = true;
+			var pattern = E('select', { id: 'tp-pattern-algo' }, [
+				E('option', { value: 'auto' }, _('Auto — Suricata picks a matcher')),
+				hsOpt,
+				E('option', { value: 'ac' }, _('CPU — Aho-Corasick / Boyer-Moore'))
+			]);
+			pattern.value = patternValue;
+			var captureValue = c.capture || 'af-packet';
+			if (captureValue === 'dpdk' && !dpdkOn)
+				captureValue = 'af-packet';
+			var dpdkOpt = E('option', { value: 'dpdk' }, dpdkOn
+				? _('DPDK — userspace capture')
+				: _('DPDK — not in this Suricata build'));
+			if (!dpdkOn)
+				dpdkOpt.disabled = true;
+			var capture = E('select', { id: 'tp-capture' }, [
+				E('option', { value: 'af-packet' }, _('AF_PACKET — kernel capture')),
+				dpdkOpt
+			]);
+			capture.value = captureValue;
+			var bypass = E('input', { type: 'checkbox', id: 'tp-flow-bypass' });
+			bypass.checked = c.flow_bypass === '1' || c.flow_bypass === 1;
+			var dpdkWarn = E('div', { 'class': 'tp-warn-inline' },
+				_('DPDK needs a Suricata build with DPDK and a compatible NIC. This binary will keep using AF_PACKET until both are present.'));
 			function syncWarns() {
 				if (mode.value === 'ips')
 					ipsWarn.classList.add('is-visible');
 				else
 					ipsWarn.classList.remove('is-visible');
+				if (capture.value === 'dpdk')
+					dpdkWarn.classList.add('is-visible');
+				else
+					dpdkWarn.classList.remove('is-visible');
 			}
 			mode.addEventListener('change', syncWarns);
+			capture.addEventListener('change', syncWarns);
 			syncWarns();
 
 			settingsBox.appendChild(cbiSection(_('Service'),
@@ -2493,6 +2540,27 @@ return view.extend({
 					ipsWarn,
 					fieldRow('tp-profile', _('How many rules to load'), profile,
 						_('Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix.'))
+				]));
+			settingsBox.appendChild(cbiSection(_('Acceleration'),
+				_('Pattern matching, packet capture, and flow bypass. Unavailable engines stay off until this Suricata binary is built with them.'),
+				[
+					E('div', { 'class': 'tp-status-grid tp-accel-grid' }, [
+						tpStatusRow(_('Hyperscan'), tpBadge(hsOn ? 'yes' : 'muted',
+							hsOn ? _('in this build') : _('not in this build'))),
+						tpStatusRow(_('DPDK'), tpBadge(dpdkOn ? 'yes' : 'muted',
+							dpdkOn ? _('in this build') : _('not in this build'))),
+						tpStatusRow(_('AF_PACKET'), tpBadge(settingsAccel.af_packet === '1' ? 'yes' : 'muted',
+							settingsAccel.af_packet === '1' ? _('in this build') : _('not in this build'))),
+						tpStatusRow(_('SIMD'), settingsAccel.simd
+							? settingsAccel.simd : tpBadge('muted', _('not reported')))
+					]),
+					fieldRow('tp-pattern-algo', _('Pattern matching'), pattern,
+						_('Hyperscan sets mpm-algo and spm-algo to hs (SIMD regex). Auto lets Suricata choose. CPU uses Aho-Corasick plus Boyer-Moore.')),
+					fieldRow('tp-capture', _('Packet capture'), capture,
+						_('AF_PACKET is the kernel path. DPDK is userspace capture for compatible NICs (for example Intel X710 or E810).')),
+					dpdkWarn,
+					fieldRow('tp-flow-bypass', _('Skip trusted / encrypted bulk flows'), bypass,
+						_('Turns on stream and AF_PACKET bypass so classified or TLS bulk traffic can skip deep inspection. Hardware NIC offload (rte_flow) needs DPDK.'))
 				]));
 		}
 

@@ -6,7 +6,7 @@ USE_PROCD=1
 PROG=/usr/bin/suricata
 
 start_service() {
-	local enabled mode iface run_yaml
+	local enabled mode iface run_yaml capture
 
 	config_load suricata
 	config_get_bool enabled main enabled 0
@@ -15,6 +15,7 @@ start_service() {
 	config_get mode main mode ids
 	config_get iface main interface br-lan
 	config_get run_yaml main run_yaml /var/run/suricata/suricata.yaml
+	config_get capture main capture af-packet
 
 	[ "$mode" = ids ] || {
 		logger -t suricata "mode=$mode not supported yet (IDS only); not starting"
@@ -29,8 +30,21 @@ start_service() {
 
 	mkdir -p /var/log/suricata /var/run/suricata
 
+	if [ "$capture" = dpdk ]; then
+		if "$PROG" --build-info 2>/dev/null | grep -q 'DPDK support:[[:space:]]*yes'; then
+			:
+		else
+			logger -t suricata "DPDK requested but not in this Suricata build; using AF_PACKET"
+			capture=af-packet
+		fi
+	fi
+
 	procd_open_instance
-	procd_set_param command "$PROG" -c "$run_yaml" --af-packet="$iface"
+	if [ "$capture" = dpdk ]; then
+		procd_set_param command "$PROG" -c "$run_yaml" --dpdk
+	else
+		procd_set_param command "$PROG" -c "$run_yaml" --af-packet="$iface"
+	fi
 	procd_set_param respawn
 	procd_set_param stdout 1
 	procd_set_param stderr 1

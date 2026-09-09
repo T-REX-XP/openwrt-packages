@@ -856,3 +856,72 @@ msgstr "How many rules to load"
 
 msgid "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix."
 msgstr "Small is a connectivity-style set (malware, C2, web). Full is every ET Open rule, closer to a security policy. Tick rulesets on the Policy tab for a custom mix."
+
+msgid "Acceleration"
+msgstr "Acceleration"
+
+msgid "Pattern matching, packet capture, and flow bypass. Unavailable engines stay off until this Suricata binary is built with them."
+msgstr "Pattern matching, packet capture, and flow bypass. Unavailable engines stay off until this Suricata binary is built with them."
+
+msgid "Hyperscan"
+msgstr "Hyperscan"
+
+msgid "DPDK"
+msgstr "DPDK"
+
+msgid "AF_PACKET"
+msgstr "AF_PACKET"
+
+msgid "SIMD"
+msgstr "SIMD"
+
+msgid "in this build"
+msgstr "in this build"
+
+msgid "not in this build"
+msgstr "not in this build"
+
+msgid "not reported"
+msgstr "not reported"
+
+msgid "Pattern matching"
+msgstr "Pattern matching"
+
+msgid "Auto — Suricata picks a matcher"
+msgstr "Auto — Suricata picks a matcher"
+
+msgid "Hyperscan — SIMD pattern matching"
+msgstr "Hyperscan — SIMD pattern matching"
+
+msgid "Hyperscan — not in this Suricata build"
+msgstr "Hyperscan — not in this Suricata build"
+
+msgid "CPU — Aho-Corasick / Boyer-Moore"
+msgstr "CPU — Aho-Corasick / Boyer-Moore"
+
+msgid "Hyperscan sets mpm-algo and spm-algo to hs (SIMD regex). Auto lets Suricata choose. CPU uses Aho-Corasick plus Boyer-Moore."
+msgstr "Hyperscan sets mpm-algo and spm-algo to hs (SIMD regex). Auto lets Suricata choose. CPU uses Aho-Corasick plus Boyer-Moore."
+
+msgid "Packet capture"
+msgstr "Packet capture"
+
+msgid "AF_PACKET — kernel capture"
+msgstr "AF_PACKET — kernel capture"
+
+msgid "DPDK — userspace capture"
+msgstr "DPDK — userspace capture"
+
+msgid "DPDK — not in this Suricata build"
+msgstr "DPDK — not in this Suricata build"
+
+msgid "AF_PACKET is the kernel path. DPDK is userspace capture for compatible NICs (for example Intel X710 or E810)."
+msgstr "AF_PACKET is the kernel path. DPDK is userspace capture for compatible NICs (for example Intel X710 or E810)."
+
+msgid "DPDK needs a Suricata build with DPDK and a compatible NIC. This binary will keep using AF_PACKET until both are present."
+msgstr "DPDK needs a Suricata build with DPDK and a compatible NIC. This binary will keep using AF_PACKET until both are present."
+
+msgid "Skip trusted / encrypted bulk flows"
+msgstr "Skip trusted / encrypted bulk flows"
+
+msgid "Turns on stream and AF_PACKET bypass so classified or TLS bulk traffic can skip deep inspection. Hardware NIC offload (rte_flow) needs DPDK."
+msgstr "Turns on stream and AF_PACKET bypass so classified or TLS bulk traffic can skip deep inspection. Hardware NIC offload (rte_flow) needs DPDK."

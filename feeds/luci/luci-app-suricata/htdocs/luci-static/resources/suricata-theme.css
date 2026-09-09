@@ -99,6 +99,10 @@
 	min-width: 0;
 }
 
+.luci-app-suricata .tp-accel-grid {
+	margin: 0 0 1rem 0;
+}
+
 .luci-app-suricata .tp-status-row {
 	display: flex;
 	align-items: center;

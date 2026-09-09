@@ -31,7 +31,7 @@ Tiers and banIP/Blocky: skill **`cm5-security-stack`**.
 
 | Section | Role |
 |---------|------|
-| `main` | enabled, mode (`ids`/`ips`), interface, home_net, rule_profile (`small`/`full`) |
+| `main` | enabled, mode (`ids`/`ips`), interface, home_net, rule_profile (`small`/`full`), `pattern_algo` (`auto`/`hs`/`ac`), `capture` (`af-packet`/`dpdk`), `flow_bypass` |
 | `etopen` | rule feed URL(s) |
 | `ruleset` `rs_*` | per-file enable + action |
 | `classtype` | default action per classtype |

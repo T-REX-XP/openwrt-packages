@@ -19,17 +19,23 @@ if [ ! -f "$YAML_IN" ]; then
 	exit 1
 fi
 
-mkdir -p "$(dirname "$YAML_OUT")" /var/log/suricata "$RULE_DIR"
+mkdir -p "$(dirname "$YAML_OUT")" "$RULE_DIR"
+mkdir -p "$(dirname "$EVE")" 2>/dev/null || true
 
 tmp=$(mktemp)
 cp "$YAML_IN" "$tmp"
 
+yaml_sed() {
+	sed "$1" "$tmp" > "$tmp.sed"
+	mv "$tmp.sed" "$tmp"
+}
+
 esc_home=$(printf '%s' "$HOME_NET" | sed 's/[|&]/\\&/g')
-sed -i "s|^[[:space:]]*HOME_NET:.*|    HOME_NET: \"$esc_home\"|" "$tmp"
-sed -i "s|^[[:space:]]*- interface: eth0|  - interface: $IFACE|" "$tmp"
-sed -i "s|^default-rule-path:.*|default-rule-path: $RULE_DIR|" "$tmp"
+yaml_sed "s|^[[:space:]]*HOME_NET:.*|    HOME_NET: \"$esc_home\"|"
+yaml_sed "s|^[[:space:]]*- interface: eth0|  - interface: $IFACE|"
+yaml_sed "s|^default-rule-path:.*|default-rule-path: $RULE_DIR|"
 eve_base=$(basename "$EVE")
-sed -i "s|^[[:space:]]*filename: eve.json|      filename: $eve_base|" "$tmp"
+yaml_sed "s|^[[:space:]]*filename: eve.json|      filename: $eve_base|"
 
 THRESHOLD=$(uci -q get suricata.main.threshold_file 2>/dev/null || echo /etc/suricata/threshold.config)
 if [ -x /usr/sbin/tp-rules-apply ]; then
@@ -45,7 +51,7 @@ rules_block="rule-files:"
 if [ -f "$META" ]; then
 	RULE_SRC=$(sed -n 's/^DIR=//p' "$META" | head -n 1)
 	[ -n "$RULE_SRC" ] || RULE_SRC=$RULE_DIR
-	sed -i "s|^default-rule-path:.*|default-rule-path: $RULE_SRC|" "$tmp"
+	yaml_sed "s|^default-rule-path:.*|default-rule-path: $RULE_SRC|"
 	while IFS= read -r line; do
 		case "$line" in
 			FILE=*)
@@ -80,15 +86,59 @@ echo "$rules_block" | grep -q '  - ' || {
 }
 
 if grep -q '^[[:space:]]*#*threshold-file:' "$tmp"; then
-	sed -i "s|^[[:space:]]*#*threshold-file:.*|threshold-file: $THRESHOLD|" "$tmp"
+	yaml_sed "s|^[[:space:]]*#*threshold-file:.*|threshold-file: $THRESHOLD|"
 else
 	printf '\nthreshold-file: %s\n' "$THRESHOLD" >> "$tmp"
 fi
 
-awk -v repl="$rules_block" '
+PATTERN=$(uci -q get suricata.main.pattern_algo 2>/dev/null || echo auto)
+case "$PATTERN" in
+	auto|hs|ac) ;;
+	*) PATTERN=auto ;;
+esac
+if [ "$PATTERN" = hs ]; then
+	BUILDINFO=$(suricata --build-info 2>/dev/null || true)
+	echo "$BUILDINFO" | grep -q 'Hyperscan support:[[:space:]]*yes' || {
+		logger -t suricata-config-apply "Hyperscan requested but not in this build; using auto"
+		PATTERN=auto
+	}
+fi
+if [ "$PATTERN" = hs ]; then
+	MPM=hs
+	SPM=hs
+elif [ "$PATTERN" = ac ]; then
+	MPM=ac
+	SPM=bm
+else
+	MPM=auto
+	SPM=auto
+fi
+if grep -q '^[[:space:]]*#*mpm-algo:' "$tmp"; then
+	yaml_sed "s|^[[:space:]]*#*mpm-algo:.*|mpm-algo: $MPM|"
+else
+	printf '\nmpm-algo: %s\n' "$MPM" >> "$tmp"
+fi
+if grep -q '^[[:space:]]*#*spm-algo:' "$tmp"; then
+	yaml_sed "s|^[[:space:]]*#*spm-algo:.*|spm-algo: $SPM|"
+else
+	printf '\nspm-algo: %s\n' "$SPM" >> "$tmp"
+fi
+
+BYPASS=$(uci -q get suricata.main.flow_bypass 2>/dev/null || echo 0)
+if [ "$BYPASS" = 1 ] || [ "$BYPASS" = yes ] || [ "$BYPASS" = true ]; then
+	BYPASS_YAML=yes
+else
+	BYPASS_YAML=no
+fi
+yaml_sed "s|^  #*bypass:.*|  bypass: $BYPASS_YAML|"
+yaml_sed "s|^    #*bypass:.*|    bypass: $BYPASS_YAML|"
+
+printf '%s\n' "$rules_block" > "$tmp.rulesblock"
+awk -v rf="$tmp.rulesblock" '
   BEGIN { skip=0 }
   /^rule-files:/ {
-    print repl
+    while ((getline line < rf) > 0) print line
+    close(rf)
     skip=1
     next
   }
@@ -98,6 +148,7 @@ awk -v repl="$rules_block" '
   }
   skip==0 { print }
 ' "$tmp" > "$tmp.new"
+rm -f "$tmp.rulesblock"
 mv "$tmp.new" "$tmp"
 
 mkdir -p "$(dirname "$EVE")"
